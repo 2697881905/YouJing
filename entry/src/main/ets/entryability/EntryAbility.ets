@@ -1,6 +1,7 @@
 import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
+import { Logger } from '../common/logger/Logger';
 
 const DOMAIN = 0x0000;
 
@@ -45,5 +46,9 @@ export default class EntryAbility extends UIAbility {
   onBackground(): void {
     // Ability has back to background
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onBackground');
+  }
+
+  onError(error: Error): void {
+    Logger.error('EntryAbility', `未捕获异常: ${error.message}`);
   }
 }

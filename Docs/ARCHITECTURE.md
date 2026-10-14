@@ -21,6 +21,7 @@
 | `common/config/` | 网络与环境配置单点（ApiConfig、MockConfig） | 无 | 其余全部目录 |
 | `common/constants/` | 构建开关与全局常量（BuildConfig） | 无 | 其余全部目录 |
 | `common/error/` | AppError、ErrorCode 错误码区段表 | common/constants | 其余全部目录 |
+| `common/logger/` | Logger 统一日志出口（hilog 封装，YouJing. 前缀，debug 受 IS_DEBUG 门控） | common/constants | 其余全部目录 |
 
 ## 2. 依赖方向规则
 
