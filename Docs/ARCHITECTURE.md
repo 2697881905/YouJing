@@ -52,3 +52,10 @@ pages → components → model / data / ai / utils → common
 - 源码文件：一律 `.ets`。
 - 组件 testKey / id：统一「模块前缀-语义 id」格式（如 `spot-card-{spotId}`、`area-card-{areaId}`），禁止裸数字 id，防止「有据」项目 `cardMedia-{id}` 类冲突。
 - @State / @Prop 等状态变量名避开组件保留成员名（`tabIndex`、`width`、`height` 等）。
+
+## 5. UI 约定（P5 增补）
+
+- **禁止裸样式值**：pages/、components/ 中禁止裸写色值（#RRGGBB）、字号、间距数值，一律引用 `design/` 下对应 token（ColorTokens / SpaceTokens / FontTokens / MotionTokens）。
+- **token 先行**：新增视觉常量必须先进 token 文件（语义化命名）再使用，禁止页面内先写死再"回头收口"。
+- **豁免类**：布局百分比（'100%'）、动画 spring 参数、边框宽度等结构性数值不强制走 token，但同类数值出现第二处时必须收口。
+- **组件标识**：testKey / id 按第 4 节「模块前缀-语义 id」规范执行（如 `spot-card-{spotId}`），禁止裸数字 id。
