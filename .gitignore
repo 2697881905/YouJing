@@ -10,3 +10,14 @@
 /.clang-tidy
 **/.test
 /.appanalyzer
+.preview/
+**/.preview/
+# 签名与密钥文件（P3 敏感信息防线，密钥后续走 HUKS，本阶段仅占位禁止入库）
+*.p7b
+*.cer
+*.p12
+*.csr
+*.jks
+*.keystore
+# WorkBuddy 本地工作日志（工具本地状态，不入库）
+.workbuddy/
