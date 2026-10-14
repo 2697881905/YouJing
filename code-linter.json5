@@ -1,4 +1,11 @@
 {
+  // 有径代码门禁配置（P6 强化）。
+  // 本步骤实际启用的规则 ID 清单（rules 段）：
+  //   @typescript-eslint/no-explicit-any          —— 禁止 any（配合 ArkTS 编译期 arkts-no-any 双保险）
+  //   @typescript-eslint/no-unused-vars           —— 禁止未使用变量
+  //   @typescript-eslint/explicit-function-return-type —— 函数要求显式返回类型
+  //   @typescript-eslint/no-console               —— 禁止 console 直接调用（统一走 common/logger/Logger）
+  //   @security/* 系列                            —— 模板既有安全规则，保留不动
   "files": [
     "**/*.ets"
   ],
@@ -16,6 +23,10 @@
     "plugin:@typescript-eslint/recommended"
   ],
   "rules": {
+    "@typescript-eslint/no-explicit-any": "error",
+    "@typescript-eslint/no-unused-vars": "error",
+    "@typescript-eslint/explicit-function-return-type": "error",
+    "@typescript-eslint/no-console": "error",
     "@security/no-unsafe-aes": "error",
     "@security/no-unsafe-hash": "error",
     "@security/no-unsafe-mac": "warn",

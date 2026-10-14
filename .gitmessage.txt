@@ -1,0 +1,11 @@
+# type(scope): 中文摘要（≤50 字，动词开头，不写句号）
+#
+# 正文（可选）：说明动机与影响面，每行 ≤72 字。
+#
+# 约定：
+#   type  限定 feat / fix / refactor / docs / chore / test
+#   scope 用目录名（如 common、design、docs、ets、root）
+#   单 commit 单意图；一轮工作打包为一个提交，不拆无关改动
+#
+# 启用方式（可选，属 git config 操作，由开发者本机自行执行）：
+#   git config commit.template .gitmessage.txt
