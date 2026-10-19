@@ -48,11 +48,11 @@
 ## 4. 已知限制与待办
 
 1. **bundleName 已定稿** `com.youjing.app`（2026-10-15，参考有据 com.youju.app 命名）；AGC 应用注册在自动签名时一并完成，上架前需核对应用市场重名。
-2. **签名策略已定**：仓库中 signingConfigs 保持为空，签名材料由各开发机 DevEco Studio 自动签名生成、不入 git；本机 `build-profile.json5` 已设 `git update-index --skip-worktree` 防误提交（需改该文件时先 `--no-skip-worktree` 解锁）。调试签名生成本身仍待完成。
+2. **调试签名已就绪**（2026-10-20）：DevEco Studio 自动签名生成，Profile 绑定 `com.youjing.app`、debug 类型、有效期 2026-10-20 → 2027-10-20、含 4 台设备；签名 HAP 已安装到本地模拟器验证通过。签名材料仅存本机 `~/.ohos/config/`，signingConfigs 不入 git（build-profile.json5 已 skip-worktree）。release 签名上架前仍需单独申请。
 3. **应用名称未定**：AppScope label 当前为 "YouJing"，中文名「有径」待品牌资源定稿后替换。
 4. **API 26 最低兼容范围未评审**：compatibleSdkVersion=26.0.0 意味着不兼容更低版本设备，上架前需评审覆盖面。
 5. **小艺 Skill 接入协议待调研**：ApiConfig 端点为占位空串，待小艺开放平台 Skill 创建后回填。
-6. **日志输出待真机补验**：P4 因签名缺失走了静态走查验收，签名就绪后需按 P4 动态验收流程（四级 Logger 调用 + hilog 按 YouJing. 过滤）补验。
+6. **日志输出已真机补验通过**（2026-10-20，本地模拟器）：四级 Logger 临时调用注入 → 签名 HAP 安装启动 → hilog 按 `YouJing.` 过滤抓到 D/I/W/E 全部四条（domain A00100），验毕临时代码已删除、还原版已重装。
 7. **deveco_mcp 的 PROJECT_PATH 指向 HarmonyProject1**（旧工程）：MCP 的 build/check 工具对本工程无效，初始化期间一律以本地 hvigor 直跑替代；需在 MCP 配置中改指向本工程后方可使用。
 8. **LSP 静态检查（check_ets_files）不可用**：20s 超时无诊断返回，静态检查以 hvigor CompileArkTS 为准。
 9. **设计 tokens 数值为占位基线**：色值/间距/字号待用户 UI 设计定稿后替换（单点改 token 文件即可全工程生效）。
