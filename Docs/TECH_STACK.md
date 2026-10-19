@@ -18,7 +18,7 @@
 | ohpm | 26.0.0.630 | `Contents/tools/ohpm`（`ohpm -v` 实测） |
 | HarmonyOS SDK | API 26 / 26.0.0.105（Release） | `Contents/sdk/default/sdk-pkg.json` |
 | DEVECO_SDK_HOME | /Applications/DevEco-Studio.app/Contents/sdk | 本机构建实测（hvigor 直跑必需） |
-| bundleName | com.example.youjing（模板占位，修改须走决策确认） | `AppScope/app.json5` |
+| bundleName | com.youjing.app（2026-10-15 定稿，参考有据 com.youju.app 命名） | `AppScope/app.json5` |
 | versionName / versionCode | 1.0.0 / 1000000 | `AppScope/app.json5` |
 | 签名配置 | 无（signingConfigs 为空） | `build-profile.json5` |
 | 运行时依赖 dependencies | 空 | 根与 `entry/oh-package.json5` |

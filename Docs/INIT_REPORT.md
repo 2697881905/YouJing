@@ -47,8 +47,8 @@
 
 ## 4. 已知限制与待办
 
-1. **bundleName 仍为模板占位** `com.example.youjing`，正式包名待决策（涉及 AGC 注册，须走确认流程）。
-2. **签名未配置**（signingConfigs 为空）：HAP 无法安装到模拟器/真机，需在 DevEco Studio 中登录账号生成调试签名。
+1. **bundleName 已定稿** `com.youjing.app`（2026-10-15，参考有据 com.youju.app 命名）；AGC 应用注册在自动签名时一并完成，上架前需核对应用市场重名。
+2. **签名策略已定**：仓库中 signingConfigs 保持为空，签名材料由各开发机 DevEco Studio 自动签名生成、不入 git；本机 `build-profile.json5` 已设 `git update-index --skip-worktree` 防误提交（需改该文件时先 `--no-skip-worktree` 解锁）。调试签名生成本身仍待完成。
 3. **应用名称未定**：AppScope label 当前为 "YouJing"，中文名「有径」待品牌资源定稿后替换。
 4. **API 26 最低兼容范围未评审**：compatibleSdkVersion=26.0.0 意味着不兼容更低版本设备，上架前需评审覆盖面。
 5. **小艺 Skill 接入协议待调研**：ApiConfig 端点为占位空串，待小艺开放平台 Skill 创建后回填。

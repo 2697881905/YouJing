@@ -1,6 +1,6 @@
 {
   "app": {
-    "bundleName": "com.example.youjing",
+    "bundleName": "com.youjing.app",
     "vendor": "example",
     "versionCode": 1000000,
     "versionName": "1.0.0",
