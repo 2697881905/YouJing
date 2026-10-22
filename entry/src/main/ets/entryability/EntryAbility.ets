@@ -5,6 +5,9 @@ import { Logger } from '../common/logger/Logger';
 import { APP_NAV } from '../common/constants/AppNav';
 import { DataSeeder } from '../data/DataSeeder';
 import { AccountStore } from '../data/AccountStore';
+import { PlanDraft } from '../data/PlanDraft';
+import { TripBasicInput } from '../model/PlanParams';
+import { DateUtils } from '../utils/DateUtils';
 
 const DOMAIN = 0x0000;
 
@@ -13,12 +16,92 @@ export default class EntryAbility extends UIAbility {
 
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onCreate');
-    // 外部拉起预填通道（hdc/深链，将来小艺 Skill onNewWant 同源复用）：
-    // aa start --ps route GenerateFailed
-    const params: Record<string, Object> | undefined = want.parameters;
-    if (params !== undefined && typeof params['route'] === 'string') {
-      this.pendingRoute = params['route'] as string;
+    this.applyWant(want);
+  }
+
+  /**
+   * 小艺 Skill / 深链在 App 已存活时的入口：单例 UIAbility 复用当前页面栈，
+   * 参数直接落到导航与屏2 草稿，不再重建窗口。
+   */
+  onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {
+    const touched: boolean = this.applyWant(want);
+    if (this.pendingRoute.length > 0) {
+      APP_NAV.pushPath({ name: this.pendingRoute });
+      this.pendingRoute = '';
     }
+    Logger.info('EntryAbility', `onNewWant 外部拉起 touched=${touched}`);
+  }
+
+  /**
+   * 外部拉起参数通道（开发文档 §6 阶段 9「语音唤起 App 并预填参数」）。
+   * 键：route 落点屏名；destination/start/end/days/people 预填屏2 基础输入。
+   * 例：aa start -a EntryAbility -b com.youjing.app --ps route TripInput \
+   *        --ps destination 上海 --ps start 2026-08-01 --ps days 4 --ps people 3
+   * 非法日期与 days 一律忽略，不覆盖已有草稿。
+   */
+  private applyWant(want: Want): boolean {
+    const params: Record<string, Object> | undefined = want.parameters;
+    if (params === undefined) {
+      return false;
+    }
+    let touched: boolean = false;
+    if (typeof params['route'] === 'string') {
+      this.pendingRoute = params['route'] as string;
+      touched = true;
+    }
+    const draft: PlanDraft = PlanDraft.get();
+    const basic: TripBasicInput = {
+      destination: draft.basic.destination, startDate: draft.basic.startDate,
+      endDate: draft.basic.endDate, people: draft.basic.people, budget: draft.basic.budget
+    };
+    const dest: string = EntryAbility.wantString(params, 'destination');
+    if (dest.length > 0) {
+      basic.destination = dest;
+      touched = true;
+    }
+    const start: string = EntryAbility.wantString(params, 'start');
+    if (DateUtils.isValidIsoDate(start)) {
+      basic.startDate = start;
+      touched = true;
+    }
+    const end: string = EntryAbility.wantString(params, 'end');
+    if (DateUtils.isValidIsoDate(end)) {
+      basic.endDate = end;
+      touched = true;
+    }
+    const days: number = EntryAbility.wantNumber(params, 'days');
+    if (days > 1 && DateUtils.isValidIsoDate(basic.startDate)) {
+      basic.endDate = DateUtils.addDays(basic.startDate, days - 1);
+      touched = true;
+    }
+    const people: number = EntryAbility.wantNumber(params, 'people');
+    if (people > 0) {
+      basic.people = people;
+      touched = true;
+    }
+    if (touched) {
+      draft.basic = basic;
+      Logger.info('EntryAbility',
+        `外部预填 route=${this.pendingRoute} ${basic.destination} ${basic.startDate}→${basic.endDate} ${basic.people}人`);
+    }
+    return touched;
+  }
+
+  private static wantString(params: Record<string, Object>, key: string): string {
+    const raw: Object | undefined = params[key];
+    return typeof raw === 'string' ? raw as string : '';
+  }
+
+  private static wantNumber(params: Record<string, Object>, key: string): number {
+    const raw: Object | undefined = params[key];
+    if (typeof raw === 'number') {
+      return raw as number;
+    }
+    if (typeof raw === 'string') {
+      const parsed: number = Number(raw as string);
+      return Number.isNaN(parsed) ? 0 : parsed;
+    }
+    return 0;
   }
 
   onConfigurationUpdate(newConfig: Configuration): void {

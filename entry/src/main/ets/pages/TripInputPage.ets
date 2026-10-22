@@ -13,6 +13,7 @@ import { LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { PlanDraft } from '../data/PlanDraft';
 import { TripBasicInput } from '../model/PlanParams';
+import { DateUtils } from '../utils/DateUtils';
 
 const CITIES: string[] = ['北京', '上海', '广州', '深圳', '京都（演示）'];
 
@@ -25,6 +26,23 @@ export struct TripInputPage {
   @State private endDate: string = '2026-07-03';
   @State private showCity: boolean = false;
   private partyOptions: number[] = [1, 2, 4];
+
+  /** 屏2 是草稿的展示方：外部拉起（小艺/深链）预填与返回本屏都要回显真值 */
+  aboutToAppear(): void {
+    const b: TripBasicInput = PlanDraft.get().basic;
+    if (CITIES.indexOf(b.destination) >= 0) {
+      this.city = b.destination;
+    }
+    if (DateUtils.isValidIsoDate(b.startDate)) {
+      this.startDate = b.startDate;
+    }
+    if (DateUtils.isValidIsoDate(b.endDate) && DateUtils.spanDays(this.startDate, b.endDate) >= 1) {
+      this.endDate = b.endDate;
+    }
+    if (b.people > 0) {
+      this.party = b.people;
+    }
+  }
 
   private fmt(dateStr: string): string {
     const parts: string[] = dateStr.split('-');
