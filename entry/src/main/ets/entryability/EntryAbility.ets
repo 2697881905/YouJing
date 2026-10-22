@@ -3,6 +3,7 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 import { Logger } from '../common/logger/Logger';
 import { APP_NAV } from '../common/constants/AppNav';
+import { DataSeeder } from '../data/DataSeeder';
 
 const DOMAIN = 0x0000;
 
@@ -40,6 +41,9 @@ export default class EntryAbility extends UIAbility {
       }
       hilog.info(DOMAIN, 'testTag', 'Succeeded in loading the content.');
       this.registerSerifFont(windowStage);
+      DataSeeder.seedIfEmpty(this.context).catch((err: Error) => {
+        Logger.error('EntryAbility', `种子灌入失败: ${err.message}`);
+      });
       if (this.pendingRoute.length > 0) {
         APP_NAV.pushPath({ name: this.pendingRoute });
       }
