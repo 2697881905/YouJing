@@ -34,6 +34,10 @@ export struct ItineraryPage {
   @State private dayIndex: number = 0;
   @State private showDetail: boolean = false;
   @State private detailAct: Activity | undefined = undefined;
+  @State private showSystemAccess: boolean = false;
+  @State private syncCalendar: boolean = false;
+  @State private syncCard: boolean = true;
+  @State private syncRemind: boolean = false;
   private days: TripDay[] = MockTrip.TRIP.days;
   private segments: SegmentedItem[] = [
     { label: 'Day 1' }, { label: 'Day 2' }, { label: 'Day 3' }
@@ -437,6 +441,7 @@ export struct ItineraryPage {
             label: '加入日历提醒',
             onAction: (): void => {
               this.showDetail = false;
+              this.showSystemAccess = true;
             }
           })
             .layoutWeight(1)
@@ -447,6 +452,123 @@ export struct ItineraryPage {
     }
     .width('100%')
     .height('100%')
+    .backgroundColor(ColorTokens.canvas)
+  }
+
+  @Builder
+  accessRow(title: string, desc: string, on: boolean, setter: (v: boolean) => void) {
+    Row() {
+      Column({ space: 2 }) {
+        Text(title)
+          .fontSize(TypeTokens.small.size)
+          .fontWeight(600)
+          .fontColor(ColorTokens.ink)
+        Text(desc)
+          .fontSize(TypeTokens.caption.size)
+          .fontWeight(450)
+          .fontColor(ColorTokens.muted)
+          .fontFeature("'tnum' on")
+      }
+      .alignItems(HorizontalAlign.Start)
+      .layoutWeight(1)
+
+      Toggle({ type: ToggleType.Switch, isOn: on })
+        .selectedColor(ColorTokens.primary)
+        .onChange((isOn: boolean) => {
+          setter(isOn);
+        })
+    }
+    .width('100%')
+    .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+  }
+
+  @Builder
+  systemAccessSheet() {
+    Column() {
+      Text('让行程走到系统里')
+        .fontSize(TypeTokens.title.size)
+        .fontWeight(700)
+        .fontFamily(TypeTokens.title.family)
+        .fontColor(ColorTokens.ink)
+        .margin({ top: SpaceTokens.xl })
+      Text('行程数据只存在本机，写入系统应用由你决定')
+        .fontSize(TypeTokens.small.size)
+        .fontColor(ColorTokens.body)
+        .margin({ top: SpaceTokens.xs, bottom: SpaceTokens.lg })
+
+      Column() {
+        this.accessRow('日历同步', '写入 3 个预约节点 + 5 天行程', this.syncCalendar,
+          (v: boolean): void => {
+            this.syncCalendar = v;
+          })
+        Divider().strokeWidth(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
+        this.accessRow('行程卡片', '桌面常驻今日节点，每 15 分钟刷新', this.syncCard,
+          (v: boolean): void => {
+            this.syncCard = v;
+          })
+        Divider().strokeWidth(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
+        this.accessRow('提醒', '需预约节点提前 1 天提醒', this.syncRemind,
+          (v: boolean): void => {
+            this.syncRemind = v;
+          })
+      }
+      .width('100%')
+      .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+
+      Column({ space: 2 }) {
+        Text('写入内容预览')
+          .fontSize(TypeTokens.overline.size)
+          .fontWeight(600)
+          .fontColor(ColorTokens.muted)
+          .alignSelf(ItemAlign.Start)
+        Text('6月11日 09:00–11:00')
+          .fontSize(TypeTokens.caption.size)
+          .fontColor(ColorTokens.ink)
+          .fontFeature("'tnum' on")
+        Text('伏见稻荷大社 · 需预约')
+          .fontSize(TypeTokens.caption.size)
+          .fontColor(ColorTokens.ink)
+        Text('地址 京都市伏見区深芝藪町 68')
+          .fontSize(TypeTokens.caption.size)
+          .fontWeight(450)
+          .fontColor(ColorTokens.muted)
+        Text('备注 行程第 2 天 · 步行 12分钟')
+          .fontSize(TypeTokens.caption.size)
+          .fontWeight(450)
+          .fontColor(ColorTokens.muted)
+          .fontFeature("'tnum' on")
+      }
+      .alignItems(HorizontalAlign.Start)
+      .width('100%')
+      .padding(SpaceTokens.md)
+      .borderRadius(RadiusTokens.reason)
+      .backgroundColor(ColorTokens.surfacePanel)
+      .margin({ top: SpaceTokens.md })
+
+      Row({ space: SpaceTokens.md }) {
+        YoujingButton({
+          variant: YoujingButtonVariant.SECONDARY,
+          label: '仅本机保存',
+          buttonWidth: 150,
+          onAction: (): void => {
+            this.showSystemAccess = false;
+          }
+        })
+        YoujingButton({
+          variant: YoujingButtonVariant.PRIMARY,
+          label: '同意并写入',
+          onAction: (): void => {
+            this.showSystemAccess = false;
+          }
+        })
+          .layoutWeight(1)
+      }
+      .width('100%')
+      .margin({ top: SpaceTokens.xl })
+    }
+    .alignItems(HorizontalAlign.Start)
+    .width('100%')
+    .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: SpaceTokens.xl })
     .backgroundColor(ColorTokens.canvas)
   }
 
@@ -589,6 +711,12 @@ export struct ItineraryPage {
         .border({ width: 1, color: ColorTokens.borderSubtle, radius: RadiusTokens.dock })
         .shadow(this.isDark ? { radius: 0 } : ShadowTokens.floating)
         .margin({ bottom: LayoutTokens.floatingDockBottomMargin })
+        .bindSheet($$this.showSystemAccess, this.systemAccessSheet(), {
+          height: SheetSize.FIT_CONTENT,
+          backgroundColor: ColorTokens.canvas,
+          showClose: true,
+          systemMaterial: getSheetImmersiveMaterial()
+        })
       }
       .width('100%')
       .height('100%')
