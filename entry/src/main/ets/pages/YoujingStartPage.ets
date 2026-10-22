@@ -13,6 +13,10 @@ import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
+import { AccountStore } from '../data/AccountStore';
+import { AccountKind, AccountState } from '../model/Account';
+import { TripDao } from '../data/TripDao';
+import { common } from '@kit.AbilityKit';
 
 interface PreviewStop {
   time: string;
@@ -31,6 +35,16 @@ const ROW_HEIGHT: number = 76;
 @Component
 export struct YoujingStartPage {
   private pathStack: NavPathStack = APP_NAV;
+
+  /** 静默取 UnionID（失败即本机游客分区，不阻断），再把游客数据归户到登录账号 */
+  private async enterApp(): Promise<void> {
+    const ctx: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    const state: AccountState = await AccountStore.login(ctx);
+    if (state.kind === AccountKind.HUAWEI) {
+      await TripDao.adoptGuestTrips(ctx, state.uid);
+    }
+    this.pathStack.pushPath({ name: 'TripInput' });
+  }
 
   private stops: PreviewStop[] = [
     { time: '09:30', name: '清水寺', meta: '东山区 · 停留 1小时30分钟', dotColor: ColorTokens.primary },
@@ -219,7 +233,7 @@ export struct YoujingStartPage {
           fullWidth: true,
           leadingSymbol: $r('sys.symbol.person_crop_circle_fill_1'),
           onAction: (): void => {
-            this.pathStack.pushPath({ name: 'TripInput' });
+            this.enterApp();
           }
         })
         Row({ space: SpaceTokens.xs }) {

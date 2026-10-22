@@ -4,6 +4,7 @@ import { window } from '@kit.ArkUI';
 import { Logger } from '../common/logger/Logger';
 import { APP_NAV } from '../common/constants/AppNav';
 import { DataSeeder } from '../data/DataSeeder';
+import { AccountStore } from '../data/AccountStore';
 
 const DOMAIN = 0x0000;
 
@@ -41,13 +42,7 @@ export default class EntryAbility extends UIAbility {
       }
       hilog.info(DOMAIN, 'testTag', 'Succeeded in loading the content.');
       this.registerSerifFont(windowStage);
-      DataSeeder.seedIfEmpty(this.context).catch((err: Error) => {
-        Logger.error('EntryAbility', `种子灌入失败: ${err.message}`);
-      });
-      if (this.pendingRoute.length > 0) {
-        APP_NAV.pushPath({ name: this.pendingRoute });
-      }
-      this.pendingRoute = '';
+      this.bootstrap();
     });
 
     try {
@@ -70,6 +65,22 @@ export default class EntryAbility extends UIAbility {
   onBackground(): void {
     // Ability has back to background
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onBackground');
+  }
+
+  /** 登录态必须先于任何行程读写恢复：DAO 取分区键是同步的（阶段 8） */
+  private async bootstrap(): Promise<void> {
+    try {
+      await AccountStore.init(this.context);
+    } catch (err) {
+      Logger.error('EntryAbility', `登录态恢复失败，按本机游客分区继续: ${(err as Error).message}`);
+    }
+    DataSeeder.seedIfEmpty(this.context).catch((err: Error) => {
+      Logger.error('EntryAbility', `种子灌入失败: ${err.message}`);
+    });
+    if (this.pendingRoute.length > 0) {
+      APP_NAV.pushPath({ name: this.pendingRoute });
+    }
+    this.pendingRoute = '';
   }
 
   onError(error: Error): void {

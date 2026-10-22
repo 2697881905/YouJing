@@ -7,8 +7,8 @@
  * - 版本号驱动迁移：onUpgrade 按 old→new 逐级执行，多条迁移放事务，成功才写新版本号；
  * - 过滤列建索引；单条记录 ≤2MB（行程 JSON 列远小于该值，tips/highlights 为文本）。
  *
- * 表结构（v1）：
- *   trip        行程聚合根（overview/tips 展平为列与 JSON 文本）
+ * 表结构（v2）：
+ *   trip        行程聚合根（overview/tips 展平为列与 JSON 文本；user_id 为账号分区键）
  *   trip_day    单日（tripId+dayIndex 索引）
  *   activity    活动节点（含 transport 三列与 reason；tripId+dayIndex 索引）
  *   meal        餐饮（tripId+dayIndex 索引）
@@ -18,11 +18,12 @@
 import { relationalStore } from '@kit.ArkData';
 import { common } from '@kit.AbilityKit';
 import { Logger } from '../common/logger/Logger';
+import { AccountConfig } from '../common/config/AccountConfig';
 import { AppError } from '../common/error/AppError';
 import { ErrorCode } from '../common/error/ErrorCode';
 
 const STORE_NAME: string = 'youjing.db';
-const DB_VERSION: number = 1;
+const DB_VERSION: number = 2;
 const TAG: string = 'Data.DatabaseHelper';
 
 const SQL_CREATE_TRIP: string = `CREATE TABLE IF NOT EXISTS trip (
@@ -30,7 +31,7 @@ const SQL_CREATE_TRIP: string = `CREATE TABLE IF NOT EXISTS trip (
   people INTEGER NOT NULL, budget INTEGER NOT NULL, style TEXT NOT NULL,
   total_cost INTEGER NOT NULL DEFAULT 0, summary TEXT NOT NULL DEFAULT '',
   highlights TEXT NOT NULL DEFAULT '[]', tips TEXT NOT NULL DEFAULT '[]',
-  updated_at INTEGER NOT NULL)`;
+  updated_at INTEGER NOT NULL, user_id TEXT NOT NULL DEFAULT '${AccountConfig.GUEST_UID}')`;
 
 const SQL_CREATE_TRIP_DAY: string = `CREATE TABLE IF NOT EXISTS trip_day (
   id INTEGER PRIMARY KEY AUTOINCREMENT, trip_id TEXT NOT NULL, day_index INTEGER NOT NULL,
@@ -74,8 +75,13 @@ const SQL_INDEXES: string[] = [
   'CREATE INDEX IF NOT EXISTS idx_activity_trip_day ON activity(trip_id, day_index)',
   'CREATE INDEX IF NOT EXISTS idx_meal_trip_day ON meal(trip_id, day_index)',
   'CREATE INDEX IF NOT EXISTS idx_spot_city ON spot(city)',
-  'CREATE INDEX IF NOT EXISTS idx_area_city ON area(city)'
+  'CREATE INDEX IF NOT EXISTS idx_area_city ON area(city)',
+  'CREATE INDEX IF NOT EXISTS idx_trip_user ON trip(user_id)'
 ];
+
+/** v1 → v2：行程按账号分区。历史本机数据 DEFAULT 即游客分区，无需回填 */
+const SQL_V2_ADD_TRIP_USER_ID: string =
+  `ALTER TABLE trip ADD COLUMN user_id TEXT NOT NULL DEFAULT '${AccountConfig.GUEST_UID}'`;
 
 export class DatabaseHelper {
   private static storePromise: Promise<relationalStore.RdbStore> | null = null;
@@ -137,18 +143,22 @@ export class DatabaseHelper {
     await store.beginTransaction();
     try {
       if (oldVersion === 0) {
-        // v0 → v1 全新建表
+        // 全新建表
         store.executeSql(SQL_CREATE_TRIP);
         store.executeSql(SQL_CREATE_TRIP_DAY);
         store.executeSql(SQL_CREATE_ACTIVITY);
         store.executeSql(SQL_CREATE_MEAL);
         store.executeSql(SQL_CREATE_SPOT);
         store.executeSql(SQL_CREATE_AREA);
-        for (const idx of SQL_INDEXES) {
-          store.executeSql(idx);
-        }
       }
-      // 后续版本在此逐级追加：if (oldVersion < 2) { ...ALTER/CREATE... }
+      if (oldVersion === 1) {
+        store.executeSql(SQL_V2_ADD_TRIP_USER_ID);
+      }
+      // 索引 DDL 全部 IF NOT EXISTS，逐级迁移后统一补齐
+      for (const idx of SQL_INDEXES) {
+        store.executeSql(idx);
+      }
+      // 后续版本在此逐级追加：if (oldVersion < 3) { ...ALTER/CREATE... }
       store.version = DB_VERSION;
       await store.commit();
       Logger.info(TAG, `迁移完成 ${oldVersion} → ${DB_VERSION}`);

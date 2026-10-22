@@ -6,6 +6,7 @@
  *   2xxx JSON / 解析（response_format、类型守卫，服务开发文档 §4.3 三层防线）
  *   3xxx 存储（RDB 建库、迁移、事务、查询）
  *   4xxx 业务规则（行程生成前置校验与流程约束）
+ *   5xxx 账号（UnionID 静默登录、登录态持久化）
  * 码值全局唯一不得重复；新增错误码只能在所属区段内顺延追加。
  */
 
@@ -31,4 +32,8 @@ export class ErrorCode {
   static readonly TRIP_NO_SPOT_SELECTED: number = 4002; // 未选择任何景点即请求生成行程
   static readonly TRIP_NO_AREA_SELECTED: number = 4003; // 未选择住宿区域即请求生成行程
   static readonly TRIP_GENERATE_RETRY_EXHAUSTED: number = 4004; // 行程生成重试一次后仍失败，进入降级/提示
+
+  // ---- 5xxx 账号 ----
+  static readonly ACCOUNT_LOGIN_FAILED: number = 5001; // UnionID 静默登录失败（未登录华为账号 / AGC 未配置）
+  static readonly ACCOUNT_PREFERENCES_FAILED: number = 5002; // 登录态持久化读写失败
 }

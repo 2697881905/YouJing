@@ -56,6 +56,8 @@
 7. **deveco_mcp 的 PROJECT_PATH 指向 HarmonyProject1**（旧工程）：MCP 的 build/check 工具对本工程无效，初始化期间一律以本地 hvigor 直跑替代；需在 MCP 配置中改指向本工程后方可使用。
 8. **LSP 静态检查（check_ets_files）不可用**：20s 超时无诊断返回，静态检查以 hvigor CompileArkTS 为准。
 9. **设计 tokens 数值为占位基线**：色值/间距/字号待用户 UI 设计定稿后替换（单点改 token 文件即可全工程生效）。
+10. **ohosTest 进程拿不到合法模块 context**（2026-10-22 探针用例实测）：测试进程只挂 ApplicationContext，`relationalStore.getRdbStore` 报「Parameter error.Illegal context.」、`preferences.getPreferences` 报「The context is invalid.」，`application.createModuleContext()` 亦直接报「must be a context of stageMode」。因此 RDB 读写、迁移、账号分片持久化**不能**写成 hypium 用例，只能在真机 App 内以启动日志 + 界面走查验收；纯逻辑（Schema 守卫、Prompt、种子映射、登录态兜底）仍走 hypium。若后续要补 DB 单测，需在 ohosTest 侧加 TestAbility 并由 runner 启动后取 context。
+11. **Account Kit 未配置**：AGC 侧无 Client ID / 证书指纹未登记，`AccountConfig.ACCOUNT_KIT_ENABLED=false`，屏1「华为账号一键登录」实际走本机游客分区（uid=`local-guest`，行程数据仍只留本机，与屏1 法务行承诺一致）。真机验收证据：启动日志「恢复登录态 kind=guest uid=local-（掩码）」「迁移完成 1 → 2」。AGC 配置就绪后只改该开关，静默登录与游客数据归户（`TripDao.adoptGuestTrips`）即生效。
 
 ## 5. 发布前 checklist
 
@@ -64,6 +66,7 @@
 - [ ] 网络配置（ApiConfig）变更后执行全量重编并重装 HAP
 - [ ] 签名配置就绪（release 证书 + Profile）
 
-## 6. 下一步
+## 6. 当前进度（开发文档 §6 十阶段）
 
-进入 `Docs/有径·App开发文档.md` §6 **阶段 1：数据契约冻结**——产出 Trip / TripDay / Activity / Spot / Area 接口定义（model/ 目录），字段类型与 JSON Schema 一一对应，覆盖行程页所有展示字段。
+阶段 1–8 已完成并真机验收（屏1–16 骨架 + 种子库 + Schema 守卫 + RDB + LLM 离线闭环 + 多轮交互全流程 + 账号分区）。
+剩余：阶段 9（小艺 Skill 接收端 / 万能卡片真数据 / 日历真写入）、阶段 10（费用落库 / 分享导出 .ics / 预算协同）。

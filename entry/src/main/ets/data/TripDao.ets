@@ -1,11 +1,14 @@
 /**
  * 行程 DAO：聚合根整存整取（写走单写通道事务，读逐列收口成模型）。
  * activity 行主键 = `${tripId}:${activityId}` 前缀化，规避跨行程 id 撞车。
+ * 分区：trip.user_id 取 AccountStore.uid()，列表与详情读均按当前登录态收口（阶段 8）。
  */
 
 import { relationalStore } from '@kit.ArkData';
 import { common } from '@kit.AbilityKit';
 import { DatabaseHelper } from './DatabaseHelper';
+import { AccountStore } from './AccountStore';
+import { AccountConfig } from '../common/config/AccountConfig';
 import { Activity, ActivityCategory, ActivityStatus, IntensityLevel, Meal, MealType, TransportInfo, Trip, TripDay } from '../model/Trip';
 import { Logger } from '../common/logger/Logger';
 import { AppError } from '../common/error/AppError';
@@ -46,7 +49,7 @@ export class TripDao {
         end_date: trip.endDate, people: trip.people, budget: trip.budget, style: trip.style,
         total_cost: trip.overview.totalCost, summary: trip.overview.summary,
         highlights: JSON.stringify(trip.overview.highlights), tips: JSON.stringify(trip.tips),
-        updated_at: Date.now()
+        updated_at: Date.now(), user_id: AccountStore.uid()
       };
       store.insertSync('trip', tripRow);
       for (const day of trip.days) {
@@ -76,7 +79,8 @@ export class TripDao {
     return TripDao.query(context,
       'SELECT t.id, t.destination, t.start_date, t.end_date, t.people, t.total_cost, t.updated_at, ' +
         '(SELECT COUNT(*) FROM activity a WHERE a.trip_id = t.id) AS spot_count ' +
-        'FROM trip t ORDER BY t.updated_at DESC', [], (rs: relationalStore.ResultSet): TripSummary => {
+        'FROM trip t WHERE t.user_id = ? ORDER BY t.updated_at DESC', [AccountStore.uid()],
+      (rs: relationalStore.ResultSet): TripSummary => {
         const s: TripSummary = {
           id: rs.getString(rs.getColumnIndex('id')),
           destination: rs.getString(rs.getColumnIndex('destination')),
@@ -93,7 +97,8 @@ export class TripDao {
 
   static async loadTrip(context: common.UIAbilityContext, tripId: string): Promise<Trip | null> {
     const heads: Trip[] = await TripDao.query(context,
-      'SELECT * FROM trip WHERE id = ?', [tripId], (rs: relationalStore.ResultSet): Trip => {
+      'SELECT * FROM trip WHERE id = ? AND user_id = ?', [tripId, AccountStore.uid()],
+      (rs: relationalStore.ResultSet): Trip => {
         const t: Trip = {
           id: rs.getString(rs.getColumnIndex('id')),
           destination: rs.getString(rs.getColumnIndex('destination')),
@@ -172,6 +177,22 @@ export class TripDao {
     }
     trip.days = days;
     return trip;
+  }
+
+  /** 静默登录取到 UnionID 后，把游客分区行程归户到该账号；返回归户后该账号名下条数 */
+  static async adoptGuestTrips(context: common.UIAbilityContext, toUid: string): Promise<number> {
+    if (toUid === AccountConfig.GUEST_UID) {
+      return 0;
+    }
+    await DatabaseHelper.write(context, async (store: relationalStore.RdbStore): Promise<void> => {
+      store.executeSync('UPDATE trip SET user_id = ? WHERE user_id = ?', [toUid, AccountConfig.GUEST_UID]);
+    });
+    const counts: number[] = await TripDao.query(context,
+      'SELECT COUNT(*) AS c FROM trip WHERE user_id = ?', [toUid],
+      (rs: relationalStore.ResultSet): number => rs.getLong(rs.getColumnIndex('c')));
+    const count: number = counts.length > 0 ? counts[0] : 0;
+    Logger.info(TAG, `游客数据归户 uid=${AccountStore.masked()} count=${count}`);
+    return count;
   }
 
   static deleteTrip(context: common.UIAbilityContext, tripId: string): Promise<void> {
