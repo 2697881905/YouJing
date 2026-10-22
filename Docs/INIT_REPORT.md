@@ -64,6 +64,13 @@
       等真实价位数据到位后只需补 `price_range` 灌入与一段换算。
     - **足迹地图**：Map Kit 需 AGC 项目凭据；当前无凭据，屏8/16 地图区仍为渐变占位、
       区域经纬度为区级近似值（`DataSeeder.DistrictCoords`，注释已标待地理编码替换）。
+10c. **玻璃点位①③接系统材质实测未采纳（2026-10-23 深夜）**：把顶栏与浮动 dock 换成
+   `uiMaterial.ImmersiveMaterial`（ULTRA_THIN / THIN / THICK 三档都试过）后，深色模式下 dock 由
+   实色 `surfaceElevated` 变透明，滚动内容（「建议停留 4小时 · 北京 海淀区」「步行 15分钟 · 约 1km」）
+   直接穿透到「行程/地图/费用/我的」标签上，可读性明显变差；三档之间截图无可辨差异
+   （近黑底上模糊≈透明）。已 `git checkout` 撤回，保留实色 + 1px 描边 + floating 阴影（深色零阴影）。
+   待用户在**浅色模式**下带设计眼光复核：若仍要玻璃，需要先解决穿透（例如给 dock 下方内容留净空使其不重叠）。
+   点位②分段控件与两处 Sheet 材质不受影响，已在早前验收。
 11. **Account Kit 未配置**：AGC 侧无 Client ID / 证书指纹未登记，`AccountConfig.ACCOUNT_KIT_ENABLED=false`，屏1「华为账号一键登录」实际走本机游客分区（uid=`local-guest`，行程数据仍只留本机，与屏1 法务行承诺一致）。真机验收证据：启动日志「恢复登录态 kind=guest uid=local-（掩码）」「迁移完成 1 → 2」。AGC 配置就绪后只改该开关，静默登录与游客数据归户（`TripDao.adoptGuestTrips`）即生效。
 
 ## 4b. 需要产品/设计确认的文案改动（agent 已按「能力对齐文案」原则改口）
