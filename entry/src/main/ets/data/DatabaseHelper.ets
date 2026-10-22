@@ -1,0 +1,161 @@
+/**
+ * RDB 单例与建库迁移（开发文档 §5.2 生产级要点）。
+ *
+ * 纪律：
+ * - 全应用复用同一 RdbStore（本文件唯一点），页面查询可独立、写事务收敛为单写通道；
+ * - 增删改走 SQL/ValuesBucket，查询逐列收口成模型对象，禁直接断言；
+ * - 版本号驱动迁移：onUpgrade 按 old→new 逐级执行，多条迁移放事务，成功才写新版本号；
+ * - 过滤列建索引；单条记录 ≤2MB（行程 JSON 列远小于该值，tips/highlights 为文本）。
+ *
+ * 表结构（v1）：
+ *   trip        行程聚合根（overview/tips 展平为列与 JSON 文本）
+ *   trip_day    单日（tripId+dayIndex 索引）
+ *   activity    活动节点（含 transport 三列与 reason；tripId+dayIndex 索引）
+ *   meal        餐饮（tripId+dayIndex 索引）
+ *   spot/area   内置资产库（city 索引；预约/溯源列展平）
+ */
+
+import { relationalStore } from '@kit.ArkData';
+import { common } from '@kit.AbilityKit';
+import { Logger } from '../common/logger/Logger';
+import { AppError } from '../common/error/AppError';
+import { ErrorCode } from '../common/error/ErrorCode';
+
+const STORE_NAME: string = 'youjing.db';
+const DB_VERSION: number = 1;
+const TAG: string = 'Data.DatabaseHelper';
+
+const SQL_CREATE_TRIP: string = `CREATE TABLE IF NOT EXISTS trip (
+  id TEXT PRIMARY KEY, destination TEXT NOT NULL, start_date TEXT NOT NULL, end_date TEXT NOT NULL,
+  people INTEGER NOT NULL, budget INTEGER NOT NULL, style TEXT NOT NULL,
+  total_cost INTEGER NOT NULL DEFAULT 0, summary TEXT NOT NULL DEFAULT '',
+  highlights TEXT NOT NULL DEFAULT '[]', tips TEXT NOT NULL DEFAULT '[]',
+  updated_at INTEGER NOT NULL)`;
+
+const SQL_CREATE_TRIP_DAY: string = `CREATE TABLE IF NOT EXISTS trip_day (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, trip_id TEXT NOT NULL, day_index INTEGER NOT NULL,
+  date TEXT NOT NULL, theme TEXT NOT NULL DEFAULT '', intensity TEXT NOT NULL DEFAULT 'medium',
+  risk TEXT, daily_cost INTEGER NOT NULL DEFAULT 0, accommodation TEXT)`;
+
+const SQL_CREATE_ACTIVITY: string = `CREATE TABLE IF NOT EXISTS activity (
+  id TEXT PRIMARY KEY, trip_id TEXT NOT NULL, day_index INTEGER NOT NULL,
+  time TEXT NOT NULL, end_time TEXT NOT NULL, title TEXT NOT NULL, location TEXT NOT NULL DEFAULT '',
+  address TEXT NOT NULL DEFAULT '', longitude REAL NOT NULL DEFAULT 0, latitude REAL NOT NULL DEFAULT 0,
+  status TEXT NOT NULL, category TEXT NOT NULL, note TEXT, reason TEXT,
+  transport_mode TEXT, transport_duration INTEGER, transport_detail TEXT)`;
+
+const SQL_CREATE_MEAL: string = `CREATE TABLE IF NOT EXISTS meal (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, trip_id TEXT NOT NULL, day_index INTEGER NOT NULL,
+  type TEXT NOT NULL, name TEXT NOT NULL, location TEXT NOT NULL DEFAULT '',
+  note TEXT, estimated_cost INTEGER NOT NULL DEFAULT 0)`;
+
+const SQL_CREATE_SPOT: string = `CREATE TABLE IF NOT EXISTS spot (
+  id TEXT PRIMARY KEY, name TEXT NOT NULL, city TEXT NOT NULL, tags TEXT NOT NULL DEFAULT '[]',
+  brief TEXT NOT NULL DEFAULT '', suggested_duration INTEGER NOT NULL DEFAULT 60,
+  popularity INTEGER NOT NULL DEFAULT 50, nearby_ids TEXT NOT NULL DEFAULT '[]',
+  longitude REAL NOT NULL DEFAULT 0, latitude REAL NOT NULL DEFAULT 0,
+  district TEXT NOT NULL DEFAULT '', nearest_metro TEXT NOT NULL DEFAULT '', entrance_tip TEXT,
+  requires_booking INTEGER NOT NULL DEFAULT 0, booking_method TEXT, advance_days INTEGER,
+  release_time TEXT, closed_day TEXT, difficulty TEXT,
+  source TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT '')`;
+
+const SQL_CREATE_AREA: string = `CREATE TABLE IF NOT EXISTS area (
+  id TEXT PRIMARY KEY, name TEXT NOT NULL, city TEXT NOT NULL, longitude REAL NOT NULL DEFAULT 0,
+  latitude REAL NOT NULL DEFAULT 0, description TEXT NOT NULL DEFAULT '',
+  anchor_stations TEXT NOT NULL DEFAULT '[]', metro_lines TEXT NOT NULL DEFAULT '[]',
+  airport_minutes INTEGER NOT NULL DEFAULT 0, train_station_minutes INTEGER NOT NULL DEFAULT 0,
+  commerce_tags TEXT NOT NULL DEFAULT '[]', dining_density TEXT NOT NULL DEFAULT '',
+  suitable_crowds TEXT NOT NULL DEFAULT '[]', price_tier TEXT NOT NULL DEFAULT 'comfort',
+  price_range TEXT, grp TEXT NOT NULL DEFAULT 'core', source TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL DEFAULT '')`;
+
+const SQL_INDEXES: string[] = [
+  'CREATE INDEX IF NOT EXISTS idx_trip_day ON trip_day(trip_id)',
+  'CREATE INDEX IF NOT EXISTS idx_activity_trip_day ON activity(trip_id, day_index)',
+  'CREATE INDEX IF NOT EXISTS idx_meal_trip_day ON meal(trip_id, day_index)',
+  'CREATE INDEX IF NOT EXISTS idx_spot_city ON spot(city)',
+  'CREATE INDEX IF NOT EXISTS idx_area_city ON area(city)'
+];
+
+export class DatabaseHelper {
+  private static storePromise: Promise<relationalStore.RdbStore> | null = null;
+  /** 单写通道：所有写事务排队串行，规避 RDB busy（§8 风险表） */
+  private static writeChain: Promise<void> = Promise.resolve();
+
+  static getStore(context: common.UIAbilityContext): Promise<relationalStore.RdbStore> {
+    if (DatabaseHelper.storePromise === null) {
+      DatabaseHelper.storePromise = DatabaseHelper.open(context);
+    }
+    return DatabaseHelper.storePromise;
+  }
+
+  /** 写事务统一入口：fn 内自行 execute 系列调用，异常自动回滚并包装 AppError */
+  static write<T>(context: common.UIAbilityContext,
+    fn: (store: relationalStore.RdbStore) => Promise<T>): Promise<T> {
+    const task: Promise<T> = DatabaseHelper.writeChain.then(async (): Promise<T> => {
+      const store: relationalStore.RdbStore = await DatabaseHelper.getStore(context);
+      await store.beginTransaction();
+      try {
+        const result: T = await fn(store);
+        await store.commit();
+        return result;
+      } catch (err) {
+        await store.rollBack();
+        throw new AppError(ErrorCode.RDB_TRANSACTION_FAILED,
+          `写事务失败: ${(err as Error).message}`, err as Error);
+      }
+    });
+    // 链只吞错误不断流，后续写入不被前一次失败卡死
+    DatabaseHelper.writeChain = task.then((): void => {
+    }, (): void => {
+    });
+    return task;
+  }
+
+  private static async open(context: common.UIAbilityContext): Promise<relationalStore.RdbStore> {
+    const config: relationalStore.StoreConfig = {
+      name: STORE_NAME,
+      securityLevel: relationalStore.SecurityLevel.S4
+    };
+    try {
+      const store: relationalStore.RdbStore =
+        await relationalStore.getRdbStore(context, config);
+      await DatabaseHelper.migrate(store);
+      Logger.info(TAG, `RdbStore 就绪 v${store.version}`);
+      return store;
+    } catch (err) {
+      throw new AppError(ErrorCode.RDB_INIT_FAILED,
+        `建库失败: ${(err as Error).message}`, err as Error);
+    }
+  }
+
+  private static async migrate(store: relationalStore.RdbStore): Promise<void> {
+    const oldVersion: number = store.version;
+    if (oldVersion === DB_VERSION) {
+      return;
+    }
+    await store.beginTransaction();
+    try {
+      if (oldVersion === 0) {
+        // v0 → v1 全新建表
+        store.executeSql(SQL_CREATE_TRIP);
+        store.executeSql(SQL_CREATE_TRIP_DAY);
+        store.executeSql(SQL_CREATE_ACTIVITY);
+        store.executeSql(SQL_CREATE_MEAL);
+        store.executeSql(SQL_CREATE_SPOT);
+        store.executeSql(SQL_CREATE_AREA);
+        for (const idx of SQL_INDEXES) {
+          store.executeSql(idx);
+        }
+      }
+      // 后续版本在此逐级追加：if (oldVersion < 2) { ...ALTER/CREATE... }
+      store.version = DB_VERSION;
+      await store.commit();
+      Logger.info(TAG, `迁移完成 ${oldVersion} → ${DB_VERSION}`);
+    } catch (err) {
+      await store.rollBack();
+      throw new AppError(ErrorCode.RDB_MIGRATION_FAILED,
+        `迁移失败: ${(err as Error).message}`, err as Error);
+    }
+  }
+}

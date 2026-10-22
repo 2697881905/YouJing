@@ -42,8 +42,8 @@ export default class EntryAbility extends UIAbility {
       this.registerSerifFont(windowStage);
       if (this.pendingRoute.length > 0) {
         APP_NAV.pushPath({ name: this.pendingRoute });
-        this.pendingRoute = '';
       }
+      this.pendingRoute = '';
     });
 
     try {
@@ -71,6 +71,7 @@ export default class EntryAbility extends UIAbility {
   onError(error: Error): void {
     Logger.error('EntryAbility', `未捕获异常: ${error.message}`);
   }
+
 
   // 内置 Noto Serif SC（OFL，沿用有据打包件）。契约 serif 仅 display/title 两档且均 700，
   // 只注册 Bold 一档（有据经验：一个 familyName 只能绑一个字体文件）。
