@@ -44,6 +44,19 @@
             "resource": "$profile:backup_config"
           }
         ],
+      },
+      {
+        "name": "TodayTripFormAbility",
+        "srcEntry": "./ets/widget/TodayTripFormAbility.ets",
+        "label": "$string:widget_display_name",
+        "description": "$string:widget_desc",
+        "type": "form",
+        "metadata": [
+          {
+            "name": "ohos.extension.form",
+            "resource": "$profile:form_config"
+          }
+        ]
       }
     ]
   }

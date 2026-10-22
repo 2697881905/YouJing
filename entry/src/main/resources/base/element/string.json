@@ -11,6 +11,14 @@
     {
       "name": "EntryAbility_label",
       "value": "label"
+    },
+    {
+      "name": "widget_display_name",
+      "value": "今日行程"
+    },
+    {
+      "name": "widget_desc",
+      "value": "桌面常驻今日行程节点"
     }
   ]
 }
