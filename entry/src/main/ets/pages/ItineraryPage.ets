@@ -16,6 +16,8 @@ import { ShadowTokens } from '../design/ShadowTokens';
 import { Activity, ActivityCategory, ActivityStatus, TripDay } from '../model/Trip';
 import { MockTrip } from '../mock/MockTrip';
 import { ImmersiveSegmentBar, SegmentedItem } from '../components/ImmersiveSegmentBar';
+import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
+import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 
 interface DockItem {
   symbol: Resource;
@@ -30,6 +32,8 @@ export struct ItineraryPage {
   private pathStack: NavPathStack = APP_NAV;
   @StorageProp('isDarkMode') isDark: boolean = false;
   @State private dayIndex: number = 0;
+  @State private showDetail: boolean = false;
+  @State private detailAct: Activity | undefined = undefined;
   private days: TripDay[] = MockTrip.TRIP.days;
   private segments: SegmentedItem[] = [
     { label: 'Day 1' }, { label: 'Day 2' }, { label: 'Day 3' }
@@ -222,8 +226,228 @@ export struct ItineraryPage {
       .alignItems(VerticalAlign.Top)
       .width('100%')
       .height(ROW_HEIGHT + (act.reason !== undefined ? 84 : 0))
+      .onClick(() => {
+        this.detailAct = act;
+        this.showDetail = true;
+      })
     }
     .width('100%')
+  }
+
+  @Builder
+  statCol(value: string, label: string) {
+    Column() {
+      Text(value)
+        .fontSize(TypeTokens.small.size)
+        .fontWeight(600)
+        .fontColor(ColorTokens.ink)
+        .fontFeature("'tnum' on")
+      Text(label)
+        .fontSize(TypeTokens.overline.size)
+        .fontWeight(450)
+        .fontColor(ColorTokens.muted)
+        .margin({ top: 2 })
+    }
+    .layoutWeight(1)
+  }
+
+  @Builder
+  hoursRow(label: string, value: string) {
+    Row() {
+      Text(label)
+        .fontSize(TypeTokens.small.size)
+        .fontColor(ColorTokens.muted)
+      Blank()
+      Text(value)
+        .fontSize(TypeTokens.small.size)
+        .fontWeight(600)
+        .fontColor(ColorTokens.ink)
+        .fontFeature("'tnum' on")
+    }
+    .width('100%')
+    .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+  }
+
+  @Builder
+  miniNode(idx: number, meta: string, name: string, active: boolean) {
+    Column({ space: SpaceTokens.xs }) {
+      Stack() {
+        Column()
+          .width(24)
+          .height(24)
+          .borderRadius(RadiusTokens.pill)
+          .backgroundColor(active ? ColorTokens.primary : ColorTokens.canvas)
+          .border({ width: 2, color: active ? ColorTokens.primary : ColorTokens.ink })
+        if (!active) {
+          Text(`${idx}`)
+            .fontSize(TypeTokens.caption.size)
+            .fontWeight(600)
+            .fontColor(ColorTokens.ink)
+            .fontFeature("'tnum' on")
+        }
+      }
+      Text(meta)
+        .fontSize(TypeTokens.overline.size)
+        .fontColor(active ? ColorTokens.primary : ColorTokens.muted)
+        .fontFeature("'tnum' on")
+      Text(name)
+        .fontSize(TypeTokens.caption.size)
+        .fontWeight(active ? 600 : 400)
+        .fontColor(active ? ColorTokens.ink : ColorTokens.body)
+    }
+    .layoutWeight(1)
+  }
+
+  @Builder
+  detailSheet() {
+    Column() {
+      if (this.detailAct !== undefined) {
+        Scroll() {
+          Column() {
+            Row({ space: SpaceTokens.md }) {
+              Column()
+                .width(96)
+                .height(120)
+                .borderRadius(RadiusTokens.media)
+                .backgroundColor(ColorTokens.surfaceSunken)
+              Column() {
+                Text(this.detailAct.title)
+                  .fontSize(TypeTokens.headline.size)
+                  .fontWeight(600)
+                  .fontColor(ColorTokens.ink)
+                Text(`${this.detailAct.address} · 山脚入口`)
+                  .fontSize(TypeTokens.caption.size)
+                  .fontWeight(450)
+                  .fontColor(ColorTokens.muted)
+                  .margin({ top: SpaceTokens.xs })
+                Row({ space: SpaceTokens.xs }) {
+                  Text('必去')
+                    .fontSize(TypeTokens.overline.size)
+                    .fontWeight(600)
+                    .fontColor(ColorTokens.bookmark)
+                    .height(22)
+                    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+                    .borderRadius(RadiusTokens.pill)
+                    .backgroundColor(ColorTokens.surfaceSubtle)
+                  if (this.detailAct.status === ActivityStatus.NOT_BOOKED) {
+                    Text('需预约')
+                      .fontSize(TypeTokens.overline.size)
+                      .fontWeight(600)
+                      .fontColor(ColorTokens.onPrimary)
+                      .height(22)
+                      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+                      .borderRadius(RadiusTokens.pill)
+                      .backgroundColor(ColorTokens.warning)
+                  }
+                }
+                .margin({ top: SpaceTokens.sm })
+              }
+              .alignItems(HorizontalAlign.Start)
+              .layoutWeight(1)
+            }
+            .alignItems(VerticalAlign.Top)
+            .width('100%')
+
+            Row() {
+              this.statCol(this.durationText(this.detailAct), '停留建议')
+              this.statCol(this.detailAct.time, '计划到达')
+              this.statCol('12分钟', '步行耗时')
+              this.statCol('¥0', '门票费用')
+            }
+            .width('100%')
+            .padding(SpaceTokens.md)
+            .borderRadius(RadiusTokens.card)
+            .backgroundColor(ColorTokens.surfaceElevated)
+            .margin({ top: SpaceTokens.lg })
+
+            Column() {
+              this.hoursRow('开放时间', '全天（24小时）')
+              Divider().strokeWidth(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
+              this.hoursRow('建议时段', '06:30–08:00 · 人少')
+            }
+            .width('100%')
+            .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+            .margin({ top: SpaceTokens.md })
+
+            Text('红叶季周末 09:00 后山道拥挤')
+              .fontSize(TypeTokens.caption.size)
+              .fontWeight(450)
+              .fontColor(ColorTokens.warning)
+              .fontFeature("'tnum' on")
+              .width('100%')
+              .margin({ top: SpaceTokens.xs })
+
+            if (this.detailAct.reason !== undefined) {
+              Column() {
+                Text('为什么排在这里')
+                  .fontSize(TypeTokens.overline.size)
+                  .fontWeight(600)
+                  .fontColor(ColorTokens.muted)
+                Text(this.detailAct.reason)
+                  .fontSize(TypeTokens.small.size)
+                  .fontColor(ColorTokens.ink)
+                  .margin({ top: SpaceTokens.xs })
+              }
+              .alignItems(HorizontalAlign.Start)
+              .width('100%')
+              .padding(SpaceTokens.md)
+              .borderRadius(RadiusTokens.reason)
+              .backgroundColor(ColorTokens.surfacePanel)
+              .border({ width: { left: 2 }, color: ColorTokens.primary })
+              .margin({ top: SpaceTokens.md })
+            }
+
+            Column() {
+              Text('动线位置')
+                .fontSize(TypeTokens.overline.size)
+                .fontWeight(600)
+                .fontColor(ColorTokens.muted)
+                .alignSelf(ItemAlign.Start)
+              Row() {
+                this.miniNode(1, '上一站 06:50', '一条', false)
+                this.miniNode(2, '当前站点', this.detailAct.title, true)
+                this.miniNode(3, '下一站 10:20', '东福寺', false)
+              }
+              .width('100%')
+              .padding({ top: SpaceTokens.md })
+            }
+            .width('100%')
+            .padding(SpaceTokens.md)
+            .borderRadius(RadiusTokens.card)
+            .backgroundColor(ColorTokens.surfaceElevated)
+            .margin({ top: SpaceTokens.md, bottom: SpaceTokens.xl })
+          }
+          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+        }
+        .layoutWeight(1)
+        .scrollBar(BarState.Off)
+        .align(Alignment.Top)
+
+        Row({ space: SpaceTokens.md }) {
+          YoujingButton({
+            variant: YoujingButtonVariant.SECONDARY,
+            label: '换一个时间',
+            buttonWidth: 160,
+            onAction: (): void => {
+              this.showDetail = false;
+            }
+          })
+          YoujingButton({
+            variant: YoujingButtonVariant.PRIMARY,
+            label: '加入日历提醒',
+            onAction: (): void => {
+              this.showDetail = false;
+            }
+          })
+            .layoutWeight(1)
+        }
+        .width('100%')
+        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.sm, bottom: SpaceTokens.md })
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor(ColorTokens.canvas)
   }
 
   build() {
@@ -249,6 +473,9 @@ export struct ItineraryPage {
                 .fontSize(22)
                 .fontColor([ColorTokens.ink])
                 .margin({ left: SpaceTokens.lg })
+                .onClick(() => {
+                  this.pathStack.pushPath({ name: 'EditItinerary' });
+                })
             }
             .width('100%')
             .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
@@ -366,6 +593,12 @@ export struct ItineraryPage {
       .width('100%')
       .height('100%')
       .backgroundColor(ColorTokens.canvas)
+      .bindSheet($$this.showDetail, this.detailSheet(), {
+        height: '85%',
+        backgroundColor: ColorTokens.canvas,
+        showClose: true,
+        systemMaterial: getSheetImmersiveMaterial()
+      })
     }
     .hideTitleBar(true)
   }

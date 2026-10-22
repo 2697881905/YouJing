@@ -12,6 +12,8 @@ import { SpotPickPage } from './SpotPickPage';
 import { StayPickPage } from './StayPickPage';
 import { GeneratingPage } from './GeneratingPage';
 import { ItineraryPage } from './ItineraryPage';
+import { GenerateFailedPage } from './GenerateFailedPage';
+import { EditItineraryPage } from './EditItineraryPage';
 import { ComingSoonPage } from './ComingSoonPage';
 
 @Builder
@@ -28,6 +30,10 @@ function routerMap(name: string, param: object) {
     GeneratingPage()
   } else if (name === 'Itinerary') {
     ItineraryPage()
+  } else if (name === 'GenerateFailed') {
+    GenerateFailedPage()
+  } else if (name === 'EditItinerary') {
+    EditItineraryPage()
   } else {
     ComingSoonPage({ routeName: name })
   }

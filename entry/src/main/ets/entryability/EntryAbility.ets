@@ -2,12 +2,21 @@ import { AbilityConstant, Configuration, ConfigurationConstant, UIAbility, Want 
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 import { Logger } from '../common/logger/Logger';
+import { APP_NAV } from '../common/constants/AppNav';
 
 const DOMAIN = 0x0000;
 
 export default class EntryAbility extends UIAbility {
+  private pendingRoute: string = '';
+
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onCreate');
+    // 外部拉起预填通道（hdc/深链，将来小艺 Skill onNewWant 同源复用）：
+    // aa start --ps route GenerateFailed
+    const params: Record<string, Object> | undefined = want.parameters;
+    if (params !== undefined && typeof params['route'] === 'string') {
+      this.pendingRoute = params['route'] as string;
+    }
   }
 
   onConfigurationUpdate(newConfig: Configuration): void {
@@ -31,6 +40,10 @@ export default class EntryAbility extends UIAbility {
       }
       hilog.info(DOMAIN, 'testTag', 'Succeeded in loading the content.');
       this.registerSerifFont(windowStage);
+      if (this.pendingRoute.length > 0) {
+        APP_NAV.pushPath({ name: this.pendingRoute });
+        this.pendingRoute = '';
+      }
     });
 
     try {
