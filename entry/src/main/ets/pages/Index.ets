@@ -14,6 +14,10 @@ import { GeneratingPage } from './GeneratingPage';
 import { ItineraryPage } from './ItineraryPage';
 import { GenerateFailedPage } from './GenerateFailedPage';
 import { EditItineraryPage } from './EditItineraryPage';
+import { ExpensePage } from './ExpensePage';
+import { TripsPage } from './TripsPage';
+import { OnTripPage } from './OnTripPage';
+import { SharePage } from './SharePage';
 import { ComingSoonPage } from './ComingSoonPage';
 
 @Builder
@@ -34,6 +38,14 @@ function routerMap(name: string, param: object) {
     GenerateFailedPage()
   } else if (name === 'EditItinerary') {
     EditItineraryPage()
+  } else if (name === 'Expense') {
+    ExpensePage()
+  } else if (name === 'Trips') {
+    TripsPage()
+  } else if (name === 'OnTrip') {
+    OnTripPage()
+  } else if (name === 'Share') {
+    SharePage()
   } else {
     ComingSoonPage({ routeName: name })
   }
