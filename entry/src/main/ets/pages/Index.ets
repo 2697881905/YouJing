@@ -1,23 +1,36 @@
+/**
+ * 应用根 · Navigation 容器（handoff §12 路由表）。
+ * 屏1 首启页为导航栏内容（栈空即首启），其余路由经 routerMap 分发。
+ * 未落地路由统一进 ComingSoon 占位，主链批次内保持可点闭环。
+ */
+
+import { APP_NAV } from '../common/constants/AppNav';
+import { YoujingStartPage } from './YoujingStartPage';
+import { TripInputPage } from './TripInputPage';
+import { PreferenceQAPage } from './PreferenceQAPage';
+import { ComingSoonPage } from './ComingSoonPage';
+
+@Builder
+function routerMap(name: string, param: object) {
+  if (name === 'TripInput') {
+    TripInputPage()
+  } else if (name === 'PreferenceQA') {
+    PreferenceQAPage()
+  } else {
+    ComingSoonPage({ routeName: name })
+  }
+}
+
 @Entry
 @Component
 struct Index {
-  @State message: string = 'Hello World';
-
   build() {
-    RelativeContainer() {
-      Text(this.message)
-        .id('HelloWorld')
-        .fontSize($r('app.float.page_text_font_size'))
-        .fontWeight(FontWeight.Bold)
-        .alignRules({
-          center: { anchor: '__container__', align: VerticalAlign.Center },
-          middle: { anchor: '__container__', align: HorizontalAlign.Center }
-        })
-        .onClick(() => {
-          this.message = 'Welcome';
-        })
+    Navigation(APP_NAV) {
+      YoujingStartPage()
     }
-    .height('100%')
-    .width('100%')
+    .navDestination(routerMap)
+    .mode(NavigationMode.Stack)
+    .hideTitleBar(true)
+    .backgroundColor($r('app.color.canvas'))
   }
 }

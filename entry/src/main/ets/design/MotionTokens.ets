@@ -5,9 +5,8 @@
  * spring 预留：弹性效果用 curves.springMotion(damping, mass)（import { curves } from '@kit.ArkUI'），
  * 时长由弹簧参数决定；接入时在此登记统一参数，禁止页面各自调参。
  * 禁令（§8-10）：不许用 opacity 表达状态（完成/禁用/选中一律换 token 或加图标）。
+ * Curve 为 ArkUI 全局枚举，不 import（@kit.ArkUI 无该导出）。
  */
-
-import { Curve } from '@kit.ArkUI';
 
 export interface MotionTokensType {
   /** 微反馈（按压态、勾选） */

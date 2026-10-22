@@ -45,6 +45,8 @@ export interface ColorTokensType {
   bookmark: Resource;
   // 线与遮罩
   hairline: Resource;
+  /** 次按钮描边（契约 rgba(196,196,202,0.40) / 深色 rgba(69,69,75,0.32)） */
+  borderSubtle: Resource;
   hairlineStrong: Resource;
   separator: Resource;
   modalScrim: Resource;
@@ -95,6 +97,7 @@ export const ColorTokens: ColorTokensType = {
   like: $r('app.color.like'),
   bookmark: $r('app.color.bookmark'),
   hairline: $r('app.color.hairline'),
+  borderSubtle: $r('app.color.border_subtle'),
   hairlineStrong: $r('app.color.hairline_strong'),
   separator: $r('app.color.separator'),
   modalScrim: $r('app.color.modal_scrim'),
