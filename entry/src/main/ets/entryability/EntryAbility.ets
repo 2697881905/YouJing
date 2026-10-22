@@ -24,6 +24,7 @@ export default class EntryAbility extends UIAbility {
         return;
       }
       hilog.info(DOMAIN, 'testTag', 'Succeeded in loading the content.');
+      this.registerSerifFont(windowStage);
     });
 
     try {
@@ -50,5 +51,18 @@ export default class EntryAbility extends UIAbility {
 
   onError(error: Error): void {
     Logger.error('EntryAbility', `未捕获异常: ${error.message}`);
+  }
+
+  // 内置 Noto Serif SC（OFL，沿用有据打包件）。契约 serif 仅 display/title 两档且均 700，
+  // 只注册 Bold 一档（有据经验：一个 familyName 只能绑一个字体文件）。
+  private registerSerifFont(windowStage: window.WindowStage): void {
+    try {
+      windowStage.getMainWindowSync().getUIContext().getFont().registerFont({
+        familyName: 'NotoSerifSC',
+        familySrc: $rawfile('fonts/NotoSerifSC-Bold.otf')
+      });
+    } catch (err) {
+      Logger.error('EntryAbility', `衬线字体注册失败: ${(err as Error).message}`);
+    }
   }
 }
