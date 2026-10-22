@@ -47,7 +47,9 @@ export class PromptBuilder {
     const b = params.basic;
     lines.push(`目的地：${b.destination}；日期：${b.startDate} 至 ${b.endDate}；人数：${b.people}；预算：${b.budget} 元/人。`);
     lines.push(`风格：${params.style}；住宿档位：${params.stayTier}；交通偏好：${params.transit}；节奏：${params.paces.join('/') || 'standard'}。`);
-    lines.push(`住宿区域：${area.name}（${area.metroLines.join('/')}，锚定站 ${area.anchorStations.join('/')}，到首个景点参考 ${area.airportMinutes} 分钟内可达圈）。`);
+    lines.push(`住宿区域：${area.name}（价格档位 ${area.priceTier}，` +
+      `${area.metroLines.join('/')}，锚定站 ${area.anchorStations.join('/')}，` +
+      `到机场 ${area.airportMinutes} 分钟、火车站 ${area.trainStationMinutes} 分钟）。`);
     lines.push('已选景点（含完整规划信息）：');
     for (const sel of params.selectedSpots) {
       const spot: Spot | undefined = spots.find((s: Spot): boolean => s.id === sel.spotId);

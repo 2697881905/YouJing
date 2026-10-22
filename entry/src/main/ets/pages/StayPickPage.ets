@@ -12,7 +12,7 @@ import { SpaceTokens } from '../design/SpaceTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
 import { AreaPick } from '../mock/MockData';
-import { Area } from '../model/Area';
+import { Area, AreaPriceTier } from '../model/Area';
 import { PlanRepository } from '../data/PlanRepository';
 import { PlanDraft } from '../data/PlanDraft';
 import { common } from '@kit.AbilityKit';
@@ -51,6 +51,13 @@ export struct StayPickPage {
     });
   }
 
+  private areaMeta(area: Area): string {
+    const tier: string = area.priceTier === AreaPriceTier.ECONOMY ? '经济档'
+      : (area.priceTier === AreaPriceTier.LUXURY ? '豪华档' : '舒适档');
+    const lines: string = area.metroLines.length > 0 ? `地铁 ${area.metroLines.slice(0, 2).join('/')}` : '无直达地铁';
+    return `${tier} · ${lines} · 机场 ${area.airportMinutes}分钟`;
+  }
+
   @Builder
   areaCard(pick: AreaPick) {
     Column() {
@@ -60,6 +67,14 @@ export struct StayPickPage {
             .fontSize(TypeTokens.headline.size)
             .fontWeight(600)
             .fontColor(ColorTokens.ink)
+          // 档位/线路/通勤都是区域库真字段（价位段数据未采集，故不显示价格）
+          Text(this.areaMeta(pick.area))
+            .fontSize(TypeTokens.caption.size)
+            .fontWeight(450)
+            .fontColor(ColorTokens.muted)
+            .fontFeature("'tnum' on")
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
         }
         .alignItems(HorizontalAlign.Start)
         .layoutWeight(1)

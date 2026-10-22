@@ -15,8 +15,9 @@
   - 阶段9 系统触达：屏14 Calendar Kit 真写入（预约节点 + 每日全天、按 tripId 幂等清理）；
     今日行程卡片读真 RDB 数据（`data/TodayPlan` 纯函数 + FormExtensionAbility 直读回灌）；
     外部拉起参数通道（`onNewWant` + 屏2 预填回显）为小艺 Skill 接收端就绪
-  - 阶段10（进行中）费用记录：`expense` 表 v2→v3 迁移 + `ExpenseDao` 按 uid 分区，
-    屏11 hero/分类/最近记账全部取记账真值，补底稿遗漏的「记一笔」Pill 与录入面板
+  - 阶段10 费用与导出：`expense` 表 v2→v3 迁移 + `ExpenseDao` 按 uid 分区，屏11 hero/分类/最近记账
+    取记账真值并补底稿遗漏的「记一笔」Pill；`utils/IcsBuilder` 生成 RFC 5545 `.ics`（VALARM 提前提醒、
+    字节折行、CRLF）+ `data/ShareExporter` 走系统分享面板；屏10 详情面板 mock 事实全部换成真值或 `—`
   - 回归：hypium 31/31（含 TodayPlan 10 条纯逻辑断言）；RDB/账号/日历分片路径改真机验收
     （原因见 `Docs/INIT_REPORT.md` 已知限制 #10）
 

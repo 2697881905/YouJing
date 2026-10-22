@@ -179,6 +179,113 @@ export struct ItineraryPage {
     });
   }
 
+  private detailList(): Activity[] {
+    return this.curDay().activities;
+  }
+
+  private detailIndex(): number {
+    const act: Activity | undefined = this.detailAct;
+    if (act === undefined) {
+      return -1;
+    }
+    const list: Activity[] = this.detailList();
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].id === act.id) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  private dayPos(): number {
+    const i: number = this.detailIndex();
+    return i < 0 ? 1 : i + 1;
+  }
+
+  private detailAddressLine(): string {
+    const act: Activity | undefined = this.detailAct;
+    if (act === undefined) {
+      return '';
+    }
+    return act.address.length > 0 ? act.address : act.location;
+  }
+
+  private statusChip(): string {
+    const act: Activity | undefined = this.detailAct;
+    if (act === undefined) {
+      return '';
+    }
+    if (act.status === ActivityStatus.BOOKED) {
+      return '已约';
+    }
+    if (act.status === ActivityStatus.FULL) {
+      return '约满';
+    }
+    if (act.status === ActivityStatus.PENDING) {
+      return '待定';
+    }
+    return '';
+  }
+
+  private statusFullText(): string {
+    const act: Activity | undefined = this.detailAct;
+    if (act === undefined) {
+      return '';
+    }
+    if (act.status === ActivityStatus.NOT_BOOKED) {
+      return '需预约，尚未确认';
+    }
+    if (act.status === ActivityStatus.BOOKED) {
+      return '已预约';
+    }
+    if (act.status === ActivityStatus.FULL) {
+      return '已约满，需改期或换时段';
+    }
+    if (act.status === ActivityStatus.PENDING) {
+      return '待定';
+    }
+    return '无需预约';
+  }
+
+  private commuteText(): string {
+    const act: Activity | undefined = this.detailAct;
+    if (act === undefined || act.transport === undefined) {
+      return '—';
+    }
+    return `${act.transport.duration}分钟`;
+  }
+
+  private arrivalText(): string {
+    const act: Activity | undefined = this.detailAct;
+    if (act === undefined || act.transport === undefined) {
+      return '当日首站，无通勤';
+    }
+    const detail: string = act.transport.detail.length > 0 ? ` · ${act.transport.detail}` : '';
+    return `${act.transport.mode} ${act.transport.duration}分钟${detail}`;
+  }
+
+  private prevTitle(): string {
+    const i: number = this.detailIndex();
+    return i > 0 ? this.detailList()[i - 1].title : '今日首站';
+  }
+
+  private prevLabel(): string {
+    const i: number = this.detailIndex();
+    return i > 0 ? `上一站 ${this.detailList()[i - 1].time}` : '当日第 1 站';
+  }
+
+  private nextTitle(): string {
+    const i: number = this.detailIndex();
+    const list: Activity[] = this.detailList();
+    return i >= 0 && i < list.length - 1 ? list[i + 1].title : '今日末站';
+  }
+
+  private nextLabel(): string {
+    const i: number = this.detailIndex();
+    const list: Activity[] = this.detailList();
+    return i >= 0 && i < list.length - 1 ? `下一站 ${list[i + 1].time}` : '当日最后';
+  }
+
   private curDay(): TripDay {
     if (this.days.length === 0) {
       const placeholder: TripDay = {
@@ -460,20 +567,22 @@ export struct ItineraryPage {
                   .fontSize(TypeTokens.headline.size)
                   .fontWeight(600)
                   .fontColor(ColorTokens.ink)
-                Text(`${this.detailAct.address} · 山脚入口`)
+                Text(this.detailAddressLine())
                   .fontSize(TypeTokens.caption.size)
                   .fontWeight(450)
                   .fontColor(ColorTokens.muted)
                   .margin({ top: SpaceTokens.xs })
                 Row({ space: SpaceTokens.xs }) {
-                  Text('必去')
-                    .fontSize(TypeTokens.overline.size)
-                    .fontWeight(600)
-                    .fontColor(ColorTokens.bookmark)
-                    .height(22)
-                    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
-                    .borderRadius(RadiusTokens.pill)
-                    .backgroundColor(ColorTokens.surfaceSubtle)
+                  if (this.statusChip() !== '') {
+                    Text(this.statusChip())
+                      .fontSize(TypeTokens.overline.size)
+                      .fontWeight(600)
+                      .fontColor(ColorTokens.bookmark)
+                      .height(22)
+                      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+                      .borderRadius(RadiusTokens.pill)
+                      .backgroundColor(ColorTokens.surfaceSubtle)
+                  }
                   if (this.detailAct.status === ActivityStatus.NOT_BOOKED) {
                     Text('需预约')
                       .fontSize(TypeTokens.overline.size)
@@ -496,8 +605,8 @@ export struct ItineraryPage {
             Row() {
               this.statCol(this.durationText(this.detailAct), '停留建议')
               this.statCol(this.detailAct.time, '计划到达')
-              this.statCol('12分钟', '步行耗时')
-              this.statCol('¥0', '门票费用')
+              this.statCol(this.commuteText(), '到达耗时')
+              this.statCol('—', '门票费用')
             }
             .width('100%')
             .padding(SpaceTokens.md)
@@ -506,21 +615,23 @@ export struct ItineraryPage {
             .margin({ top: SpaceTokens.lg })
 
             Column() {
-              this.hoursRow('开放时间', '全天（24小时）')
+              this.hoursRow('预约状态', this.statusFullText())
               Divider().strokeWidth(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
-              this.hoursRow('建议时段', '06:30–08:00 · 人少')
+              this.hoursRow('到达方式', this.arrivalText())
             }
             .width('100%')
             .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
             .margin({ top: SpaceTokens.md })
 
-            Text('红叶季周末 09:00 后山道拥挤')
-              .fontSize(TypeTokens.caption.size)
-              .fontWeight(450)
-              .fontColor(ColorTokens.warning)
-              .fontFeature("'tnum' on")
-              .width('100%')
-              .margin({ top: SpaceTokens.xs })
+            if (this.detailAct.note !== undefined && this.detailAct.note.length > 0) {
+              Text(this.detailAct.note)
+                .fontSize(TypeTokens.caption.size)
+                .fontWeight(450)
+                .fontColor(ColorTokens.warning)
+                .fontFeature("'tnum' on")
+                .width('100%')
+                .margin({ top: SpaceTokens.xs })
+            }
 
             if (this.detailAct.reason !== undefined) {
               Column() {
@@ -549,9 +660,9 @@ export struct ItineraryPage {
                 .fontColor(ColorTokens.muted)
                 .alignSelf(ItemAlign.Start)
               Row() {
-                this.miniNode(1, '上一站 06:50', '一条', false)
-                this.miniNode(2, '当前站点', this.detailAct.title, true)
-                this.miniNode(3, '下一站 10:20', '东福寺', false)
+                this.miniNode(this.dayPos() - 1, this.prevLabel(), this.prevTitle(), false)
+                this.miniNode(this.dayPos(), '当前站点', this.detailAct.title, true)
+                this.miniNode(this.dayPos() + 1, this.nextLabel(), this.nextTitle(), false)
               }
               .width('100%')
               .padding({ top: SpaceTokens.md })
