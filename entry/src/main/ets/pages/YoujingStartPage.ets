@@ -25,6 +25,9 @@ interface PreviewLeg {
   text: string;
 }
 
+// 预览动线行高：契约 itinerary-row-min-height，行内 spine 线取定值避免百分比循环
+const ROW_HEIGHT: number = 76;
+
 @Component
 export struct YoujingStartPage {
   private pathStack: NavPathStack = APP_NAV;
@@ -72,12 +75,12 @@ export struct YoujingStartPage {
       Stack({ alignContent: Alignment.Top }) {
         Column()
           .width(LayoutTokens.routeLineWidth)
-          .height(index === this.stops.length - 1 ? 12 : '100%')
+          .height(index === this.stops.length - 1 ? 12 : ROW_HEIGHT)
           .backgroundColor(ColorTokens.surfaceSunken)
         this.spineNode(stop.dotColor)
       }
       .width(24)
-      .margin({ top: 2 })
+      .height(ROW_HEIGHT)
       Column() {
         Text(stop.name)
           .fontSize(TypeTokens.headline.size)
@@ -96,26 +99,32 @@ export struct YoujingStartPage {
       .padding({ left: SpaceTokens.sm, bottom: SpaceTokens.sm })
     }
     .alignItems(VerticalAlign.Top)
-    .constraintSize({ minHeight: LayoutTokens.itineraryRowMinHeight })
+    .width('100%')
+    .height(ROW_HEIGHT)
   }
 
   @Builder
   transitLeg(leg: PreviewLeg) {
-    Row({ space: SpaceTokens.sm }) {
-      SymbolGlyph($r('sys.symbol.figure_walk'))
-        .fontSize(14)
-        .fontColor([ColorTokens.icon])
-      Text(leg.text)
-        .fontSize(TypeTokens.caption.size)
-        .fontWeight(450)
-        .fontColor(ColorTokens.muted)
-        .fontFeature("'tnum' on")
+    Row() {
+      Row({ space: SpaceTokens.sm }) {
+        SymbolGlyph($r('sys.symbol.figure_walk'))
+          .fontSize(14)
+          .fontColor([ColorTokens.icon])
+        Text(leg.text)
+          .fontSize(TypeTokens.caption.size)
+          .fontWeight(450)
+          .fontColor(ColorTokens.muted)
+          .fontFeature("'tnum' on")
+      }
+      .height(LayoutTokens.transitLegHeight)
+      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+      .borderRadius(RadiusTokens.capsule)
+      .border({ width: 2, style: BorderStyle.Dashed, color: ColorTokens.separator, radius: RadiusTokens.capsule })
+      .layoutWeight(1)
     }
-    .height(LayoutTokens.transitLegHeight)
-    .margin({ left: 48, bottom: SpaceTokens.sm })
-    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
-    .borderRadius(RadiusTokens.capsule)
-    .border({ width: 2, style: BorderStyle.Dashed, color: ColorTokens.separator, radius: RadiusTokens.capsule })
+    .width('100%')
+    .padding({ left: 48 })
+    .margin({ bottom: SpaceTokens.sm })
   }
 
   build() {
@@ -162,6 +171,7 @@ export struct YoujingStartPage {
             .backgroundColor(ColorTokens.primary)
         }
         .alignItems(VerticalAlign.Center)
+        .width('100%')
         .padding({ bottom: SpaceTokens.sm })
         .border({ width: { bottom: LayoutTokens.hairlineWidth }, color: ColorTokens.separator })
 
@@ -173,6 +183,8 @@ export struct YoujingStartPage {
             }
           }, (stop: PreviewStop, index: number): string => `start-preview-${index}-${stop.time}`)
         }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
         .margin({ top: SpaceTokens.sm })
 
         Column() {
@@ -196,6 +208,7 @@ export struct YoujingStartPage {
       .padding(SpaceTokens.lg)
       .borderRadius(RadiusTokens.card)
       .backgroundColor(ColorTokens.surfaceElevated)
+      .width('100%')
 
       Blank()
 
@@ -224,6 +237,7 @@ export struct YoujingStartPage {
     }
     .width('100%')
     .height('100%')
+    .alignItems(HorizontalAlign.Start)
     .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
     .backgroundColor(ColorTokens.canvas)
   }
