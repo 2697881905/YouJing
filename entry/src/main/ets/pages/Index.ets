@@ -45,7 +45,7 @@ function routerMap(name: string, param: object) {
   } else if (name === 'OnTrip') {
     OnTripPage()
   } else if (name === 'Share') {
-    SharePage()
+    SharePage({ tripId: typeof param === 'string' ? param as string : '' })
   } else {
     ComingSoonPage({ routeName: name })
   }

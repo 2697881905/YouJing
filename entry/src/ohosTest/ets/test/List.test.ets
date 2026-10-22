@@ -4,6 +4,7 @@ import dataSeederTest from './DataSeeder.test';
 import llmPipelineTest from './LlmPipeline.test';
 import accountTest from './Account.test';
 import todayPlanTest from './TodayPlan.test';
+import icsBuilderTest from './IcsBuilder.test';
 
 export default function testsuite() {
   abilityTest();
@@ -12,4 +13,5 @@ export default function testsuite() {
   llmPipelineTest();
   accountTest();
   todayPlanTest();
+  icsBuilderTest();
 }

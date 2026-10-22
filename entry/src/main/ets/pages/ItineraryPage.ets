@@ -736,7 +736,7 @@ export struct ItineraryPage {
                 .fontSize(22)
                 .fontColor([ColorTokens.ink])
                 .onClick(() => {
-                  this.pathStack.pushPath({ name: 'Share' });
+                  this.pathStack.pushPath({ name: 'Share', param: this.tripId });
                 })
               SymbolGlyph($r('sys.symbol.ellipsis_circle'))
                 .fontSize(22)
