@@ -19,11 +19,30 @@ struct TodayTripCard {
   @LocalStorageProp('meta') meta: string = '步行 5.2km · 还剩 2 站';
   @LocalStorageProp('footer') footer: string = '还有 1 个需预约节点 · 14:20 前';
   @LocalStorageProp('dimension') dimension: string = '2*2';
-  private rows: CardRow[] = [
-    { time: '09:00', name: '岚山竹林', dot: $r('app.color.primary') },
-    { time: '11:30', name: '天龙寺', dot: $r('app.color.bookmark') },
-    { time: '13:00', name: '午餐 · 岚面', dot: $r('app.color.accent_mention') }
+  @LocalStorageProp('r1t') r1t: string = '';
+  @LocalStorageProp('r1n') r1n: string = '';
+  @LocalStorageProp('r2t') r2t: string = '';
+  @LocalStorageProp('r2n') r2n: string = '';
+  @LocalStorageProp('r3t') r3t: string = '';
+  @LocalStorageProp('r3n') r3n: string = '';
+  @LocalStorageProp('tripId') tripId: string = '';
+  private dots: Resource[] = [
+    $r('app.color.primary'), $r('app.color.bookmark'), $r('app.color.accent_mention')
   ];
+
+  /** 逐格标量回灌（卡片数组 @LocalStorageProp 不刷新），空槽不占行 */
+  private cardRows(): CardRow[] {
+    const times: string[] = [this.r1t, this.r2t, this.r3t];
+    const names: string[] = [this.r1n, this.r2n, this.r3n];
+    const rows: CardRow[] = [];
+    for (let i = 0; i < times.length; i++) {
+      if (names[i].length > 0) {
+        const row: CardRow = { time: times[i], name: names[i], dot: this.dots[i] };
+        rows.push(row);
+      }
+    }
+    return rows;
+  }
 
   build() {
     Column() {
@@ -45,7 +64,7 @@ struct TodayTripCard {
         .textOverflow({ overflow: TextOverflow.Ellipsis })
 
       Column({ space: 4 }) {
-        ForEach(this.rows, (row: CardRow) => {
+        ForEach(this.cardRows(), (row: CardRow) => {
           Row({ space: 6 }) {
             Text(row.time)
               .fontSize(11)
@@ -65,7 +84,7 @@ struct TodayTripCard {
               .layoutWeight(1)
           }
           .width('100%')
-        }, (row: CardRow): string => `w-${row.time}`)
+        }, (row: CardRow): string => `w-${row.time}-${row.name}`)
       }
       .width('100%')
       .margin({ top: 6 })
@@ -84,7 +103,7 @@ struct TodayTripCard {
     .padding(this.dimension === '2*4' ? 16 : 12)
     .backgroundColor($r('app.color.canvas'))
     .onClick(() => {
-      const routeParams: Record<string, string> = { 'route': 'Itinerary' };
+      const routeParams: Record<string, string> = { 'route': 'Itinerary', 'param': this.tripId };
       postCardAction(this, {
         action: 'router',
         abilityName: 'EntryAbility',

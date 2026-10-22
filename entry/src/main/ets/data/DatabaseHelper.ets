@@ -88,7 +88,7 @@ export class DatabaseHelper {
   /** 单写通道：所有写事务排队串行，规避 RDB busy（§8 风险表） */
   private static writeChain: Promise<void> = Promise.resolve();
 
-  static getStore(context: common.UIAbilityContext): Promise<relationalStore.RdbStore> {
+  static getStore(context: common.Context): Promise<relationalStore.RdbStore> {
     if (DatabaseHelper.storePromise === null) {
       DatabaseHelper.storePromise = DatabaseHelper.open(context);
     }
@@ -96,7 +96,7 @@ export class DatabaseHelper {
   }
 
   /** 写事务统一入口：fn 内自行 execute 系列调用，异常自动回滚并包装 AppError */
-  static write<T>(context: common.UIAbilityContext,
+  static write<T>(context: common.Context,
     fn: (store: relationalStore.RdbStore) => Promise<T>): Promise<T> {
     const task: Promise<T> = DatabaseHelper.writeChain.then(async (): Promise<T> => {
       const store: relationalStore.RdbStore = await DatabaseHelper.getStore(context);
@@ -118,7 +118,7 @@ export class DatabaseHelper {
     return task;
   }
 
-  private static async open(context: common.UIAbilityContext): Promise<relationalStore.RdbStore> {
+  private static async open(context: common.Context): Promise<relationalStore.RdbStore> {
     const config: relationalStore.StoreConfig = {
       name: STORE_NAME,
       securityLevel: relationalStore.SecurityLevel.S4

@@ -13,6 +13,7 @@ const DOMAIN = 0x0000;
 
 export default class EntryAbility extends UIAbility {
   private pendingRoute: string = '';
+  private pendingParam: string = '';
 
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onCreate');
@@ -26,8 +27,9 @@ export default class EntryAbility extends UIAbility {
   onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     const touched: boolean = this.applyWant(want);
     if (this.pendingRoute.length > 0) {
-      APP_NAV.pushPath({ name: this.pendingRoute });
+      APP_NAV.pushPath({ name: this.pendingRoute, param: this.pendingParam });
       this.pendingRoute = '';
+      this.pendingParam = '';
     }
     Logger.info('EntryAbility', `onNewWant 外部拉起 touched=${touched}`);
   }
@@ -47,6 +49,7 @@ export default class EntryAbility extends UIAbility {
     let touched: boolean = false;
     if (typeof params['route'] === 'string') {
       this.pendingRoute = params['route'] as string;
+      this.pendingParam = EntryAbility.wantString(params, 'param');
       touched = true;
     }
     const draft: PlanDraft = PlanDraft.get();
@@ -161,9 +164,10 @@ export default class EntryAbility extends UIAbility {
       Logger.error('EntryAbility', `种子灌入失败: ${err.message}`);
     });
     if (this.pendingRoute.length > 0) {
-      APP_NAV.pushPath({ name: this.pendingRoute });
+      APP_NAV.pushPath({ name: this.pendingRoute, param: this.pendingParam });
     }
     this.pendingRoute = '';
+    this.pendingParam = '';
   }
 
   onError(error: Error): void {

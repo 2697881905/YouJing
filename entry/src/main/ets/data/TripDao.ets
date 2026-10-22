@@ -8,6 +8,7 @@ import { relationalStore } from '@kit.ArkData';
 import { common } from '@kit.AbilityKit';
 import { DatabaseHelper } from './DatabaseHelper';
 import { AccountStore } from './AccountStore';
+import { TodayPlan, TodayPlanData } from './TodayPlan';
 import { AccountConfig } from '../common/config/AccountConfig';
 import { Activity, ActivityCategory, ActivityStatus, IntensityLevel, Meal, MealType, TransportInfo, Trip, TripDay } from '../model/Trip';
 import { Logger } from '../common/logger/Logger';
@@ -41,7 +42,7 @@ function parseStringArray(text: string | null): string[] {
 }
 
 export class TripDao {
-  static saveTrip(context: common.UIAbilityContext, trip: Trip): Promise<void> {
+  static saveTrip(context: common.Context, trip: Trip): Promise<void> {
     return DatabaseHelper.write(context, async (store: relationalStore.RdbStore): Promise<void> => {
       await TripDao.deleteRows(store, trip.id);
       const tripRow: relationalStore.ValuesBucket = {
@@ -75,7 +76,7 @@ export class TripDao {
     });
   }
 
-  static listSummaries(context: common.UIAbilityContext): Promise<TripSummary[]> {
+  static listSummaries(context: common.Context): Promise<TripSummary[]> {
     return TripDao.query(context,
       'SELECT t.id, t.destination, t.start_date, t.end_date, t.people, t.total_cost, t.updated_at, ' +
         '(SELECT COUNT(*) FROM activity a WHERE a.trip_id = t.id) AS spot_count ' +
@@ -95,7 +96,7 @@ export class TripDao {
       });
   }
 
-  static async loadTrip(context: common.UIAbilityContext, tripId: string): Promise<Trip | null> {
+  static async loadTrip(context: common.Context, tripId: string): Promise<Trip | null> {
     const heads: Trip[] = await TripDao.query(context,
       'SELECT * FROM trip WHERE id = ? AND user_id = ?', [tripId, AccountStore.uid()],
       (rs: relationalStore.ResultSet): Trip => {
@@ -179,8 +180,28 @@ export class TripDao {
     return trip;
   }
 
+  /** 桌面卡片数据源：当前登录分区里覆盖今天的行程（按更新时间取最近一条） */
+  static async todayPlan(context: common.Context): Promise<TodayPlanData | null> {
+    const summaries: TripSummary[] = await TripDao.listSummaries(context);
+    const today: string = TodayPlan.today();
+    const now: string = TodayPlan.nowHHmm();
+    for (const s of summaries) {
+      const trip: Trip | null = await TripDao.loadTrip(context, s.id);
+      if (trip === null) {
+        continue;
+      }
+      const plan: TodayPlanData | null = TodayPlan.of(trip, today, now);
+      if (plan !== null) {
+        Logger.info(TAG, `今日卡片 ${plan.tripId} ${plan.dayTitle} ${plan.meta}`);
+        return plan;
+      }
+    }
+    Logger.info(TAG, `今日无在途行程 today=${today} 行程数=${summaries.length}`);
+    return null;
+  }
+
   /** 静默登录取到 UnionID 后，把游客分区行程归户到该账号；返回归户后该账号名下条数 */
-  static async adoptGuestTrips(context: common.UIAbilityContext, toUid: string): Promise<number> {
+  static async adoptGuestTrips(context: common.Context, toUid: string): Promise<number> {
     if (toUid === AccountConfig.GUEST_UID) {
       return 0;
     }
@@ -195,7 +216,7 @@ export class TripDao {
     return count;
   }
 
-  static deleteTrip(context: common.UIAbilityContext, tripId: string): Promise<void> {
+  static deleteTrip(context: common.Context, tripId: string): Promise<void> {
     return DatabaseHelper.write(context, async (store: relationalStore.RdbStore): Promise<void> => {
       await TripDao.deleteRows(store, tripId);
     });
@@ -224,7 +245,7 @@ export class TripDao {
     store.executeSync('DELETE FROM meal WHERE trip_id = ?', [tripId]);
   }
 
-  private static async query<T>(context: common.UIAbilityContext, sql: string,
+  private static async query<T>(context: common.Context, sql: string,
     args: relationalStore.ValueType[], map: (rs: relationalStore.ResultSet) => T): Promise<T[]> {
     const store: relationalStore.RdbStore = await DatabaseHelper.getStore(context);
     const rs: relationalStore.ResultSet = await store.querySql(sql, args);
