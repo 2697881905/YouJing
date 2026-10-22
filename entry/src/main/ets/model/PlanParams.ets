@@ -87,6 +87,8 @@ export interface QuestionOption {
 export interface FlowQuestion {
   id: string;
   title: string;
+  /** 标题下辅助说明（屏3「只影响推荐排序，随时可改」） */
+  helper?: string;
   options: QuestionOption[];
   multiSelect: boolean;
   /** 默认兜底答案（用户不操作也能生成，§4.2） */
