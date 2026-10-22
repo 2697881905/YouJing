@@ -12,7 +12,13 @@
   - 阶段5 内置资产：北上广深种子库（每城 32 景点 / 36 区域，rawfile JSONL）+ `DataSeeder` 首启幂等灌入
   - 阶段6/7 AI 与交互：`ai/PromptBuilder`（Schema 内嵌）+ `ai/LlmClient`（Mock 离线闭环 / HTTP 备选 / 失败重试一次）；屏2–6 多轮选项状态机 `data/PlanDraft` + `data/PlanRepository` 打通到落库
   - 阶段8 账号与分区：`common/config/AccountConfig` + `data/AccountStore`（UnionID 静默登录、失败退本机游客分区、登录态 Preferences 持久化）；DB v1→v2 加 `trip.user_id` 分区列与索引，`TripDao` 列表/详情读按 uid 收口、`adoptGuestTrips` 游客数据归户
-  - 回归：hypium 21/21（纯逻辑与守卫）；RDB/账号分片路径改真机验收（原因见 `Docs/INIT_REPORT.md` 已知限制 #10）
+  - 阶段9 系统触达：屏14 Calendar Kit 真写入（预约节点 + 每日全天、按 tripId 幂等清理）；
+    今日行程卡片读真 RDB 数据（`data/TodayPlan` 纯函数 + FormExtensionAbility 直读回灌）；
+    外部拉起参数通道（`onNewWant` + 屏2 预填回显）为小艺 Skill 接收端就绪
+  - 阶段10（进行中）费用记录：`expense` 表 v2→v3 迁移 + `ExpenseDao` 按 uid 分区，
+    屏11 hero/分类/最近记账全部取记账真值，补底稿遗漏的「记一笔」Pill 与录入面板
+  - 回归：hypium 31/31（含 TodayPlan 10 条纯逻辑断言）；RDB/账号/日历分片路径改真机验收
+    （原因见 `Docs/INIT_REPORT.md` 已知限制 #10）
 
 - 工程基线初始化（P1–P5，2026-10-15）：
   - 目录骨架（pages/components/model/data/ai/mock/utils/design/common）与架构契约 `Docs/ARCHITECTURE.md`（目录职责/依赖方向/§5.4 差异/命名规范/UI 约定）

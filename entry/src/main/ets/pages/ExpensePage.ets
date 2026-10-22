@@ -3,6 +3,11 @@
  * 同路由双数据态：segment 预算/实际 切换即两帧（稿件分帧只是分别取证）。
  * §7 必改已落：dock padding 10→8、hero-figure margin 6→4、record-btn gap 6→4、segmented padding 2→0。
  * 金额 hero：32/700 走 sans（数字永不 serif，禁令 8）。
+ *
+ * 数据口径（阶段 10 接真值）：
+ * - 预算总额 = trip.budget（屏2 是「每人预算」）× trip.people，与底稿 8,000×2=16,000 一致；
+ * - 实际与分类条全部来自 expense 表；模型里没有「分类预算」，故预算视角的百分比按
+ *   各分类占预算总额、实际视角按占最大分类，不编造分档预算。
  */
 
 import { APP_NAV } from '../common/constants/AppNav';
@@ -10,8 +15,17 @@ import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
-import { LayoutTokens } from '../design/LayoutTokens';
+import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { ImmersiveSegmentBar, SegmentedItem } from '../components/ImmersiveSegmentBar';
+import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
+import { ExpenseDao } from '../data/ExpenseDao';
+import { TripDao } from '../data/TripDao';
+import { CategoryTotal, Expense, ExpenseCategory } from '../model/Expense';
+import { Trip } from '../model/Trip';
+import { DateUtils } from '../utils/DateUtils';
+import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
+import { Logger } from '../common/logger/Logger';
+import { common } from '@kit.AbilityKit';
 
 interface CategorySpend {
   name: string;
@@ -26,28 +40,169 @@ interface Receipt {
   amount: string;
 }
 
+interface CategoryOption {
+  value: ExpenseCategory;
+  label: string;
+}
+
+const CATEGORY_LABELS: CategoryOption[] = [
+  { value: ExpenseCategory.HOTEL, label: '住宿' },
+  { value: ExpenseCategory.TRANSPORT, label: '交通' },
+  { value: ExpenseCategory.FOOD, label: '餐饮' },
+  { value: ExpenseCategory.TICKET, label: '门票' },
+  { value: ExpenseCategory.SHOP, label: '购物' },
+  { value: ExpenseCategory.OTHER, label: '其他' }
+];
+
+function labelOf(category: ExpenseCategory): string {
+  for (const c of CATEGORY_LABELS) {
+    if (c.value === category) {
+      return c.label;
+    }
+  }
+  return '其他';
+}
+
+function colorOf(category: ExpenseCategory): Resource {
+  if (category === ExpenseCategory.HOTEL) {
+    return ColorTokens.accentMention;
+  }
+  if (category === ExpenseCategory.TRANSPORT) {
+    return ColorTokens.icon;
+  }
+  if (category === ExpenseCategory.FOOD) {
+    return ColorTokens.bookmark;
+  }
+  if (category === ExpenseCategory.TICKET) {
+    return ColorTokens.primary;
+  }
+  return ColorTokens.like;
+}
+
+function clockText(millis: number): string {
+  const d: Date = new Date(millis);
+  const h: string = `${d.getHours()}`;
+  const m: string = `${d.getMinutes()}`;
+  return `${h.length < 2 ? `0${h}` : h}:${m.length < 2 ? `0${m}` : m}`;
+}
+
+function yuan(amount: number): string {
+  return `¥${amount.toLocaleString('en-US')}`;
+}
+
 @Component
 export struct ExpensePage {
   private pathStack: NavPathStack = APP_NAV;
+  @Prop tripId: string = '';
   @State private seg: number = 0;
+  @State private budgetTotal: number = 0;
+  @State private spent: number = 0;
+  @State private daysLeft: number = 0;
+  @State private topCategory: string = '';
+  @State private receipts: Receipt[] = [];
+  @State private totals: CategoryTotal[] = [];
+  @State private showRecord: boolean = false;
+  @State private inputAmount: string = '';
+  @State private inputName: string = '';
+  @State private inputCategory: ExpenseCategory = ExpenseCategory.TICKET;
   private segments: SegmentedItem[] = [{ label: '预算' }, { label: '实际' }];
-  private budgetCats: CategorySpend[] = [
-    { name: '住宿', amount: 6400, pct: 100, color: ColorTokens.accentMention },
-    { name: '交通', amount: 2800, pct: 44, color: ColorTokens.icon },
-    { name: '餐饮', amount: 2640, pct: 41, color: ColorTokens.bookmark },
-    { name: '门票', amount: 1000, pct: 16, color: ColorTokens.primary }
-  ];
-  private actualCats: CategorySpend[] = [
-    { name: '住宿', amount: 7200, pct: 100, color: ColorTokens.accentMention },
-    { name: '交通', amount: 3400, pct: 47, color: ColorTokens.icon },
-    { name: '餐饮', amount: 3300, pct: 46, color: ColorTokens.bookmark },
-    { name: '门票', amount: 2940, pct: 41, color: ColorTokens.primary }
-  ];
-  private receipts: Receipt[] = [
-    { time: '07:40', name: '早餐 · 一番街', amount: '¥900' },
-    { time: '09:12', name: '竹林门票', amount: '¥500' },
-    { time: '10:05', name: '打车 · 岚山→京都站', amount: '¥1,900' }
-  ];
+  private trip: Trip | null = null;
+
+  aboutToAppear(): void {
+    this.reload();
+  }
+
+  private ctx(): common.Context {
+    return this.getUIContext().getHostContext() as common.Context;
+  }
+
+  private reload(): void {
+    if (this.tripId.length === 0) {
+      Logger.warn('Ui.Expense', '无 tripId，费用页保持空态');
+      return;
+    }
+    const context: common.Context = this.ctx();
+    TripDao.loadTrip(context, this.tripId).then((trip: Trip | null): Promise<CategoryTotal[]> => {
+      if (trip === null) {
+        return Promise.resolve<CategoryTotal[]>([]);
+      }
+      this.trip = trip;
+      this.budgetTotal = trip.budget * trip.people;
+      const span: number = DateUtils.spanDays(trip.startDate, trip.endDate);
+      const passed: number = DateUtils.spanDays(trip.startDate, DateUtils.todayIso());
+      this.daysLeft = Math.max(0, span - passed);
+      return ExpenseDao.sumByCategory(context, trip.id);
+    }).then((totals: CategoryTotal[]): Promise<Expense[]> => {
+      this.applyTotals(totals);
+      return ExpenseDao.listByTrip(context, this.tripId, 12);
+    }).then((list: Expense[]): void => {
+      this.receipts = list.map((e: Expense): Receipt => {
+        const r: Receipt = { time: clockText(e.createdAt), name: e.name, amount: yuan(e.amount) };
+        return r;
+      });
+    }).catch((err: Error) => {
+      Logger.error('Ui.Expense', `费用加载失败: ${err.message}`);
+    });
+  }
+
+  private applyTotals(totals: CategoryTotal[]): void {
+    let sum: number = 0;
+    for (const t of totals) {
+      sum += t.amount;
+    }
+    this.spent = sum;
+    this.topCategory = totals.length > 0 ? labelOf(totals[0].category) : '';
+    this.totals = totals;
+  }
+
+  /** 预算视角按占预算总额、实际视角按占最大分类——同一批真值，两种读法（模型里没有分档预算） */
+  private currentCats(): CategorySpend[] {
+    let max: number = 0;
+    for (const t of this.totals) {
+      if (t.amount > max) {
+        max = t.amount;
+      }
+    }
+    const base: number = this.seg === 0 ? Math.max(1, this.budgetTotal) : Math.max(1, max);
+    return this.totals.map((t: CategoryTotal): CategorySpend => {
+      const c: CategorySpend = {
+        name: labelOf(t.category),
+        amount: t.amount,
+        pct: Math.min(100, Math.max(1, Math.round((t.amount / base) * 100))),
+        color: colorOf(t.category)
+      };
+      return c;
+    });
+  }
+
+  /** 记一笔：金额必填且为正整数，名称缺省用分类名 */
+  private saveExpense(): void {
+    const trip: Trip | null = this.trip;
+    const amount: number = Number(this.inputAmount);
+    if (trip === null || this.inputAmount.length === 0 || Number.isNaN(amount) || amount <= 0) {
+      this.getUIContext().getPromptAction().showToast({ message: '请填写正确的金额', duration: 1800 });
+      return;
+    }
+    const name: string = this.inputName.trim().length > 0 ? this.inputName.trim() : labelOf(this.inputCategory);
+    const expense: Expense = {
+      id: 0, tripId: trip.id, dayIndex: Math.min(trip.days.length, Math.max(1,
+        DateUtils.spanDays(trip.startDate, DateUtils.todayIso()))),
+      category: this.inputCategory, name: name, amount: Math.round(amount), createdAt: Date.now()
+    };
+    ExpenseDao.add(this.ctx(), expense).then((): Promise<CategoryTotal[]> => {
+      return ExpenseDao.sumByCategory(this.ctx(), trip.id);
+    }).then((totals: CategoryTotal[]): void => {
+      this.applyTotals(totals);
+      this.inputAmount = '';
+      this.inputName = '';
+      this.showRecord = false;
+      this.reload();
+      this.getUIContext().getPromptAction().showToast({ message: `已记 ${yuan(expense.amount)}`, duration: 1500 });
+    }).catch((err: Error) => {
+      Logger.error('Ui.Expense', `记账失败: ${err.message}`);
+      this.getUIContext().getPromptAction().showToast({ message: '记账失败', duration: 1800 });
+    });
+  }
 
   @Builder
   categoryRow(cat: CategorySpend) {
@@ -75,7 +230,7 @@ export struct ExpensePage {
       }
       .layoutWeight(1)
 
-      Text(`¥${cat.amount.toLocaleString('en-US')}`)
+      Text(yuan(cat.amount))
         .fontSize(TypeTokens.caption.size)
         .fontWeight(450)
         .fontColor(ColorTokens.body)
@@ -85,6 +240,93 @@ export struct ExpensePage {
     }
     .width('100%')
     .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+  }
+
+  @Builder
+  categoryChip(option: CategoryOption) {
+    Text(option.label)
+      .fontSize(TypeTokens.small.size)
+      .fontWeight(this.inputCategory === option.value ? 600 : 450)
+      .fontColor(this.inputCategory === option.value ? ColorTokens.primary : ColorTokens.body)
+      .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.xs, bottom: SpaceTokens.xs })
+      .borderRadius(RadiusTokens.pill)
+      .backgroundColor(this.inputCategory === option.value ? ColorTokens.primaryTint : ColorTokens.surfacePanel)
+      .border({
+        width: 1,
+        color: this.inputCategory === option.value ? ColorTokens.primary : ColorTokens.borderSubtle
+      })
+      .onClick(() => {
+        this.inputCategory = option.value;
+      })
+  }
+
+  @Builder
+  recordSheet() {
+    // 键盘弹起会遮住表单一半高度：整块可滚，保存键才够得着
+    Scroll() {
+      Column() {
+      Text('记一笔')
+        .fontSize(TypeTokens.title.size)
+        .fontWeight(700)
+        .fontFamily(TypeTokens.title.family)
+        .fontColor(ColorTokens.ink)
+        .margin({ top: SpaceTokens.xl })
+      Text('金额与名称只存本机行程')
+        .fontSize(TypeTokens.small.size)
+        .fontColor(ColorTokens.body)
+        .margin({ top: SpaceTokens.xs, bottom: SpaceTokens.lg })
+
+      TextInput({ placeholder: '金额（元）', text: this.inputAmount })
+        .type(InputType.Number)
+        .fontSize(TypeTokens.body.size)
+        .fontColor(ColorTokens.ink)
+        .backgroundColor(ColorTokens.surfacePanel)
+        .borderRadius(RadiusTokens.reason)
+        .height(LayoutTokens.composeFieldHeight)
+        .onChange((v: string) => {
+          this.inputAmount = v;
+        })
+      TextInput({ placeholder: '名称，如 故宫门票', text: this.inputName })
+        .fontSize(TypeTokens.body.size)
+        .fontColor(ColorTokens.ink)
+        .backgroundColor(ColorTokens.surfacePanel)
+        .borderRadius(RadiusTokens.reason)
+        .height(LayoutTokens.composeFieldHeight)
+        .margin({ top: SpaceTokens.sm })
+        .onChange((v: string) => {
+          this.inputName = v;
+        })
+
+      Flex({ wrap: FlexWrap.Wrap }) {
+        ForEach(CATEGORY_LABELS, (option: CategoryOption) => {
+          Column() {
+            this.categoryChip(option)
+          }
+          .margin({ right: SpaceTokens.sm, bottom: SpaceTokens.sm })
+        }, (option: CategoryOption): string => `rec-${option.value}-${this.inputCategory === option.value}`)
+      }
+      .width('100%')
+      .margin({ top: SpaceTokens.md })
+
+      YoujingButton({
+        variant: YoujingButtonVariant.PRIMARY,
+        label: '保存',
+        fullWidth: true,
+        onAction: (): void => {
+          this.saveExpense();
+        }
+      })
+        .margin({ top: SpaceTokens.lg })
+      }
+      .alignItems(HorizontalAlign.Start)
+      .width('100%')
+      .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: SpaceTokens.xl })
+    }
+    .width('100%')
+    .height('100%')
+    .scrollBar(BarState.Off)
+    .align(Alignment.Top)
+    .backgroundColor(ColorTokens.canvas)
   }
 
   build() {
@@ -116,16 +358,20 @@ export struct ExpensePage {
 
             // hero 面板：永不带影（决议 4）
             Column() {
-              Text(this.seg === 0 ? '预算 ¥16,000 · 2 人 · 5 天' : '实际 ¥16,840 · 2 人 · 5 天')
+              Text(this.seg === 0 ?
+                `预算 ${yuan(this.budgetTotal)} · ${this.trip === null ? 0 : this.trip.people} 人 · ` +
+                `${this.trip === null ? 0 : this.trip.days.length} 天` :
+                `实际 ${yuan(this.spent)} · ${this.trip === null ? 0 : this.trip.people} 人 · ` +
+                `${this.trip === null ? 0 : this.trip.days.length} 天`)
                 .fontSize(TypeTokens.overline.size)
                 .fontWeight(600)
                 .fontColor(ColorTokens.muted)
                 .fontFeature("'tnum' on")
               Row({ space: SpaceTokens.sm }) {
-                Text(this.seg === 0 ? '¥12,840' : '¥16,840')
+                Text(yuan(this.spent))
                   .fontSize(TypeTokens.display.size)
                   .fontWeight(700)
-                  .fontColor(this.seg === 0 ? ColorTokens.ink : ColorTokens.danger)
+                  .fontColor(this.spent > this.budgetTotal ? ColorTokens.danger : ColorTokens.ink)
                   .fontFeature("'tnum' on")
                 Text('已花')
                   .fontSize(TypeTokens.caption.size)
@@ -139,13 +385,14 @@ export struct ExpensePage {
               Row() {
                 Row()
                   .height(4)
-                  .layoutWeight(this.seg === 0 ? 80 : 100)
+                  .layoutWeight(Math.max(1, Math.min(100,
+                    this.budgetTotal === 0 ? 0 : Math.round((this.spent / this.budgetTotal) * 100))))
                   .borderRadius(RadiusTokens.pill)
-                  .backgroundColor(this.seg === 0 ? ColorTokens.primary : ColorTokens.danger)
-                if (this.seg === 0) {
+                  .backgroundColor(this.spent > this.budgetTotal ? ColorTokens.danger : ColorTokens.primary)
+                if (this.budgetTotal > 0 && this.spent < this.budgetTotal) {
                   Row()
                     .height(4)
-                    .layoutWeight(20)
+                    .layoutWeight(Math.max(1, 100 - Math.round((this.spent / this.budgetTotal) * 100)))
                     .borderRadius(RadiusTokens.pill)
                     .backgroundColor(ColorTokens.surfaceSunken)
                 }
@@ -153,10 +400,12 @@ export struct ExpensePage {
               .width('100%')
               .margin({ top: SpaceTokens.md })
 
-              Text(this.seg === 0 ? '剩 ¥3,160 · 还剩 2 天' : '超支 ¥840 · 主要来自门票')
+              Text(this.spent > this.budgetTotal ?
+                `超支 ${yuan(this.spent - this.budgetTotal)}${this.topCategory.length > 0 ? ` · 主要来自${this.topCategory}` : ''}` :
+                `剩 ${yuan(Math.max(0, this.budgetTotal - this.spent))} · 还剩 ${this.daysLeft} 天`)
                 .fontSize(TypeTokens.caption.size)
                 .fontWeight(450)
-                .fontColor(this.seg === 0 ? ColorTokens.body : ColorTokens.danger)
+                .fontColor(this.spent > this.budgetTotal ? ColorTokens.danger : ColorTokens.body)
                 .fontFeature("'tnum' on")
                 .margin({ top: SpaceTokens.sm })
             }
@@ -174,10 +423,16 @@ export struct ExpensePage {
               .margin({ top: SpaceTokens.xl, bottom: SpaceTokens.sm })
 
             Column() {
-              ForEach(this.seg === 0 ? this.budgetCats : this.actualCats,
-                (cat: CategorySpend) => {
-                  this.categoryRow(cat)
-                }, (cat: CategorySpend): string => `cat-${this.seg}-${cat.name}`)
+              if (this.totals.length === 0) {
+                Text('还没有记账，下面记一笔后这里会出现分类')
+                  .fontSize(TypeTokens.caption.size)
+                  .fontColor(ColorTokens.muted)
+                  .width('100%')
+                  .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+              }
+              ForEach(this.currentCats(), (cat: CategorySpend) => {
+                this.categoryRow(cat)
+              }, (cat: CategorySpend): string => `cat-${this.seg}-${cat.name}-${cat.amount}-${cat.pct}`)
             }
             .width('100%')
             .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
@@ -192,6 +447,13 @@ export struct ExpensePage {
               .margin({ top: SpaceTokens.xl, bottom: SpaceTokens.sm })
 
             Column() {
+              if (this.receipts.length === 0) {
+                Text('今天还没有记录')
+                  .fontSize(TypeTokens.caption.size)
+                  .fontColor(ColorTokens.muted)
+                  .width('100%')
+                  .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+              }
               ForEach(this.receipts, (r: Receipt, idx: number) => {
                 Row() {
                   Text(r.time)
@@ -215,12 +477,32 @@ export struct ExpensePage {
                 if (idx < this.receipts.length - 1) {
                   Divider().strokeWidth(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
                 }
-              }, (r: Receipt): string => `rc-${r.time}`)
+              }, (r: Receipt): string => `rc-${r.time}-${r.name}-${r.amount}`)
             }
             .width('100%')
             .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
             .borderRadius(RadiusTokens.card)
             .backgroundColor(ColorTokens.canvas)
+
+            // 记一笔 Pill（底稿 .record-btn：44 高、radius 999、1px 描边、图标 22）
+            Row({ space: SpaceTokens.xs }) {
+              SymbolGlyph($r('sys.symbol.plus'))
+                .fontSize(IconSizes.control)
+                .fontColor([ColorTokens.ink])
+              Text('记一笔')
+                .fontSize(TypeTokens.body.size)
+                .fontWeight(600)
+                .fontColor(ColorTokens.ink)
+            }
+            .width('100%')
+            .height(LayoutTokens.minTouchTarget)
+            .justifyContent(FlexAlign.Center)
+            .borderRadius(RadiusTokens.pill)
+            .border({ width: 1, color: ColorTokens.borderSubtle })
+            .margin({ top: SpaceTokens.xl })
+            .onClick(() => {
+              this.showRecord = true;
+            })
           }
           .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.bottomScrollReserve })
         }
@@ -231,6 +513,12 @@ export struct ExpensePage {
       .width('100%')
       .height('100%')
       .backgroundColor(ColorTokens.canvas)
+      .bindSheet($$this.showRecord, this.recordSheet(), {
+        height: '85%',
+        backgroundColor: ColorTokens.canvas,
+        showClose: true,
+        systemMaterial: getSheetImmersiveMaterial()
+      })
     }
     .hideTitleBar(true)
   }

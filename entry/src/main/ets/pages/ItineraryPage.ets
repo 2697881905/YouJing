@@ -845,7 +845,7 @@ export struct ItineraryPage {
             .justifyContent(FlexAlign.Center)
             .onClick(() => {
               if (item.route.length > 0) {
-                this.pathStack.pushPath({ name: item.route });
+                this.pathStack.pushPath({ name: item.route, param: this.tripId });
               }
             })
           }, (item: DockItem): string => `dock-${item.label}`)

@@ -39,7 +39,7 @@ function routerMap(name: string, param: object) {
   } else if (name === 'EditItinerary') {
     EditItineraryPage()
   } else if (name === 'Expense') {
-    ExpensePage()
+    ExpensePage({ tripId: typeof param === 'string' ? param as string : '' })
   } else if (name === 'Trips') {
     TripsPage()
   } else if (name === 'OnTrip') {
