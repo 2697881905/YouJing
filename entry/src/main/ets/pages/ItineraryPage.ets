@@ -16,6 +16,7 @@ import { ShadowTokens } from '../design/ShadowTokens';
 import { Activity, ActivityCategory, ActivityStatus, IntensityLevel, TripDay, Trip } from '../model/Trip';
 import { MockTrip } from '../mock/MockTrip';
 import { TripDao } from '../data/TripDao';
+import { AccessFlags, CalendarSync, SyncResult } from '../data/CalendarSync';
 import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
 import { ImmersiveSegmentBar, SegmentedItem } from '../components/ImmersiveSegmentBar';
@@ -43,6 +44,9 @@ export struct ItineraryPage {
   @State private syncCard: boolean = true;
   @State private syncRemind: boolean = false;
   @State private days: TripDay[] = [];
+  @State private bookingCount: number = 0;
+  @State private dayCount: number = 0;
+  private trip: Trip | null = null;
   @State private titleText: string = '京都 · 5天4晚';
   @State private segments: SegmentedItem[] = [
     { label: 'Day 1' }, { label: 'Day 2' }, { label: 'Day 3' }
@@ -59,7 +63,10 @@ export struct ItineraryPage {
       const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
       TripDao.loadTrip(ctx, this.tripId).then((trip: Trip | null) => {
         if (trip !== null) {
+          this.trip = trip;
           this.days = trip.days;
+          this.bookingCount = CalendarSync.bookingCount(trip);
+          this.dayCount = trip.days.length;
           const nights: number = trip.days.length - 1;
           this.titleText = `${trip.destination} · ${trip.days.length}天${nights}晚`;
           this.segments = trip.days.map((d: TripDay): SegmentedItem => {
@@ -70,7 +77,106 @@ export struct ItineraryPage {
       }).catch((err: Error) => {
         Logger.error('Ui.Itinerary', `加载行程失败: ${err.message}`);
       });
+      CalendarSync.loadFlags(ctx).then((f: AccessFlags): void => {
+        this.syncCalendar = f.calendar;
+        this.syncCard = f.card;
+        this.syncRemind = f.remind;
+      }).catch((err: Error) => {
+        Logger.warn('Ui.Itinerary', `触达开关读取失败: ${err.message}`);
+      });
     }
+  }
+
+  /** 屏14 预览取真实待写节点：优先详情面板选中的活动，否则当日首站 */
+  private previewTarget(): Activity | undefined {
+    if (this.detailAct !== undefined) {
+      return this.detailAct;
+    }
+    const acts: Activity[] = this.curDay().activities;
+    return acts.length > 0 ? acts[0] : undefined;
+  }
+
+  private previewDayIndex(): number {
+    const target: Activity | undefined = this.previewTarget();
+    if (target === undefined) {
+      return 1;
+    }
+    for (const d of this.days) {
+      for (const a of d.activities) {
+        if (a.id === target.id) {
+          return d.dayIndex;
+        }
+      }
+    }
+    return this.curDay().dayIndex;
+  }
+
+  private previewWhen(): string {
+    const act: Activity | undefined = this.previewTarget();
+    if (act === undefined) {
+      return '';
+    }
+    return `${this.curDay().date} ${act.time}–${act.endTime}`;
+  }
+
+  private previewWhat(): string {
+    const act: Activity | undefined = this.previewTarget();
+    return act === undefined ? '' : `${act.title} · ${CalendarSync.isBookingNode(act) ? '需预约' : '无需预约'}`;
+  }
+
+  private previewWhere(): string {
+    const act: Activity | undefined = this.previewTarget();
+    if (act === undefined) {
+      return '';
+    }
+    return `地址 ${act.address.length > 0 ? act.address : act.location}`;
+  }
+
+  private previewNote(): string {
+    const act: Activity | undefined = this.previewTarget();
+    if (act === undefined) {
+      return '';
+    }
+    const leg: string = act.transport === undefined ? '步行到达'
+      : `${act.transport.mode} ${act.transport.duration}分钟`;
+    return `备注 行程第 ${this.previewDayIndex()} 天 · ${leg}`;
+  }
+
+  /** 同意并写入：先申请权限，未授权不写任何数据；开关状态落 preferences */
+  private writeToSystem(): void {
+    const ctx: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    const flags: AccessFlags = {
+      calendar: this.syncCalendar, card: this.syncCard, remind: this.syncRemind
+    };
+    const toast = (msg: string): void => {
+      this.getUIContext().getPromptAction().showToast({ message: msg, duration: 2000 });
+    };
+    CalendarSync.saveFlags(ctx, flags).catch((err: Error) => {
+      Logger.warn('Ui.Itinerary', `触达开关保存失败: ${err.message}`);
+    });
+    if (!flags.calendar) {
+      toast('行程仅保存在本机');
+      this.showSystemAccess = false;
+      return;
+    }
+    const trip: Trip | null = this.trip;
+    if (trip === null) {
+      toast('行程数据未就绪，稍后再试');
+      return;
+    }
+    CalendarSync.requestPermission(ctx).then((granted: boolean): Promise<SyncResult> => {
+      if (!granted) {
+        throw new Error('未授予日历权限');
+      }
+      return CalendarSync.syncTrip(ctx, trip, flags);
+    }).then((r: SyncResult): void => {
+      toast(`已写入 ${r.bookingEvents} 个预约节点 + ${r.dayEvents} 天行程`);
+    }).catch((err: Error) => {
+      Logger.warn('Ui.Itinerary', `日历写入失败: ${err.message}`);
+      toast(`日历写入失败：${err.message}`);
+    }).finally((): void => {
+      this.showSystemAccess = false;
+    });
   }
 
   private curDay(): TripDay {
@@ -532,7 +638,8 @@ export struct ItineraryPage {
         .margin({ top: SpaceTokens.xs, bottom: SpaceTokens.lg })
 
       Column() {
-        this.accessRow('日历同步', '写入 3 个预约节点 + 5 天行程', this.syncCalendar,
+        this.accessRow('日历同步', `写入 ${this.bookingCount} 个预约节点 + ${this.dayCount} 天行程`,
+          this.syncCalendar,
           (v: boolean): void => {
             this.syncCalendar = v;
           })
@@ -556,18 +663,18 @@ export struct ItineraryPage {
           .fontWeight(600)
           .fontColor(ColorTokens.muted)
           .alignSelf(ItemAlign.Start)
-        Text('6月11日 09:00–11:00')
+        Text(this.previewWhen())
           .fontSize(TypeTokens.caption.size)
           .fontColor(ColorTokens.ink)
           .fontFeature("'tnum' on")
-        Text('伏见稻荷大社 · 需预约')
+        Text(this.previewWhat())
           .fontSize(TypeTokens.caption.size)
           .fontColor(ColorTokens.ink)
-        Text('地址 京都市伏見区深芝藪町 68')
+        Text(this.previewWhere())
           .fontSize(TypeTokens.caption.size)
           .fontWeight(450)
           .fontColor(ColorTokens.muted)
-        Text('备注 行程第 2 天 · 步行 12分钟')
+        Text(this.previewNote())
           .fontSize(TypeTokens.caption.size)
           .fontWeight(450)
           .fontColor(ColorTokens.muted)
@@ -586,6 +693,11 @@ export struct ItineraryPage {
           label: '仅本机保存',
           buttonWidth: 150,
           onAction: (): void => {
+            const ctx: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
+            CalendarSync.saveFlags(ctx, { calendar: false, card: this.syncCard, remind: false })
+              .catch((err: Error): void => {
+                Logger.warn('Ui.Itinerary', `触达开关保存失败: ${err.message}`);
+              });
             this.showSystemAccess = false;
           }
         })
@@ -593,7 +705,7 @@ export struct ItineraryPage {
           variant: YoujingButtonVariant.PRIMARY,
           label: '同意并写入',
           onAction: (): void => {
-            this.showSystemAccess = false;
+            this.writeToSystem();
           }
         })
           .layoutWeight(1)

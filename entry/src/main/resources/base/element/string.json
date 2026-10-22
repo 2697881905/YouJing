@@ -19,6 +19,10 @@
     {
       "name": "widget_desc",
       "value": "桌面常驻今日行程节点"
+    },
+    {
+      "name": "calendar_permission_reason",
+      "value": "用于把行程中需预约的站点与每日安排写入系统日历，并按设置提前提醒"
     }
   ]
 }
