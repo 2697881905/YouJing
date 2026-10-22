@@ -66,6 +66,8 @@ export interface Activity {
   status: ActivityStatus;
   category: ActivityCategory;
   note?: string;
+  /** AI 生成的排期理由（屏8/10「为什么排在这里」理由件），可空 */
+  reason?: string;
   /** 到达此节点前的通勤（交通类活动本体也走此结构） */
   transport?: TransportInfo;
 }

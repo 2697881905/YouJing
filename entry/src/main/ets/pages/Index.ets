@@ -8,6 +8,10 @@ import { APP_NAV } from '../common/constants/AppNav';
 import { YoujingStartPage } from './YoujingStartPage';
 import { TripInputPage } from './TripInputPage';
 import { PreferenceQAPage } from './PreferenceQAPage';
+import { SpotPickPage } from './SpotPickPage';
+import { StayPickPage } from './StayPickPage';
+import { GeneratingPage } from './GeneratingPage';
+import { ItineraryPage } from './ItineraryPage';
 import { ComingSoonPage } from './ComingSoonPage';
 
 @Builder
@@ -16,6 +20,14 @@ function routerMap(name: string, param: object) {
     TripInputPage()
   } else if (name === 'PreferenceQA') {
     PreferenceQAPage()
+  } else if (name === 'SpotPick') {
+    SpotPickPage()
+  } else if (name === 'StayPick') {
+    StayPickPage()
+  } else if (name === 'Generating') {
+    GeneratingPage()
+  } else if (name === 'Itinerary') {
+    ItineraryPage()
   } else {
     ComingSoonPage({ routeName: name })
   }
