@@ -1,9 +1,9 @@
 /**
- * 屏4 景点挑选与优先级（帧 7d6e58d6）。
- * §10 必改三件套已落：底栏按画板收回（Stack 底部对齐 + 内容 padding 预留，
- * CTA 距底 ≥16）、状态栏无玻璃、底栏材质走规则（实色 canvas，非玻璃）。
- * §7 必改：badge-booking padding 2→0（高 22 定高）、summary-strip gap 6→4。
- * 优先级圈按帧 CSS：选中 = bookmark 金底白字「必」，未选 = 空心环。
+ * 屏4 景点挑选与优先级（帧 7d6e58d6）——真数据版（阶段 7）。
+ * 数据源 PlanRepository（USE_MOCK_DATA 路由，京都走 mock 兜底、四城走 RDB 种子）。
+ * 交互：点行循环 未选→必去→想去→可选→未选；「推荐更多」按热度补拉；
+ * 容量提示：已选 > 天数×4 显示时间偏紧 advisory（§4.1-3）。
+ * §10 必改保持：底栏实色悬浮、CTA 距底 ≥16、状态栏无玻璃。
  */
 
 import { APP_NAV } from '../common/constants/AppNav';
@@ -13,45 +13,106 @@ import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
-import { Spot } from '../model/Spot';
-import { MockSpots } from '../mock/MockData';
+import { Spot, SpotTag } from '../model/Spot';
+import { PlanRepository } from '../data/PlanRepository';
+import { PlanDraft } from '../data/PlanDraft';
+import { SelectedSpot, SpotPriority, TripBasicInput } from '../model/PlanParams';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
+import { common } from '@kit.AbilityKit';
 
 interface SpotGroup {
-  overline: string;
+  label: string;
   spots: Spot[];
 }
+
+const TAG_LABELS: string[] = ['必去', '经典', '小众', '亲子'];
 
 @Component
 export struct SpotPickPage {
   private pathStack: NavPathStack = APP_NAV;
   @StorageProp('isDarkMode') isDark: boolean = false;
-  @State private mustIds: string[] = ['s-kiyomizu'];
-  private groups: SpotGroup[] = [
-    { overline: '文化', spots: MockSpots.CULTURE },
-    { overline: '美食', spots: MockSpots.FOOD },
-    { overline: '自然', spots: MockSpots.NATURE }
-  ];
-  private totalSpots: number = 9;
+  @State private groups: SpotGroup[] = [];
+  @State private all: Spot[] = [];
+  @State private priorities: SelectedSpot[] = [];
+  private days: number = 3;
 
-  private toggleMust(id: string): void {
-    const next: string[] = this.mustIds.slice();
-    const at: number = next.indexOf(id);
-    if (at >= 0) {
-      next.splice(at, 1);
-    } else {
-      next.push(id);
-    }
-    this.mustIds = next;
+  aboutToAppear(): void {
+    const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    const b: TripBasicInput = PlanDraft.get().basic;
+    this.days = Math.max(1, Math.round((Date.parse(b.endDate) - Date.parse(b.startDate)) / 86400000) + 1);
+    PlanRepository.loadSpots(ctx, b.destination).then((spots: Spot[]) => {
+      this.all = spots;
+      this.rebuildGroups(spots);
+    });
   }
 
-  private durationText(mins: number): string {
-    const h: number = Math.floor(mins / 60);
-    const m: number = mins % 60;
-    if (h > 0 && m > 0) {
-      return `${h}小时${m}分钟`;
+  private rebuildGroups(spots: Spot[]): void {
+    const out: SpotGroup[] = [];
+    for (let i = 0; i < TAG_LABELS.length; i++) {
+      const tag: SpotTag = [SpotTag.MUST_SEE, SpotTag.CLASSIC, SpotTag.NICHE, SpotTag.FAMILY][i];
+      const inTag: Spot[] = spots.filter((s: Spot): boolean => s.tags.indexOf(tag) >= 0);
+      if (inTag.length > 0) {
+        const g: SpotGroup = { label: TAG_LABELS[i], spots: inTag };
+        out.push(g);
+      }
     }
-    return h > 0 ? `${h}小时` : `${m}分钟`;
+    this.groups = out;
+  }
+
+  private priorityOf(id: string): SpotPriority | undefined {
+    const hit: SelectedSpot | undefined = this.priorities.find((p: SelectedSpot): boolean => p.spotId === id);
+    return hit === undefined ? undefined : hit.priority;
+  }
+
+  private cycle(id: string): void {
+    const next: SelectedSpot[] = this.priorities.slice();
+    const idx: number = next.findIndex((p: SelectedSpot): boolean => p.spotId === id);
+    const order: SpotPriority[] = [SpotPriority.MUST, SpotPriority.WANT, SpotPriority.OPTIONAL];
+    if (idx < 0) {
+      const sel: SelectedSpot = { spotId: id, priority: SpotPriority.MUST };
+      next.push(sel);
+    } else {
+      const at: number = order.indexOf(next[idx].priority);
+      if (at >= order.length - 1) {
+        next.splice(idx, 1);
+      } else {
+        const updated: SelectedSpot = { spotId: id, priority: order[at + 1] };
+        next.splice(idx, 1, updated);
+      }
+    }
+    this.priorities = next;
+  }
+
+  private markMore(): void {
+    const picked: number = this.priorities.length;
+    const next: SelectedSpot[] = this.priorities.slice();
+    let added: number = 0;
+    for (const s of this.all) {
+      if (added >= 4) {
+        break;
+      }
+      if (this.priorityOf(s.id) === undefined) {
+        const sel: SelectedSpot = { spotId: s.id, priority: SpotPriority.WANT };
+        next.push(sel);
+        added += 1;
+      }
+    }
+    this.priorities = next;
+    if (added === 0 && picked >= 0) {
+      // 已全部标注，无更多可推荐
+    }
+  }
+
+  private confirm(): void {
+    let final: SelectedSpot[] = this.priorities;
+    if (final.length === 0) {
+      final = this.all.slice(0, 8).map((s: Spot, i: number): SelectedSpot => {
+        const sel: SelectedSpot = { spotId: s.id, priority: i < 3 ? SpotPriority.MUST : SpotPriority.WANT };
+        return sel;
+      });
+    }
+    PlanDraft.get().selectedSpots = final;
+    this.pathStack.pushPath({ name: 'StayPick' });
   }
 
   @Builder
@@ -79,7 +140,7 @@ export struct SpotPickPage {
               .backgroundColor(ColorTokens.warning)
           }
         }
-        Text(`${sp.district} · 建议停留 ${this.durationText(sp.suggestedDuration)}`)
+        Text(`${sp.district} · 建议停留 ${Math.floor(sp.suggestedDuration / 60)}小时${sp.suggestedDuration % 60 > 0 ? `${sp.suggestedDuration % 60}分钟` : ''}`)
           .fontSize(TypeTokens.caption.size)
           .fontWeight(450)
           .fontColor(ColorTokens.muted)
@@ -90,21 +151,23 @@ export struct SpotPickPage {
       .layoutWeight(1)
 
       Column() {
-        if (this.mustIds.indexOf(sp.id) >= 0) {
-          Text('必')
-            .fontSize(TypeTokens.caption.size)
-            .fontWeight(600)
-            .fontColor(ColorTokens.onPrimary)
+        if (this.priorityOf(sp.id) === SpotPriority.MUST) {
+          Text('必').fontSize(TypeTokens.caption.size).fontWeight(600).fontColor(ColorTokens.onPrimary)
+        } else if (this.priorityOf(sp.id) === SpotPriority.WANT) {
+          Text('想').fontSize(TypeTokens.caption.size).fontWeight(600).fontColor(ColorTokens.primary)
+        } else if (this.priorityOf(sp.id) === SpotPriority.OPTIONAL) {
+          Text('可').fontSize(TypeTokens.caption.size).fontWeight(600).fontColor(ColorTokens.muted)
         }
       }
       .width(24)
       .height(24)
       .justifyContent(FlexAlign.Center)
       .borderRadius(RadiusTokens.pill)
-      .backgroundColor(this.mustIds.indexOf(sp.id) >= 0 ? ColorTokens.bookmark : ColorTokens.canvas)
+      .backgroundColor(this.priorityOf(sp.id) === SpotPriority.MUST ? ColorTokens.bookmark : ColorTokens.canvas)
       .border({
         width: 1,
-        color: this.mustIds.indexOf(sp.id) >= 0 ? ColorTokens.bookmark : ColorTokens.hairlineStrong,
+        color: this.priorityOf(sp.id) === SpotPriority.WANT ? ColorTokens.primary :
+          (this.priorityOf(sp.id) === SpotPriority.MUST ? ColorTokens.bookmark : ColorTokens.hairlineStrong),
         radius: RadiusTokens.pill
       })
     }
@@ -112,7 +175,7 @@ export struct SpotPickPage {
     .constraintSize({ minHeight: LayoutTokens.itineraryRowMinHeight })
     .padding({ top: SpaceTokens.md, bottom: SpaceTokens.md })
     .onClick(() => {
-      this.toggleMust(sp.id);
+      this.cycle(sp.id);
     })
   }
 
@@ -120,133 +183,132 @@ export struct SpotPickPage {
     NavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
         Column() {
-        // 顶栏
-        Row() {
-          SymbolGlyph($r('sys.symbol.chevron_backward'))
-            .fontSize(22)
-            .fontColor([ColorTokens.ink])
-            .onClick(() => {
-              this.pathStack.pop();
-            })
-          Text('选想去的地方')
-            .fontSize(TypeTokens.body.size)
-            .fontWeight(600)
-            .fontColor(ColorTokens.ink)
-            .layoutWeight(1)
-            .textAlign(TextAlign.Center)
-          Text('推荐更多')
-            .fontSize(TypeTokens.small.size)
-            .fontColor(ColorTokens.primary)
-            .width(64)
-        }
-        .height(LayoutTokens.titleBarHeight)
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
-
-        // 容量摘要条
-        Column({ space: SpaceTokens.xs }) {
-          Text(`已选 ${this.mustIds.length} / 可用 4.2 天 · 建议上限 ${this.totalSpots + 7} 个`)
-            .fontSize(TypeTokens.caption.size)
-            .fontWeight(450)
-            .fontColor(ColorTokens.body)
-            .fontFeature("'tnum' on")
           Row() {
-            Row()
-              .height(4)
-              .layoutWeight(30 + this.mustIds.length * 2)
-              .borderRadius(RadiusTokens.pill)
-              .backgroundColor(ColorTokens.primary)
-            Row()
-              .height(4)
-              .layoutWeight(40 - this.mustIds.length * 2)
-              .borderRadius(RadiusTokens.pill)
-              .backgroundColor(ColorTokens.surfaceSunken)
+            SymbolGlyph($r('sys.symbol.chevron_backward'))
+              .fontSize(22)
+              .fontColor([ColorTokens.ink])
+              .onClick(() => {
+                this.pathStack.pop();
+              })
+            Text('选想去的地方')
+              .fontSize(TypeTokens.body.size)
+              .fontWeight(600)
+              .fontColor(ColorTokens.ink)
+              .layoutWeight(1)
+              .textAlign(TextAlign.Center)
+            Text('推荐更多')
+              .fontSize(TypeTokens.small.size)
+              .fontColor(ColorTokens.primary)
+              .onClick(() => {
+                this.markMore();
+              })
           }
-          .width('100%')
-        }
-        .justifyContent(FlexAlign.Center)
-        .alignItems(HorizontalAlign.Start)
-        .width('100%')
-        .height(56)
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
-        .backgroundColor(ColorTokens.surfacePanel)
+          .height(LayoutTokens.titleBarHeight)
+          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
 
-        Scroll() {
-          Column() {
-            Column({ space: SpaceTokens.xs }) {
-              Text('时间偏紧')
-                .fontSize(TypeTokens.overline.size)
-                .fontWeight(600)
-                .fontColor(ColorTokens.warning)
-              Text('按现在的节奏，建议给景点标优先级，行程会自动取舍')
-                .fontSize(TypeTokens.caption.size)
-                .fontColor(ColorTokens.body)
+          Column({ space: SpaceTokens.xs }) {
+            Text(`已选 ${this.priorities.length} / 可用 ${this.days}.0 天 · 建议上限 ${this.days * 4} 个`)
+              .fontSize(TypeTokens.caption.size)
+              .fontWeight(450)
+              .fontColor(ColorTokens.body)
+              .fontFeature("'tnum' on")
+            Row() {
+              Row()
+                .height(4)
+                .layoutWeight(Math.max(1, this.priorities.length * 100 / Math.max(1, this.days * 4)))
+                .borderRadius(RadiusTokens.pill)
+                .backgroundColor(ColorTokens.primary)
+              Row()
+                .height(4)
+                .layoutWeight(Math.max(1, 100 - this.priorities.length * 100 / Math.max(1, this.days * 4)))
+                .borderRadius(RadiusTokens.pill)
+                .backgroundColor(ColorTokens.surfaceSunken)
             }
-            .alignItems(HorizontalAlign.Start)
             .width('100%')
-            .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.md, bottom: SpaceTokens.md })
-            .borderRadius(RadiusTokens.reason)
-            .backgroundColor(ColorTokens.surfacePanel)
-            .margin({ top: SpaceTokens.md, bottom: SpaceTokens.md })
-
-            ForEach(this.groups, (group: SpotGroup) => {
-              Column() {
-                Text(`${group.overline} · ${group.spots.length}`)
-                  .fontSize(TypeTokens.overline.size)
-                  .fontWeight(600)
-                  .fontColor(ColorTokens.muted)
-                  .margin({ bottom: SpaceTokens.xs })
-                Column() {
-                  ForEach(group.spots, (sp: Spot, idx: number) => {
-                    this.spotRow(sp)
-                    if (idx < group.spots.length - 1) {
-                      Divider()
-                        .strokeWidth(LayoutTokens.hairlineWidth)
-                        .color(ColorTokens.separator)
-                    }
-                  }, (sp: Spot): string => sp.id)
-                }
-                .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-                .borderRadius(RadiusTokens.card)
-                .backgroundColor(ColorTokens.canvas)
-                .shadow(this.isDark ? { radius: 0 } : ShadowTokens.card)
-              }
-              .alignItems(HorizontalAlign.Start)
-              .margin({ bottom: SpaceTokens.lg })
-            }, (group: SpotGroup): string => group.overline)
           }
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: 110 })
+          .justifyContent(FlexAlign.Center)
+          .alignItems(HorizontalAlign.Start)
+          .width('100%')
+          .height(56)
+          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+          .backgroundColor(ColorTokens.surfacePanel)
+
+          Scroll() {
+            Column() {
+              if (this.priorities.length > this.days * 4) {
+                Column({ space: SpaceTokens.xs }) {
+                  Text('时间偏紧')
+                    .fontSize(TypeTokens.overline.size)
+                    .fontWeight(600)
+                    .fontColor(ColorTokens.warning)
+                  Text('按现在的节奏，建议给景点标优先级，行程会自动取舍')
+                    .fontSize(TypeTokens.caption.size)
+                    .fontColor(ColorTokens.body)
+                }
+                .alignItems(HorizontalAlign.Start)
+                .width('100%')
+                .padding(SpaceTokens.md)
+                .borderRadius(RadiusTokens.reason)
+                .backgroundColor(ColorTokens.surfacePanel)
+                .margin({ top: SpaceTokens.md, bottom: SpaceTokens.md })
+              }
+
+              ForEach(this.groups, (group: SpotGroup) => {
+                Column() {
+                  Text(`${group.label} · ${group.spots.length}`)
+                    .fontSize(TypeTokens.overline.size)
+                    .fontWeight(600)
+                    .fontColor(ColorTokens.muted)
+                    .margin({ bottom: SpaceTokens.xs })
+                  Column() {
+                    ForEach(group.spots, (sp: Spot, idx: number) => {
+                      this.spotRow(sp)
+                      if (idx < group.spots.length - 1) {
+                        Divider().strokeWidth(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
+                      }
+                    }, (sp: Spot): string => sp.id)
+                  }
+                  .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+                  .borderRadius(RadiusTokens.card)
+                  .backgroundColor(ColorTokens.canvas)
+                  .shadow(this.isDark ? { radius: 0 } : ShadowTokens.card)
+                }
+                .alignItems(HorizontalAlign.Start)
+                .margin({ bottom: SpaceTokens.lg })
+              }, (group: SpotGroup): string => `grp-${group.label}-${group.spots.length}`)
+            }
+            .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: 110 })
+          }
+          .layoutWeight(1)
+          .scrollBar(BarState.Off)
+          .align(Alignment.Top)
         }
-        .layoutWeight(1)
-        .scrollBar(BarState.Off)
-        .align(Alignment.Top)
-      }
         .width('100%')
         .height('100%')
 
-        // 底栏：实色 canvas（非玻璃），悬浮于滚动区之上，CTA 距底 ≥16
         Column() {
-        Row({ space: SpaceTokens.md }) {
-          YoujingButton({
-            variant: YoujingButtonVariant.SECONDARY,
-            label: '跳过选择',
-            buttonWidth: 120,
-            onAction: (): void => {
-              this.pathStack.pushPath({ name: 'StayPick' });
-            }
-          })
-          YoujingButton({
-            variant: YoujingButtonVariant.PRIMARY,
-            label: '确认选择',
-            onAction: (): void => {
-              this.pathStack.pushPath({ name: 'StayPick' });
-            }
-          })
-            .layoutWeight(1)
+          Row({ space: SpaceTokens.md }) {
+            YoujingButton({
+              variant: YoujingButtonVariant.SECONDARY,
+              label: '跳过选择',
+              buttonWidth: 120,
+              onAction: (): void => {
+                this.confirm();
+              }
+            })
+            YoujingButton({
+              variant: YoujingButtonVariant.PRIMARY,
+              label: '确认选择',
+              onAction: (): void => {
+                this.confirm();
+              }
+            })
+              .layoutWeight(1)
+          }
         }
-      }
-      .width('100%')
-      .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md, bottom: SpaceTokens.lg })
-      .backgroundColor(ColorTokens.canvas)
+        .width('100%')
+        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md, bottom: SpaceTokens.lg })
+        .backgroundColor(ColorTokens.canvas)
       }
     }
     .hideTitleBar(true)

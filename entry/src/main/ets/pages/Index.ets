@@ -33,7 +33,7 @@ function routerMap(name: string, param: object) {
   } else if (name === 'Generating') {
     GeneratingPage()
   } else if (name === 'Itinerary') {
-    ItineraryPage()
+    ItineraryPage({ tripId: typeof param === 'string' ? param as string : '' })
   } else if (name === 'GenerateFailed') {
     GenerateFailedPage()
   } else if (name === 'EditItinerary') {

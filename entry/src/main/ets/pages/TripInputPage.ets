@@ -11,12 +11,51 @@ import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
+import { PlanDraft } from '../data/PlanDraft';
+import { TripBasicInput } from '../model/PlanParams';
+
+const CITIES: string[] = ['北京', '上海', '广州', '深圳', '京都（演示）'];
 
 @Component
 export struct TripInputPage {
   private pathStack: NavPathStack = APP_NAV;
   @State private party: number = 2;
+  @State private city: string = '北京';
+  @State private startDate: string = '2026-07-01';
+  @State private endDate: string = '2026-07-03';
+  @State private showCity: boolean = false;
   private partyOptions: number[] = [1, 2, 4];
+
+  private fmt(dateStr: string): string {
+    const parts: string[] = dateStr.split('-');
+    return `${Number(parts[1])}月${Number(parts[2])}日`;
+  }
+
+  private dayCount(): number {
+    return Math.max(1, Math.round((Date.parse(this.endDate) - Date.parse(this.startDate)) / 86400000) + 1);
+  }
+
+  private pickDate(isStart: boolean): void {
+    this.getUIContext().showDatePickerDialog({
+      start: new Date('2026-01-01'),
+      end: new Date('2027-12-31'),
+      selected: new Date(isStart ? this.startDate : this.endDate),
+      onDateAccept: (value: Date): void => {
+        const y: number = value.getFullYear();
+        const m: string = `${value.getMonth() + 1}`.padStart(2, '0');
+        const d: string = `${value.getDate()}`.padStart(2, '0');
+        const iso: string = `${y}-${m}-${d}`;
+        if (isStart) {
+          this.startDate = iso;
+          if (Date.parse(this.endDate) < Date.parse(iso)) {
+            this.endDate = iso;
+          }
+        } else {
+          this.endDate = iso;
+        }
+      }
+    });
+  }
 
   @Builder
   fieldLabel(label: string) {
@@ -57,6 +96,36 @@ export struct TripInputPage {
     .onClick(() => {
       this.party = count;
     })
+  }
+
+  @Builder
+  citySheet() {
+    Column() {
+      ForEach(CITIES, (c: string) => {
+        Row() {
+          Text(c)
+            .fontSize(TypeTokens.body.size)
+            .fontWeight(c === this.city ? 600 : 400)
+            .fontColor(c === this.city ? ColorTokens.primary : ColorTokens.ink)
+            .layoutWeight(1)
+          if (c === this.city) {
+            SymbolGlyph($r('sys.symbol.checkmark'))
+              .fontSize(22)
+              .fontColor([ColorTokens.primary])
+          }
+        }
+        .width('100%')
+        .height(LayoutTokens.minTouchTarget)
+        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+        .onClick(() => {
+          this.city = c;
+          this.showCity = false;
+        })
+      }, (c: string): string => `city-${c}`)
+    }
+    .width('100%')
+    .padding({ top: SpaceTokens.md, bottom: SpaceTokens.md })
+    .backgroundColor(ColorTokens.canvas)
   }
 
   build() {
@@ -102,7 +171,7 @@ export struct TripInputPage {
               Row() {
                 Column() {
                   this.fieldLabel('目的地')
-                  Text('京都 · 日本')
+                  Text(this.city)
                     .fontSize(TypeTokens.headline.size)
                     .fontWeight(600)
                     .fontColor(ColorTokens.ink)
@@ -117,21 +186,25 @@ export struct TripInputPage {
               .padding(SpaceTokens.lg)
               .borderRadius(RadiusTokens.card)
               .backgroundColor(ColorTokens.surfaceSubtle)
+              .onClick(() => {
+                this.showCity = true;
+              })
 
               // 出行日期
               Row() {
                 Column() {
                   this.fieldLabel('出行日期')
-                  Text('6月10日 – 6月14日')
+                  Text(`${this.fmt(this.startDate)} – ${this.fmt(this.endDate)}`)
                     .fontSize(TypeTokens.headline.size)
                     .fontWeight(600)
                     .fontColor(ColorTokens.ink)
                     .fontFeature("'tnum' on")
                     .margin({ top: SpaceTokens.xs })
-                  Text('5天4晚')
+                  Text(`${this.dayCount()}天${this.dayCount() - 1}晚`)
                     .fontSize(TypeTokens.caption.size)
                     .fontWeight(450)
                     .fontColor(ColorTokens.muted)
+                    .fontFeature("'tnum' on")
                     .margin({ top: SpaceTokens.xs })
                 }
                 .alignItems(HorizontalAlign.Start)
@@ -143,6 +216,12 @@ export struct TripInputPage {
               .padding(SpaceTokens.lg)
               .borderRadius(RadiusTokens.card)
               .backgroundColor(ColorTokens.surfaceSubtle)
+              .onClick(() => {
+                this.pickDate(true);
+              })
+              .gesture(LongPressGesture().onAction(() => {
+                this.pickDate(false);
+              }))
 
               // 同行人数
               Row() {
@@ -234,6 +313,12 @@ export struct TripInputPage {
             fullWidth: true,
             trailingSymbol: $r('sys.symbol.arrow_right'),
             onAction: (): void => {
+              const d: PlanDraft = PlanDraft.get();
+              const basic: TripBasicInput = {
+                destination: this.city, startDate: this.startDate,
+                endDate: this.endDate, people: this.party, budget: 8000
+              };
+              d.basic = basic;
               this.pathStack.pushPath({ name: 'PreferenceQA' });
             }
           })
@@ -244,6 +329,11 @@ export struct TripInputPage {
       .width('100%')
       .height('100%')
       .backgroundColor(ColorTokens.canvas)
+      .bindSheet($$this.showCity, this.citySheet(), {
+        height: 300,
+        backgroundColor: ColorTokens.canvas,
+        showClose: true
+      })
     }
     .hideTitleBar(true)
   }

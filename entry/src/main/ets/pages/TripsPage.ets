@@ -13,6 +13,8 @@ import { SpaceTokens } from '../design/SpaceTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
+import { TripDao, TripSummary } from '../data/TripDao';
+import { common } from '@kit.AbilityKit';
 
 interface TripCardData {
   id: string;
@@ -34,26 +36,27 @@ interface TripCardData {
 export struct TripsPage {
   private pathStack: NavPathStack = APP_NAV;
   @StorageProp('isDarkMode') isDark: boolean = false;
-  @State private trips: TripCardData[] = [
-    {
-      id: 't-kyoto', place: '京都', dateMeta: '6月10日 – 6月14日 · 5天4晚',
-      spots: '16', walk: '24.6km', bookingNum: '3', bookingBadge: '需预约',
-      badgeColor: ColorTokens.warning, statusLine: '旅行中 · 第 2 天',
-      progress: 40, mustIdx: 1, onTrip: true, muted: false
-    },
-    {
-      id: 't-tokyo', place: '东京', dateMeta: '11月2日 – 11月6日 · 5天4晚',
-      spots: '18', walk: '28.2km', bookingNum: '2', bookingBadge: '已完成',
-      badgeColor: ColorTokens.success, statusLine: '已完成 · 去年 11 月',
-      progress: 100, mustIdx: 2, onTrip: false, muted: true
-    },
-    {
-      id: 't-osaka', place: '大阪', dateMeta: '12月5日 – 12月8日 · 4天3晚',
-      spots: '12', walk: '15.3km', bookingNum: '4', bookingBadge: '需预约',
-      badgeColor: ColorTokens.warning, statusLine: '计划中 · 42 天后出发',
-      progress: 0, mustIdx: 0, onTrip: false, muted: true
-    }
-  ];
+  @State private trips: TripCardData[] = [];
+
+  aboutToAppear(): void {
+    const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    TripDao.listSummaries(ctx).then((rows: TripSummary[]) => {
+      const list: TripCardData[] = [];
+      for (const r of rows) {
+        const t: TripCardData = {
+          id: r.id, place: r.destination,
+          dateMeta: `${r.startDate} – ${r.endDate} · ${r.people} 人`,
+          spots: `${r.spotCount}`, walk: '—', bookingNum: '—',
+          bookingBadge: r.totalCost > 0 ? `¥${r.totalCost}` : '',
+          badgeColor: ColorTokens.success,
+          statusLine: '已生成', progress: 100, mustIdx: -1,
+          onTrip: false, muted: false
+        };
+        list.push(t);
+      }
+      this.trips = list;
+    });
+  }
 
   @Builder
   miniRoute(mustIdx: number) {
@@ -175,7 +178,7 @@ export struct TripsPage {
     .shadow(this.isDark ? { radius: 0 } : ShadowTokens.card)
     .margin({ bottom: SpaceTokens.md })
     .onClick(() => {
-      this.pathStack.pushPath({ name: t.onTrip ? 'OnTrip' : 'Itinerary' });
+      this.pathStack.pushPath({ name: t.onTrip ? 'OnTrip' : 'Itinerary', param: t.id });
     })
   }
 

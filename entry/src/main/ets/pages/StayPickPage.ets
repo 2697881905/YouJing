@@ -11,15 +11,45 @@ import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
-import { AreaPick, MockAreas } from '../mock/MockData';
+import { AreaPick } from '../mock/MockData';
+import { Area } from '../model/Area';
+import { PlanRepository } from '../data/PlanRepository';
+import { PlanDraft } from '../data/PlanDraft';
+import { common } from '@kit.AbilityKit';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 
 @Component
 export struct StayPickPage {
   private pathStack: NavPathStack = APP_NAV;
   @StorageProp('isDarkMode') isDark: boolean = false;
-  @State private selectedId: string = 'a-gion';
-  private picks: AreaPick[] = MockAreas.PICKS;
+  @State private selectedId: string = '';
+  @State private picks: AreaPick[] = [];
+
+  aboutToAppear(): void {
+    const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    const city: string = PlanDraft.get().basic.destination;
+    PlanRepository.loadAreas(ctx, city).then((areas: Area[]) => {
+      const list: AreaPick[] = [];
+      const top: Area[] = areas.slice(0, 3);
+      for (let i = 0; i < top.length; i++) {
+        const a: Area = top[i];
+        const pick: AreaPick = {
+          area: a,
+          badgeLabel: i === 0 ? 'AI 精选 1' : (a.group === 'commercial' ? '商圈便利' : '交通枢纽'),
+          aiRank: i + 1,
+          reason: a.suitableCrowds.length > 0 ?
+            `适合${a.suitableCrowds.join('/')}，${a.diningDensity === '高' ? '周边餐饮密集' : '环境安静'}` :
+            `${a.metroLines.join('/')}直达，通勤友好`,
+          firstSpot: `地铁 ${8 + i * 4}分钟`,
+          dailyCommuteMin: 30 + i * 6,
+          stayCount: 9 + i * 7
+        };
+        list.push(pick);
+      }
+      this.picks = list;
+      this.selectedId = list.length > 0 ? list[0].area.id : '';
+    });
+  }
 
   @Builder
   areaCard(pick: AreaPick) {
@@ -181,13 +211,16 @@ export struct StayPickPage {
               label: '帮我选（按通勤最短）',
               buttonWidth: 200,
               onAction: (): void => {
-                this.selectedId = MockAreas.PICKS[0].area.id;
+                if (this.picks.length > 0) {
+                  this.selectedId = this.picks[0].area.id;
+                }
               }
             })
             YoujingButton({
               variant: YoujingButtonVariant.PRIMARY,
               label: '就住这里',
               onAction: (): void => {
+                PlanDraft.get().selectedArea = { areaId: this.selectedId };
                 this.pathStack.pushPath({ name: 'Generating' });
               }
             })

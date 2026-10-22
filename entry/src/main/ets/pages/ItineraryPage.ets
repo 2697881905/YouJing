@@ -13,8 +13,11 @@ import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
-import { Activity, ActivityCategory, ActivityStatus, TripDay } from '../model/Trip';
+import { Activity, ActivityCategory, ActivityStatus, IntensityLevel, TripDay, Trip } from '../model/Trip';
 import { MockTrip } from '../mock/MockTrip';
+import { TripDao } from '../data/TripDao';
+import { Logger } from '../common/logger/Logger';
+import { common } from '@kit.AbilityKit';
 import { ImmersiveSegmentBar, SegmentedItem } from '../components/ImmersiveSegmentBar';
 import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
@@ -31,6 +34,7 @@ const ROW_HEIGHT: number = 76;
 export struct ItineraryPage {
   private pathStack: NavPathStack = APP_NAV;
   @StorageProp('isDarkMode') isDark: boolean = false;
+  @Prop tripId: string = '';
   @State private dayIndex: number = 0;
   @State private showDetail: boolean = false;
   @State private detailAct: Activity | undefined = undefined;
@@ -38,8 +42,9 @@ export struct ItineraryPage {
   @State private syncCalendar: boolean = false;
   @State private syncCard: boolean = true;
   @State private syncRemind: boolean = false;
-  private days: TripDay[] = MockTrip.TRIP.days;
-  private segments: SegmentedItem[] = [
+  @State private days: TripDay[] = [];
+  @State private titleText: string = '京都 · 5天4晚';
+  @State private segments: SegmentedItem[] = [
     { label: 'Day 1' }, { label: 'Day 2' }, { label: 'Day 3' }
   ];
   private dockItems: DockItem[] = [
@@ -48,6 +53,36 @@ export struct ItineraryPage {
     { symbol: $r('sys.symbol.wallet'), label: '费用', route: 'Expense' },
     { symbol: $r('sys.symbol.person'), label: '我的', route: 'Trips' }
   ];
+
+  aboutToAppear(): void {
+    if (this.tripId.length > 0) {
+      const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      TripDao.loadTrip(ctx, this.tripId).then((trip: Trip | null) => {
+        if (trip !== null) {
+          this.days = trip.days;
+          const nights: number = trip.days.length - 1;
+          this.titleText = `${trip.destination} · ${trip.days.length}天${nights}晚`;
+          this.segments = trip.days.map((d: TripDay): SegmentedItem => {
+            const item: SegmentedItem = { label: `Day ${d.dayIndex}` };
+            return item;
+          });
+        }
+      }).catch((err: Error) => {
+        Logger.error('Ui.Itinerary', `加载行程失败: ${err.message}`);
+      });
+    }
+  }
+
+  private curDay(): TripDay {
+    if (this.days.length === 0) {
+      const placeholder: TripDay = {
+        dayIndex: 1, date: '————', theme: '', intensity: IntensityLevel.LOW,
+        dailyCost: 0, activities: [], meals: []
+      };
+      return placeholder;
+    }
+    return this.days[Math.min(this.dayIndex, this.days.length - 1)];
+  }
 
   private dotColor(cat: ActivityCategory): Resource {
     if (cat === ActivityCategory.FOOD) {
@@ -579,7 +614,7 @@ export struct ItineraryPage {
           // 顶栏（玻璃点位①：骨架期回退档）
           Column() {
             Row() {
-              Text('京都 · 5天4晚')
+              Text(this.titleText)
                 .fontSize(TypeTokens.headline.size)
                 .fontWeight(600)
                 .fontColor(ColorTokens.ink)
@@ -645,13 +680,13 @@ export struct ItineraryPage {
 
               // 吸顶日标题（玻璃点位④：骨架期实色）
               Row() {
-                Text(`Day ${this.days[this.dayIndex].dayIndex} · ${this.days[this.dayIndex].date.slice(5).replace('-', '月')}日`)
+                Text(`Day ${this.curDay().dayIndex} · ${this.curDay().date.slice(5).replace('-', '月')}日`)
                   .fontSize(TypeTokens.body.size)
                   .fontWeight(600)
                   .fontColor(ColorTokens.ink)
                   .fontFeature("'tnum' on")
                 Blank()
-                Text(this.days[this.dayIndex].theme)
+                Text(this.curDay().theme)
                   .fontSize(TypeTokens.caption.size)
                   .fontWeight(450)
                   .fontColor(ColorTokens.muted)
@@ -661,14 +696,14 @@ export struct ItineraryPage {
               .margin({ top: SpaceTokens.md })
 
               Column() {
-                ForEach(this.days[this.dayIndex].activities,
+                ForEach(this.curDay().activities,
                   (act: Activity, idx: number) => {
-                    this.stopRow(act, idx === this.days[this.dayIndex].activities.length - 1)
-                    if (idx < this.days[this.dayIndex].activities.length - 1 &&
-                      this.days[this.dayIndex].activities[idx + 1].transport !== undefined) {
-                      this.transitLeg(this.days[this.dayIndex].activities[idx + 1])
+                    this.stopRow(act, idx === this.curDay().activities.length - 1)
+                    if (idx < this.curDay().activities.length - 1 &&
+                      this.curDay().activities[idx + 1].transport !== undefined) {
+                      this.transitLeg(this.curDay().activities[idx + 1])
                     }
-                  }, (act: Activity): string => `itin-${this.dayIndex}-${act.id}`)
+                  }, (act: Activity): string => `itin-${this.tripId}-${this.dayIndex}-${act.id}-${act.title}`)
               }
               .width('100%')
             }

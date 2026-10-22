@@ -12,7 +12,8 @@ import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
 import { QuestionFlowConfig } from '../common/constants/QuestionFlowConfig';
-import { FlowQuestion, QuestionOption } from '../model/PlanParams';
+import { FlowQuestion, QuestionOption, TravelStyle, TransitPreference, PaceOption } from '../model/PlanParams';
+import { PlanDraft } from '../data/PlanDraft';
 import { OptionCard } from '../components/OptionCard';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 
@@ -68,7 +69,18 @@ export struct PreferenceQAPage {
     }
   }
 
+  private syncDraft(): void {
+    const d: PlanDraft = PlanDraft.get();
+    d.style = this.singleAnswers[0] as TravelStyle;
+    d.stayTier = this.singleAnswers[1];
+    d.transit = this.singleAnswers[2] as TransitPreference;
+    d.paces = this.paceAnswers.length > 0
+      ? this.paceAnswers.map((v: string): PaceOption => v as PaceOption)
+      : [PaceOption.STANDARD];
+  }
+
   private advance(): void {
+    this.syncDraft();
     if (this.qIndex < this.questions.length - 1) {
       this.qIndex += 1;
     } else {
