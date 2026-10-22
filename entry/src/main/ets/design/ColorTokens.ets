@@ -30,6 +30,8 @@ export interface ColorTokensType {
   faint: Resource;
   icon: Resource;
   onDark: Resource;
+  /** 白字降级档 60%（分段栏未选项压深色背板时用，源自有据 ImmersiveSegmentBar 实测口径） */
+  onDarkDegraded: Resource;
   // 品牌与语义
   primary: Resource;
   primaryPress: Resource;
@@ -81,6 +83,7 @@ export const ColorTokens: ColorTokensType = {
   faint: $r('app.color.faint'),
   icon: $r('app.color.icon'),
   onDark: $r('app.color.on_dark'),
+  onDarkDegraded: $r('app.color.on_dark_degraded'),
   primary: $r('app.color.primary'),
   primaryPress: $r('app.color.primary_press'),
   primaryTint: $r('app.color.primary_tint'),

@@ -14,6 +14,7 @@
     { "name": "faint", "value": "#FF9E9EA3" },
     { "name": "icon", "value": "#FF3C3C43" },
     { "name": "on_dark", "value": "#FFFFFFFF" },
+    { "name": "on_dark_degraded", "value": "#99FFFFFF" },
     { "name": "primary", "value": "#FF0066CC" },
     { "name": "primary_press", "value": "#FF0055BB" },
     { "name": "primary_tint", "value": "#1A0066CC" },

@@ -1,0 +1,196 @@
+/**
+ * 沉浸光感 / 系统玻璃材质统一入口（自「有据」线上定稿实现移植，2026-10-22）。
+ *
+ * 兼容性铁律（有据 AGC 审核实证）：hdsMaterial 命名空间与 HdsTabs.barFloatingStyle
+ * 均 @since 6.1.0(23)。低版本设备运行时可能不存在 @hms.hds.hdsMaterial 模块——
+ * 本文件绝不静态 import hdsMaterial，也不在模块顶层求值 hdsMaterial.*
+ * （两者都会在缺失设备上加载即崩）。改用 deviceInfo.apiAvailable + canIUse 门禁。
+ *
+ * 有径落点（handoff §5/§9）：玻璃只四点位（顶栏/分段控件/浮动 dock/吸顶日标题），
+ * 一律用本文件的材质档位，不翻 CSS 的 blur+rgba 数值；弹层不是玻璃，
+ * 但 SheetOptions.systemMaterial 载体口径见 getSheetImmersiveMaterial 注释。
+ *
+ * 数值对照（SDK @hms.hds.hdsMaterial.d.ets）：
+ *   MaterialType: NONE=0, ADAPTIVE=100, IMMERSIVE=101
+ *   MaterialLevel: EXQUISITE=0, GENTLE=1, SMOOTH=2, ADAPTIVE=10
+ * 使用处传数值字面量，避免为枚举值静态 import 缺失模块。
+ */
+
+import deviceInfo from '@ohos.deviceInfo';
+import { uiMaterial } from '@kit.ArkUI';
+
+// HDS 沉浸光感 API 的 @since 版本线
+const HDS_IMMERSIVE_MIN_API: number = 23;
+// canIUse 探测的 HMS 系统能力：HDS 组件核心（HdsTabs/HdsVisualComponent/hdsMaterial 同属此 syscap）。
+const HDS_SYSCAP: string = 'SystemCapability.UIDesign.HDSComponent.Core';
+
+let immersiveSupported: boolean | null = null;
+
+/**
+ * 探测当前设备是否支持 HDS 沉浸光感材质（同步、进程内缓存、异常返 false 不抛出）。
+ * 条件：API ≥ 23 且设备声明 HDS syscap（模拟器/OpenHarmony 环境自动降级）。
+ */
+export function isImmersiveLightSenseSupported(): boolean {
+  if (immersiveSupported === null) {
+    try {
+      immersiveSupported = deviceInfo.sdkApiVersion >= HDS_IMMERSIVE_MIN_API
+        && canIUse(HDS_SYSCAP);
+    } catch (e) {
+      immersiveSupported = false;
+    }
+  }
+  return immersiveSupported;
+}
+
+// 材质档位数值（与 SDK 枚举一致）。
+// ⚠️ ADAPTIVE(10) 不等于「系统会挑最好」——有据真机实测它不出折射：
+// 同一颗圆钮只差这一个字段，EXQUISITE 有玻璃珠折射环，ADAPTIVE 只是普通半透。
+// 「要折射必须写 EXQUISITE」，取舍要显式做（handoff §9：材质档位不对，折射就没了）。
+export const HDS_MATERIAL_LEVEL_ADAPTIVE: number = 10;
+export const HDS_MATERIAL_LEVEL_EXQUISITE: number = 0;
+export const HDS_MATERIAL_TYPE_IMMERSIVE: number = 101;
+
+// 通用组件回退轨（材质不可用时）：backgroundBlurStyle 映射
+export class GlassBlurStyle {
+  // 悬浮栏/底部导航/弹层：通透厚玻璃
+  static readonly Floating: BlurStyle = BlurStyle.BACKGROUND_THICK;
+  // 内容卡片：中等模糊，保文字可读
+  static readonly Card: BlurStyle = BlurStyle.BACKGROUND_REGULAR;
+  // 按压态/浅色块：轻量模糊
+  static readonly Press: BlurStyle = BlurStyle.BACKGROUND_THIN;
+  // 高强调对话框
+  static readonly Dialog: BlurStyle = BlurStyle.BACKGROUND_THICK;
+}
+
+// —— 通用属性 systemMaterial（@since 26.0.0）：普通组件版沉浸光感 ——
+// 新属性必须放进 AttributeModifier.applyNormalAttribute 的 apiAvailable 分支内调用，
+// 门禁不通过就完全不触碰 uiMaterial（官方《ArkTS API 兼容性保护》示例口径）。
+//
+// 档位规范（沉浸光感设计指南·场景规范，数值同 uiMaterial.ImmersiveStyle）：
+//   顶部悬浮 → ULTRA_THIN；底部悬浮 → THIN；任意位置弹出 → THICK；半模态/弹框 → ULTRA_THICK。
+
+let topButtonMaterial: uiMaterial.Material | null = null;
+
+let systemMaterialActive: boolean | null = null;
+
+/** 材质是否实际生效；生效时使用处须撤掉自绘背景模糊与自绘阴影（会互相遮挡/叠加）。 */
+export function isSystemMaterialActive(): boolean {
+  if (systemMaterialActive === null) {
+    try {
+      systemMaterialActive = deviceInfo.apiAvailable('26.0.0');
+    } catch (e) {
+      systemMaterialActive = false;
+    }
+  }
+  return systemMaterialActive;
+}
+
+function getTopButtonMaterial(): uiMaterial.Material {
+  if (topButtonMaterial === null) {
+    topButtonMaterial = new uiMaterial.ImmersiveMaterial({
+      style: uiMaterial.ImmersiveStyle.ULTRA_THIN,
+      interactive: true,
+      // 投影关闭（有据真机实证）：ImmersiveMaterial 投影画在组件外圈，而挂材质的控件
+      // 多在 HdsNavigation 标题栏窄行内（bottomBuilder 行 clip=true 只比控件高 4vp），
+      // 投影被拦腰裁死成一条硬边灰带。内容区同材质实例本就不出图，关闭不影响他处。
+      applyShadow: false,
+    });
+  }
+  return topButtonMaterial;
+}
+
+/** 顶栏窄行内控件的材质修饰器（无投影版）。API < 26 门禁不过：完全不设置材质。 */
+export class TopButtonMaterialModifier implements AttributeModifier<CommonAttribute> {
+  applyNormalAttribute(instance: CommonAttribute): void {
+    if (deviceInfo.apiAvailable('26.0.0')) {
+      instance.systemMaterial(getTopButtonMaterial());
+    }
+  }
+}
+
+let floatingTopButtonMaterial: uiMaterial.Material | null = null;
+
+function getFloatingTopButtonMaterial(): uiMaterial.Material {
+  if (floatingTopButtonMaterial === null) {
+    floatingTopButtonMaterial = new uiMaterial.ImmersiveMaterial({
+      style: uiMaterial.ImmersiveStyle.ULTRA_THIN,
+      interactive: true,
+      // 保留投影：仅用于「容器给了下方留白、不会裁切投影」的悬浮件
+      // （纯白画布上无投影 ULTRA_THIN 表面与底色仅差 2 级，会失去浮起感——有据实测）。
+      applyShadow: true,
+    });
+  }
+  return floatingTopButtonMaterial;
+}
+
+/** 带留白悬浮件的材质修饰器（投影版）。HdsNavigation bottomBuilder 窄行仍用 TopButton 版。 */
+export class FloatingTopButtonMaterialModifier implements AttributeModifier<CommonAttribute> {
+  applyNormalAttribute(instance: CommonAttribute): void {
+    if (deviceInfo.apiAvailable('26.0.0')) {
+      instance.systemMaterial(getFloatingTopButtonMaterial());
+    }
+  }
+}
+
+let sheetImmersiveMaterial: uiMaterial.Material | null = null;
+
+/**
+ * 半模态（bindSheet）材质。载体纠正（有据「面板全透明」根因）：
+ * systemMaterial 必须走 SheetOptions.systemMaterial 字段（@since 26.0.0），
+ * 挂在 bindSheet builder 内的内容 Column 上属生效范围外、完全不渲染。
+ * API < 26 返回 undefined，使用处按 isSystemMaterialActive() 回退实色 elevated 底。
+ */
+export function getSheetImmersiveMaterial(): uiMaterial.Material | undefined {
+  if (!deviceInfo.apiAvailable('26.0.0')) {
+    return undefined;
+  }
+  if (sheetImmersiveMaterial === null) {
+    sheetImmersiveMaterial = new uiMaterial.ImmersiveMaterial({
+      // 场景规范：半模态/弹框 → ULTRA_THICK
+      style: uiMaterial.ImmersiveStyle.ULTRA_THICK,
+      interactive: false,
+    });
+  }
+  return sheetImmersiveMaterial;
+}
+
+let menuImmersiveMaterial: uiMaterial.Material | null = null;
+
+/**
+ * 弹出菜单材质。载体：MenuOptions.systemMaterial（@since 26.0.0）——
+ * 挂在菜单内容组件上属生效范围外，只能走 options 字段。
+ * 场景规范：任意位置弹出 → THICK；API < 26 返 undefined 回退实色。
+ */
+export function getMenuImmersiveMaterial(): uiMaterial.Material | undefined {
+  if (!deviceInfo.apiAvailable('26.0.0')) {
+    return undefined;
+  }
+  if (menuImmersiveMaterial === null) {
+    menuImmersiveMaterial = new uiMaterial.ImmersiveMaterial({
+      style: uiMaterial.ImmersiveStyle.THICK,
+      interactive: false,
+    });
+  }
+  return menuImmersiveMaterial;
+}
+
+let segmentImmersiveMaterial: uiMaterial.Material | null = null;
+
+/**
+ * 官方 SegmentButton 材质。载体：options.backgroundSystemMaterial（@since 26.0.0）——
+ * 挂在包裹它的 Row/Column 会被组件内部表面覆盖。
+ * ULTRA_THIN 保留投影（宿主行需自带下方净空）；API < 26 返 undefined 落官方默认底色。
+ */
+export function getSegmentImmersiveMaterial(): uiMaterial.Material | undefined {
+  if (!deviceInfo.apiAvailable('26.0.0')) {
+    return undefined;
+  }
+  if (segmentImmersiveMaterial === null) {
+    segmentImmersiveMaterial = new uiMaterial.ImmersiveMaterial({
+      style: uiMaterial.ImmersiveStyle.ULTRA_THIN,
+      interactive: true,
+      applyShadow: true,
+    });
+  }
+  return segmentImmersiveMaterial;
+}
