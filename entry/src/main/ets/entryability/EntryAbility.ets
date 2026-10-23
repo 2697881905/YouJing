@@ -8,6 +8,7 @@ import { AccountStore } from '../data/AccountStore';
 import { PlanDraft } from '../data/PlanDraft';
 import { TripBasicInput } from '../model/PlanParams';
 import { DateUtils } from '../utils/DateUtils';
+import { IntentHandoff } from '../data/IntentHandoff';
 
 const DOMAIN = 0x0000;
 
@@ -144,8 +145,8 @@ export default class EntryAbility extends UIAbility {
   }
 
   onForeground(): void {
-    // Ability has brought to foreground
-    hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onForeground');
+    // 意图执行器可能早于页面挂载写路由，这里与 bootstrap 双路消费同一交接位
+    this.routePending();
   }
 
   onBackground(): void {
@@ -163,6 +164,16 @@ export default class EntryAbility extends UIAbility {
     DataSeeder.seedIfEmpty(this.context).catch((err: Error) => {
       Logger.error('EntryAbility', `种子灌入失败: ${err.message}`);
     });
+    this.routePending();
+  }
+
+  /** 统一出口：want 通道优先，其次意图执行器留下的交接路由；消费即清空 */
+  private routePending(): void {
+    if (this.pendingRoute.length === 0 && IntentHandoff.hasPending()) {
+      this.pendingRoute = IntentHandoff.pendingRoute;
+      this.pendingParam = IntentHandoff.pendingParam;
+      IntentHandoff.take();
+    }
     if (this.pendingRoute.length > 0) {
       APP_NAV.pushPath({ name: this.pendingRoute, param: this.pendingParam });
     }
