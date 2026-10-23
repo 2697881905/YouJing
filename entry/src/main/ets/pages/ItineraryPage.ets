@@ -19,7 +19,8 @@ import { AccessFlags, CalendarSync, SyncResult } from '../data/CalendarSync';
 import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
 import { ImmersiveSegmentBar, SegmentedItem } from '../components/ImmersiveSegmentBar';
-import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
+import { barMaterial, getSheetImmersiveMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
+import { uiMaterial } from '@kit.ArkUI';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 
 interface DockItem {
@@ -34,6 +35,8 @@ const ROW_HEIGHT: number = 76;
 export struct ItineraryPage {
   private pathStack: NavPathStack = APP_NAV;
   @StorageProp('isDarkMode') isDark: boolean = false;
+  /** 玻璃点位①③是否由系统材质接管（接管处撤自绘背景与阴影）；仅浅色模式下实验 */
+  private glassOn: boolean = isSystemMaterialActive();
   @Prop tripId: string = '';
   @State private dayIndex: number = 0;
   @State private showDetail: boolean = false;
@@ -661,7 +664,8 @@ export struct ItineraryPage {
             .width('100%')
             .padding(SpaceTokens.md)
             .borderRadius(RadiusTokens.card)
-            .backgroundColor(ColorTokens.surfaceElevated)
+            .attributeModifier(barMaterial(uiMaterial.ImmersiveStyle.ULTRA_THIN, true, this.glassOn && !this.isDark))
+          .backgroundColor(this.glassOn && !this.isDark ? Color.Transparent : ColorTokens.surfaceElevated)
             .margin({ top: SpaceTokens.lg })
 
             Column() {
@@ -1018,9 +1022,10 @@ export struct ItineraryPage {
         .height(LayoutTokens.tabBarHeight)
         .justifyContent(FlexAlign.SpaceEvenly)
         .borderRadius(RadiusTokens.dock)
-        .backgroundColor(ColorTokens.surfaceElevated)
+        .attributeModifier(barMaterial(uiMaterial.ImmersiveStyle.THIN, true, this.glassOn && !this.isDark))
+        .backgroundColor(this.glassOn && !this.isDark ? Color.Transparent : ColorTokens.surfaceElevated)
         .border({ width: 1, color: ColorTokens.borderSubtle, radius: RadiusTokens.dock })
-        .shadow(this.isDark ? { radius: 0 } : ShadowTokens.floating)
+        .shadow(this.glassOn && !this.isDark || this.isDark ? { radius: 0 } : ShadowTokens.floating)
         .margin({ bottom: LayoutTokens.floatingDockBottomMargin })
         .bindSheet($$this.showSystemAccess, this.systemAccessSheet(), {
           height: SheetSize.FIT_CONTENT,

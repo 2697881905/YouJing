@@ -194,3 +194,48 @@ export function getSegmentImmersiveMaterial(): uiMaterial.Material | undefined {
   }
   return segmentImmersiveMaterial;
 }
+
+const barMaterialCache: Map<string, uiMaterial.Material> = new Map<string, uiMaterial.Material>();
+
+function getBarMaterial(style: uiMaterial.ImmersiveStyle, withShadow: boolean): uiMaterial.Material {
+  const key: string = `${style}-${withShadow}`;
+  const hit: uiMaterial.Material | undefined = barMaterialCache.get(key);
+  if (hit !== undefined) {
+    return hit;
+  }
+  const created: uiMaterial.Material = new uiMaterial.ImmersiveMaterial({
+    style: style, interactive: true, applyShadow: withShadow
+  });
+  barMaterialCache.set(key, created);
+  return created;
+}
+
+/**
+ * 整条悬浮栏（顶栏 / 底部 dock）的材质修饰器。
+ * 场景规范：顶部悬浮 ULTRA_THIN、底部悬浮 THIN；投影只在宿主有净空不被裁时保留。
+ * 生效时宿主须撤掉自绘 backgroundColor 与自绘 shadow，否则自绘层把材质盖住。
+ */
+export class BarMaterialModifier implements AttributeModifier<CommonAttribute> {
+  private style: uiMaterial.ImmersiveStyle;
+  private withShadow: boolean;
+
+  constructor(style: uiMaterial.ImmersiveStyle, withShadow: boolean) {
+    this.style = style;
+    this.withShadow = withShadow;
+  }
+
+  applyNormalAttribute(instance: CommonAttribute): void {
+    if (deviceInfo.apiAvailable('26.0.0')) {
+      instance.systemMaterial(getBarMaterial(this.style, this.withShadow));
+    }
+  }
+}
+
+/** 取栏级材质；enabled 为假或 API 门禁不过返回 undefined（attributeModifier 允许不传） */
+export function barMaterial(style: uiMaterial.ImmersiveStyle, withShadow: boolean,
+  enabled: boolean): BarMaterialModifier | undefined {
+  if (!enabled || !isSystemMaterialActive()) {
+    return undefined;
+  }
+  return new BarMaterialModifier(style, withShadow);
+}
