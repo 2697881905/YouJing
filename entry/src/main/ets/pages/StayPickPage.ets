@@ -22,6 +22,7 @@ import { PlanDraft } from '../data/PlanDraft';
 import { common } from '@kit.AbilityKit';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import type { HdsNavigationMenuItemOptions, HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
 
 @Component
@@ -41,25 +42,65 @@ export struct StayPickPage {
       const list: AreaPick[] = [];
       const top: Area[] = areas.slice(0, 3);
       for (let i = 0; i < top.length; i++) {
-        const a: Area = top[i];
-        // 理由与三列只拼区域库里真有的字段：到首个景点耗时/日均通勤/房源数
-        // 需要路径规划与住宿库存，本项目两者都没有，底稿那三项数字不再照抄
-        const din: string = `周边餐饮${a.diningDensity}密度`;
-        const pick: AreaPick = {
-          area: a,
-          badgeLabel: i === 0 ? '精选 1' : this.groupBadge(a.group),
-          aiRank: i + 1,
-          reason: a.suitableCrowds.length > 0 ? `适合${a.suitableCrowds.join('/')}，${din}` :
-            `地铁${a.metroLines.join('/')}线直达，${din}`
-        };
-        list.push(pick);
+        list.push(this.makePick(top[i], i));
       }
       this.picks = list;
       this.selectedId = list.length > 0 ? list[0].area.id : '';
-      const stops: MapStop[] = MapStops.fromAreas(top);
-      this.areaStops = stops;
-      this.areaSig = MapStops.signature(stops);
+      this.applyStops(top);
     });
+  }
+
+  /** 理由与三列只拼区域库里真有的字段：到首个景点耗时/日均通勤/房源数
+   *  需要路径规划与住宿库存，本项目两者都没有，底稿那三项数字不再照抄 */
+  private makePick(a: Area, rank: number): AreaPick {
+    const din: string = `周边餐饮${a.diningDensity}密度`;
+    const pick: AreaPick = {
+      area: a,
+      badgeLabel: rank === 0 ? '精选 1' : this.groupBadge(a.group),
+      aiRank: rank + 1,
+      reason: a.suitableCrowds.length > 0 ? `适合${a.suitableCrowds.join('/')}，${din}` :
+        `地铁${a.metroLines.join('/')}线直达，${din}`
+    };
+    return pick;
+  }
+
+  private applyStops(areas: Area[]): void {
+    const stops: MapStop[] = MapStops.fromAreas(areas);
+    this.areaStops = stops;
+    this.areaSig = MapStops.signature(stops);
+  }
+
+  /** 屏5b 全部区域：带 Area 出栈后插成首位候选并选中（原来那行字是个没有动作的死控件） */
+  private openAreaMore(): void {
+    const city: string = PlanDraft.get().basic.destination;
+    this.pathStack.pushPath({
+      name: 'AreaMore',
+      param: city,
+      onPop: (info: PopInfo): void => {
+        if (typeof info.result !== 'object' || info.result === null) {
+          return;
+        }
+        const chosen: Area = info.result as Area;
+        if (chosen.id.length === 0) {
+          return;
+        }
+        const rest: Area[] = this.picks.map((p: AreaPick): Area => p.area)
+          .filter((a: Area): boolean => a.id !== chosen.id).slice(0, 2);
+        const merged: Area[] = [chosen].concat(rest);
+        const list: AreaPick[] = merged.map((a: Area, i: number): AreaPick => this.makePick(a, i));
+        this.picks = list;
+        this.selectedId = chosen.id;
+        this.applyStops(merged);
+      }
+    });
+  }
+
+  private titleBarOptions(): HdsNavigationTitleBarOptions {
+    const items: Array<HdsNavigationMenuItemOptions> = [HdsChrome.item(
+      $r('sys.symbol.ellipsis_circle'), '查看更多区域', (): void => {
+        this.openAreaMore();
+      })];
+    return HdsChrome.bar({ mainTitle: '住哪一片', menu: items });
   }
 
   /** 角标只描述 Area.group 这一个真字段，不再按位次猜「交通枢纽」 */
@@ -251,7 +292,7 @@ export struct StayPickPage {
                     Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Center }) {
                       ForEach(this.picks, (pick: AreaPick) => {
                         this.mapChip(pick)
-                      }, (pick: AreaPick): string => `chip-${pick.area.id}`)
+                      }, (pick: AreaPick): string => `chip-${pick.area.id}-${pick.aiRank}`)
                     }
                     .width('100%')
                     .margin({ left: SpaceTokens.md, right: SpaceTokens.md })
@@ -274,7 +315,7 @@ export struct StayPickPage {
 
               ForEach(this.picks, (pick: AreaPick) => {
                 this.areaCard(pick)
-              }, (pick: AreaPick): string => pick.area.id)
+              }, (pick: AreaPick): string => `card-${pick.area.id}-${pick.aiRank}-${this.selectedId === pick.area.id ? 'on' : 'off'}`)
             }
             .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: 110 })
           }
@@ -313,7 +354,7 @@ export struct StayPickPage {
         .backgroundColor(ColorTokens.canvas)
       }
     }
-    .titleBar(HdsChrome.bar({ mainTitle: '住哪一片' }))
+    .titleBar(this.titleBarOptions())
     .titleMode(HdsNavDestinationTitleMode.MINI)
   }
 }

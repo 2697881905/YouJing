@@ -19,6 +19,7 @@ import { TripsPage } from './TripsPage';
 import { OnTripPage } from './OnTripPage';
 import { SharePage } from './SharePage';
 import { MapPage } from './MapPage';
+import { AreaMorePage } from './AreaMorePage';
 import { ComingSoonPage } from './ComingSoonPage';
 import { HdsNavigation } from '@kit.UIDesignKit';
 
@@ -54,6 +55,8 @@ function routerMap(name: string, param: object) {
     OnTripPage({ tripId: typeof param === 'string' ? param as string : '' })
   } else if (name === 'Share') {
     SharePage({ tripId: typeof param === 'string' ? param as string : '' })
+  } else if (name === 'AreaMore') {
+    AreaMorePage({ city: typeof param === 'string' ? param as string : '' })
   } else if (name === 'Map') {
     MapPage({ tripId: typeof param === 'string' ? param as string : '' })
   } else {
