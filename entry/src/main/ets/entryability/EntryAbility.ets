@@ -9,6 +9,7 @@ import { PlanDraft } from '../data/PlanDraft';
 import { TripBasicInput } from '../model/PlanParams';
 import { DateUtils } from '../utils/DateUtils';
 import { IntentHandoff } from '../data/IntentHandoff';
+import { SkillPrefill, SkillPrefillRecord } from '../data/SkillPrefill';
 import { BuildConfig } from '../common/constants/BuildConfig';
 import { WidgetSync } from '../widget/TodayCard';
 
@@ -17,6 +18,10 @@ const DOMAIN = 0x0000;
 export default class EntryAbility extends UIAbility {
   private pendingRoute: string = '';
   private pendingParam: string = '';
+  /** 页面已 load 完（Navigation 可推栈） */
+  private contentReady: boolean = false;
+  /** 真正对用户可见：后台被 Skill 绑起时不能消费预填，否则进程一杀就丢 */
+  private visible: boolean = false;
 
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onCreate');
@@ -87,6 +92,8 @@ export default class EntryAbility extends UIAbility {
     }
     if (touched) {
       draft.basic = basic;
+      // 这条外部 Want 已带同一批参数，作废可能还躺在盘上的 Skill 预填
+      SkillPrefill.clear(this.context);
       Logger.info('EntryAbility',
         `外部预填 route=${this.pendingRoute} ${basic.destination} ${basic.startDate}→${basic.endDate} ${basic.people}人`);
     }
@@ -148,16 +155,19 @@ export default class EntryAbility extends UIAbility {
 
   onForeground(): void {
     // 意图执行器可能早于页面挂载写路由，这里与 bootstrap 双路消费同一交接位
+    this.visible = true;
     this.routePending();
   }
 
   onBackground(): void {
     // Ability has back to background
+    this.visible = false;
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onBackground');
   }
 
   /** 登录态必须先于任何行程读写恢复：DAO 取分区键是同步的（阶段 8） */
   private async bootstrap(): Promise<void> {
+    this.contentReady = true;
     try {
       await AccountStore.init(this.context);
     } catch (err) {
@@ -188,18 +198,43 @@ export default class EntryAbility extends UIAbility {
     }
   }
 
-  /** 统一出口：want 通道优先，其次意图执行器留下的交接路由；消费即清空 */
+  /**
+   * 统一出口：want 通道优先，其次意图执行器交接位，最后小艺 Skill 落盘的预填。
+   * 预填只在「页面已挂载 + 用户真的看得见」时消费；后台被 Skill 绑起时留着，进程被杀也不丢。
+   */
   private routePending(): void {
     if (this.pendingRoute.length === 0 && IntentHandoff.hasPending()) {
       this.pendingRoute = IntentHandoff.pendingRoute;
       this.pendingParam = IntentHandoff.pendingParam;
       IntentHandoff.take();
     }
+    if (this.pendingRoute.length === 0 && this.contentReady && this.visible) {
+      const prefill: SkillPrefillRecord | null = SkillPrefill.take(this.context);
+      if (prefill !== null) {
+        this.applySkillPrefill(prefill);
+        this.pendingRoute = 'TripInput';
+        this.pendingParam = '';
+      }
+    }
     if (this.pendingRoute.length > 0) {
       APP_NAV.pushPath({ name: this.pendingRoute, param: this.pendingParam });
     }
     this.pendingRoute = '';
     this.pendingParam = '';
+  }
+
+  private applySkillPrefill(prefill: SkillPrefillRecord): void {
+    const draft: PlanDraft = PlanDraft.get();
+    const basic: TripBasicInput = {
+      destination: prefill.destination,
+      startDate: prefill.start,
+      endDate: DateUtils.addDays(prefill.start, prefill.days - 1),
+      people: prefill.people,
+      budget: draft.basic.budget
+    };
+    draft.basic = basic;
+    Logger.info('EntryAbility',
+      `Skill 预填 ${basic.destination} ${basic.startDate}→${basic.endDate} ${basic.people}人`);
   }
 
   onError(error: Error): void {

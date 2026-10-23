@@ -4,13 +4,19 @@
 > 本项目走的是 API 26 的「应用内 Skill」（app skill），不是旧的 IntentsKit 意图声明。
 > 旧的 `resources/base/profile/insight_intent.json` 与 `PlanTripExecutor` 仍留在工程里，
 > 但当前小艺入口以本文的 Skill 为准，两者互不依赖。
+>
+> **2026-10-23 真机测试修正**：手机系统禁止后台应用拉起 UIAbility，
+> Skill 里 `startAbility` 必报 `201`（`ohos.permission.START_ABILITIES_FROM_BACKGROUND`
+> 仅系统应用可用；`startSelf()` 仅 PC/2in1）。因此链路改为
+> **Skill 落盘预填 → 用户打开有径时 EntryAbility 消费 → 自动推屏2**，
+> 小艺回复如实说「已记下，打开有径即可继续」。详见 §E.7。
 
 ## A. 先看结论
 
 | 项 | 值 |
 |---|---|
 | Skill 名 | `youjing-plan-trip` |
-| 能力 | 预填目的地 / 出发日 / 天数 / 同行人数，并打开屏2「行程规划」 |
+| 能力 | 记下目的地 / 出发日 / 天数 / 同行人数；用户打开有径后自动进入屏2「行程规划」并预填 |
 | 契约文件 | `entry/skills/youjing-plan-trip/SKILL.md`（随 HAP 打包） |
 | 入口脚本 | `entry/skills/youjing-plan-trip/scripts/PlanTripSkill.ets` |
 | 注册声明 | `entry/src/main/module.json5` → `skillProfiles` |
@@ -45,7 +51,8 @@
 5. 导入后核对平台解析结果：
    - 触发场景：`帮我规划去北京的行程`、`安排一次上海三天两晚的旅游`、`下个月去广州玩四天，两个人`
    - 场景 1（`planTrip`）参数：`arg1` 目的地、`arg2` 出发日 `YYYY-MM-DD`、`arg3` 天数、`arg4` 人数
-   - 返回值：`success` 带 `destination/startDate/days/people/route/launched`；
+   - 返回值：`success` 带 `destination/startDate/days/people/route/launched/message`；
+     手机上 `launched=false`（参数已记下），`message` 可直接作为回复；
      失败为 `ERR_INVALID_PARAMS` 或 `ERR_INTERNAL`，均带 `suggestion`
 
 ### B2. 真机测试
@@ -55,9 +62,10 @@
    > 帮我规划去上海的行程，8 月 1 号出发，4 天，3 个人
 3. 预期链路：
    - 小艺命中 Skill → 调 `planTrip`
-   - 有径被拉起（前台或冷启动均可）
-   - 屏2 显示：`上海` / `8月1日 – 8月4日` / `4天3晚` / `3 位成人`
-   - Skill 返回 `status=success`，`data.launched=true`
+   - 参数写入 `SkillPrefill`；`startAbility` 在手机上返回 201，属预期
+   - 小艺回复：`已记下：上海，8月1日出发，4天，3人。打开「有径」会自动进入行程规划页并填好这些信息。`
+   - 用户点开有径 → 屏2 显示：`上海` / `8月1日 – 8月4日` / `4天3晚` / `3 位成人`
+   - Skill 返回 `status=success`，`data.launched=false`，`data.message` 同上
 4. 再测两条边界：
    - 说「帮我规划去成都的行程」→ 不应拉起，返回 `ERR_INVALID_PARAMS`，
      `suggestion` 为「目前只支持北京、上海、广州、深圳，你想去哪一个？」
@@ -109,11 +117,12 @@
 
 ### C2. Skill 入口契约
 
-`PlanTripSkill.ets` 是薄适配层，只做三件事：
+`PlanTripSkill.ets` 是薄适配层，只做四件事：
 
 1. 校验 `argv`（位置参数依次为目的地、出发日、天数、人数）。
-2. 组装 Want 拉起 `EntryAbility`，参数交给 `EntryAbility.applyWant` 统一落草稿。
-3. 用 `scriptManager.completeArkTSScriptInApp` 回 `result`。
+2. 把四参写入 `data/SkillPrefill`（Preferences 分片 `youjing_skill_prefill`，取后即删，2 小时过期）。
+3. 尽力 `startAbility`（PC/2in1 可能成功；手机上必 201，属预期，不改变返回）。
+4. 用 `scriptManager.completeArkTSScriptInApp` 回 `result`；`launched` 如实反映是否拉起。
 
 入口签名（平台按 SKILL.md 调用）：
 
@@ -130,27 +139,27 @@ public async planTrip(info: scriptManager.ArkTSScriptInfo, ...argv: string[]): P
 | `arg3` | 天数 | 1–30 整数；省略时默认 3 |
 | `arg4` | 人数 | 1–30 整数；省略时默认 2 |
 
-拉起 Want：
+预填落盘（主路径）：
 
 ```ts
 {
-  bundleName: 'com.youjing.app',
-  abilityName: 'EntryAbility',
-  parameters: {
-    route: 'TripInput',
-    destination: '上海',
-    start: '2026-08-01',
-    days: 4,
-    people: 3
-  }
+  destination: '上海',
+  start: '2026-08-01',
+  days: 4,
+  people: 3,
+  savedAt: Date.now()
 }
 ```
 
-`EntryAbility.applyWant()` 已处理：
+`EntryAbility` 的消费时机：
 
-- `route` 落点（`TripInput` / `Trips` / `Itinerary` …）
-- 非法日期忽略、`days` 反算 `end`、不覆盖已有草稿
-- App 已在前台时走 `onNewWant`，单例复用页面栈
+- **冷启动**：`loadContent` 完成后 `bootstrap()` 置 `contentReady`，若已可见则取预填。
+- **热启动 / 从后台返回**：`onForeground()` 置 `visible` 后取预填。
+- **后台被 Skill 绑起**：`visible=false` 时不取，避免进程被杀导致预填丢失。
+- 取到后写入 `PlanDraft.basic`（`days` 反算 `endDate`）并 `pushPath('TripInput')`。
+
+外部 Want 通道仍保留（`aa start` / 深链）；`applyWant` 成功应用参数时会清掉
+盘上的 Skill 预填，避免同一次请求被消费两次。
 
 ### C3. SKILL.md 契约
 
@@ -172,6 +181,8 @@ public async planTrip(info: scriptManager.ArkTSScriptInfo, ...argv: string[]): P
 | 系统注册 | 启动日志 `Skill 注册 1 个: youjing-plan-trip` |
 | 下游预填 | `aa start` 传同一组 Want 参数：屏2 显示 `上海 / 8月1日–8月4日 / 4天3晚 / 3 位成人` |
 | App 存活时复用 | `onNewWant` 日志 `外部预填 route=TripInput …`，页面栈不重建 |
+| 平台真机调用 | 2026-10-23 15:54 小艺日志 `execCli2 payload=...--args '{"arg1":"上海","arg2":"2026-08-01","arg3":"4","arg4":"3"}'`，参数解析无误 |
+| 失败真因 | 同次调用返回 `code:-1`，`errMsg: startAbility failed: 201 The application does not have permission to call the interface.` |
 
 > `bm dump -n com.youjing.app` **不会**列出 `skillProfiles`（只列 ability 的 home skills），
 > 不要用它判断 Skill 是否注册；以 `skillManager.getSkillInfosForSelf` 的启动日志为准。
@@ -201,6 +212,13 @@ hdc shell aa start -a EntryAbility -b com.youjing.app \
    但 Skill 内容变了必须升版本。
 5. **不要把 Client Secret、签名口令等写进 SKILL.md 或脚本**；Skill 包会随 HAP 分发。
 6. **发布有延迟**：审核 1–3 个工作日；App 内闭环不依赖它。
+7. **手机后台禁止拉起界面（实测 201）**：`UIAbilityContext.startAbility` 从后台调用需要
+   `ohos.permission.START_ABILITIES_FROM_BACKGROUND`，该权限仅系统应用可用；
+   `startSelf()` 在手机上返回 801（仅 PC/2in1），`startSelfUIAbilityInCurrentProcess` 同样仅 PC/2in1，
+   `ApplicationContext.startSelfUIAbility` 只在延迟退出窗口内有效。
+   因此**不要**再把「小艺说完自动弹出有径」当验收标准；正确标准是：
+   小艺如实回复已记下 → 用户点开有径 → 屏2 已预填。
+   Skill 里的 `startAbility` 仅保留给 PC/2in1 尽力尝试，失败不改变 `success` 与参数落盘。
 
 ## F. 你的操作清单（打勾即可）
 
@@ -208,6 +226,7 @@ hdc shell aa start -a EntryAbility -b com.youjing.app \
 - [ ] 登录小艺开放平台（与 AGC 同账号）
 - [ ] Skill → 新建 Skill → 导入 Skill（bundle `com.youjing.app`，skill `youjing-plan-trip`，版本 `1.0.0`）
 - [ ] 核对平台解析出的触发场景 / `planTrip` / 参数 Schema
-- [ ] 真机测试「帮我规划去上海的行程，8 月 1 号出发，4 天，3 个人」→ 屏2 预填正确
+- [ ] 真机测试「帮我规划去上海的行程，8 月 1 号出发，4 天，3 个人」→ 小艺回复「已记下」；
+      点开有径后屏2 预填正确（`上海 / 8月1日–8月4日 / 4天3晚 / 3 位成人`）
 - [ ] 测试不支持城市与缺日期两条边界
 - [ ] 选「仅自己可用」发布 → 自测稳定后再升级范围

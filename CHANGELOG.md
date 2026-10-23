@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- 小艺 Skill 真机拉起失败（2026-10-23）：平台日志显示参数正确解析，但 `startAbility` 返回
+  `201 The application does not have permission to call the interface.`——手机后台应用无权拉起
+  UIAbility（`START_ABILITIES_FROM_BACKGROUND` 仅系统应用；`startSelf()` 仅 PC/2in1）。
+  改为 `data/SkillPrefill` 落盘（Preferences `youjing_skill_prefill`，取后即删、2 小时过期），
+  `EntryAbility` 在 `contentReady && visible` 时消费并推屏2；Skill 返回 `launched=false` +
+  如实 `message`（「已记下…打开有径会自动进入行程规划页并填好这些信息」）。
+  `startAbility` 保留为 PC/2in1 的尽力尝试。杭州等四城之外的拒绝行为不变。
+
 ### Added
 
 - 小艺 Skill 应用内接入（2026-10-23，真机验收）：API 26 `skillProfiles` 注册 `youjing-plan-trip`；

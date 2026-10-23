@@ -1,12 +1,15 @@
 /**
  * 「规划行程」Skill 入口（薄适配层）。
- * 只做参数校验与拉起 App；日期/人数/天数的落盘与导航复用 EntryAbility.applyWant，
- * 不在这里写第二套预填逻辑。
+ *
+ * 手机系统禁止后台应用拉起 UIAbility（201，START_ABILITIES_FROM_BACKGROUND 仅系统应用），
+ * 所以主路径不是 startAbility，而是先把四参写入 SkillPrefill，
+ * 用户打开「有径」时由 EntryAbility 消费并推屏2；startAbility 仅作 PC/2in1 的尽力尝试。
  */
 
 import { common, scriptManager, Want } from '@kit.AbilityKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { Logger } from '../../../src/main/ets/common/logger/Logger';
+import { SkillPrefill, SkillPrefillRecord } from '../../../src/main/ets/data/SkillPrefill';
 
 const TAG: string = 'Skill.PlanTrip';
 const BUNDLE_NAME: string = 'com.youjing.app';
@@ -99,27 +102,55 @@ export default class PlanTripSkill {
         PlanTripSkill.failure('ERR_INVALID_PARAMS', parsed.errMsg, parsed.suggestion));
       return;
     }
+    const record: SkillPrefillRecord = {
+      destination: parsed.args.destination,
+      start: parsed.args.start,
+      days: parsed.args.days,
+      people: parsed.args.people,
+      savedAt: Date.now()
+    };
+    if (!SkillPrefill.save(info.context, record)) {
+      // 落盘失败等于什么都没做成，不能回 success；让用户进 App 手动填
+      await this.report(info, PlanTripSkill.failure('ERR_INTERNAL',
+        'prefill persist failed', '没能记下这次规划，请打开「有径」手动填写行程信息'));
+      return;
+    }
+
+    let launched: boolean = false;
     try {
       const context: common.UIAbilityContext = info.context as common.UIAbilityContext;
       await context.startAbility(PlanTripSkill.wantOf(parsed.args));
+      launched = true;
     } catch (err) {
+      // 手机（非 PC/2in1）后台必然 201，这是预期路径而不是故障：
+      // 参数已在 SkillPrefill，用户点开 App 后 onForeground 会消费并推屏2。
       const e: BusinessError = err as BusinessError;
-      await this.report(info, PlanTripSkill.failure('ERR_INTERNAL',
-        `startAbility failed: ${e.code} ${e.message}`, '打开有径失败了，请手动打开应用再试'));
-      return;
+      Logger.info(TAG, `startAbility 未获准，保留预填待用户打开: code=${e.code}`);
     }
+
     const data: Record<string, Object> = {
       'destination': parsed.args.destination,
       'startDate': parsed.args.start,
       'days': parsed.args.days,
       'people': parsed.args.people,
       'route': 'TripInput',
-      'launched': true
+      'launched': launched,
+      'message': PlanTripSkill.messageOf(parsed.args, launched)
     };
     const payload: Record<string, Object> = {
       'type': 'result', 'status': 'success', 'data': data
     };
     await this.report(info, { code: 0, result: payload });
+  }
+
+  private static messageOf(args: PlanArgs, launched: boolean): string {
+    const parts: string[] = args.start.split('-');
+    const dateText: string = `${Number(parts[1])}月${Number(parts[2])}日`;
+    const summary: string = `${args.destination}，${dateText}出发，${args.days}天，${args.people}人`;
+    if (launched) {
+      return `已打开「有径」行程规划页：${summary}。`;
+    }
+    return `已记下：${summary}。打开「有径」会自动进入行程规划页并填好这些信息。`;
   }
 
   private static wantOf(args: PlanArgs): Want {

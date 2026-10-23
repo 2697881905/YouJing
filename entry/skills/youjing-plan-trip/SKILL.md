@@ -1,13 +1,19 @@
 ---
 name: youjing-plan-trip
-description: 为「有径」预填旅行基础参数并打开行程规划页，响应“帮我规划去上海的行程”等说法
+description: 为「有径」记下旅行基础参数，用户打开应用后自动进入行程规划页并预填，响应“帮我规划去上海的行程”等说法
 ---
 
 # youjing-plan-trip
 
 本Skill基于ArkTS函数`planTrip`，响应自然语言中"帮我规划去某地""安排几天几晚的旅行"等意图，
-把目的地、出发日期、天数、同行人数写入宿主应用「有径」的规划草稿并拉起行程规划页，
+把目的地、出发日期、天数、同行人数记入宿主应用「有径」的规划草稿，
 由用户在页面内继续选择玩法偏好与景点后生成行程。
+
+> **手机上的拉起限制**：HarmonyOS 不允许后台应用自行拉起界面（`startAbility` 返回 201，
+> 该豁免权限只给系统应用）。因此本Skill在手机上**不会**直接弹出有径，
+> 而是把参数记下并返回 `data.launched=false`。小艺回复时应如实说明
+> 「已记下，打开有径就会自动进入行程规划页」；用户点开有径后，页面会自动预填这些参数。
+> PC/2in1 上若系统允许拉起，`launched` 为 `true`，回复可直接说已打开。
 
 ## 触发场景
 
@@ -20,13 +26,13 @@ description: 为「有径」预填旅行基础参数并打开行程规划页，�
 
 不要调用的情况:
 
-- 用户只是问景点介绍、天气、订票或美食推荐——本Skill只负责预填行程参数并打开规划页。
+- 用户只是问景点介绍、天气、订票或美食推荐——本Skill只负责预填行程参数。
 - 用户说“看看我之前做的行程”“打开我的行程”——意图是查看已有行程，不是新建规划。
 - 目的地不在北京、上海、广州、深圳——当前数据未覆盖，不要调用，直接告知暂不支持。
 - 用户没有给出出发日期——先追问具体日期，不要猜测或代填今天。
 - 用户已经打开有径且正在规划另一段行程——不要打断当前编辑，先询问是否新建。
 
-### 场景1:预填并打开行程规划(planTrip)
+### 场景1:预填行程参数(planTrip)
 
 **触发场景**:用户说"帮我规划去北京的行程"、"安排一次上海三天两晚的旅游"等
 
@@ -107,7 +113,7 @@ exec-cli(command: ohos-arkTSScript --skillName 'youjing-plan-trip' --scriptPath 
 **执行返回值**:
 示例如下:
 
-1. 成功预填并拉起规划页
+1. 成功记下参数（手机上的正常路径，App 未被自动拉起）
 
 ```
 {
@@ -119,7 +125,8 @@ exec-cli(command: ohos-arkTSScript --skillName 'youjing-plan-trip' --scriptPath 
     "days": 4,
     "people": 3,
     "route": "TripInput",
-    "launched": true
+    "launched": false,
+    "message": "已记下：上海，8月1日出发，4天，3人。打开「有径」会自动进入行程规划页并填好这些信息。"
   }
 }
 ```
@@ -136,15 +143,15 @@ exec-cli(command: ohos-arkTSScript --skillName 'youjing-plan-trip' --scriptPath 
 }
 ```
 
-3. 内部错误
+3. 内部错误（参数没能落盘）
 
 ```
 {
   "type": "result",
   "status": "failed",
   "errCode": "ERR_INTERNAL",
-  "errMsg": "startAbility failed: 16000001 The specified ability does not exist",
-  "suggestion": "打开有径失败了，请手动打开应用再试"
+  "errMsg": "prefill persist failed",
+  "suggestion": "没能记下这次规划，请打开「有径」手动填写行程信息"
 }
 ```
 
@@ -187,12 +194,12 @@ exec-cli(command: ohos-arkTSScript --skillName 'youjing-plan-trip' --scriptPath 
   },
   "oneOf": [
     {
-      "description": "成功: 规划页已拉起,基础参数已预填",
+      "description": "成功: 参数已记下（手机）或已拉起（PC/2in1）; 用户打开有径即自动预填屏2",
       "properties": {
         "status": { "const": "success" },
         "data": {
           "type": "object",
-          "required": ["destination", "startDate", "days", "people", "route", "launched"],
+          "required": ["destination", "startDate", "days", "people", "route", "launched", "message"],
           "properties": {
             "destination": {
               "type": "string",
@@ -223,8 +230,12 @@ exec-cli(command: ohos-arkTSScript --skillName 'youjing-plan-trip' --scriptPath 
             },
             "launched": {
               "type": "boolean",
-              "description": "是否已成功拉起应用页面",
-              "const": true
+              "description": "是否已自动拉起应用页面。手机恒为 false（系统禁止后台拉起），此时参数已记下，用户打开有径即自动预填"
+            },
+            "message": {
+              "type": "string",
+              "description": "可直接作为小艺回复主体的中文说明,如实描述已记下/已打开以及下一步",
+              "minLength": 1
             }
           }
         }
@@ -245,14 +256,14 @@ exec-cli(command: ohos-arkTSScript --skillName 'youjing-plan-trip' --scriptPath 
       "required": ["type", "status", "errCode", "errMsg", "suggestion"]
     },
     {
-      "description": "失败-内部: 拉起页面失败或未知异常,可重试(建议节流)",
+      "description": "失败-内部: 参数无法落盘或未知异常,可重试(建议节流)",
       "properties": {
         "status":  { "const": "failed" },
         "errCode": { "const": "ERR_INTERNAL" },
         "errMsg":  { "type": "string", "minLength": 1 },
         "suggestion": {
           "type": "string",
-          "description": "例如:打开有径失败了，请手动打开应用再试"
+          "description": "例如:没能记下这次规划，请打开「有径」手动填写行程信息"
         }
       },
       "required": ["type", "status", "errCode", "errMsg", "suggestion"]
