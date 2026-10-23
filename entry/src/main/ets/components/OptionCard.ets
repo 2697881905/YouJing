@@ -1,7 +1,11 @@
 /**
- * 追问选项卡（屏3/3b · handoff §6 徽章胶囊第③式）：
- * 未选 surfaceSubtle 实底；选中 primaryTint 底 + 1px primary 描边 + 右侧 check 图标。
- * 状态切换禁用 opacity（禁令 10），一律换 token。
+ * 追问选项卡（屏3/3b · handoff §6 徽章胶囊第③式）。
+ *
+ * 2026-10-24 去自绘：外壳改官方 `Button`（ButtonType.Normal + 圆角 card），
+ * 选中/未选走官方 `ButtonStyleMode.EMPHASIZED / NORMAL` 两档，
+ * 不再自己写 primaryTint 底色 + 1px primary 描边（那是手抄官方选中态）。
+ * 文字颜色跟着档位翻：EMPHASIZED 档的实底上要换 onPrimary，否则深蓝字压蓝底。
+ * 状态切换禁用 opacity（禁令 10）。
  */
 
 import { ColorTokens } from '../design/ColorTokens';
@@ -17,38 +21,45 @@ export struct OptionCard {
   @Prop selected: boolean = false;
   onAction?: () => void = undefined;
 
-  build() {
-    Row() {
-      Column({ space: 0 }) {
-        Text(this.label)
-          .fontSize(TypeTokens.body.size)
-          .fontWeight(600)
-          .fontColor(ColorTokens.ink)
-        Text(this.subline)
-          .fontSize(TypeTokens.caption.size)
-          .fontWeight(450)
-          .fontColor(ColorTokens.body)
-          .fontFeature("'tnum' on")
-      }
-      .alignItems(HorizontalAlign.Start)
-      .layoutWeight(1)
+  private titleColor(): Resource {
+    return this.selected ? ColorTokens.onPrimary : ColorTokens.ink;
+  }
 
-      if (this.selected) {
-        SymbolGlyph($r('sys.symbol.checkmark'))
-          .fontSize(22)
-          .fontColor([ColorTokens.primary])
+  private subColor(): Resource {
+    return this.selected ? ColorTokens.onPrimary : ColorTokens.body;
+  }
+
+  build() {
+    Button() {
+      Row() {
+        Column({ space: 0 }) {
+          Text(this.label)
+            .fontSize(TypeTokens.body.size)
+            .fontWeight(600)
+            .fontColor(this.titleColor())
+          Text(this.subline)
+            .fontSize(TypeTokens.caption.size)
+            .fontWeight(450)
+            .fontColor(this.subColor())
+            .fontFeature("'tnum' on")
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+
+        if (this.selected) {
+          SymbolGlyph($r('sys.symbol.checkmark'))
+            .fontSize(22)
+            .fontColor([this.subColor()])
+        }
       }
+      .width('100%')
     }
     .width('100%')
     .constraintSize({ minHeight: LayoutTokens.minTouchTarget })
-    .padding(SpaceTokens.lg)
+    .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.lg, bottom: SpaceTokens.lg })
+    .type(ButtonType.Normal)
     .borderRadius(RadiusTokens.card)
-    .backgroundColor(this.selected ? ColorTokens.primaryTint : ColorTokens.surfaceSubtle)
-    .border({
-      width: this.selected ? 1 : 0,
-      color: ColorTokens.primary,
-      radius: RadiusTokens.card
-    })
+    .buttonStyle(this.selected ? ButtonStyleMode.EMPHASIZED : ButtonStyleMode.NORMAL)
     .onClick(() => {
       if (this.onAction !== undefined) {
         this.onAction();

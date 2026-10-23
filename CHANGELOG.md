@@ -37,6 +37,11 @@
   新增种子版本闸门 `v2-geo-2`：已装机不必清数据，冷启动按 id upsert 回填，真机日志
   「北京 灌入 spots=32 areas=36 …」四城重跑。GCJ02 位移自检：中位 573m、区间 457–633m。
 
+- 屏3 追问选项卡改官方 Button 档位（2026-10-24，真机验收）：`OptionCard` 原来是
+  「surfaceSubtle / primaryTint 底 + 条件 1px primary 描边」的手抄选中态，
+  改官方 `Button` + `ButtonStyleMode.EMPHASIZED / NORMAL` 两档，文字色跟档位翻
+  （实底蓝上换 onPrimary）。真机实测第 1/4 步五选项，选中「休闲」为官方实底档。
+
 - 屏12 我的行程补真交互并迁官方列表（2026-10-24，真机验收）：右上角放大镜原来是个没有动作的
   死控件，改官方 `Search`（目的地/日期关键词过滤，实测 9 条 → 输入「北京」剩 2 条）；
   列表由 `Scroll + Column + ForEach` 迁到官方 `Refresh + List/ListItem`（下拉重读 RDB、
