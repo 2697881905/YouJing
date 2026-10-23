@@ -4,6 +4,8 @@
  * 顶部地图卡：v2 起区域库有逐片坐标，上真实底图（三片互斥、不连线）；
  * 三列通勤取 Area 真字段（到机场/到火车站/餐饮密度），底稿的「到首个景点/日均通勤/房源数」
  * 要的是路径规划与住宿库存，本项目两者都没有。详见 Docs/INIT_REPORT.md §4b-7/8。
+ * 「帮我选」：底稿写「按通勤最短」，无路径规划时能算的最近似是与屏4 所选景点的平均
+ * 直线距离（utils/Geo），按钮按这个口径写成「离景点最近」，不谎报成导航里程。
  */
 
 import { APP_NAV } from '../common/constants/AppNav';
@@ -15,6 +17,9 @@ import { LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
 import { AreaPick } from '../mock/MockData';
 import { Area, AreaGroup, AreaPriceTier } from '../model/Area';
+import { Spot } from '../model/Spot';
+import { SelectedSpot } from '../model/PlanParams';
+import { Geo, GeoPoint } from '../utils/Geo';
 import { MapStop, MapStops } from '../utils/MapStops';
 import { TripMapView } from '../components/TripMapView';
 import { PlanRepository } from '../data/PlanRepository';
@@ -24,6 +29,7 @@ import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import type { HdsNavigationMenuItemOptions, HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
+import { Logger } from '../common/logger/Logger';
 
 @Component
 export struct StayPickPage {
@@ -34,6 +40,8 @@ export struct StayPickPage {
   /** 候选片区落点：坐标可用时才上真实底图，否则保留图例 */
   @State private areaStops: MapStop[] = [];
   @State private areaSig: string = '';
+  /** 屏4 已选景点的坐标，「帮我选」按到这些点的平均距离取最小 */
+  private spotPoints: GeoPoint[] = [];
 
   aboutToAppear(): void {
     const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
@@ -48,6 +56,64 @@ export struct StayPickPage {
       this.selectedId = list.length > 0 ? list[0].area.id : '';
       this.applyStops(top);
     });
+    this.loadSpotPoints(ctx, city);
+  }
+
+  private loadSpotPoints(ctx: common.UIAbilityContext, city: string): void {
+    const chosen: string[] = PlanDraft.get().selectedSpots.map((s: SelectedSpot): string => s.spotId);
+    if (chosen.length === 0) {
+      return;
+    }
+    PlanRepository.loadSpots(ctx, city).then((spots: Spot[]): void => {
+      const pts: GeoPoint[] = [];
+      for (const s of spots) {
+        if (chosen.indexOf(s.id) >= 0 && Geo.usable(s.latitude, s.longitude)) {
+          const p: GeoPoint = { latitude: s.latitude, longitude: s.longitude };
+          pts.push(p);
+        }
+      }
+      this.spotPoints = pts;
+      Logger.info('Ui.StayPick', `所选景点可用坐标 ${pts.length}/${chosen.length}`);
+    });
+  }
+
+  private toast(msg: string): void {
+    this.getUIContext().getPromptAction().showToast({ message: msg, duration: 1800 });
+  }
+
+  /**
+   * 底稿屏5 的「帮我选（按通勤最短）」：本项目没有路径规划，能算的最近似是与所选景点的
+   * 平均直线距离，所以按钮文案按这个口径写，不谎报成导航里程。
+   */
+  private autoPickArea(): void {
+    if (this.picks.length === 0) {
+      return;
+    }
+    const targets: GeoPoint[] = this.spotPoints;
+    const usableIdx: number[] = [];
+    const areaPoints: GeoPoint[] = [];
+    for (let i = 0; i < this.picks.length; i++) {
+      const a: Area = this.picks[i].area;
+      if (Geo.usable(a.latitude, a.longitude)) {
+        usableIdx.push(i);
+        const g: GeoPoint = { latitude: a.latitude, longitude: a.longitude };
+        areaPoints.push(g);
+      }
+    }
+    const at: number = targets.length === 0 ? -1 : Geo.argminMean(areaPoints, targets);
+    if (at < 0) {
+      this.selectedId = this.picks[0].area.id;
+      Logger.warn('Ui.StayPick',
+        `帮我选退回推荐顺序 targets=${targets.length} usableAreas=${areaPoints.length}`);
+      this.toast(targets.length === 0 ? '所选景点没有可用坐标，先按推荐顺序选了一片' :
+        '候选片区都缺坐标，先按推荐顺序选了一片');
+      return;
+    }
+    const pick: AreaPick = this.picks[usableIdx[at]];
+    this.selectedId = pick.area.id;
+    const km: number = Geo.meanDistanceKm(areaPoints[at], targets);
+    Logger.info('Ui.StayPick', `帮我选 ${pick.area.name} 平均 ${km.toFixed(2)}km targets=${targets.length}`);
+    this.toast(`${pick.area.name} · 到 ${targets.length} 个所选景点平均约 ${km.toFixed(1)} km`);
   }
 
   /** 理由与三列只拼区域库里真有的字段：到首个景点耗时/日均通勤/房源数
@@ -335,12 +401,10 @@ export struct StayPickPage {
           Row({ space: SpaceTokens.md }) {
             YoujingButton({
               variant: YoujingButtonVariant.SECONDARY,
-              label: '帮我选（推荐第一片）',
+              label: '帮我选（离景点最近）',
               buttonWidth: 200,
               onAction: (): void => {
-                if (this.picks.length > 0) {
-                  this.selectedId = this.picks[0].area.id;
-                }
+                this.autoPickArea();
               }
             })
             YoujingButton({

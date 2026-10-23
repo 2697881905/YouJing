@@ -6,6 +6,7 @@ import accountTest from './Account.test';
 import todayPlanTest from './TodayPlan.test';
 import icsBuilderTest from './IcsBuilder.test';
 import failureCopyTest from './FailureCopy.test';
+import geoTest from './Geo.test';
 
 export default function testsuite() {
   abilityTest();
@@ -16,4 +17,5 @@ export default function testsuite() {
   todayPlanTest();
   icsBuilderTest();
   failureCopyTest();
+  geoTest();
 }

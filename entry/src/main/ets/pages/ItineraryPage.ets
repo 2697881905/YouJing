@@ -909,6 +909,7 @@ export struct ItineraryPage {
 
       Toggle({ type: ToggleType.Switch, isOn: on })
         .selectedColor(ColorTokens.primary)
+        .accessibilityText(`${title}开关`)
         .onChange((isOn: boolean) => {
           setter(isOn);
         })

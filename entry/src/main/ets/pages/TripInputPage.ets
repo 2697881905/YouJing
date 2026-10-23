@@ -135,6 +135,7 @@ export struct TripInputPage {
       .fontWeight(600)
       .type(ButtonType.Circle)
       .buttonStyle(this.party === count ? ButtonStyleMode.EMPHASIZED : ButtonStyleMode.NORMAL)
+      .accessibilityText(`${count}人`)
       .onClick(() => {
         this.party = count;
       })
