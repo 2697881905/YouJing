@@ -72,24 +72,40 @@ export struct TripInputPage {
     return Math.max(1, Math.round((Date.parse(this.endDate) - Date.parse(this.startDate)) / 86400000) + 1);
   }
 
-  private pickDate(isStart: boolean): void {
+  private static toIso(value: Date): string {
+    const y: number = value.getFullYear();
+    const m: string = `${value.getMonth() + 1}`.padStart(2, '0');
+    const d: string = `${value.getDate()}`.padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  /**
+   * 一次点按走完「出发 → 返程」两档官方日期弹窗。
+   * 原来返程藏在同一行的长按手势里：底稿这格只有一个「选择出行日期」入口，
+   * 长按既不在帧上也没有任何提示，用户改不了返程。
+   */
+  private pickDate(): void {
+    const lastDay: Date = new Date('2027-12-31');
     this.getUIContext().showDatePickerDialog({
       start: new Date('2026-01-01'),
-      end: new Date('2027-12-31'),
-      selected: new Date(isStart ? this.startDate : this.endDate),
+      end: lastDay,
+      selected: new Date(this.startDate),
       onDateAccept: (value: Date): void => {
-        const y: number = value.getFullYear();
-        const m: string = `${value.getMonth() + 1}`.padStart(2, '0');
-        const d: string = `${value.getDate()}`.padStart(2, '0');
-        const iso: string = `${y}-${m}-${d}`;
-        if (isStart) {
-          this.startDate = iso;
-          if (Date.parse(this.endDate) < Date.parse(iso)) {
-            this.endDate = iso;
-          }
-        } else {
-          this.endDate = iso;
+        const startIso: string = TripInputPage.toIso(value);
+        this.startDate = startIso;
+        let endSelected: string = this.endDate;
+        if (Date.parse(endSelected) < Date.parse(startIso)) {
+          endSelected = startIso;
         }
+        this.endDate = endSelected;
+        this.getUIContext().showDatePickerDialog({
+          start: new Date(startIso),
+          end: lastDay,
+          selected: new Date(endSelected),
+          onDateAccept: (v2: Date): void => {
+            this.endDate = TripInputPage.toIso(v2);
+          }
+        });
       }
     });
   }
@@ -225,11 +241,8 @@ export struct TripInputPage {
               .borderRadius(RadiusTokens.card)
               .backgroundColor(ColorTokens.surfaceSubtle)
               .onClick(() => {
-                this.pickDate(true);
+                this.pickDate();
               })
-              .gesture(LongPressGesture().onAction(() => {
-                this.pickDate(false);
-              }))
 
               // 同行人数
               Row() {
