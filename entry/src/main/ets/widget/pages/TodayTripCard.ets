@@ -17,7 +17,7 @@ interface CardRow {
 struct TodayTripCard {
   // 默认值与 TodayTripFormAbility 的 emptyData() 对齐：数据到达前不闪底稿里的京都行程
   @LocalStorageProp('dayTitle') dayTitle: string = '今天没有行程安排';
-  @LocalStorageProp('meta') meta: string = '打开有径规划一段';
+  @LocalStorageProp('meta') meta: string = '';
   @LocalStorageProp('footer') footer: string = '生成行程后自动出现在这里';
   @LocalStorageProp('dimension') dimension: string = '2*2';
   @LocalStorageProp('r1t') r1t: string = '';
@@ -63,6 +63,19 @@ struct TodayTripCard {
         .margin({ top: 2 })
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+      // TodayPlan 算好的「还剩 N 站 · 共 M 站」此前只推到存储、从没上屏（屏13 帧里
+      // 这行就是标题下的 meta 行）；空态由 footer 一句承担，所以空数据把 meta 留空
+      if (this.meta.length > 0) {
+        Text(this.meta)
+          .fontSize(11)
+          .fontWeight(450)
+          .fontColor($r('app.color.body'))
+          .fontFeature("'tnum' on")
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .margin({ top: 2 })
+      }
 
       Column({ space: 4 }) {
         ForEach(this.cardRows(), (row: CardRow) => {

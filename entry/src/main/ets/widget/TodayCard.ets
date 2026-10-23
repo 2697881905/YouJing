@@ -18,7 +18,7 @@ export const DIM_KEY_2X4: string = '2*4';
 
 export function emptyCardData(dimension: string): Record<string, string> {
   const data: Record<string, string> = {
-    'dayTitle': '今天没有行程安排', 'meta': '打开有径规划一段', 'footer': '生成行程后自动出现在这里',
+    'dayTitle': '今天没有行程安排', 'meta': '', 'footer': '生成行程后自动出现在这里',
     'r1t': '', 'r1n': '', 'r2t': '', 'r2n': '', 'r3t': '', 'r3n': '', 'tripId': '',
     'dimension': dimension
   };
