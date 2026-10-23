@@ -26,6 +26,7 @@ import { AppError } from '../common/error/AppError';
 import { common } from '@kit.AbilityKit';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
+import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 
 @Component
 export struct GeneratingPage {
@@ -189,15 +190,16 @@ export struct GeneratingPage {
             .fontSize(TypeTokens.caption.size)
             .fontWeight(450)
             .fontColor(ColorTokens.muted)
-          Text('取消')
-            .fontSize(TypeTokens.body.size)
-            .fontColor(ColorTokens.body)
-            .width('100%')
-            .height(LayoutTokens.minTouchTarget)
-            .textAlign(TextAlign.Center)
-            .onClick(() => {
+          // 底稿帧把取消画成 44 高胶囊 + hairline 描边（.btn-cancel），
+          // 原来是一条裸 Text 当按钮：既没有钮面也不进命中树的一致行为
+          YoujingButton({
+            variant: YoujingButtonVariant.SECONDARY,
+            label: '取消',
+            fullWidth: true,
+            onAction: (): void => {
               APP_NAV.pop();
-            })
+            }
+          })
         }
         .width('100%')
         .padding({ bottom: SpaceTokens.xl })

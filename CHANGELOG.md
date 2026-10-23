@@ -6,6 +6,13 @@
 
 ### Fixed
 
+- 屏6 的「取消」是一条裸 Text 冒充按钮（2026-10-24）：底稿帧 35c7d3b4 给的是
+  `<button class="btn-cancel">`——44 高胶囊 + hairline 描边 + 14px/600，
+  实现里却是 `Text('取消').height(44).textAlign(Center).onClick(...)`，没有钮面、
+  没有官方按压态，描边也少了。换成 `YoujingButton(SECONDARY, fullWidth)`，
+  即官方 `Button(Capsule) + ButtonStyleMode.NORMAL`，与屏7 底部那两条 outline 钮同一档。
+  屏6 在 Mock 档生成太快（<1s 就落屏8），这一处只做到编译通过 + 同组件在屏7 已真机渲染，
+  **没做屏6 上的视觉复验**。
 - 屏14 三个开关与屏2 人数胶囊读屏时不知道是哪个（2026-10-24，对照底稿 aria-label）：
   帧 d04983a4 给的是「日历同步开关 / 行程卡片开关 / 提醒开关」，实现里 `Toggle` 只画了状态、
   标题在旁边的 Text 上，读屏念出来是孤零零一个「开关」；屏2 的人数钮帧给「1人/2人/4人」，
