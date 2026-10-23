@@ -36,9 +36,25 @@ export struct EditItineraryPage {
   @State private acts: Activity[] = [];
   @State private dragIdx: number = -1;
   @State private showReplace: boolean = false;
+  /** -1 = 补选模式（往当日末尾追加），>=0 = 替换该位置 */
   @State private replaceIdx: number = -1;
   @State private candidates: Spot[] = [];
+  /** 底稿屏9 声明了「撤销修改」：删除/替换/拖动都是破坏性编辑，没有回退就等于不敢点 */
+  private history: Activity[][] = [];
   private trip: Trip | null = null;
+
+  private snapshot(): void {
+    this.history.push(this.acts.slice());
+  }
+
+  private undo(): void {
+    const last: Activity[] | undefined = this.history.pop();
+    if (last === undefined) {
+      this.toast('还没有可撤销的改动');
+      return;
+    }
+    this.acts = last;
+  }
 
   aboutToAppear(): void {
     if (this.tripId.length === 0) {
@@ -85,6 +101,7 @@ export struct EditItineraryPage {
     if (from === to || from < 0 || to < 0) {
       return;
     }
+    this.snapshot();
     const next: Activity[] = this.acts.slice();
     const moved: Activity = next.splice(from, 1)[0];
     next.splice(to, 0, moved);
@@ -93,6 +110,7 @@ export struct EditItineraryPage {
   }
 
   private removeAt(idx: number): void {
+    this.snapshot();
     const next: Activity[] = this.acts.slice();
     next.splice(idx, 1);
     this.acts = next;
@@ -101,6 +119,15 @@ export struct EditItineraryPage {
 
   /** 打开替换面板：列本城景点库，排除当日已在的站 */
   private openReplace(idx: number): void {
+    this.loadCandidates(idx);
+  }
+
+  /** 底稿屏9 的「补选景点」：当日只能减不能加是缺通路，复用同一张候选面板 */
+  private openAdd(): void {
+    this.loadCandidates(-1);
+  }
+
+  private loadCandidates(idx: number): void {
     const trip: Trip | null = this.trip;
     if (trip === null) {
       this.toast('行程未就绪');
@@ -117,9 +144,29 @@ export struct EditItineraryPage {
     });
   }
 
+  private static minsOf(hhmm: string): number {
+    const parts: string[] = hhmm.split(':');
+    if (parts.length < 2) {
+      return 9 * 60;
+    }
+    return Number(parts[0]) * 60 + Number(parts[1]);
+  }
+
+  private static hhmm(mins: number): string {
+    const clamped: number = Math.max(0, Math.min(23 * 60 + 45, mins));
+    const h: string = `${Math.floor(clamped / 60)}`.padStart(2, '0');
+    const m: string = `${clamped % 60}`.padStart(2, '0');
+    return `${h}:${m}`;
+  }
+
   private applyReplace(spot: Spot): void {
     const idx: number = this.replaceIdx;
-    if (idx < 0 || idx >= this.acts.length) {
+    this.snapshot();
+    if (idx < 0) {
+      this.applyAdd(spot);
+      return;
+    }
+    if (idx >= this.acts.length) {
       return;
     }
     const old: Activity = this.acts[idx];
@@ -135,6 +182,32 @@ export struct EditItineraryPage {
     this.acts = next;
     this.showReplace = false;
     this.replaceIdx = -1;
+  }
+
+  /** 补选：接在当日末尾，开始时间取上一站的结束时间 + 15 分钟缓冲 */
+  private applyAdd(spot: Spot): void {
+    const acts: Activity[] = this.acts.slice();
+    const last: Activity | undefined = acts.length > 0 ? acts[acts.length - 1] : undefined;
+    const start: number = last === undefined ? 9 * 60 : EditItineraryPage.minsOf(last.endTime) + 15;
+    const added: Activity = {
+      id: spot.id, time: EditItineraryPage.hhmm(start),
+      endTime: EditItineraryPage.hhmm(start + spot.suggestedDuration),
+      title: spot.name,
+      location: `${spot.city} ${spot.district}`, address: spot.district,
+      longitude: spot.longitude, latitude: spot.latitude,
+      status: spot.booking.requiresBooking ? ActivityStatus.NOT_BOOKED : ActivityStatus.NO_NEED,
+      category: ActivityCategory.SIGHT,
+      note: spot.booking.requiresBooking ? `预约：${spot.booking.bookingMethod ?? '官方渠道'}（以官方为准）` : undefined,
+      reason: undefined,
+      // 不编通勤腿：补选进来的站点没有真实距离，缺 transport 时时间线本就不画这一段
+      transport: undefined
+    };
+    acts.push(added);
+    this.acts = acts;
+    this.reflowTimes();
+    this.showReplace = false;
+    this.replaceIdx = -1;
+    this.toast(`已补选 ${spot.name}`);
   }
 
   /** 完成：回写当日节点并整份聚合根落库 */
@@ -230,19 +303,38 @@ export struct EditItineraryPage {
       .alignItems(HorizontalAlign.Start)
       .layoutWeight(1)
 
-      SymbolGlyph($r('sys.symbol.arrow_2_circlepath'))
-        .fontSize(22)
-        .fontColor([ColorTokens.icon])
-        .onClick(() => {
-          this.openReplace(idx);
-        })
-      SymbolGlyph($r('sys.symbol.trash'))
-        .fontSize(22)
-        .fontColor([ColorTokens.muted])
-        .margin({ left: SpaceTokens.md })
-        .onClick(() => {
-          this.removeAt(idx);
-        })
+      // 底稿这两个动作叫「替换景点 / 移除景点」。原来是裸 SymbolGlyph + onClick：
+      // 22px 触点低于平台最小热区，也不可聚焦、读屏念不出动作。
+      // 换成官方 Button（Circle + TEXTUAL 档，不出额外表面），图标与配色原样。
+      Button() {
+        SymbolGlyph($r('sys.symbol.arrow_2_circlepath'))
+          .fontSize(22)
+          .fontColor([ColorTokens.icon])
+      }
+      .type(ButtonType.Circle)
+      .buttonStyle(ButtonStyleMode.TEXTUAL)
+      .padding(0)
+      .width(LayoutTokens.minTouchTarget)
+      .height(LayoutTokens.minTouchTarget)
+      .accessibilityText('替换景点')
+      .onClick(() => {
+        this.openReplace(idx);
+      })
+
+      Button() {
+        SymbolGlyph($r('sys.symbol.trash'))
+          .fontSize(22)
+          .fontColor([ColorTokens.muted])
+      }
+      .type(ButtonType.Circle)
+      .buttonStyle(ButtonStyleMode.TEXTUAL)
+      .padding(0)
+      .width(LayoutTokens.minTouchTarget)
+      .height(LayoutTokens.minTouchTarget)
+      .accessibilityText('移除景点')
+      .onClick(() => {
+        this.removeAt(idx);
+      })
     }
     .width('100%')
     .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
@@ -253,13 +345,14 @@ export struct EditItineraryPage {
   @Builder
   replaceSheet() {
     Column() {
-      Text('换一个')
+      Text(this.replaceIdx < 0 ? '补选景点' : '换一个')
         .fontSize(TypeTokens.title.size)
         .fontWeight(700)
         .fontFamily(TypeTokens.title.family)
         .fontColor(ColorTokens.ink)
         .margin({ top: SpaceTokens.xl, bottom: SpaceTokens.xs })
-      Text('替换只换站点，该位置的时间与通勤保持不变')
+      Text(this.replaceIdx < 0 ? '补选接在当日末尾，时间与通勤按新顺序重排' :
+        '替换只换站点，该位置的时间与通勤保持不变')
         .fontSize(TypeTokens.caption.size)
         .fontColor(ColorTokens.muted)
         .margin({ bottom: SpaceTokens.md })
@@ -303,11 +396,19 @@ export struct EditItineraryPage {
     .backgroundColor(ColorTokens.canvas)
   }
 
-  /** 官方标题栏：「完成」走 content.menu，撤掉自绘图标 + 文字按钮 */
+  /** 官方标题栏：完成/补选/撤销走 content.menu，不再自绘图标 + 文字按钮 */
   private titleBarOptions(): HdsNavigationTitleBarOptions {
-    const items: Array<HdsNavigationMenuItemOptions> = [HdsChrome.item(
-      $r('sys.symbol.checkmark'), '完成', (): void => {
+    const items: Array<HdsNavigationMenuItemOptions> = [
+      HdsChrome.item($r('sys.symbol.checkmark'), '完成', (): void => {
         this.finish();
+      }),
+      HdsChrome.item($r('sys.symbol.plus_circle'), '补选景点', (): void => {
+        this.openAdd();
+      }),
+      // 常驻而不是按 canUndo 显隐：HdsNavigation 的 titleBar 不随异步状态重建（屏11 副标题踩过），
+      // 动态增减会留下一个永远点不出来的死项，所以空历史时如实提示
+      HdsChrome.item($r('sys.symbol.arrow_counterclockwise'), '撤销修改', (): void => {
+        this.undo();
       })];
     return HdsChrome.bar({ mainTitle: '编辑行程', menu: items });
   }
