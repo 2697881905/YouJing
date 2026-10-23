@@ -12,6 +12,7 @@ import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
+import { ImmersiveSurface } from '../components/ImmersiveSurface';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { AccountStore } from '../data/AccountStore';
 import { PlanDraft } from '../data/PlanDraft';
@@ -176,62 +177,65 @@ export struct YoujingStartPage {
       .alignItems(HorizontalAlign.Start)
       .margin({ top: SpaceTokens.xs, bottom: SpaceTokens.lg })
 
-      Column() {
-        Row() {
-          Text('Day 1 · 京都 东山步道')
-            .fontSize(TypeTokens.title.size)
-            .fontWeight(700)
-            .fontFamily(TypeTokens.title.family)
-            .fontColor(ColorTokens.ink)
-            .layoutWeight(1)
-          Text('规划预览')
-            .fontSize(TypeTokens.overline.size)
-            .fontWeight(600)
-            .fontColor(ColorTokens.onPrimary)
-            .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
-            .height(22)
-            .borderRadius(RadiusTokens.pill)
-            .backgroundColor(ColorTokens.primary)
-        }
-        .alignItems(VerticalAlign.Center)
-        .width('100%')
-        .padding({ bottom: SpaceTokens.sm })
-        .border({ width: { bottom: LayoutTokens.hairlineWidth }, color: ColorTokens.separator })
-
+      // 首启预览卡包一层官方 HDS 双边流光（有据把流光用在引导卡上，同一档语言）
+      ImmersiveSurface({ radius: RadiusTokens.card, surfaceWidth: '100%' }) {
         Column() {
-          ForEach(this.stops, (stop: PreviewStop, index: number) => {
-            this.timelineRow(stop, index)
-            if (index < this.legs.length) {
-              this.transitLeg(this.legs[index])
-            }
-          }, (stop: PreviewStop, index: number): string => `start-preview-${index}-${stop.time}`)
-        }
-        .width('100%')
-        .alignItems(HorizontalAlign.Start)
-        .margin({ top: SpaceTokens.sm })
+          Row() {
+            Text('Day 1 · 京都 东山步道')
+              .fontSize(TypeTokens.title.size)
+              .fontWeight(700)
+              .fontFamily(TypeTokens.title.family)
+              .fontColor(ColorTokens.ink)
+              .layoutWeight(1)
+            Text('规划预览')
+              .fontSize(TypeTokens.overline.size)
+              .fontWeight(600)
+              .fontColor(ColorTokens.onPrimary)
+              .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+              .height(22)
+              .borderRadius(RadiusTokens.pill)
+              .backgroundColor(ColorTokens.primary)
+          }
+          .alignItems(VerticalAlign.Center)
+          .width('100%')
+          .padding({ bottom: SpaceTokens.sm })
+          .border({ width: { bottom: LayoutTokens.hairlineWidth }, color: ColorTokens.separator })
 
-        Column() {
-          Text('结构化路线承诺')
-            .fontSize(TypeTokens.overline.size)
-            .fontWeight(600)
-            .fontColor(ColorTokens.muted)
-          Text('基于本地精选数据库与步行动线计算，每个站点均明确耗时与预约状态。')
-            .fontSize(TypeTokens.caption.size)
-            .fontColor(ColorTokens.body)
-            .lineHeight(18)
-            .margin({ top: SpaceTokens.xs })
+          Column() {
+            ForEach(this.stops, (stop: PreviewStop, index: number) => {
+              this.timelineRow(stop, index)
+              if (index < this.legs.length) {
+                this.transitLeg(this.legs[index])
+              }
+            }, (stop: PreviewStop, index: number): string => `start-preview-${index}-${stop.time}`)
+          }
+          .width('100%')
+          .alignItems(HorizontalAlign.Start)
+          .margin({ top: SpaceTokens.sm })
+
+          Column() {
+            Text('结构化路线承诺')
+              .fontSize(TypeTokens.overline.size)
+              .fontWeight(600)
+              .fontColor(ColorTokens.muted)
+            Text('基于本地精选数据库与步行动线计算，每个站点均明确耗时与预约状态。')
+              .fontSize(TypeTokens.caption.size)
+              .fontColor(ColorTokens.body)
+              .lineHeight(18)
+              .margin({ top: SpaceTokens.xs })
+          }
+          .alignItems(HorizontalAlign.Start)
+          .width('100%')
+          .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+          .borderRadius(RadiusTokens.reason)
+          .backgroundColor(ColorTokens.surfacePanel)
+          .margin({ top: SpaceTokens.xs })
         }
-        .alignItems(HorizontalAlign.Start)
+        .padding(SpaceTokens.lg)
+        .borderRadius(RadiusTokens.card)
+        .backgroundColor(ColorTokens.surfaceElevated)
         .width('100%')
-        .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
-        .borderRadius(RadiusTokens.reason)
-        .backgroundColor(ColorTokens.surfacePanel)
-        .margin({ top: SpaceTokens.xs })
       }
-      .padding(SpaceTokens.lg)
-      .borderRadius(RadiusTokens.card)
-      .backgroundColor(ColorTokens.surfaceElevated)
-      .width('100%')
 
       Blank()
 
