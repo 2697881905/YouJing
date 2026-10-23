@@ -56,12 +56,16 @@ export class MockLlmTransport implements LlmTransport {
       (this.params.paces.indexOf(PaceOption.PACKED) >= 0 ? 6 : 4);
     const chosen: SelectedSpot[] = this.params.selectedSpots;
     const days: TripDay[] = [];
+    // 每天的名额按「选中的量摊到各天」算，而不是一律吃满 perDay：
+    // 2 个景点排 3 天时若按 perDay 贪心装，第 1 天就全塞完、后两天空着（真机拍到过），
+    // 用户看到的就是「三天两晚只有头一天有东西」。上限仍是 perDay，不放松节奏档位。
+    const quota: number = Math.max(1, Math.min(perDay, Math.ceil(chosen.length / dayCount)));
     let cursor: number = 0;
     let total: number = 0;
     for (let d = 0; d < dayCount; d++) {
       const acts: Activity[] = [];
       let slot: number = 9 * 60;
-      for (let k = 0; k < perDay && cursor < chosen.length; k++) {
+      for (let k = 0; k < quota && cursor < chosen.length; k++) {
         if (slot > 20 * 60) {
           // 太晚就不硬塞：跨午夜会让 endTime 回卷成比 time 早，剩余站点顺延到次日
           break;

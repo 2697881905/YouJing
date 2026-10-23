@@ -86,6 +86,17 @@ export default function llmPipelineTest(): void {
       expect(trip.overview.totalCost > 0).assertTrue();
     });
 
+    it('offline_spreads_spots_across_days', TestType.FUNCTION | Size.MEDIUMTEST | Level.LEVEL1, async () => {
+      const trip: Trip = await LlmClient.generateTrip(makeParams(), makeSpots(), makeArea());
+      // 2 天 2 站要摊成 1 + 1。按 perDay 贪心装会变成第 1 天塞满、第 2 天空着，
+      // 用户在屏6 看到的就是「三天两晚只有头一天有东西」
+      expect(trip.days[0].activities.length).assertEqual(1);
+      expect(trip.days[1].activities.length).assertEqual(1);
+      expect(trip.days[1].activities[0].title).assertEqual('测试景点二');
+      // 每天的首站没有通勤腿（当日第一段路无从算起）
+      expect(trip.days[1].activities[0].transport === undefined).assertTrue();
+    });
+
     it('retry_exhausted', TestType.FUNCTION | Size.MEDIUMTEST | Level.LEVEL1, async () => {
       const broken: BrokenTransport = new BrokenTransport();
       try {
