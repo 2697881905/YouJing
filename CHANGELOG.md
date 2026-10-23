@@ -18,6 +18,9 @@
 
 ### Added
 
+- 小艺 Skill 上架（2026-10-23 16:42，范围「仅自己使用」）：上架记录 `1.0.0`（渠道：资源库），
+  控制台 Skill 列表状态「已上架」，即时生效、无需等待审核。发布表单随后自动预置下一版 `1.0.1`；
+  后续改动按 `Docs/小艺Skill接入清单.md` §B4 提版重审。
 - 小艺 Skill 应用内接入（2026-10-23，真机验收）：API 26 `skillProfiles` 注册 `youjing-plan-trip`；
   `entry/skills/youjing-plan-trip/SKILL.md` 按官方样例给完整 `exec-cli` 命令对象 Schema 与
   `oneOf` 返回值 Schema；`PlanTripSkill.ets` 校验四参后拉起 `EntryAbility`
