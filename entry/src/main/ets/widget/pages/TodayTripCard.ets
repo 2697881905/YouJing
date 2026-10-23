@@ -15,9 +15,10 @@ interface CardRow {
 @Entry(cardStorage)
 @Component
 struct TodayTripCard {
-  @LocalStorageProp('dayTitle') dayTitle: string = 'Day 2 · 6月11日';
-  @LocalStorageProp('meta') meta: string = '步行 5.2km · 还剩 2 站';
-  @LocalStorageProp('footer') footer: string = '还有 1 个需预约节点 · 14:20 前';
+  // 默认值与 TodayTripFormAbility 的 emptyData() 对齐：数据到达前不闪底稿里的京都行程
+  @LocalStorageProp('dayTitle') dayTitle: string = '今天没有行程安排';
+  @LocalStorageProp('meta') meta: string = '打开有径规划一段';
+  @LocalStorageProp('footer') footer: string = '生成行程后自动出现在这里';
   @LocalStorageProp('dimension') dimension: string = '2*2';
   @LocalStorageProp('r1t') r1t: string = '';
   @LocalStorageProp('r1n') r1n: string = '';
