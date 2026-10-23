@@ -34,6 +34,9 @@
     activeIndex 逐屏对表（屏8/15=行程、屏11=费用、屏12=我的）；
     屏8 的 dock 壳同时承接屏14 触达面板的 `bindSheet`（一个节点只能挂一个，Stack 已被屏10 详情占用）；
     屏11 无 tripId 直达时回落到最近一趟行程，不再显示空预算
+  - dock「地图」落点页改口：`ComingSoonPage` 不再对用户说「骨架占位 / 路由「Map」将在后续批次落地」，
+    改成标题「地图视图」+ 一句实话（要接 Map Kit、需 AGC 开通重签）+「返回行程」；
+    底稿只有 dock 里的「地图」一格、没有对应地图屏，已列为待设计（`Docs/INIT_REPORT.md` §4b-6）
   - 回归：hypium 40/40（含 TodayPlan 10 条纯逻辑断言）；RDB/账号/日历分片路径改真机验收
     （原因见 `Docs/INIT_REPORT.md` 已知限制 #10）
 
