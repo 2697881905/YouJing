@@ -166,10 +166,13 @@ export struct SharePage {
                 .margin({ top: SpaceTokens.xs, bottom: SpaceTokens.xl })
 
               Column() {
+                // 「行程纸」：浅色档是白→#F1F2F5，压在浅灰卡上边界会消失（真机浅色拍到过），
+                // 补一条 hairline 描边，两档都读得出这是一块纸而不是空槽
                 Column()
                   .width('100%')
                   .height(140)
                   .borderRadius(RadiusTokens.media)
+                  .border({ width: LayoutTokens.hairlineWidth, color: ColorTokens.borderSubtle })
                   .linearGradient({
                     angle: 180,
                     colors: [[ColorTokens.routeBgTop, 0], [ColorTokens.routeBgBottom, 1]]

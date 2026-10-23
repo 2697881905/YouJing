@@ -101,6 +101,8 @@ export struct ExpensePage {
   @Prop tripId: string = '';
   @State private seg: number = 0;
   @State private budgetTotal: number = 0;
+  /** 顶栏副标题：这页可能从「最近行程」兜底进来，必须写明看的是哪一趟 */
+  @State private tripLabel: string = '';
   @State private spent: number = 0;
   @State private daysLeft: number = 0;
   @State private topCategory: string = '';
@@ -143,6 +145,7 @@ export struct ExpensePage {
         return Promise.resolve<CategoryTotal[]>([]);
       }
       this.trip = trip;
+      this.tripLabel = `${trip.destination} · ${trip.startDate} – ${trip.endDate}`;
       this.budgetTotal = trip.budget * trip.people;
       const span: number = DateUtils.spanDays(trip.startDate, trip.endDate);
       const passed: number = DateUtils.spanDays(trip.startDate, DateUtils.todayIso());
@@ -445,6 +448,16 @@ export struct ExpensePage {
           ListItem() {
             // hero 面板：永不带影（决议 4）
             Column() {
+              // 从 dock「费用」进来时没有行程上下文，页会退到最近一条行程——
+              // 必须把这趟是谁写进正文，否则用户以为看的是刚才那趟
+              if (this.tripLabel.length > 0) {
+                Text(this.tripLabel)
+                  .fontSize(TypeTokens.small.size)
+                  .fontWeight(600)
+                  .fontColor(ColorTokens.ink)
+                  .fontFeature("'tnum' on")
+                  .margin({ bottom: SpaceTokens.xs })
+              }
               Text(this.seg === 0 ?
                 `预算 ${yuan(this.budgetTotal)} · ${this.trip === null ? 0 : this.trip.people} 人 · ` +
                 `${this.trip === null ? 0 : this.trip.days.length} 天` :
