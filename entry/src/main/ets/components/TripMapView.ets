@@ -13,6 +13,8 @@ import { map, mapCommon, MapComponent } from '@kit.MapKit';
 import { AsyncCallback, Callback } from '@ohos.base';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { MapBounds, MapStop, MapStops } from '../utils/MapStops';
+import { NumberedPin } from '../utils/NumberedPin';
+import { image } from '@kit.ImageKit';
 import { Logger } from '../common/logger/Logger';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
@@ -23,7 +25,14 @@ const TAG: string = 'Ui.Map';
 /** 动线色对齐 route_path 档（浅色 #0066CC / 深色 #7DB8FF）：Map Kit 只吃 ARGB 数值 */
 const LINE_LIGHT: number = 0xFF0066CC;
 const LINE_DARK: number = 0xFF7DB8FF;
-const FIT_PADDING: number = 56;
+/** 图钉上的序号与动线同色，串给 canvas 用（'#AARRGGBB'） */
+const PIN_BRAND_LIGHT: string = '#FF0066CC';
+const PIN_BRAND_DARK: string = '#FF7DB8FF';
+// newLatLngBounds 的留白单位是 px（不是 vp）：图钉锚点在针尖、圆头往点上方伸一截，
+// 顶部要给足，否则紧凑面板里首末站的图钉头会被上边缘裁掉
+const FIT_PAD_TOP: number = 260;
+const FIT_PAD_BOTTOM: number = 150;
+const FIT_PAD_SIDE: number = 120;
 const SINGLE_ZOOM: number = 15;
 const DEFAULT_ZOOM: number = 11;
 const FOCUS_ZOOM: number = 14;
@@ -146,7 +155,10 @@ export struct TripMapView {
       southwest: { latitude: box.minLat, longitude: box.minLng },
       northeast: { latitude: box.maxLat, longitude: box.maxLng }
     };
-    return map.newLatLngBounds(bounds, FIT_PADDING);
+    const pad: mapCommon.Padding = {
+      left: FIT_PAD_SIDE, right: FIT_PAD_SIDE, top: FIT_PAD_TOP, bottom: FIT_PAD_BOTTOM
+    };
+    return map.newLatLngBounds(bounds, pad);
   }
 
   private clearOverlays(): void {
@@ -197,6 +209,7 @@ export struct TripMapView {
         Logger.error(TAG, `第 ${r + 1} 段动线绘制失败 code=${err.code} msg=${err.message}`);
       });
     });
+    const brand: string = this.isDark ? PIN_BRAND_DARK : PIN_BRAND_LIGHT;
     const pending: Promise<map.Marker>[] = stops.map((s: MapStop): Promise<map.Marker> => {
       const opts: mapCommon.MarkerOptions = {
         position: { latitude: s.latitude, longitude: s.longitude },
@@ -206,6 +219,11 @@ export struct TripMapView {
         anchorU: 0.5,
         anchorV: 1
       };
+      // 序号画进官方图钉槽位；生成失败时不设 icon，退回默认图钉
+      const pin: image.PixelMap | undefined = NumberedPin.of(s.index, brand);
+      if (pin !== undefined) {
+        opts.icon = pin;
+      }
       return ctrl.addMarker(opts);
     });
     Promise.all(pending).then((markers: map.Marker[]): void => {
