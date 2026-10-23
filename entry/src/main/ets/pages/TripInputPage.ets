@@ -14,10 +14,7 @@ import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton
 import { PlanDraft } from '../data/PlanDraft';
 import { TripBasicInput } from '../model/PlanParams';
 import { DateUtils } from '../utils/DateUtils';
-
-const BUDGET_MIN: number = 3000;
-const BUDGET_MAX: number = 12000;
-const BUDGET_STEP: number = 500;
+import { BudgetConfig } from '../common/constants/BudgetConfig';
 
 const CITIES: string[] = ['北京', '上海', '广州', '深圳', '京都（演示）'];
 
@@ -29,8 +26,8 @@ export struct TripInputPage {
   @State private startDate: string = '2026-07-01';
   @State private endDate: string = '2026-07-03';
   @State private showCity: boolean = false;
-  @State private budget: number = 8000;
-  private partyOptions: number[] = [1, 2, 4];
+  @State private budget: number = BudgetConfig.DEFAULT;
+  private basePartyOptions: number[] = [1, 2, 4];
 
   /** 屏2 是草稿的展示方：外部拉起（小艺/深链）预填与返回本屏都要回显真值 */
   aboutToAppear(): void {
@@ -47,9 +44,20 @@ export struct TripInputPage {
     if (b.people > 0) {
       this.party = b.people;
     }
-    if (b.budget >= BUDGET_MIN && b.budget <= BUDGET_MAX) {
+    if (b.budget >= BudgetConfig.MIN && b.budget <= BudgetConfig.MAX) {
       this.budget = b.budget;
     }
+  }
+
+  /** 快捷档位固定 1/2/4；小艺带来 3 或 5 等人数时把它补进选项，避免数字对但 chip 不高亮 */
+  private partyOptions(): number[] {
+    if (this.basePartyOptions.indexOf(this.party) < 0) {
+      const options: number[] = this.basePartyOptions.slice();
+      options.push(this.party);
+      options.sort((a: number, b: number): number => a - b);
+      return options;
+    }
+    return this.basePartyOptions;
   }
 
   private fmt(dateStr: string): string {
@@ -264,7 +272,7 @@ export struct TripInputPage {
                 .layoutWeight(1)
 
                 Row({ space: SpaceTokens.xs }) {
-                  ForEach(this.partyOptions, (count: number) => {
+                  ForEach(this.partyOptions(), (count: number) => {
                     this.partyChip(count)
                   }, (count: number): string => `party-${count}`)
                 }
@@ -296,9 +304,9 @@ export struct TripInputPage {
                 // 底稿是 55/45 的手绘轨道，实为可选区间 3,000–12,000/人（默认 8,000 恰落在 55%）
                 Slider({
                   value: this.budget,
-                  min: BUDGET_MIN,
-                  max: BUDGET_MAX,
-                  step: BUDGET_STEP,
+                  min: BudgetConfig.MIN,
+                  max: BudgetConfig.MAX,
+                  step: BudgetConfig.STEP,
                   style: SliderStyle.OutSet
                 })
                   .width('100%')

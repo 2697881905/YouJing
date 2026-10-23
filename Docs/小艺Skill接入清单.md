@@ -13,6 +13,10 @@
 >
 > **2026-10-23 16:42 已上架**：范围「仅自己使用」，上架记录 `1.0.0`（渠道：资源库），
 > 控制台 Skill 列表状态为「已上架」。无需等待审核，账号下可直接调用。
+>
+> **2026-10-23 屏2 预填补齐**：小艺开的是新行程，预算不再沿用上一段草稿，固定回到默认
+> `¥8,000/人`（`BudgetConfig.DEFAULT`）；人数 chip 原为固定 1/2/4，现会把小艺带来的
+> 3、5 等人数补进选项并高亮。仅 App 侧改动，`SKILL.md` 契约未变，无需重新上架 Skill。
 
 ## A. 先看结论
 
@@ -166,6 +170,10 @@ public async planTrip(info: scriptManager.ArkTSScriptInfo, ...argv: string[]): P
 - **热启动 / 从后台返回**：`onForeground()` 置 `visible` 后取预填。
 - **后台被 Skill 绑起**：`visible=false` 时不取，避免进程被杀导致预填丢失。
 - 取到后写入 `PlanDraft.basic`（`days` 反算 `endDate`）并 `pushPath('TripInput')`。
+- 预算固定写 `BudgetConfig.DEFAULT`（¥8,000/人）：Skill 没有预算参数，且这是一段新行程，
+  不应静默继承上一段草稿；其余风格/节奏/选点仍在 `PlanDraft.fresh()` 时清空。
+- 屏2 人数 chip 以 1/2/4 为底，若 `people` 不在其中（如 3、5）则补入并参与高亮，
+  避免「数字对但 chip 不高亮」。
 
 外部 Want 通道仍保留（`aa start` / 深链）；`applyWant` 成功应用参数时会清掉
 盘上的 Skill 预填，避免同一次请求被消费两次。

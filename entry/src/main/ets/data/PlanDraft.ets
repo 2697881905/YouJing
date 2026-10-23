@@ -4,12 +4,13 @@
  */
 
 import { PaceOption, SelectedSpot, SelectedArea, TransitPreference, TravelStyle, TripBasicInput } from '../model/PlanParams';
+import { BudgetConfig } from '../common/constants/BudgetConfig';
 
 export class PlanDraft {
   private static instance: PlanDraft | null = null;
 
   basic: TripBasicInput = {
-    destination: '北京', startDate: '2026-07-01', endDate: '2026-07-03', people: 2, budget: 8000
+    destination: '北京', startDate: '2026-07-01', endDate: '2026-07-03', people: 2, budget: BudgetConfig.DEFAULT
   };
   style: TravelStyle = TravelStyle.LEISURE;
   stayTier: string = 'comfort';

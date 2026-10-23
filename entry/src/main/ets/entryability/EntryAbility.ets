@@ -11,6 +11,7 @@ import { DateUtils } from '../utils/DateUtils';
 import { IntentHandoff } from '../data/IntentHandoff';
 import { SkillPrefill, SkillPrefillRecord } from '../data/SkillPrefill';
 import { BuildConfig } from '../common/constants/BuildConfig';
+import { BudgetConfig } from '../common/constants/BudgetConfig';
 import { WidgetSync } from '../widget/TodayCard';
 
 const DOMAIN = 0x0000;
@@ -230,11 +231,12 @@ export default class EntryAbility extends UIAbility {
       startDate: prefill.start,
       endDate: DateUtils.addDays(prefill.start, prefill.days - 1),
       people: prefill.people,
-      budget: draft.basic.budget
+      // 小艺开的是新行程：预算回到默认，不静默沿用上一段草稿
+      budget: BudgetConfig.DEFAULT
     };
     draft.basic = basic;
     Logger.info('EntryAbility',
-      `Skill 预填 ${basic.destination} ${basic.startDate}→${basic.endDate} ${basic.people}人`);
+      `Skill 预填 ${basic.destination} ${basic.startDate}→${basic.endDate} ${basic.people}人 budget=${basic.budget}`);
   }
 
   onError(error: Error): void {
