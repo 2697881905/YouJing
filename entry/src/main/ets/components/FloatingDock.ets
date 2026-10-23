@@ -53,7 +53,12 @@ export struct FloatingDock {
       return;
     }
     if (index === 1) {
-      this.pathStack.replacePath({ name: 'Map' });
+      // 地图页要有行程才有动线可画，没有就直接回列表，不给一张空底图
+      if (this.tripId.length === 0) {
+        this.pathStack.replacePath({ name: 'Trips' });
+      } else {
+        this.pathStack.replacePath({ name: 'Map', param: this.tripId });
+      }
       return;
     }
     if (index === 2) {

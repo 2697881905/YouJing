@@ -1,14 +1,18 @@
 /**
  * 内置资产种子导入（开发文档 §6 阶段 5）。
  *
- * 数据来源：seed-v1 公开常识整理（用户拍板），经纬度取所在区中心近似值——
- * Map Kit 开通后用地理编码回填精确坐标（INIT_REPORT 待办）；预约信息 UI 标「以官方为准」。
- * 幂等：spot 表有行即跳过；购买数据到位后整表替换（INSERT OR REPLACE 同 id）。
+ * 数据来源：seed-v1 公开常识整理（用户拍板）。v2 起补逐条经纬度：
+ * 由 Photon(OpenStreetMap) 按景点名/片区锚定站名地理编码得 WGS84，再转 GCJ02 落进
+ * seed/*.jsonl 的 la/lo 字段——Map Kit 在中国大陆按 GCJ02 绘制，喂 WGS84 会整体偏几百米。
+ * 没编出坐标的行仍退回区中心（景点）或不落点（片区），并在 provenance.source 上区分开。
+ * 预约信息 UI 标「以官方为准」。
+ * 幂等：spot 表有行且种子版本一致即跳过；版本变了整表 upsert（同 id ON_CONFLICT_REPLACE），
+ * 已装机用户不必清数据也能拿到新坐标。
  */
 
 import { util } from '@kit.ArkTS';
 import { common } from '@kit.AbilityKit';
-import { relationalStore } from '@kit.ArkData';
+import { preferences, relationalStore } from '@kit.ArkData';
 import { DatabaseHelper } from './DatabaseHelper';
 import { SpotDao } from './SpotDao';
 import { AreaDao } from './AreaDao';
@@ -23,6 +27,12 @@ type Strs = string[];
 
 const TAG: string = 'Data.Seeder';
 const SEED_DATE: string = '2026-10-23';
+/** 种子结构版本：jsonl 字段或坐标数据一变就 bump，触发已装机 upsert 回填 */
+const SEED_VERSION: string = 'v2-geo-2';
+const SEED_PREFS: string = 'youjing_seed';
+const KEY_SEED_VERSION: string = 'version';
+/** 坐标缺失时片区不落点（0 会被 MapStops.usable 滤掉），比按城市质心插错地方诚实 */
+const NO_COORD: number = 0;
 
 interface CitySeed {
   city: string;
@@ -79,21 +89,12 @@ export class DistrictCoords {
 }
 
 export class DataSeeder {
-  /** 首启灌入：spot 表非空即跳过（幂等）。返回是否执行了灌入。 */
+  /** 首启灌入 + 种子版本升级回填：库里有行且版本一致才跳过。返回是否执行了灌入。 */
   static async seedIfEmpty(context: common.Context): Promise<boolean> {
-    const store: relationalStore.RdbStore = await DatabaseHelper.getStore(context);
-    const rs: relationalStore.ResultSet =
-      await store.querySql('SELECT COUNT(*) AS c FROM spot');
-    let count: number = 0;
-    try {
-      if (rs.goToFirstRow()) {
-        count = rs.getLong(rs.getColumnIndex('c'));
-      }
-    } finally {
-      rs.close();
-    }
-    if (count > 0) {
-      Logger.info(TAG, `已有 ${count} 景点，跳过灌入`);
+    const count: number = await DataSeeder.spotCount(context);
+    const stored: string = DataSeeder.storedVersion(context);
+    if (count > 0 && stored === SEED_VERSION) {
+      Logger.info(TAG, `已有 ${count} 景点，种子 ${SEED_VERSION} 已灌，跳过`);
       return false;
     }
     for (const c of CITIES) {
@@ -105,7 +106,40 @@ export class DataSeeder {
       await AreaDao.saveAreas(context, areas);
       Logger.info(TAG, `${c.city} 灌入 spots=${spots.length} areas=${areas.length}`);
     }
+    DataSeeder.recordVersion(context);
     return true;
+  }
+
+  private static async spotCount(context: common.Context): Promise<number> {
+    const store: relationalStore.RdbStore = await DatabaseHelper.getStore(context);
+    const rs: relationalStore.ResultSet = await store.querySql('SELECT COUNT(*) AS c FROM spot');
+    try {
+      return rs.goToFirstRow() ? rs.getLong(rs.getColumnIndex('c')) : 0;
+    } finally {
+      rs.close();
+    }
+  }
+
+  private static storedVersion(context: common.Context): string {
+    try {
+      const prefs: preferences.Preferences =
+        preferences.getPreferencesSync(context, { name: SEED_PREFS });
+      return prefs.getSync(KEY_SEED_VERSION, '') as string;
+    } catch (err) {
+      Logger.warn(TAG, `种子版本读取失败，按未灌处理: ${(err as Error).message}`);
+      return '';
+    }
+  }
+
+  private static recordVersion(context: common.Context): void {
+    try {
+      const prefs: preferences.Preferences =
+        preferences.getPreferencesSync(context, { name: SEED_PREFS });
+      prefs.putSync(KEY_SEED_VERSION, SEED_VERSION);
+      prefs.flushSync();
+    } catch (err) {
+      Logger.warn(TAG, `种子版本写入失败: ${(err as Error).message}`);
+    }
   }
 
   static async readJsonl(context: common.Context, path: string): Promise<string[]> {
@@ -119,11 +153,25 @@ export class DataSeeder {
     }
   }
 
+  /** 种子行自带的 GCJ02 坐标（la=纬度/lo=经度）；缺字段或非法值返回 null */
+  private static geoOf(o: Obj): number[] | null {
+    const la: Object | undefined = o['la'];
+    const lo: Object | undefined = o['lo'];
+    if (typeof la !== 'number' || typeof lo !== 'number') {
+      return null;
+    }
+    if (la < 18 || la > 54 || lo < 73 || lo > 135) {
+      return null;
+    }
+    return [la, lo];
+  }
+
   static toSpot(line: string, city: string): Spot {
     const o: Obj = JSON.parse(line) as Obj;
     const tags: string[] = o['t'] as Strs;
     const bk: Obj = o['bk'] as Obj;
-    const coord: number[] = DistrictCoords.lookup(city, o['d'] as string);
+    const geo: number[] | null = DataSeeder.geoOf(o);
+    const coord: number[] = geo !== null ? geo : DistrictCoords.lookup(city, o['d'] as string);
     const spot: Spot = {
       id: o['id'] as string,
       name: o['n'] as string,
@@ -145,14 +193,21 @@ export class DataSeeder {
         closedDay: (bk['closed'] as string).length > 0 ? bk['closed'] as string : undefined,
         difficulty: (bk['diff'] as string).length > 0 ? bk['diff'] as string : undefined
       },
-      provenance: { source: 'seed-v1', updatedAt: SEED_DATE, confidence: '中' }
+      provenance: {
+        source: geo !== null ? 'seed-v2-geo' : 'seed-v1',
+        updatedAt: SEED_DATE,
+        confidence: geo !== null ? '中' : '低'
+      }
     };
     return spot;
   }
 
   static toArea(line: string, city: string): Area {
     const o: Obj = JSON.parse(line) as Obj;
-    const coord: number[] = DistrictCoords.lookup(city, city);
+    // 片区没有「所在区」字段，编不出坐标就不落点：以前统一取 lookup(city, city)，
+    // 而表里没有 city:city 键，四城 144 片全部落到深圳那个兜底值上
+    const geo: number[] | null = DataSeeder.geoOf(o);
+    const coord: number[] = geo !== null ? geo : [NO_COORD, NO_COORD];
     const area: Area = {
       id: o['id'] as string,
       name: o['n'] as string,
@@ -169,7 +224,7 @@ export class DataSeeder {
       suitableCrowds: o['crowds'] as Strs,
       priceTier: o['tier'] as string as AreaPriceTier,
       group: o['g'] as string as AreaGroup,
-      source: 'seed-v1',
+      source: geo !== null ? 'seed-v2-geo' : 'seed-v1',
       updatedAt: SEED_DATE
     };
     return area;

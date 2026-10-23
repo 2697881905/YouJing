@@ -18,6 +18,7 @@ import { ExpensePage } from './ExpensePage';
 import { TripsPage } from './TripsPage';
 import { OnTripPage } from './OnTripPage';
 import { SharePage } from './SharePage';
+import { MapPage } from './MapPage';
 import { ComingSoonPage } from './ComingSoonPage';
 
 @Builder
@@ -53,11 +54,7 @@ function routerMap(name: string, param: object) {
   } else if (name === 'Share') {
     SharePage({ tripId: typeof param === 'string' ? param as string : '' })
   } else if (name === 'Map') {
-    ComingSoonPage({
-      title: '地图视图',
-      why: '真实底图要接华为地图服务（Map Kit），需先在 AppGallery Connect 开通并重新签名，'
-        + '当前版本还没接。行程动线现在按时间线顺序呈现，每站的地址、通勤方式和耗时都在行程页里。'
-    })
+    MapPage({ tripId: typeof param === 'string' ? param as string : '' })
   } else {
     ComingSoonPage({ title: '这个视图', why: '还没有做出来。' })
   }

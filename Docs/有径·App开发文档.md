@@ -315,6 +315,18 @@ SelectedArea（用户选中的住宿区域）
 
 **常见错误**：1002600003（应用身份校验失败）通常是因为未开通地图服务，或开通后未重新生成 Profile 文件进行重新签名。
 
+**2026-10-24 落地实测（`map` 地图显示这一档）**：
+- 只画落点、不显示「我的位置」时，实际只需 `ohos.permission.INTERNET`（瓦片走网络）；
+  上面两条定位权限留给后续 `setMyLocationEnabled` 再声明，不提前申请。
+- AGC 开通「地图服务」后必须重出 Profile：新 p7b 解出的
+  `app-services-capabilities = { "com.huawei.service.mapkit": {} }`，旧 p7b 该字段为 null——
+  这就是重出的判据。证书与设备列表不变（同一张调试证书 SHA-256 `86:6F:C3:64…CF:70`），
+  只把 `build-profile.json5` 的 profile 路径换新文件重签即可。
+- 中国大陆底图按 **GCJ02** 绘制，种子坐标必须先由 WGS84 转换（本工程在灌数据阶段离线转好，
+  落 `seed/*.jsonl` 的 `la/lo`），否则整条动线会偏几百米。
+- `MapComponent` 的 `mapCallback` 只由组件挂载后才可能回调，所以「等 ready 再挂 MapComponent」
+  会自锁成一张永久空图（首版真机踩过）；底图先挂，加载态与错误态做成覆盖层。
+
 ### 5.4 工程结构
 
 ```

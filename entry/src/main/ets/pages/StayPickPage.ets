@@ -1,8 +1,9 @@
 /**
  * 屏5 住宿区域精选与通勤（帧 1cd06e03）。
  * §7 必改已落：badge padding 3→4、commute-col gap 2→0。
- * 底稿的地图卡与三列通勤数字未照搬：内置区域库只到城市质心、且无住宿库存与路径规划，
- * 详见 Docs/INIT_REPORT.md §4b-7/8。
+ * 顶部地图卡：v2 起区域库有逐片坐标，上真实底图（三片互斥、不连线）；
+ * 三列通勤取 Area 真字段（到机场/到火车站/餐饮密度），底稿的「到首个景点/日均通勤/房源数」
+ * 要的是路径规划与住宿库存，本项目两者都没有。详见 Docs/INIT_REPORT.md §4b-7/8。
  */
 
 import { APP_NAV } from '../common/constants/AppNav';
@@ -14,6 +15,8 @@ import { LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
 import { AreaPick } from '../mock/MockData';
 import { Area, AreaGroup, AreaPriceTier } from '../model/Area';
+import { MapStop, MapStops } from '../utils/MapStops';
+import { TripMapView } from '../components/TripMapView';
 import { PlanRepository } from '../data/PlanRepository';
 import { PlanDraft } from '../data/PlanDraft';
 import { common } from '@kit.AbilityKit';
@@ -25,6 +28,9 @@ export struct StayPickPage {
   @StorageProp('isDarkMode') isDark: boolean = false;
   @State private selectedId: string = '';
   @State private picks: AreaPick[] = [];
+  /** 候选片区落点：坐标可用时才上真实底图，否则保留图例 */
+  @State private areaStops: MapStop[] = [];
+  @State private areaSig: string = '';
 
   aboutToAppear(): void {
     const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
@@ -48,6 +54,9 @@ export struct StayPickPage {
       }
       this.picks = list;
       this.selectedId = list.length > 0 ? list[0].area.id : '';
+      const stops: MapStop[] = MapStops.fromAreas(top);
+      this.areaStops = stops;
+      this.areaSig = MapStops.signature(stops);
     });
   }
 
@@ -225,35 +234,56 @@ export struct StayPickPage {
 
           Scroll() {
             Column() {
-              // 候选片区图例：底稿这格是手绘纸面动线地图，但内置区域库所有片区共用
-              // 同一个城市质心坐标（DistrictCoords.lookup(city, city)），按经纬度布点
-              // 就是编位置，故只保留 route-paper 底 + 芯片，不暗示相对方位
-              Stack({ alignContent: Alignment.Center }) {
-                Column()
-                  .width('100%')
-                  .height('100%')
-                  .linearGradient({
-                    angle: 180,
-                    colors: [[ColorTokens.routeBgTop, 0], [ColorTokens.routeBgBottom, 1]]
+              // 候选片区地图：区域库有逐片坐标时上真实底图（三片是互斥选项，不连线），
+              // 坐标缺失才退回 route-paper 图例——不拿城市质心假装位置
+              Stack({ alignContent: Alignment.BottomStart }) {
+                if (this.areaStops.length > 0) {
+                  TripMapView({
+                    stops: this.areaStops,
+                    signature: this.areaSig,
+                    route: false
                   })
-                Column({ space: SpaceTokens.sm }) {
-                  Text('本次候选的三片')
-                    .fontSize(TypeTokens.overline.size)
-                    .fontWeight(600)
-                    .fontColor(ColorTokens.muted)
-                  Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Center }) {
-                    ForEach(this.picks, (pick: AreaPick) => {
-                      this.mapChip(pick)
-                    }, (pick: AreaPick): string => `chip-${pick.area.id}`)
-                  }
-                  .width('100%')
-                  .margin({ left: SpaceTokens.md, right: SpaceTokens.md })
-                  Text('按推荐顺序排列')
+                    .width('100%')
+                    .height('100%')
+                  Text('本次候选的三片 · 按推荐顺序')
                     .fontSize(TypeTokens.caption.size)
                     .fontWeight(450)
-                    .fontColor(ColorTokens.faint)
+                    .fontColor(ColorTokens.ink)
+                    .height(28)
+                    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+                    .borderRadius(RadiusTokens.pill)
+                    .backgroundColor(ColorTokens.canvas)
+                    .margin(LayoutTokens.mapOverlayInset - 8)
+                } else {
+                  Column()
+                    .width('100%')
+                    .height('100%')
+                    .linearGradient({
+                      angle: 180,
+                      colors: [[ColorTokens.routeBgTop, 0], [ColorTokens.routeBgBottom, 1]]
+                    })
+                  Column({ space: SpaceTokens.sm }) {
+                    Text('本次候选的三片')
+                      .fontSize(TypeTokens.overline.size)
+                      .fontWeight(600)
+                      .fontColor(ColorTokens.muted)
+                    Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Center }) {
+                      ForEach(this.picks, (pick: AreaPick) => {
+                        this.mapChip(pick)
+                      }, (pick: AreaPick): string => `chip-${pick.area.id}`)
+                    }
+                    .width('100%')
+                    .margin({ left: SpaceTokens.md, right: SpaceTokens.md })
+                    Text('坐标待补，先按推荐顺序列出')
+                      .fontSize(TypeTokens.caption.size)
+                      .fontWeight(450)
+                      .fontColor(ColorTokens.faint)
+                  }
+                  .width('100%')
+                  .height('100%')
+                  .justifyContent(FlexAlign.Center)
+                  .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
                 }
-                .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
               }
               .width('100%')
               .height(LayoutTokens.mapHeightCompact)

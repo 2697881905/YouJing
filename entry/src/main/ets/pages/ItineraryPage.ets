@@ -15,6 +15,8 @@ import { LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
 import { Activity, ActivityCategory, ActivityStatus, IntensityLevel, TripDay, Trip } from '../model/Trip';
 import { TripDao } from '../data/TripDao';
+import { MapStop, MapStops } from '../utils/MapStops';
+import { TripMapView } from '../components/TripMapView';
 import { AccessFlags, CalendarSync, SyncResult } from '../data/CalendarSync';
 import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
@@ -33,7 +35,7 @@ export struct ItineraryPage {
   /** 玻璃点位①③是否由系统材质接管（接管处撤自绘背景与阴影）；仅浅色模式下实验 */
   private glassOn: boolean = isSystemMaterialActive();
   @Prop tripId: string = '';
-  @State private dayIndex: number = 0;
+  @State @Watch('syncDayStops') private dayIndex: number = 0;
   @State private showDetail: boolean = false;
   @State private detailAct: Activity | undefined = undefined;
   @State private showSystemAccess: boolean = false;
@@ -41,6 +43,9 @@ export struct ItineraryPage {
   @State private syncCard: boolean = true;
   @State private syncRemind: boolean = false;
   @State private days: TripDay[] = [];
+  /** 地图面板的当天落点（坐标不可用的站点已在 MapStops 里滤掉） */
+  @State private dayStops: MapStop[] = [];
+  @State private daySig: string = '';
   @State private bookingCount: number = 0;
   @State private dayCount: number = 0;
   private trip: Trip | null = null;
@@ -58,6 +63,7 @@ export struct ItineraryPage {
         if (trip !== null) {
           this.trip = trip;
           this.days = trip.days;
+          this.syncDayStops();
           this.bookingCount = CalendarSync.bookingCount(trip);
           this.dayCount = trip.days.length;
           const nights: number = trip.days.length - 1;
@@ -78,6 +84,18 @@ export struct ItineraryPage {
         Logger.warn('Ui.Itinerary', `触达开关读取失败: ${err.message}`);
       });
     }
+  }
+
+  /** 切天或编辑页回写后重算当天落点（地图面板与时间线必须同源） */
+  syncDayStops(): void {
+    if (this.days.length === 0) {
+      this.dayStops = [];
+      this.daySig = '';
+      return;
+    }
+    const stops: MapStop[] = MapStops.fromDay(this.curDay());
+    this.dayStops = stops;
+    this.daySig = MapStops.signature(stops);
   }
 
   /** 屏14 预览取真实待写节点：优先详情面板选中的活动，否则当日首站 */
@@ -906,25 +924,52 @@ export struct ItineraryPage {
 
           Scroll() {
             Column() {
-              // 地图面板（route-paper 渐变占位）
+              // 地图面板：有可用坐标就上真实底图（当天落点 + 分段动线），
+              // 没坐标时保留 route-paper 底 + 摘要，不画假位置
               Stack({ alignContent: Alignment.BottomStart }) {
-                Column()
-                  .width('100%')
-                  .height('100%')
-                  .linearGradient({
-                    angle: 180,
-                    colors: [[ColorTokens.routeBgTop, 0], [ColorTokens.routeBgBottom, 1]]
+                if (this.dayStops.length > 0) {
+                  TripMapView({
+                    stops: this.dayStops,
+                    signature: this.daySig
                   })
-                Text(this.dayRouteSummary())
-                  .fontSize(TypeTokens.caption.size)
-                  .fontWeight(450)
-                  .fontColor(ColorTokens.ink)
-                  .fontFeature("'tnum' on")
-                  .height(28)
-                  .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
-                  .borderRadius(RadiusTokens.pill)
-                  .backgroundColor(ColorTokens.canvas)
-                  .margin(LayoutTokens.mapOverlayInset - 8)
+                    .width('100%')
+                    .height('100%')
+                } else {
+                  Column()
+                    .width('100%')
+                    .height('100%')
+                    .linearGradient({
+                      angle: 180,
+                      colors: [[ColorTokens.routeBgTop, 0], [ColorTokens.routeBgBottom, 1]]
+                    })
+                }
+                Row() {
+                  Text(this.dayRouteSummary())
+                    .fontSize(TypeTokens.caption.size)
+                    .fontWeight(450)
+                    .fontColor(ColorTokens.ink)
+                    .fontFeature("'tnum' on")
+                    .height(28)
+                    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+                    .borderRadius(RadiusTokens.pill)
+                    .backgroundColor(ColorTokens.canvas)
+                  Blank()
+                  if (this.dayStops.length > 0) {
+                    Text('全图')
+                      .fontSize(TypeTokens.caption.size)
+                      .fontWeight(500)
+                      .fontColor(ColorTokens.primary)
+                      .height(28)
+                      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+                      .borderRadius(RadiusTokens.pill)
+                      .backgroundColor(ColorTokens.canvas)
+                      .onClick(() => {
+                        this.pathStack.pushPath({ name: 'Map', param: this.tripId });
+                      })
+                  }
+                }
+                .width('100%')
+                .margin(LayoutTokens.mapOverlayInset - 8)
               }
               .width('100%')
               .height(LayoutTokens.mapHeightCompact)
