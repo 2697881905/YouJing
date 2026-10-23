@@ -28,10 +28,13 @@ const LINE_DARK: number = 0xFF7DB8FF;
 /** 图钉上的序号与动线同色，串给 canvas 用（'#AARRGGBB'） */
 const PIN_BRAND_LIGHT: string = '#FF0066CC';
 const PIN_BRAND_DARK: string = '#FF7DB8FF';
-// newLatLngBounds 的留白单位是 px（不是 vp）：图钉锚点在针尖、圆头往点上方伸一截，
-// 顶部要给足，否则紧凑面板里首末站的图钉头会被上边缘裁掉。
-// 下面两个是「屏8 那块 625px 高的小面板」实测值，满屏底图的宿主（dock 地图页）要自己传。
-const FIT_PAD_TOP: number = 260;
+// newLatLngBounds 的留白单位是 px（不是 vp），且是**这块底图自己的** px。
+// 图钉锚点在针尖，整枚图钉往点上方伸 ~260px（真机量的），所以顶部留白必须 ≥ 图钉高，
+// 否则首站圆头被面板上边缘裁掉（把 260 改小到 120 就当场复现了）。
+// 代价写在这里，别再往回改：小面板净高只有 625px，280+150 之后可视带只剩 ~195px，
+// 两点相隔 7km 时镜头必然退到街区以上——这块面板的定位本来就是「当日动线概览」。
+// 要更近的视角只能二选一：把图钉画小，或者把面板加高；满屏底图的地图页不受此限。
+const FIT_PAD_TOP: number = 280;
 const FIT_PAD_BOTTOM: number = 150;
 const FIT_PAD_SIDE: number = 120;
 const SINGLE_ZOOM: number = 15;

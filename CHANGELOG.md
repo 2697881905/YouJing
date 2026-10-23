@@ -6,6 +6,16 @@
 
 ### Fixed
 
+- 浅色模式下整条 HDS 顶栏标题看不见（2026-10-24，真机浅色复现）：HDS 的标题文字与菜单图标
+  一样默认白色（透明栏压在 hero 媒体上的假设），`HdsChrome` 只显式给了 `iconColor`、
+  没给 `titleStyle`。真机量过：浅色画布上标题区整块 255,255,255，屏15/屏6/地图页/行程列表
+  四页只剩一个返回箭头。补 `titleStyle.mainTitleColor = ink`、`subTitleColor = muted`，
+  四页复测标题字色 min 0（真画上去了）。
+- 屏8 小面板首站图钉被上边缘裁掉（2026-10-24，真机浅色）：为把视角拉近试过把
+  `newLatLngBounds` 的顶部留白从 260px 压到 120px，当场复现裁切——真机上一枚编号图钉
+  从锚点往上伸约 260px。回到 280/150 档并把这个取舍写进常量注释：
+  625px 高的小面板扣掉留白只剩 ~195px 视带，当日两点相距 7km 时镜头必然退到街区以上，
+  要更近只能改小图钉或加高面板（地图页满屏底图不受此限）。
 - 离开地图页会杀掉整个 App（2026-10-24，真机复现并验证修复）：`TripMapView.aboutToDisappear`
   里 `events.off('markerClick', cb)` 被 Map Kit 反手用 `undefined` 调了一次回调，
   `marker.getTag()` 抛 `TypeError` 逃出生命周期 → JS 崩溃、进程被系统回收。

@@ -2,9 +2,10 @@
  * HDS 官方顶栏的单点配置（对齐「有据」定稿：官方标题栏 + 沉浸渐变模糊，不再自绘标题 Row）。
  *
  * 三条来自有据真机实证的坑，改任何一条都会翻车：
- * 1. `content.menu` 的图标默认是**白色**（HDS 约定：透明栏压在 hero 媒体上）。有径静止态栏下
- *    是页面画布（浅色 #FFF），白图标等于看不见 → 必须显式给 menuStyle/backIconStyle 的
- *    iconColor 用 token，深色模式才跟着翻白。
+ * 1. `content.menu` 的图标与标题文字默认都是**白色**（HDS 约定：透明栏压在 hero 媒体上）。
+ *    有径静止态栏下是页面画布（浅色 #FFF），白图标/白标题等于看不见 → 必须显式给
+ *    menuStyle/backIconStyle 的 iconColor 与 titleStyle 的 mainTitleColor/subTitleColor 用 token，
+ *    深色模式才跟着翻白。（浅色真机量过：整条标题栏只有返回箭头在画，标题区一片 255。）
  * 2. `maskExtraHeight` 官方默认 32vp，即模糊区天生往栏底之下多伸 32vp，会把首屏内容顶边糊掉
  *    （用户看到的"顶栏一直糊"就是这条）→ 压到 0，磨砂正好停在栏底。
  * 3. `blurRadius` 只在 GRADIENT_BLUR / IMMERSIVE_GRADIENT_BLUR 两档下出图，COMMON_BLUR 会把
@@ -24,6 +25,7 @@ import type {
   HdsNavigationTitle,
   HdsNavigationTitleBarOptions,
   HdsNavigationTitleBarStyle,
+  HdsNavigationTitleStyle,
   HdsTitleBarContentStyle,
   ScrollEffectOptions,
   TitleBarContentOptions,
@@ -75,7 +77,14 @@ export class HdsChrome {
       maskExtraHeight: 0
     };
     const iconStyle: HdsNavigationIconItemStyle = { iconColor: ColorTokens.ink };
+    // 标题文字与图标同族：HDS 默认也是白的（透明栏压在 hero 媒体上的假设），
+    // 浅色画布上等于整条栏只剩个返回箭头。真机量过：标题区整块 255,255,255。
+    const titleStyle: HdsNavigationTitleStyle = {
+      mainTitleColor: ColorTokens.ink,
+      subTitleColor: ColorTokens.muted
+    };
     const contentStyle: HdsTitleBarContentStyle = {
+      titleStyle: titleStyle,
       menuStyle: iconStyle,
       backIconStyle: iconStyle
     };
