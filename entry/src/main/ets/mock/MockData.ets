@@ -82,7 +82,7 @@ export class MockAreas {
   static readonly PICKS: AreaPick[] = [
     {
       area: area('a-gion', '祇园 · 东山', AreaGroup.CORE, AreaPriceTier.COMFORT, 75, 12),
-      badgeLabel: 'AI 精选 1',
+      badgeLabel: '精选 1',
       aiRank: 1,
       reason: '早上 7 点前能空着走进清水寺，避开旅行团'
     },

@@ -39,8 +39,7 @@ export struct StayPickPage {
         const din: string = `周边餐饮${a.diningDensity}密度`;
         const pick: AreaPick = {
           area: a,
-          badgeLabel: i === 0 ? 'AI 精选 1' :
-            (a.group === AreaGroup.COMMERCIAL ? '商圈便利' : '交通枢纽'),
+          badgeLabel: i === 0 ? '精选 1' : this.groupBadge(a.group),
           aiRank: i + 1,
           reason: a.suitableCrowds.length > 0 ? `适合${a.suitableCrowds.join('/')}，${din}` :
             `地铁${a.metroLines.join('/')}线直达，${din}`
@@ -50,6 +49,14 @@ export struct StayPickPage {
       this.picks = list;
       this.selectedId = list.length > 0 ? list[0].area.id : '';
     });
+  }
+
+  /** 角标只描述 Area.group 这一个真字段，不再按位次猜「交通枢纽」 */
+  private groupBadge(group: AreaGroup): string {
+    if (group === AreaGroup.CORE) {
+      return '核心地段';
+    }
+    return group === AreaGroup.COMMERCIAL ? '商圈便利' : '交通枢纽';
   }
 
   private areaMeta(area: Area): string {
