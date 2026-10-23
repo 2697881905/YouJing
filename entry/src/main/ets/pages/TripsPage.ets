@@ -18,6 +18,8 @@ import { TripDao, TripSummary } from '../data/TripDao';
 import { PlanDraft } from '../data/PlanDraft';
 import { DateUtils } from '../utils/DateUtils';
 import { common } from '@kit.AbilityKit';
+import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsChrome } from '../design/HdsChrome';
 
 interface TripCardData {
   id: string;
@@ -197,22 +199,9 @@ export struct TripsPage {
   }
 
   build() {
-    NavDestination() {
+    HdsNavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
       Column() {
-        Row() {
-          Text('我的行程')
-            .fontSize(TypeTokens.body.size)
-            .fontWeight(600)
-            .fontColor(ColorTokens.ink)
-            .layoutWeight(1)
-            .textAlign(TextAlign.Center)
-          SymbolGlyph($r('sys.symbol.magnifyingglass'))
-            .fontSize(22)
-            .fontColor([ColorTokens.ink])
-        }
-        .height(LayoutTokens.titleBarHeight)
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
 
         if (this.trips.length === 0) {
           Column({ space: SpaceTokens.md }) {
@@ -261,6 +250,7 @@ export struct TripsPage {
     .width('100%')
     .height('100%')
     }
-    .hideTitleBar(true)
+    .titleBar(HdsChrome.bar({ mainTitle: '我的行程' }))
+    .titleMode(HdsNavDestinationTitleMode.MINI)
   }
 }

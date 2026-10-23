@@ -27,6 +27,8 @@ import { DateUtils } from '../utils/DateUtils';
 import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
 import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
+import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsChrome } from '../design/HdsChrome';
 
 interface CategorySpend {
   name: string;
@@ -342,22 +344,9 @@ export struct ExpensePage {
   }
 
   build() {
-    NavDestination() {
+    HdsNavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
       Column() {
-        Row() {
-          Text('费用')
-            .fontSize(TypeTokens.body.size)
-            .fontWeight(600)
-            .fontColor(ColorTokens.ink)
-            .layoutWeight(1)
-            .textAlign(TextAlign.Center)
-          SymbolGlyph($r('sys.symbol.ellipsis_circle'))
-            .fontSize(22)
-            .fontColor([ColorTokens.ink])
-        }
-        .height(LayoutTokens.titleBarHeight)
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
 
         Scroll() {
           Column() {
@@ -537,6 +526,7 @@ export struct ExpensePage {
     .width('100%')
     .height('100%')
     }
-    .hideTitleBar(true)
+    .titleBar(HdsChrome.bar({ mainTitle: '费用' }))
+    .titleMode(HdsNavDestinationTitleMode.MINI)
   }
 }

@@ -25,6 +25,8 @@ import { barMaterial, getSheetImmersiveMaterial, isSystemMaterialActive } from '
 import { uiMaterial } from '@kit.ArkUI';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { FloatingDock } from '../components/FloatingDock';
+import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsChrome } from '../design/HdsChrome';
 
 const ROW_HEIGHT: number = 76;
 
@@ -877,38 +879,11 @@ export struct ItineraryPage {
   }
 
   build() {
-    NavDestination() {
+    HdsNavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
         Column() {
-          // 顶栏（玻璃点位①：骨架期回退档）
+          // Day 分段栏（官方 SegmentButton + 材质）；标题与分享/编辑已迁到官方标题栏
           Column() {
-            Row() {
-              Text(this.titleText)
-                .fontSize(TypeTokens.headline.size)
-                .fontWeight(600)
-                .fontColor(ColorTokens.ink)
-                .fontFeature("'tnum' on")
-                .layoutWeight(1)
-              SymbolGlyph($r('sys.symbol.share'))
-                .fontSize(22)
-                .fontColor([ColorTokens.ink])
-                .onClick(() => {
-                  this.pathStack.pushPath({ name: 'Share', param: this.tripId });
-                })
-              SymbolGlyph($r('sys.symbol.ellipsis_circle'))
-                .fontSize(22)
-                .fontColor([ColorTokens.ink])
-                .margin({ left: SpaceTokens.lg })
-                .onClick(() => {
-                  this.pathStack.pushPath({
-                    name: 'EditItinerary',
-                    param: { tripId: this.tripId, dayIndex: this.dayIndex } as EditTarget
-                  });
-                })
-            }
-            .width('100%')
-            .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
-
             Row() {
               ImmersiveSegmentBar({
                 items: this.segments,
@@ -1037,7 +1012,21 @@ export struct ItineraryPage {
         systemMaterial: getSheetImmersiveMaterial()
       })
     }
-    .hideTitleBar(true)
+    .titleBar(HdsChrome.bar({
+      mainTitle: this.titleText,
+      menu: [
+        HdsChrome.item($r('sys.symbol.share'), '分享行程', (): void => {
+          this.pathStack.pushPath({ name: 'Share', param: this.tripId });
+        }),
+        HdsChrome.item($r('sys.symbol.square_and_pencil'), '编辑行程', (): void => {
+          this.pathStack.pushPath({
+            name: 'EditItinerary',
+            param: { tripId: this.tripId, dayIndex: this.dayIndex } as EditTarget
+          });
+        })
+      ]
+    }))
+    .titleMode(HdsNavDestinationTitleMode.MINI)
     .onShown((): void => {
       this.reload();
     })

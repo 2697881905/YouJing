@@ -23,6 +23,8 @@ import { ExpenseDao } from '../data/ExpenseDao';
 import { DateUtils } from '../utils/DateUtils';
 import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
+import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsChrome } from '../design/HdsChrome';
 
 interface CheckedRow {
   time: string;
@@ -262,24 +264,9 @@ export struct OnTripPage {
   }
 
   build() {
-    NavDestination() {
+    HdsNavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
       Column() {
-        Row() {
-          Text(this.dayLabel.length > 0 ? this.dayLabel : '旅行中')
-            .fontSize(TypeTokens.body.size)
-            .fontWeight(600)
-            .fontColor(ColorTokens.ink)
-            .fontFeature("'tnum' on")
-            .layoutWeight(1)
-          Text(this.clock)
-            .fontSize(TypeTokens.body.size)
-            .fontWeight(600)
-            .fontColor(ColorTokens.ink)
-            .fontFeature("'tnum' on")
-        }
-        .height(LayoutTokens.titleBarHeight)
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
 
         Scroll() {
           Column() {
@@ -457,7 +444,8 @@ export struct OnTripPage {
     .width('100%')
     .height('100%')
     }
-    .hideTitleBar(true)
+    .titleBar(HdsChrome.bar({ mainTitle: this.dayLabel.length > 0 ? this.dayLabel : '旅行中', subTitle: this.clock }))
+    .titleMode(HdsNavDestinationTitleMode.MINI)
     .onShown((): void => {
       this.reload();
     })

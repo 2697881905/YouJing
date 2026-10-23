@@ -15,6 +15,8 @@ import { PlanDraft } from '../data/PlanDraft';
 import { TripBasicInput } from '../model/PlanParams';
 import { DateUtils } from '../utils/DateUtils';
 import { BudgetConfig } from '../common/constants/BudgetConfig';
+import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsChrome } from '../design/HdsChrome';
 
 const CITIES: string[] = ['北京', '上海', '广州', '深圳', '京都（演示）'];
 
@@ -163,26 +165,8 @@ export struct TripInputPage {
   }
 
   build() {
-    NavDestination() {
+    HdsNavDestination() {
       Column() {
-        Row() {
-          SymbolGlyph($r('sys.symbol.chevron_backward'))
-            .fontSize(22)
-            .fontColor([ColorTokens.ink])
-            .onClick(() => {
-              this.pathStack.pop();
-            })
-          Text('有径')
-            .fontSize(TypeTokens.body.size)
-            .fontWeight(600)
-            .fontColor(ColorTokens.ink)
-            .layoutWeight(1)
-            .textAlign(TextAlign.Center)
-          Column().width(44)
-        }
-        .height(LayoutTokens.titleBarHeight)
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
-
         Scroll() {
           Column() {
             Column() {
@@ -371,6 +355,7 @@ export struct TripInputPage {
         showClose: true
       })
     }
-    .hideTitleBar(true)
+    .titleBar(HdsChrome.bar({ mainTitle: '有径', subTitle: '设定出行基础参数' }))
+    .titleMode(HdsNavDestinationTitleMode.MINI)
   }
 }

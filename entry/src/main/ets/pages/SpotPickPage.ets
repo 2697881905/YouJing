@@ -19,6 +19,9 @@ import { PlanDraft } from '../data/PlanDraft';
 import { SelectedSpot, SpotPriority, TripBasicInput } from '../model/PlanParams';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { common } from '@kit.AbilityKit';
+import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import type { HdsNavigationMenuItemOptions, HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
+import { HdsChrome } from '../design/HdsChrome';
 
 interface SpotGroup {
   label: string;
@@ -179,32 +182,19 @@ export struct SpotPickPage {
     })
   }
 
+  /** 官方标题栏：动作走 content.menu，不再自绘 SymbolGlyph + onClick */
+  private titleBarOptions(): HdsNavigationTitleBarOptions {
+    const items: Array<HdsNavigationMenuItemOptions> = [HdsChrome.item(
+      $r('sys.symbol.plus'), '推荐更多', (): void => {
+        this.markMore();
+      })];
+    return HdsChrome.bar({ mainTitle: '选想去的地方', menu: items });
+  }
+
   build() {
-    NavDestination() {
+    HdsNavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
         Column() {
-          Row() {
-            SymbolGlyph($r('sys.symbol.chevron_backward'))
-              .fontSize(22)
-              .fontColor([ColorTokens.ink])
-              .onClick(() => {
-                this.pathStack.pop();
-              })
-            Text('选想去的地方')
-              .fontSize(TypeTokens.body.size)
-              .fontWeight(600)
-              .fontColor(ColorTokens.ink)
-              .layoutWeight(1)
-              .textAlign(TextAlign.Center)
-            Text('推荐更多')
-              .fontSize(TypeTokens.small.size)
-              .fontColor(ColorTokens.primary)
-              .onClick(() => {
-                this.markMore();
-              })
-          }
-          .height(LayoutTokens.titleBarHeight)
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
 
           Column({ space: SpaceTokens.xs }) {
             Text(`已选 ${this.priorities.length} / 可用 ${this.days}.0 天 · 建议上限 ${this.days * 4} 个`)
@@ -311,6 +301,7 @@ export struct SpotPickPage {
         .backgroundColor(ColorTokens.canvas)
       }
     }
-    .hideTitleBar(true)
+    .titleBar(this.titleBarOptions())
+    .titleMode(HdsNavDestinationTitleMode.MINI)
   }
 }

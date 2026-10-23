@@ -21,6 +21,8 @@ import { PlanRepository } from '../data/PlanRepository';
 import { PlanDraft } from '../data/PlanDraft';
 import { common } from '@kit.AbilityKit';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
+import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsChrome } from '../design/HdsChrome';
 
 @Component
 export struct StayPickPage {
@@ -207,30 +209,9 @@ export struct StayPickPage {
   }
 
   build() {
-    NavDestination() {
+    HdsNavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
         Column() {
-          Row() {
-            SymbolGlyph($r('sys.symbol.chevron_backward'))
-              .fontSize(22)
-              .fontColor([ColorTokens.ink])
-              .onClick(() => {
-                this.pathStack.pop();
-              })
-            Text('住哪一片')
-              .fontSize(TypeTokens.body.size)
-              .fontWeight(600)
-              .fontColor(ColorTokens.ink)
-              .layoutWeight(1)
-              .textAlign(TextAlign.Center)
-            Text('查看更多区域')
-              .fontSize(TypeTokens.small.size)
-              .fontColor(ColorTokens.primary)
-              .width(96)
-              .textAlign(TextAlign.End)
-          }
-          .height(LayoutTokens.titleBarHeight)
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
 
           Scroll() {
             Column() {
@@ -332,6 +313,7 @@ export struct StayPickPage {
         .backgroundColor(ColorTokens.canvas)
       }
     }
-    .hideTitleBar(true)
+    .titleBar(HdsChrome.bar({ mainTitle: '住哪一片' }))
+    .titleMode(HdsNavDestinationTitleMode.MINI)
   }
 }

@@ -16,6 +16,8 @@ import { SpaceTokens } from '../design/SpaceTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { BuildConfig } from '../common/constants/BuildConfig';
+import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsChrome } from '../design/HdsChrome';
 
 interface FixOption {
   title: string;
@@ -67,26 +69,9 @@ export struct GenerateFailedPage {
   }
 
   build() {
-    NavDestination() {
+    HdsNavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
         Column() {
-          Row() {
-            SymbolGlyph($r('sys.symbol.chevron_backward'))
-              .fontSize(22)
-              .fontColor([ColorTokens.ink])
-              .onClick(() => {
-                this.pathStack.pop();
-              })
-            Blank()
-            Text('生成受阻')
-              .fontSize(TypeTokens.body.size)
-              .fontWeight(600)
-              .fontColor(ColorTokens.ink)
-            Blank()
-            Column().width(44)
-          }
-          .height(LayoutTokens.titleBarHeight)
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
 
           Column() {
             SymbolGlyph($r('sys.symbol.exclamationmark_circle'))
@@ -181,6 +166,7 @@ export struct GenerateFailedPage {
       .height('100%')
       .backgroundColor(ColorTokens.canvas)
     }
-    .hideTitleBar(true)
+    .titleBar(HdsChrome.bar({ mainTitle: '生成受阻' }))
+    .titleMode(HdsNavDestinationTitleMode.MINI)
   }
 }

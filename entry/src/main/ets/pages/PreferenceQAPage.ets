@@ -16,6 +16,8 @@ import { FlowQuestion, QuestionOption, TravelStyle, TransitPreference, PaceOptio
 import { PlanDraft } from '../data/PlanDraft';
 import { OptionCard } from '../components/OptionCard';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
+import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsChrome } from '../design/HdsChrome';
 
 @Component
 export struct PreferenceQAPage {
@@ -98,23 +100,8 @@ export struct PreferenceQAPage {
   }
 
   build() {
-    NavDestination() {
+    HdsNavDestination() {
       Column() {
-        Row() {
-          Text(`第 ${this.qIndex + 1}/${this.questions.length} 步`)
-            .fontSize(TypeTokens.overline.size)
-            .fontWeight(600)
-            .fontColor(ColorTokens.muted)
-            .fontFeature("'tnum' on")
-          Blank()
-          Text('偏好追问')
-            .fontSize(TypeTokens.body.size)
-            .fontWeight(600)
-            .fontColor(ColorTokens.ink)
-        }
-        .width('100%')
-        .height(LayoutTokens.titleBarHeight)
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
 
         Row() {
           Row()
@@ -200,6 +187,7 @@ export struct PreferenceQAPage {
       .height('100%')
       .backgroundColor(ColorTokens.canvas)
     }
-    .hideTitleBar(true)
+    .titleBar(HdsChrome.bar({ mainTitle: '偏好追问', subTitle: `第 ${this.qIndex + 1}/${this.questions.length} 步` }))
+    .titleMode(HdsNavDestinationTitleMode.MINI)
   }
 }

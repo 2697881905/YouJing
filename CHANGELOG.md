@@ -26,6 +26,15 @@
   新增种子版本闸门 `v2-geo-2`：已装机不必清数据，冷启动按 id upsert 回填，真机日志
   「北京 灌入 spots=32 areas=36 …」四城重跑。GCJ02 位移自检：中位 573m、区间 457–633m。
 
+- 全 App 顶栏改官方 HDS 标题栏（2026-10-24，真机验收）：根 `Navigation` → `HdsNavigation`，
+  13 个路由页 `NavDestination` → `HdsNavDestination` + `.titleBar(HdsChrome.bar(...))`，
+  撤掉全部自绘标题 Row 与自绘返回钮（官方自带）；页内动作（分享 / 编辑 / 完成 / 推荐更多 / 全览）
+  改走官方 `content.menu` 圆钮。新增 `design/HdsChrome`（单点构造，带三条有据真机结论：
+  menu 图标默认白色必须显式给 token、`maskExtraHeight` 默认 32vp 会糊到内容须压 0、
+  blurRadius 只在 GRADIENT_BLUR/IMMERSIVE_GRADIENT_BLUR 下出图）与
+  `components/ImmersiveSurface`（HDS 双边流光容器，API≥23 门禁降级）。
+  真机实测：屏2/屏8 官方标题栏 + 圆钮菜单出图，深色模式图标色随 token 翻转。
+
 - 小艺预填屏2 补齐人数与预算（2026-10-23，真机验收）：小艺开的是新行程，预算不再沿用上一段
   草稿，统一回到默认 `¥8,000/人`（新增 `common/constants/BudgetConfig` 收敛 3000/12000/500/8000
   四个散落常量）；人数 chip 原固定 1/2/4，现把预填带来的 3、5 等值补进选项并高亮。

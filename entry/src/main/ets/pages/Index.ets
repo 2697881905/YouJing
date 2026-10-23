@@ -20,6 +20,7 @@ import { OnTripPage } from './OnTripPage';
 import { SharePage } from './SharePage';
 import { MapPage } from './MapPage';
 import { ComingSoonPage } from './ComingSoonPage';
+import { HdsNavigation } from '@kit.UIDesignKit';
 
 @Builder
 function routerMap(name: string, param: object) {
@@ -64,7 +65,7 @@ function routerMap(name: string, param: object) {
 @Component
 struct Index {
   build() {
-    Navigation(APP_NAV) {
+    HdsNavigation(APP_NAV) {
       YoujingStartPage()
     }
     .navDestination(routerMap)

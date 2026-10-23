@@ -18,6 +18,8 @@ import { IcsBuilder } from '../utils/IcsBuilder';
 import { Trip } from '../model/Trip';
 import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
+import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsChrome } from '../design/HdsChrome';
 
 interface ShareOption {
   symbol: Resource;
@@ -145,25 +147,9 @@ export struct SharePage {
   }
 
   build() {
-    NavDestination() {
+    HdsNavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
         Column() {
-          Row() {
-            SymbolGlyph($r('sys.symbol.chevron_backward'))
-              .fontSize(22)
-              .fontColor([ColorTokens.ink])
-              .onClick(() => {
-                this.pathStack.pop();
-              })
-              .margin({ right: SpaceTokens.sm })
-            Text('分享与导出')
-              .fontSize(TypeTokens.body.size)
-              .fontWeight(600)
-              .fontColor(ColorTokens.ink)
-            Blank()
-          }
-          .height(LayoutTokens.titleBarHeight)
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
 
           Scroll() {
             Column() {
@@ -299,7 +285,8 @@ export struct SharePage {
       .height('100%')
       .backgroundColor(ColorTokens.canvas)
     }
-    .hideTitleBar(true)
+    .titleBar(HdsChrome.bar({ mainTitle: '分享与导出' }))
+    .titleMode(HdsNavDestinationTitleMode.MINI)
   }
 
 }

@@ -24,6 +24,8 @@ import { TripBasicInput } from '../model/PlanParams';
 import { Logger } from '../common/logger/Logger';
 import { AppError } from '../common/error/AppError';
 import { common } from '@kit.AbilityKit';
+import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsChrome } from '../design/HdsChrome';
 
 @Component
 export struct GeneratingPage {
@@ -115,25 +117,8 @@ export struct GeneratingPage {
   }
 
   build() {
-    NavDestination() {
+    HdsNavDestination() {
       Column() {
-        Row() {
-          SymbolGlyph($r('sys.symbol.chevron_backward'))
-            .fontSize(22)
-            .fontColor([ColorTokens.ink])
-            .onClick(() => {
-              APP_NAV.pop();
-            })
-          Text('生成行程')
-            .fontSize(TypeTokens.body.size)
-            .fontWeight(600)
-            .fontColor(ColorTokens.ink)
-            .layoutWeight(1)
-            .textAlign(TextAlign.Center)
-          Column().width(44)
-        }
-        .height(LayoutTokens.titleBarHeight)
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
 
         Column() {
           Text(`正在为你规划 ${Math.max(1, this.daysCount())} 天行程`)
@@ -232,7 +217,8 @@ export struct GeneratingPage {
       .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
       .backgroundColor(ColorTokens.canvas)
     }
-    .hideTitleBar(true)
+    .titleBar(HdsChrome.bar({ mainTitle: '生成行程' }))
+    .titleMode(HdsNavDestinationTitleMode.MINI)
   }
 
   private daysCount(): number {

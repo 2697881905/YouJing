@@ -24,6 +24,9 @@ import { PlanRepository } from '../data/PlanRepository';
 import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
 import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
+import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import type { HdsNavigationMenuItemOptions, HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
+import { HdsChrome } from '../design/HdsChrome';
 
 @Component
 export struct EditItineraryPage {
@@ -300,30 +303,18 @@ export struct EditItineraryPage {
     .backgroundColor(ColorTokens.canvas)
   }
 
+  /** 官方标题栏：「完成」走 content.menu，撤掉自绘图标 + 文字按钮 */
+  private titleBarOptions(): HdsNavigationTitleBarOptions {
+    const items: Array<HdsNavigationMenuItemOptions> = [HdsChrome.item(
+      $r('sys.symbol.checkmark'), '完成', (): void => {
+        this.finish();
+      })];
+    return HdsChrome.bar({ mainTitle: '编辑行程', menu: items });
+  }
+
   build() {
-    NavDestination() {
+    HdsNavDestination() {
       Column() {
-        Row() {
-          Text('编辑行程')
-            .fontSize(TypeTokens.body.size)
-            .fontWeight(600)
-            .fontColor(ColorTokens.ink)
-            .layoutWeight(1)
-            .textAlign(TextAlign.Center)
-          Row({ space: SpaceTokens.xs }) {
-            SymbolGlyph($r('sys.symbol.checkmark'))
-              .fontSize(22)
-              .fontColor([ColorTokens.primary])
-            Text('完成')
-              .fontSize(TypeTokens.small.size)
-              .fontColor(ColorTokens.primary)
-          }
-          .onClick((): void => {
-            this.finish();
-          })
-        }
-        .height(LayoutTokens.titleBarHeight)
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
 
         if (this.acts.length === 0) {
           Column() {
@@ -371,6 +362,7 @@ export struct EditItineraryPage {
         systemMaterial: getSheetImmersiveMaterial()
       })
     }
-    .hideTitleBar(true)
+    .titleBar(this.titleBarOptions())
+    .titleMode(HdsNavDestinationTitleMode.MINI)
   }
 }

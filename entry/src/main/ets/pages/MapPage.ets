@@ -22,6 +22,9 @@ import { LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
 import { barMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
 import { uiMaterial } from '@kit.ArkUI';
+import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import type { HdsNavigationMenuItemOptions, HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
+import { HdsChrome } from '../design/HdsChrome';
 
 const ALL_DAYS: number = -1;
 
@@ -42,6 +45,16 @@ export struct MapPage {
   private glassOn: boolean = isSystemMaterialActive();
 
   /** 编辑页/屏8 返回后要吃到回写的库数据，统一挂 onShown（首帧也会触发） */
+  /** 官方标题栏：行程名 + 副标题步数，「全览」走 content.menu 圆钮 */
+  private titleBarOptions(): HdsNavigationTitleBarOptions {
+    const items: Array<HdsNavigationMenuItemOptions> = [HdsChrome.item(
+      $r('sys.symbol.arrow_2_circlepath'), '全览', (): void => {
+        this.fitAll();
+      })];
+    const sub: string = this.stops.length > 0 ? `${this.stops.length} 站` : '';
+    return HdsChrome.bar({ mainTitle: this.titleText, subTitle: sub, menu: items });
+  }
+
   private reload(): void {    if (this.tripId.length === 0) {
       this.loaded = true;
       return;
@@ -138,7 +151,7 @@ export struct MapPage {
   }
 
   build() {
-    NavDestination() {
+    HdsNavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
         if (this.stops.length > 0) {
           TripMapView({
@@ -154,28 +167,6 @@ export struct MapPage {
         }
 
         Column() {
-          Row() {
-            Text(this.titleText)
-              .fontSize(TypeTokens.headline.size)
-              .fontWeight(600)
-              .fontColor(ColorTokens.ink)
-              .fontFeature("'tnum' on")
-              .layoutWeight(1)
-            Text('全览')
-              .fontSize(TypeTokens.caption.size)
-              .fontWeight(500)
-              .fontColor(ColorTokens.primary)
-              .height(32)
-              .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-              .borderRadius(RadiusTokens.pill)
-              .onClick((): void => {
-                this.fitAll();
-              })
-          }
-          .width('100%')
-          .height(LayoutTokens.titleBarHeight)
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
-
           if (this.days.length > 0) {
             Scroll() {
               Row() {
@@ -238,7 +229,8 @@ export struct MapPage {
       .height('100%')
       .backgroundColor(this.stops.length > 0 ? Color.Transparent : ColorTokens.canvas)
     }
-    .hideTitleBar(true)
+    .titleBar(this.titleBarOptions())
+    .titleMode(HdsNavDestinationTitleMode.MINI)
     .onShown((): void => {
       this.reload();
     })
