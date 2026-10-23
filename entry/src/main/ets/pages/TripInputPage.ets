@@ -15,6 +15,10 @@ import { PlanDraft } from '../data/PlanDraft';
 import { TripBasicInput } from '../model/PlanParams';
 import { DateUtils } from '../utils/DateUtils';
 
+const BUDGET_MIN: number = 3000;
+const BUDGET_MAX: number = 12000;
+const BUDGET_STEP: number = 500;
+
 const CITIES: string[] = ['北京', '上海', '广州', '深圳', '京都（演示）'];
 
 @Component
@@ -25,6 +29,7 @@ export struct TripInputPage {
   @State private startDate: string = '2026-07-01';
   @State private endDate: string = '2026-07-03';
   @State private showCity: boolean = false;
+  @State private budget: number = 8000;
   private partyOptions: number[] = [1, 2, 4];
 
   /** 屏2 是草稿的展示方：外部拉起（小艺/深链）预填与返回本屏都要回显真值 */
@@ -41,6 +46,9 @@ export struct TripInputPage {
     }
     if (b.people > 0) {
       this.party = b.people;
+    }
+    if (b.budget >= BUDGET_MIN && b.budget <= BUDGET_MAX) {
+      this.budget = b.budget;
     }
   }
 
@@ -271,7 +279,7 @@ export struct TripInputPage {
                 Row() {
                   Column() {
                     this.fieldLabel('预算档位')
-                    Text('¥8,000 / 人')
+                    Text(`¥${this.budget.toLocaleString('en-US')} / 人`)
                       .fontSize(TypeTokens.headline.size)
                       .fontWeight(600)
                       .fontColor(ColorTokens.ink)
@@ -285,19 +293,21 @@ export struct TripInputPage {
                 }
                 .width('100%')
 
-                Row() {
-                  Column()
-                    .height(4)
-                    .layoutWeight(55)
-                    .borderRadius(RadiusTokens.pill)
-                    .backgroundColor(ColorTokens.primary)
-                  Column()
-                    .height(4)
-                    .layoutWeight(45)
-                    .borderRadius(RadiusTokens.pill)
-                    .backgroundColor(ColorTokens.hairline)
-                }
-                .width('100%')
+                // 底稿是 55/45 的手绘轨道，实为可选区间 3,000–12,000/人（默认 8,000 恰落在 55%）
+                Slider({
+                  value: this.budget,
+                  min: BUDGET_MIN,
+                  max: BUDGET_MAX,
+                  step: BUDGET_STEP,
+                  style: SliderStyle.OutSet
+                })
+                  .width('100%')
+                  .selectedColor(ColorTokens.primary)
+                  .trackColor(ColorTokens.hairline)
+                  .blockColor(ColorTokens.surfaceElevated)
+                  .onChange((v: number) => {
+                    this.budget = Math.round(v);
+                  })
 
                 Row() {
                   Text('经济')
@@ -334,7 +344,7 @@ export struct TripInputPage {
               const d: PlanDraft = PlanDraft.get();
               const basic: TripBasicInput = {
                 destination: this.city, startDate: this.startDate,
-                endDate: this.endDate, people: this.party, budget: 8000
+                endDate: this.endDate, people: this.party, budget: this.budget
               };
               d.basic = basic;
               this.pathStack.pushPath({ name: 'PreferenceQA' });

@@ -25,9 +25,12 @@ export class PlanDraft {
     return PlanDraft.instance;
   }
 
-  reset(): void {
-    this.selectedSpots = [];
-    this.selectedArea = { areaId: '' };
-    this.paces = [PaceOption.STANDARD];
+  /**
+   * 开一段新规划时丢弃旧草稿。
+   * 之前只有一个实例方法 reset() 且从未被调用：连着规划第二次时，
+   * 上一次的 selectedSpots / selectedArea / 节奏会静默带进来（真机连做三条行程时复现）。
+   */
+  static fresh(): void {
+    PlanDraft.instance = null;
   }
 }

@@ -14,6 +14,7 @@ import { SpaceTokens } from '../design/SpaceTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { AccountStore } from '../data/AccountStore';
+import { PlanDraft } from '../data/PlanDraft';
 import { AccountKind, AccountState } from '../model/Account';
 import { TripDao } from '../data/TripDao';
 import { common } from '@kit.AbilityKit';
@@ -38,6 +39,8 @@ export struct YoujingStartPage {
 
   /** 静默取 UnionID（失败即本机游客分区，不阻断），再把游客数据归户到登录账号 */
   private async enterApp(): Promise<void> {
+    // 从首启页进规划 = 明确的新建意图，先丢掉上一段的草稿
+    PlanDraft.fresh();
     const ctx: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
     const state: AccountState = await AccountStore.login(ctx);
     if (state.kind === AccountKind.HUAWEI) {

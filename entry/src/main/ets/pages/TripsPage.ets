@@ -14,6 +14,7 @@ import { LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { TripDao, TripSummary } from '../data/TripDao';
+import { PlanDraft } from '../data/PlanDraft';
 import { DateUtils } from '../utils/DateUtils';
 import { common } from '@kit.AbilityKit';
 
@@ -229,6 +230,7 @@ export struct TripsPage {
               label: '创建新行程',
               buttonWidth: 200,
               onAction: (): void => {
+                PlanDraft.fresh();
                 this.pathStack.pushPath({ name: 'TripInput' });
               }
             })
