@@ -67,6 +67,21 @@ export struct SpotPickPage {
     return hit === undefined ? undefined : hit.priority;
   }
 
+  /** 无障碍动作名：底稿给的是「设为必去 / 标为普通」，这里按下一档如实描述 */
+  private priorityActionLabel(id: string): string {
+    const p: SpotPriority | undefined = this.priorityOf(id);
+    if (p === SpotPriority.MUST) {
+      return '改为想去';
+    }
+    if (p === SpotPriority.WANT) {
+      return '改为可去';
+    }
+    if (p === SpotPriority.OPTIONAL) {
+      return '标为普通';
+    }
+    return '设为必去';
+  }
+
   private cycle(id: string): void {
     const next: SelectedSpot[] = this.priorities.slice();
     const idx: number = next.findIndex((p: SelectedSpot): boolean => p.spotId === id);
@@ -163,33 +178,44 @@ export struct SpotPickPage {
       .alignItems(HorizontalAlign.Start)
       .layoutWeight(1)
 
-      Column() {
-        if (this.priorityOf(sp.id) === SpotPriority.MUST) {
-          Text('必').fontSize(TypeTokens.caption.size).fontWeight(600).fontColor(ColorTokens.onPrimary)
-        } else if (this.priorityOf(sp.id) === SpotPriority.WANT) {
-          Text('想').fontSize(TypeTokens.caption.size).fontWeight(600).fontColor(ColorTokens.primary)
-        } else if (this.priorityOf(sp.id) === SpotPriority.OPTIONAL) {
-          Text('可').fontSize(TypeTokens.caption.size).fontWeight(600).fontColor(ColorTokens.muted)
+      // 底稿这格是 `<button class="priority-action" aria-label="设为必去">`：
+      // 一个带无障碍动作名的按钮，不是「整行可点」。整行可点会误触（点名字就改了优先级），
+      // 所以热区收回到指示器本身，并交给官方 Button（TEXTUAL 档不出额外表面）。
+      Button() {
+        Column() {
+          if (this.priorityOf(sp.id) === SpotPriority.MUST) {
+            Text('必').fontSize(TypeTokens.caption.size).fontWeight(600).fontColor(ColorTokens.onPrimary)
+          } else if (this.priorityOf(sp.id) === SpotPriority.WANT) {
+            Text('想').fontSize(TypeTokens.caption.size).fontWeight(600).fontColor(ColorTokens.primary)
+          } else if (this.priorityOf(sp.id) === SpotPriority.OPTIONAL) {
+            Text('可').fontSize(TypeTokens.caption.size).fontWeight(600).fontColor(ColorTokens.muted)
+          }
         }
+        .width(24)
+        .height(24)
+        .justifyContent(FlexAlign.Center)
+        .borderRadius(RadiusTokens.pill)
+        .backgroundColor(this.priorityOf(sp.id) === SpotPriority.MUST ? ColorTokens.bookmark : ColorTokens.canvas)
+        .border({
+          width: 1,
+          color: this.priorityOf(sp.id) === SpotPriority.WANT ? ColorTokens.primary :
+            (this.priorityOf(sp.id) === SpotPriority.MUST ? ColorTokens.bookmark : ColorTokens.hairlineStrong),
+          radius: RadiusTokens.pill
+        })
       }
-      .width(24)
-      .height(24)
-      .justifyContent(FlexAlign.Center)
-      .borderRadius(RadiusTokens.pill)
-      .backgroundColor(this.priorityOf(sp.id) === SpotPriority.MUST ? ColorTokens.bookmark : ColorTokens.canvas)
-      .border({
-        width: 1,
-        color: this.priorityOf(sp.id) === SpotPriority.WANT ? ColorTokens.primary :
-          (this.priorityOf(sp.id) === SpotPriority.MUST ? ColorTokens.bookmark : ColorTokens.hairlineStrong),
-        radius: RadiusTokens.pill
+      .type(ButtonType.Circle)
+      .buttonStyle(ButtonStyleMode.TEXTUAL)
+      .padding(0)
+      .width(LayoutTokens.minTouchTarget)
+      .height(LayoutTokens.minTouchTarget)
+      .accessibilityText(this.priorityActionLabel(sp.id))
+      .onClick(() => {
+        this.cycle(sp.id);
       })
     }
     .width('100%')
     .constraintSize({ minHeight: LayoutTokens.itineraryRowMinHeight })
     .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.md, bottom: SpaceTokens.md })
-    .onClick(() => {
-      this.cycle(sp.id);
-    })
   }
 
   /** 官方标题栏：动作走 content.menu，不再自绘 SymbolGlyph + onClick */
