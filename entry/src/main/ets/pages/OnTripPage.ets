@@ -245,7 +245,7 @@ export struct OnTripPage {
         .fontWeight(600)
         .fontColor(row.ongoing ? ColorTokens.primary : ColorTokens.muted)
         .fontFeature("'tnum' on")
-        .width(52)
+        .width(LayoutTokens.itineraryTimeGutter)
       Text(row.name)
         .fontSize(TypeTokens.small.size)
         .fontWeight(row.ongoing ? 600 : 400)
@@ -297,7 +297,6 @@ export struct OnTripPage {
                 .fontWeight(450)
                 .fontColor(ColorTokens.body)
                 .fontFeature("'tnum' on")
-                .margin({ top: 2 })
               Progress({ value: this.progressPct(), total: 100, type: ProgressType.Linear })
                 .color(ColorTokens.primary)
                 .width('100%')
@@ -347,7 +346,7 @@ export struct OnTripPage {
           ListItem() {
             Column() {
               Row() {
-                Column().width(52)
+                Column().width(LayoutTokens.itineraryTimeGutter)
                 Column()
                   .width(2)
                   .height(44)
@@ -373,7 +372,7 @@ export struct OnTripPage {
                   .fontWeight(600)
                   .fontColor(ColorTokens.ink)
                   .fontFeature("'tnum' on")
-                  .width(52)
+                  .width(LayoutTokens.itineraryTimeGutter)
                 Row({ space: SpaceTokens.xs }) {
                   Text(this.nextTitle())
                     .fontSize(TypeTokens.small.size)
@@ -385,7 +384,7 @@ export struct OnTripPage {
                       .fontWeight(600)
                       .fontColor(ColorTokens.onPrimary)
                       .height(18)
-                      .padding({ left: 6, right: 6 })
+                      .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs })
                       .borderRadius(RadiusTokens.pill)
                       .backgroundColor(ColorTokens.warning)
                   }
@@ -399,7 +398,7 @@ export struct OnTripPage {
                 .fontSize(TypeTokens.caption.size)
                 .fontWeight(450)
                 .fontColor(ColorTokens.muted)
-                .margin({ left: 60 })
+                .margin({ left: LayoutTokens.itineraryTimeGutter + SpaceTokens.sm })
                 .alignSelf(ItemAlign.Start)
             }
             .width('100%')

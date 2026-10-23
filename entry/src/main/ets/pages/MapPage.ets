@@ -126,7 +126,7 @@ export struct MapPage {
   @Builder
   stopChip(stop: MapStop) {
     Button() {
-      Column({ space: 2 }) {
+      Column() {
         Row({ space: SpaceTokens.xs }) {
           Text(`${stop.index}`)
             .fontSize(TypeTokens.overline.size)

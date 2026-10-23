@@ -76,19 +76,19 @@ export struct YoujingStartPage {
         .stroke(ColorTokens.ink)
         .strokeWidth(2)
       Circle()
-        .width(10)
-        .height(10)
+        .width(LayoutTokens.itineraryNodeDot)
+        .height(LayoutTokens.itineraryNodeDot)
         .fill(dotColor)
     }
-    .width(24)
-    .height(24)
+    .width(LayoutTokens.itineraryNodeSize)
+    .height(LayoutTokens.itineraryNodeSize)
   }
 
   @Builder
   timelineRow(stop: PreviewStop, index: number) {
     Row() {
       Text(stop.time)
-        .width(52)
+        .width(LayoutTokens.itineraryTimeGutter)
         .fontSize(TypeTokens.time.size)
         .fontWeight(600)
         .fontColor(ColorTokens.ink)
@@ -102,7 +102,7 @@ export struct YoujingStartPage {
           .backgroundColor(ColorTokens.surfaceSunken)
         this.spineNode(stop.dotColor)
       }
-      .width(24)
+      .width(LayoutTokens.itineraryNodeSize)
       .height(ROW_HEIGHT)
       Column() {
         Text(stop.name)

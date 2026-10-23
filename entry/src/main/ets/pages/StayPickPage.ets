@@ -391,7 +391,7 @@ export struct StayPickPage {
           .edgeEffect(EdgeEffect.Spring)
           .cachedCount(4)
           .alignListItem(ListItemAlign.Start)
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: 110 })
+          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.stickyBarScrollReserve })
         }
         .width('100%')
         .height('100%')

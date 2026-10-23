@@ -249,7 +249,7 @@ export struct EditItineraryPage {
 
   @Builder
   handle() {
-    Column({ space: 3 }) {
+    Column({ space: SpaceTokens.xs }) {
       Row().width(14).height(2).borderRadius(RadiusTokens.pill).backgroundColor(ColorTokens.faint)
       Row().width(14).height(2).borderRadius(RadiusTokens.pill).backgroundColor(ColorTokens.faint)
       Row().width(14).height(2).borderRadius(RadiusTokens.pill).backgroundColor(ColorTokens.faint)
@@ -283,7 +283,7 @@ export struct EditItineraryPage {
     Row({ space: SpaceTokens.sm }) {
       this.handle()
       Text(act.time)
-        .width(52)
+        .width(LayoutTokens.itineraryTimeGutter)
         .fontSize(TypeTokens.time.size)
         .fontWeight(600)
         .fontColor(this.dragIdx === idx ? ColorTokens.primary : ColorTokens.ink)
@@ -300,7 +300,6 @@ export struct EditItineraryPage {
           .fontSize(TypeTokens.caption.size)
           .fontWeight(450)
           .fontColor(ColorTokens.muted)
-          .margin({ top: 2 })
       }
       .alignItems(HorizontalAlign.Start)
       .layoutWeight(1)
@@ -362,7 +361,7 @@ export struct EditItineraryPage {
       List({ space: SpaceTokens.xs }) {
         ForEach(this.candidates, (spot: Spot) => {
           ListItem() {
-            Column({ space: 2 }) {
+            Column() {
               Text(spot.name)
                 .fontSize(TypeTokens.small.size)
                 .fontWeight(600)

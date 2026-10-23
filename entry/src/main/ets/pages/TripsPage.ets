@@ -191,7 +191,7 @@ export struct TripsPage {
             .fontWeight(600)
             .fontColor(ColorTokens.onPrimary)
             .height(18)
-            .padding({ left: 6, right: 6 })
+            .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs })
             .borderRadius(RadiusTokens.pill)
             .backgroundColor(badgeColor)
         }
@@ -207,7 +207,6 @@ export struct TripsPage {
         .fontSize(TypeTokens.overline.size)
         .fontWeight(450)
         .fontColor(ColorTokens.muted)
-        .margin({ top: 2 })
     }
     .alignItems(HorizontalAlign.Start)
     .layoutWeight(1)
@@ -227,7 +226,6 @@ export struct TripsPage {
           .fontWeight(450)
           .fontColor(ColorTokens.muted)
           .fontFeature("'tnum' on")
-          .margin({ top: 2 })
       }
       .alignItems(HorizontalAlign.Start)
       .width('100%')

@@ -7,6 +7,8 @@
  */
 
 import { TypeTokens } from '../../design/TypeTokens';
+import { SpaceTokens } from '../../design/SpaceTokens';
+import { LayoutTokens } from '../../design/LayoutTokens';
 
 let cardStorage: LocalStorage = new LocalStorage();
 
@@ -87,7 +89,6 @@ struct TodayTripCard {
         .fontSize(TypeTokens.headline.size)
         .fontWeight(TypeTokens.headline.weight)
         .fontColor($r('app.color.ink'))
-        .margin({ top: 2 })
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
 
@@ -101,12 +102,11 @@ struct TodayTripCard {
           .fontFeature("'tnum' on")
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .margin({ top: 2 })
       }
 
       Column({ space: 4 }) {
         ForEach(this.cardRows(), (row: CardRow) => {
-          Row({ space: 6 }) {
+          Row({ space: SpaceTokens.xs }) {
             Text(row.time)
               .fontSize(TypeTokens.time.size)
               .fontWeight(TypeTokens.time.weight)
@@ -128,7 +128,7 @@ struct TodayTripCard {
         }, (row: CardRow): string => `w-${row.time}-${row.name}-${row.color}`)
       }
       .width('100%')
-      .margin({ top: 6 })
+      .margin({ top: SpaceTokens.xs })
 
       Text(this.footer)
         .fontSize(TypeTokens.overline.size)
@@ -136,12 +136,12 @@ struct TodayTripCard {
         .fontColor($r('app.color.muted'))
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .margin({ top: 6 })
+        .margin({ top: SpaceTokens.xs })
     }
     .alignItems(HorizontalAlign.Start)
     .width('100%')
     .height('100%')
-    .padding(this.dimension === '2*4' ? 16 : 12)
+    .padding(this.dimension === '2*4' ? LayoutTokens.widget2x4Padding : LayoutTokens.widget2x2Padding)
     .backgroundColor($r('app.color.canvas'))
     .onClick(() => {
       const routeParams: Record<string, string> = { 'route': 'Itinerary', 'param': this.tripId };

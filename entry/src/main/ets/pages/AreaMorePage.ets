@@ -84,7 +84,7 @@ export struct AreaMorePage {
   @Builder
   areaRow(a: Area) {
     Row({ space: SpaceTokens.md }) {
-      Column({ space: 2 }) {
+      Column() {
         Text(a.name)
           .fontSize(TypeTokens.body.size)
           .fontWeight(600)
@@ -100,7 +100,6 @@ export struct AreaMorePage {
           .fontWeight(450)
           .fontColor(ColorTokens.body)
           .fontFeature("'tnum' on")
-          .margin({ top: 2 })
       }
       .alignItems(HorizontalAlign.Start)
       .layoutWeight(1)

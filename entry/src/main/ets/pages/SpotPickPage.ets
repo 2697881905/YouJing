@@ -292,7 +292,7 @@ export struct SpotPickPage {
           .edgeEffect(EdgeEffect.Spring)
           .sticky(StickyStyle.Header)
           .cachedCount(6)
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: 110 })
+          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.stickyBarScrollReserve })
           .layoutWeight(1)
         }
         .width('100%')

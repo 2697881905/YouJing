@@ -128,7 +128,6 @@ export struct SharePage {
             .fontSize(TypeTokens.caption.size)
             .fontWeight(450)
             .fontColor(ColorTokens.muted)
-            .margin({ top: 2 })
         }
         .alignItems(HorizontalAlign.Start)
         .layoutWeight(1)
@@ -189,7 +188,6 @@ export struct SharePage {
                         .fontSize(TypeTokens.overline.size)
                         .fontWeight(450)
                         .fontColor(ColorTokens.muted)
-                        .margin({ top: 2 })
                     }
                     Column() {
                       Text(`${this.stopCount}`)
@@ -201,7 +199,6 @@ export struct SharePage {
                         .fontSize(TypeTokens.overline.size)
                         .fontWeight(450)
                         .fontColor(ColorTokens.muted)
-                        .margin({ top: 2 })
                     }
                     Column() {
                       Text(`${this.bookingCount}`)
@@ -213,7 +210,6 @@ export struct SharePage {
                         .fontSize(TypeTokens.overline.size)
                         .fontWeight(450)
                         .fontColor(ColorTokens.muted)
-                        .margin({ top: 2 })
                     }
                   }
                   .width('100%')
@@ -257,7 +253,7 @@ export struct SharePage {
           .edgeEffect(EdgeEffect.Spring)
           .cachedCount(4)
           .alignListItem(ListItemAlign.Start)
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: 150 })
+          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.shareBarScrollReserve })
         }
         .width('100%')
         .height('100%')

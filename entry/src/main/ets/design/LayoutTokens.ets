@@ -4,6 +4,20 @@
  */
 
 export interface LayoutTokensType {
+  /** 行程时间槽宽（帧 .time-gutter 52） */
+  itineraryTimeGutter: number;
+  /** 主轴节点占位（帧 .node-circle 24） */
+  itineraryNodeSize: number;
+  /** 主轴节点内圈活动色点（帧 .node-dot 10） */
+  itineraryNodeDot: number;
+  /** 节点详情缩略位宽（帧 .media-thumb 96，比例 3:4） */
+  mediaThumbWidth: number;
+  /** 节点详情缩略位高（帧 .media-thumb 128） */
+  mediaThumbHeight: number;
+  /** 屏4/屏5 吸底 CTA 条的滚动预留（通用 94 之外还要盖住吸底条） */
+  stickyBarScrollReserve: number;
+  /** 屏16 分享吸底动作条的滚动预留（两行动作，比 CTA 条高） */
+  shareBarScrollReserve: number;
   /** 基线网格 */
   gridBaseline: number;
   /** 页面左右内缩 */
@@ -99,6 +113,13 @@ export const LayoutTokens: LayoutTokensType = {
   sheetPanelWidth: 344,
   sheetPanelPadding: 20,
   itinerarySpineWidth: 2,
+  itineraryTimeGutter: 52,
+  itineraryNodeSize: 24,
+  itineraryNodeDot: 10,
+  mediaThumbWidth: 96,
+  mediaThumbHeight: 128,
+  stickyBarScrollReserve: 110,
+  shareBarScrollReserve: 150,
   itineraryRowMinHeight: 76,
   itineraryBlockGap: 12,
   transitLegHeight: 44,

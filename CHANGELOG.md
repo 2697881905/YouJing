@@ -6,6 +6,23 @@
 
 ### Changed
 
+- 几何契约落表，第三把尺 `tools/audit_geometry.py` 上线（2026-10-24，真机复核）：
+  先拿 DESIGN.md 的 `rounded`/`spacing`/`layout` 三块和 `RadiusTokens`·`SpaceTokens`·`LayoutTokens`
+  对表，再扫界面里的几何字面量。查出契约命名了、代码却写死的三个尺寸（时间槽 52、主轴节点 24、
+  节点内圈 10）——它们以字面量散在 6 个文件 20 多处，现已补成 `itineraryTimeGutter`/
+  `itineraryNodeSize`/`itineraryNodeDot` 并全部改走 token；屏13 卡片的 12/16 内缩同理
+  （token 早有，界面写死）。另把 32 处离表值按 handoff §7 逐帧必改表并到阶梯：
+  `margin top 2`（10 处）与 `Column({space:2})`（5 处）→ 0、徽标横内缩 6 → 4、
+  卡片行距 6 → 4、拖动把手 3 → 4；吸底栏的 110/150 滚动预留按决议 6 具名为
+  `stickyBarScrollReserve`/`shareBarScrollReserve`；分享钮让开官方 ✕ 的 52 改成 48
+  （✕ 左沿实测 961px，钮右沿落到 936px，仍不叠）。真机复核：主轴节点 75px、
+  弹层缩略位 300×400px、徽标高 69px —— 反推设备密度是 **3.125 而非此前记的 3.0**，
+  之前几轮"量出来总差一点"即源于此。三把尺子现均为 0 偏差。
+
+- 屏10 弹层缩略位补回 3:4（2026-10-24，随上一条一并核出）：帧 `.media-thumb` 写 96×128、
+  契约 `media-aspect-ratio: 3:4`，我们写的 96×120 少了 8vp（4:5）。现具名为
+  `LayoutTokens.mediaThumbWidth/Height` 并改回 96×128，真机 bounds 实测 300×400px ✓。
+
 - 屏13 桌面卡片的字阶回到帧的口径，并全部走 token（2026-10-24，真机桌面截图验收）：
   新加的 `tools/audit_type.py`（Text 字号必须走 `TypeTokens`、SymbolGlyph 必须走 `IconSizes`）
   一跑就指出 6 处，全在卡片里——它是唯一绕过字阶 token 的界面。对着帧的 widget CSS 逐条核：

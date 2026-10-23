@@ -360,7 +360,7 @@ export struct ExpensePage {
         .fontWeight(450)
         .fontColor(ColorTokens.muted)
         .fontFeature("'tnum' on")
-        .width(52)
+        .width(LayoutTokens.itineraryTimeGutter)
       Text(r.name)
         .fontSize(TypeTokens.small.size)
         .fontColor(ColorTokens.ink)

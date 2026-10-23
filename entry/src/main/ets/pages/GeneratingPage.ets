@@ -102,8 +102,8 @@ export struct GeneratingPage {
     Row({ space: SpaceTokens.sm }) {
       this.skeletonBlock(40, 14)
       Circle()
-        .width(24)
-        .height(24)
+        .width(LayoutTokens.itineraryNodeSize)
+        .height(LayoutTokens.itineraryNodeSize)
         .fill(ColorTokens.skeletonBase)
       Column({ space: SpaceTokens.xs }) {
         this.skeletonBlock('70%', 14)

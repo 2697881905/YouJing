@@ -102,7 +102,7 @@ export struct FloatingDock {
             if (idx === this.activeIndex) {
               this.glowLayer()
             }
-            Column({ space: 2 }) {
+            Column() {
               SymbolGlyph(item.symbol)
                 .fontSize(IconSizes.control)
                 .fontColor([idx === this.activeIndex ? ColorTokens.primary : ColorTokens.muted])

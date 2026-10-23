@@ -500,18 +500,18 @@ export struct ItineraryPage {
         .stroke(ColorTokens.ink)
         .strokeWidth(2)
       Circle()
-        .width(10)
-        .height(10)
+        .width(LayoutTokens.itineraryNodeDot)
+        .height(LayoutTokens.itineraryNodeDot)
         .fill(this.dotColor(cat))
     }
-    .width(24)
-    .height(24)
+    .width(LayoutTokens.itineraryNodeSize)
+    .height(LayoutTokens.itineraryNodeSize)
   }
 
   @Builder
   transitLeg(next: Activity) {
     Row() {
-      Column().width(52)
+      Column().width(LayoutTokens.itineraryTimeGutter)
       Column()
         .width(LayoutTokens.routeLineWidth)
         .height(LayoutTokens.transitLegHeight)
@@ -554,7 +554,7 @@ export struct ItineraryPage {
     Column() {
       Row() {
         Text(act.time)
-          .width(52)
+          .width(LayoutTokens.itineraryTimeGutter)
           .fontSize(TypeTokens.time.size)
           .fontWeight(600)
           .fontColor(ColorTokens.ink)
@@ -568,7 +568,7 @@ export struct ItineraryPage {
             .backgroundColor(ColorTokens.surfaceSunken)
           this.spineNode(act.category)
         }
-        .width(24)
+        .width(LayoutTokens.itineraryNodeSize)
         .height('100%')
         Column() {
           Row({ space: SpaceTokens.sm }) {
@@ -669,7 +669,6 @@ export struct ItineraryPage {
         .fontSize(TypeTokens.overline.size)
         .fontWeight(450)
         .fontColor(ColorTokens.muted)
-        .margin({ top: 2 })
     }
     .layoutWeight(1)
   }
@@ -729,8 +728,8 @@ export struct ItineraryPage {
           Column() {
             Row({ space: SpaceTokens.md }) {
               Column()
-                .width(96)
-                .height(120)
+                .width(LayoutTokens.mediaThumbWidth)
+                .height(LayoutTokens.mediaThumbHeight)
                 .borderRadius(RadiusTokens.media)
                 .backgroundColor(ColorTokens.surfaceSunken)
               Column() {
@@ -782,7 +781,7 @@ export struct ItineraryPage {
               .height(LayoutTokens.minTouchTarget)
               // 官方 showClose 的 ✕ 实测占 [961,543]-[1086,668]（px，密度 3.0），
               // 不左移两枚 44 热区会叠在一起（真机截图复现过）
-              .margin({ right: 52 })
+              .margin({ right: SpaceTokens.fiveXl })
               .accessibilityText('分享此节点')
               .onClick((): void => {
                 this.shareNode();
@@ -900,7 +899,7 @@ export struct ItineraryPage {
   @Builder
   accessRow(title: string, desc: string, on: boolean, setter: (v: boolean) => void) {
     Row() {
-      Column({ space: 2 }) {
+      Column() {
         Text(title)
           .fontSize(TypeTokens.small.size)
           .fontWeight(600)
@@ -959,7 +958,7 @@ export struct ItineraryPage {
       .width('100%')
       .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
 
-      Column({ space: 2 }) {
+      Column() {
         Text('写入内容预览')
           .fontSize(TypeTokens.overline.size)
           .fontWeight(600)

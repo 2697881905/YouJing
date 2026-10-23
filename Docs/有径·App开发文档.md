@@ -381,7 +381,9 @@ YouJing/
 │           ├── immersiveMaterial.ets         # 系统材质档位与能力门控
 │           └── DateUtils.ets                 # 日期工具
 ├── tools/
-│   └── audit_colors.py                       # 色值 ↔ 设计契约核对（见 §5.5）
+│   ├── audit_colors.py                       # 色值 ↔ 设计契约核对（见 §5.5）
+│   ├── audit_type.py                         # 字号/图标档位 ↔ token 核对（见 §5.5）
+│   └── audit_geometry.py                     # 圆角/间距/具名尺寸 ↔ token 核对（见 §5.5）
 ├── AppScope/
 └── build-profile.json5
 ```
@@ -407,9 +409,26 @@ YouJing/
 （`widget-time 12/600`、`widget-content-text 14/400`）核出时间和站名各小了一档。
 当前 Text 违规 0 件；剩 7 处图标字面量（12/14/18）属"帧在用、禁令 7 未承认"的待裁决档位。
 
-两把尺子的共同理由：色表和字阶都是把契约手抄成几十件，抄错一位（绿通道 196→198、
-字号差一档）肉眼和截图都发现不了。hooks 不随仓库分发，所以这两条不进 pre-commit，
+`python3 tools/audit_geometry.py` 是第三把尺，管圆角/间距/具名尺寸三件事：
+先拿 DESIGN.md 的 `rounded` / `spacing` / `layout` 三块和 `RadiusTokens`、`SpaceTokens`、
+`LayoutTokens` 一一对表（缺字段、值不符都算偏差），再扫界面代码里的几何字面量。
+它查出两类问题：一是契约里 3 个具名尺寸（`itinerary-time-gutter 52`、`itinerary-node-size 24`、
+`itinerary-node-dot 10`）压根没落进 token，于是这三个数以字面量的形式散在 6 个文件 20 多处；
+屏13 卡片的 12/16 内缩虽然 token 里有（`widget2x2Padding`/`widget2x4Padding`），界面却仍写死数字；
+二是 32 处离表值（`margin top 2` 十处、徽标横内缩 6、卡片行距 6、
+吸底栏滚动预留 110/150、分享钮让位 52），按 handoff §7 逐帧必改表一律并到阶梯
+（2→0、6→4、3→4），屏专属的 110/150 按决议 6 具名成 `stickyBarScrollReserve` / `shareBarScrollReserve`。
+`width`/`height` 的字面值只报告不卡构建：24 既可能是主轴节点也可能是拖拽把手宽，
+同值不同义由人判定。契约里三件确认无消费的键（`grid-gutter`、`question-progress-dot`、
+`tab_glow_size`）连同理由显式跳过，后者属任务 #28 待裁决项。当前状态：偏差 0 项。
+
+三把尺子的共同理由：色表、字阶和尺寸表都是把契约手抄成几十件，抄错一位（绿通道 196→198、
+字号差一档、缩略位少 8vp）肉眼和截图都发现不了。hooks 不随仓库分发，所以这三条不进 pre-commit，
 改过 token 或界面后手动各跑一次。
+
+**真机 px/vp 换算**：测试机 1136×2690 的密度是 **3.125**（不是 3.0）。三件独立元素互验：
+`.height(22)` 的徽标实测 69px、96×128vp 缩略位实测 300×400px、24vp 主轴节点实测 75px。
+按 3.0 折算会把每一处都算大 4%，之前几轮量出来"差一点点"就是这个原因。
 
 
 ## 六、开发路线
