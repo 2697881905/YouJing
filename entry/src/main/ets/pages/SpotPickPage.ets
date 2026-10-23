@@ -119,6 +119,16 @@ export struct SpotPickPage {
   }
 
   @Builder
+  groupHeader(label: string, count: number) {
+    Text(`${label} · ${count}`)
+      .fontSize(TypeTokens.overline.size)
+      .fontWeight(600)
+      .fontColor(ColorTokens.muted)
+      .width('100%')
+      .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.xs })
+  }
+
+  @Builder
   spotRow(sp: Spot) {
     Row({ space: SpaceTokens.md }) {
       Column()
@@ -176,7 +186,7 @@ export struct SpotPickPage {
     }
     .width('100%')
     .constraintSize({ minHeight: LayoutTokens.itineraryRowMinHeight })
-    .padding({ top: SpaceTokens.md, bottom: SpaceTokens.md })
+    .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.md, bottom: SpaceTokens.md })
     .onClick(() => {
       this.cycle(sp.id);
     })
@@ -217,9 +227,10 @@ export struct SpotPickPage {
           .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
           .backgroundColor(ColorTokens.surfacePanel)
 
-          Scroll() {
-            Column() {
-              if (this.priorities.length > this.days * 4) {
+          // 官方 List + ListItemGroup：分组头吸顶，行间不再手画 Divider
+          List({ space: 12 }) {
+            if (this.priorities.length > this.days * 4) {
+              ListItem() {
                 Column({ space: SpaceTokens.xs }) {
                   Text('时间偏紧')
                     .fontSize(TypeTokens.overline.size)
@@ -234,38 +245,29 @@ export struct SpotPickPage {
                 .padding(SpaceTokens.md)
                 .borderRadius(RadiusTokens.reason)
                 .backgroundColor(ColorTokens.surfacePanel)
-                .margin({ top: SpaceTokens.md, bottom: SpaceTokens.md })
               }
-
-              ForEach(this.groups, (group: SpotGroup) => {
-                Column() {
-                  Text(`${group.label} · ${group.spots.length}`)
-                    .fontSize(TypeTokens.overline.size)
-                    .fontWeight(600)
-                    .fontColor(ColorTokens.muted)
-                    .margin({ bottom: SpaceTokens.xs })
-                  Column() {
-                    ForEach(group.spots, (sp: Spot, idx: number) => {
-                      this.spotRow(sp)
-                      if (idx < group.spots.length - 1) {
-                        Divider().strokeWidth(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
-                      }
-                    }, (sp: Spot): string => sp.id)
-                  }
-                  .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-                  .borderRadius(RadiusTokens.card)
-                  .backgroundColor(ColorTokens.canvas)
-                  .shadow(this.isDark ? { radius: 0 } : ShadowTokens.card)
-                }
-                .alignItems(HorizontalAlign.Start)
-                .margin({ bottom: SpaceTokens.lg })
-              }, (group: SpotGroup): string => `grp-${group.label}-${group.spots.length}`)
             }
-            .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: 110 })
+
+            ForEach(this.groups, (group: SpotGroup) => {
+              ListItemGroup({ header: this.groupHeader(group.label, group.spots.length) }) {
+                ForEach(group.spots, (sp: Spot) => {
+                  ListItem() {
+                    this.spotRow(sp)
+                  }
+                }, (sp: Spot): string => `spot-${sp.id}-${this.priorityOf(sp.id)}`)
+              }
+              .divider({ strokeWidth: LayoutTokens.hairlineWidth, color: ColorTokens.separator })
+              .backgroundColor(ColorTokens.canvas)
+              .borderRadius(RadiusTokens.card)
+              .clip(true)
+            }, (group: SpotGroup): string => `grp-${group.label}-${group.spots.length}`)
           }
-          .layoutWeight(1)
           .scrollBar(BarState.Off)
-          .align(Alignment.Top)
+          .edgeEffect(EdgeEffect.Spring)
+          .sticky(StickyStyle.Header)
+          .cachedCount(6)
+          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: 110 })
+          .layoutWeight(1)
         }
         .width('100%')
         .height('100%')

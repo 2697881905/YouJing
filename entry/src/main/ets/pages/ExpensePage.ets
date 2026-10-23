@@ -473,21 +473,22 @@ export struct ExpensePage {
             .borderRadius(RadiusTokens.card)
             .backgroundColor(ColorTokens.canvas)
 
-            // 记一笔 Pill（底稿 .record-btn：44 高、radius 999、1px 描边、图标 22）
-            Row({ space: SpaceTokens.xs }) {
-              SymbolGlyph($r('sys.symbol.plus'))
-                .fontSize(IconSizes.control)
-                .fontColor([ColorTokens.ink])
-              Text('记一笔')
-                .fontSize(TypeTokens.body.size)
-                .fontWeight(600)
-                .fontColor(ColorTokens.ink)
+            // 记一笔：官方胶囊 Button（原来是 44 高 + 1px 描边的自绘 Pill）
+            Button() {
+              Row({ space: SpaceTokens.xs }) {
+                SymbolGlyph($r('sys.symbol.plus'))
+                  .fontSize(IconSizes.control)
+                  .fontColor([ColorTokens.ink])
+                Text('记一笔')
+                  .fontSize(TypeTokens.body.size)
+                  .fontWeight(600)
+                  .fontColor(ColorTokens.ink)
+              }
             }
             .width('100%')
             .height(LayoutTokens.minTouchTarget)
-            .justifyContent(FlexAlign.Center)
-            .borderRadius(RadiusTokens.pill)
-            .border({ width: 1, color: ColorTokens.borderSubtle })
+            .type(ButtonType.Capsule)
+            .buttonStyle(ButtonStyleMode.NORMAL)
             .margin({ top: SpaceTokens.xl })
             .onClick(() => {
               this.showRecord = true;

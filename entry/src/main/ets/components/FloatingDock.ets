@@ -71,18 +71,23 @@ export struct FloatingDock {
   build() {
     Row() {
       ForEach(ENTRIES, (item: DockEntry, idx: number) => {
-        Column({ space: 2 }) {
-          SymbolGlyph(item.symbol)
-            .fontSize(IconSizes.control)
-            .fontColor([idx === this.activeIndex ? ColorTokens.primary : ColorTokens.muted])
-          Text(item.label)
-            .fontSize(TypeTokens.overline.size)
-            .fontWeight(idx === this.activeIndex ? 600 : 400)
-            .fontColor(idx === this.activeIndex ? ColorTokens.primary : ColorTokens.muted)
+        // 官方 Button（TEXTUAL 档）承载 tab 项：按压态、焦点与无障碍由系统给，
+        // 原来是裸 Column + onClick，既没有按压反馈也不是可聚焦控件。
+        Button() {
+          Column({ space: 2 }) {
+            SymbolGlyph(item.symbol)
+              .fontSize(IconSizes.control)
+              .fontColor([idx === this.activeIndex ? ColorTokens.primary : ColorTokens.muted])
+            Text(item.label)
+              .fontSize(TypeTokens.overline.size)
+              .fontWeight(idx === this.activeIndex ? 600 : 400)
+              .fontColor(idx === this.activeIndex ? ColorTokens.primary : ColorTokens.muted)
+          }
         }
+        .type(ButtonType.Circle)
+        .buttonStyle(ButtonStyleMode.TEXTUAL)
         .width(LayoutTokens.tabItemWidth)
         .height(LayoutTokens.tabItemHeight)
-        .justifyContent(FlexAlign.Center)
         .onClick((): void => {
           this.go(idx);
         })

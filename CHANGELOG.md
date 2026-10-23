@@ -37,6 +37,13 @@
   新增种子版本闸门 `v2-geo-2`：已装机不必清数据，冷启动按 id upsert 回填，真机日志
   「北京 灌入 spots=32 areas=36 …」四城重跑。GCJ02 位移自检：中位 573m、区间 457–633m。
 
+- 屏4 景点列表迁官方 List（2026-10-24，真机验收）：`Scroll + Column + 手排 Divider` 换成
+  `List + ListItemGroup`，分组头 `sticky(Header)` 吸顶、行间用官方 `.divider()`、
+  组卡背景与圆角挂在 ListItemGroup 上；行 key 补优先级，避免点选后 必/想/可 角标不刷新。
+- dock 四项与屏11「记一笔」改官方 Button（2026-10-24，真机验收）：dock 项原来是裸
+  `Column + onClick`（无按压态、不可聚焦），现套官方 `Button` TEXTUAL 档，选中色仍走 token；
+  「记一笔」44 高 + 1px 描边的自绘 Pill 换官方 Capsule Button。
+
 - 屏3 追问选项卡改官方 Button 档位（2026-10-24，真机验收）：`OptionCard` 原来是
   「surfaceSubtle / primaryTint 底 + 条件 1px primary 描边」的手抄选中态，
   改官方 `Button` + `ButtonStyleMode.EMPHASIZED / NORMAL` 两档，文字色跟档位翻
