@@ -62,8 +62,11 @@
       与 `price_range` 字段位，**未采集到价格数据**，故不生成任何金额结论；
       已把 `priceTier` 落到消费方（屏5 区域卡元信息行 + PromptBuilder 住宿区域行），
       等真实价位数据到位后只需补 `price_range` 灌入与一段换算。
-    - **足迹地图**：Map Kit 需 AGC 项目凭据；当前无凭据，屏8/16 地图区仍为渐变占位、
-      区域经纬度为区级近似值（`DataSeeder.DistrictCoords`，注释已标待地理编码替换）。
+    - **足迹地图**：Map Kit 需 AGC 项目凭据；当前无凭据。另有一条**比凭据更硬的数据缺口**：
+      `DataSeeder.toArea` 给同城所有片区填同一个 `DistrictCoords.lookup(city, city)` 城市质心，
+      所以即便接了 Map Kit，片区在图上也会叠成一个点——要先给区域库补逐区域经纬度。
+      今日已把三处「像有地图其实没有」的呈现收口：屏5 地图卡改候选片区图例（不暗示方位）、
+      屏8 地图区只显真统计芯片、dock「地图」落点改说人话（见 §4b-6/8）。
 10c. **玻璃点位①③按色彩模式分流（2026-10-23 双模式实测定案）**：
    顶栏与浮动 dock 接 `uiMaterial.ImmersiveMaterial`（顶部 ULTRA_THIN、底部 THIN，均带投影）。
    真机同页两模式对比：
@@ -74,6 +77,13 @@
    实现条件为 `glassOn && !isDark`；点位②分段控件与两处 Sheet 材质不受模式影响，一直走系统材质。
    点位④（吸顶日标题）底稿本就是无底文字行，未擅自加胶囊材质，待设计定。
 11. **Account Kit 未配置**：AGC 侧无 Client ID / 证书指纹未登记，`AccountConfig.ACCOUNT_KIT_ENABLED=false`，屏1「华为账号一键登录」实际走本机游客分区（uid=`local-guest`，行程数据仍只留本机，与屏1 法务行承诺一致）。真机验收证据：启动日志「恢复登录态 kind=guest uid=local-（掩码）」「迁移完成 1 → 2」。AGC 配置就绪后只改该开关，静默登录与游客数据归户（`TripDao.adoptGuestTrips`）即生效。
+12. **`AceSheet: radius is not correct type` 是框架噪声，非本工程配置问题**（2026-10-23 归因实验）：
+    真机每次开半模态都在 E 级日志打这一行，怀疑过是 `SheetOptions.systemMaterial` 传错。
+    对照实验：屏2 城市面板是**不带** `systemMaterial` 的裸 `bindSheet`（只有 height/backgroundColor/showClose），
+    `hilog -r` 清缓冲后单独打开它，同样报这一行（还伴随 I 级 `Bottom offset invalid`）。
+    全工程没有任何一处给 bindSheet 传 `radius`，SDK `@ohos.arkui.uiMaterial.d.ts` 里也没有 radius 字段。
+    结论：API 26 下 bindSheet 应用自身默认圆角时的框架内部报错，视觉结果（圆角与材质）真机截图均正常，
+    后续走查**不要**再把它当缺陷查。
 
 ## 4b. 需要产品/设计确认的文案改动（agent 已按「能力对齐文案」原则改口）
 
@@ -152,5 +162,11 @@ hypium 40/40；RDB/账号/日历路径按已知限制 #10 走真机验收。
 | 足迹地图（阶段10） | Map Kit 凭证与 Client ID 未申请；底稿也没有地图屏的帧。dock「地图」现在落到一句实话说明页 | 提供 AGC 地图凭证 + 出一帧地图设计 |
 | 小艺 Skill 平台侧（阶段9） | 应用侧接收端已就绪并真机验证；平台侧建 Skill 需在 AGC 操作 | 见 `Docs/小艺Skill接入清单.md`，用户执行 |
 
-另有三项待用户决策：`AccountConfig.ACCOUNT_KIT_ENABLED` 翻真的 AGC 凭证、§4b 五处改口文案确认、
+另有三项待用户决策：`AccountConfig.ACCOUNT_KIT_ENABLED` 翻真的 AGC 凭证、§4b 十处改口文案确认、
 点位④吸顶日标题是否给胶囊材质。
+
+**2026-10-23 今日改动后的全链路复跑**（真机，逐步截图 `f1_屏1`…`f7_屏8`）：
+屏1 静默登录 → 屏2 开始规划 → 屏3 四步追问（末题 CTA 是「生成行程」，不是「下一题」）→
+屏4 选点（`已选 0 / 可用 3.0 天 · 建议上限 12 个` 为真派生）→ 屏5 三片角标 精选 1/核心地段/商圈便利 →
+屏6 生成 → 屏8 渲染 `北京 · 3天2晚` + Day 1 故宫/八达岭/颐和园 + dock 四标签。七段全 OK。
+屏8/10/11/12/14/15 的 dock 与面板链见 §4b-6 与提交记录；hypium 40/40。
