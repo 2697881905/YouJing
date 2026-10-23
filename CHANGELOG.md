@@ -4,6 +4,24 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- 屏14「行程卡片」开关补上消费方（2026-10-24，真机双向验收）：`flag_card` 此前**只写不读**——
+  全库仅 `saveFlags` 里一处 `putSync`，没有任何地方读它，所以这个开关是个纯空承诺：
+  关掉之后桌面卡片照旧每 30 分钟回灌行程。新增 `CalendarSync.cardFeedEnabled()`
+  （读不到偏好时按"开"处理，避免默认把用户的卡片清空），两条供数通路一起门控：
+  主应用侧 `WidgetSync.refreshAll` 与卡片进程自己的 `onUpdateForm → loadPlan`
+  （只堵前者会被定时刷新喂回来）。真机：关掉写入 → 卡片退回
+  "今天没有行程安排 / 生成行程后自动出现在这里"空态；再打开 → 立刻回灌两站 ✓。
+- 屏14「提醒」不再承诺没有通路的行为：提醒的载体是日历事件上的 `reminderTime`（提前 1440 分钟），
+  单独开着它、日历同步却关着，什么都不会发生。文案改为
+  "需预约节点提前 1 天提醒（随日历同步写入）"，`writeToSystem` 落库时兜底
+  `remind = calendar ? remind : false` 并 toast 说明。试过用 `Toggle.enabled(this.syncCalendar)`
+  做实时置灰，真机无效（@Builder 入参是值快照 + bindSheet 内容不随父 @State 重绘），
+  故不保留一个只会骗人的禁用态。
+- 「仅本机保存」现在真的三条通路全关（此前保留 `card: this.syncCard`，
+  等于说"不写系统"却把桌面卡片这个系统面留着），并同步收起本地开关态、立刻刷新卡片。
+
 ### Changed
 
 - 几何契约落表，第三把尺 `tools/audit_geometry.py` 上线（2026-10-24，真机复核）：

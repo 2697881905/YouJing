@@ -148,9 +148,17 @@ export struct ItineraryPage {
   private writeToSystem(): void {
     const ctx: common.UIAbilityContext = this.ctx();
     const flags: AccessFlags = {
-      calendar: this.syncCalendar, card: this.syncCard, remind: this.syncRemind
+      calendar: this.syncCalendar, card: this.syncCard,
+      // 提醒的载体是日历事件，没开日历同步就不落 remind
+      remind: this.syncCalendar ? this.syncRemind : false
     };
-    CalendarSync.saveFlags(ctx, flags).catch((err: Error) => {
+    if (this.syncRemind && !this.syncCalendar) {
+      this.toast('提醒要落在日历事件上，本次未开日历同步，未写入提醒');
+    }
+    CalendarSync.saveFlags(ctx, flags).then((): Promise<void> => {
+      // 卡片开关要当场见效：关掉后立刻把桌面卡片打回空态，开启则马上回灌
+      return WidgetSync.refreshAll(ctx);
+    }).catch((err: Error) => {
       Logger.warn('Ui.Itinerary', `触达开关保存失败: ${err.message}`);
     });
     if (!flags.calendar) {
@@ -950,7 +958,10 @@ export struct ItineraryPage {
             this.syncCard = v;
           })
         Divider().strokeWidth(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
-        this.accessRow('提醒', '需预约节点提前 1 天提醒', this.syncRemind,
+        // 提醒的载体是日历事件（reminderTime 提前 1440 分钟），所以文案把依赖写死在句子里：
+        // @Builder 参数是值快照、bindSheet 内容又不随父 @State 重绘，面板内做不出"实时置灰"，
+        // 未开日历同步时由 writeToSystem 落 remind=false 并 toast 说明。
+        this.accessRow('提醒', '需预约节点提前 1 天提醒（随日历同步写入）', this.syncRemind,
           (v: boolean): void => {
             this.syncRemind = v;
           })
@@ -995,7 +1006,13 @@ export struct ItineraryPage {
           buttonWidth: 150,
           onAction: (): void => {
             const ctx: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
-            CalendarSync.saveFlags(ctx, { calendar: false, card: this.syncCard, remind: false })
+            // 「仅本机保存」= 一条系统通路都不走：桌面卡片也是系统面，一并关掉并立刻停供数
+            this.syncCard = false;
+            this.syncRemind = false;
+            CalendarSync.saveFlags(ctx, { calendar: false, card: false, remind: false })
+              .then((): Promise<void> => {
+                return WidgetSync.refreshAll(ctx);
+              })
               .catch((err: Error): void => {
                 Logger.warn('Ui.Itinerary', `触达开关保存失败: ${err.message}`);
               });

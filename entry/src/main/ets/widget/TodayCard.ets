@@ -9,6 +9,7 @@ import { preferences } from '@kit.ArkData';
 import { formBindingData, formProvider } from '@kit.FormKit';
 import { Logger } from '../common/logger/Logger';
 import { TripDao } from '../data/TripDao';
+import { CalendarSync } from '../data/CalendarSync';
 import { TodayPlanData } from '../data/TodayPlan';
 
 const TAG: string = 'Widget.TodayCard';
@@ -67,6 +68,11 @@ export class WidgetSync {
       Logger.warn(TAG, `今日行程读取失败: ${(err as Error).message}`);
       return;
     }
+    // 屏14「行程卡片」关掉时不再供数：卡片退回空态，而不是继续显示上次行程
+    const feed: boolean = await CalendarSync.cardFeedEnabled(context);
+    if (!feed) {
+      plan = null;
+    }
     for (const formId of formIds) {
       const stored: preferences.ValueType = all[formId];
       const dimension: string = typeof stored === 'string' ? stored as string : DIM_KEY_2X2;
@@ -74,7 +80,7 @@ export class WidgetSync {
         plan === null ? emptyCardData(dimension) : toCardData(plan, dimension);
       try {
         await formProvider.updateForm(formId, formBindingData.createFormBindingData(data));
-        Logger.info(TAG, `已刷新卡片 ${formId} ${dimension}`);
+        Logger.info(TAG, `已刷新卡片 ${formId} ${dimension} 供数=${feed}`);
       } catch (err) {
         Logger.warn(TAG, `刷新卡片失败 ${formId}: ${(err as Error).message}`);
       }

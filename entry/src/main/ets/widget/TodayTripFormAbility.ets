@@ -14,6 +14,7 @@ import { Want } from '@kit.AbilityKit';
 import { preferences } from '@kit.ArkData';
 import { Logger } from '../common/logger/Logger';
 import { AccountStore } from '../data/AccountStore';
+import { CalendarSync } from '../data/CalendarSync';
 import { TripDao } from '../data/TripDao';
 import { TodayPlanData } from '../data/TodayPlan';
 import { DIM_KEY_2X2, DIM_KEY_2X4, emptyCardData, toCardData, WIDGET_DIM_PREFS } from './TodayCard';
@@ -143,6 +144,10 @@ export default class TodayTripFormAbility extends FormExtensionAbility {
       await AccountStore.init(this.context);
     } catch (err) {
       Logger.warn(TAG, `登录态恢复失败，按游客分区读卡片: ${(err as Error).message}`);
+    }
+    // 屏14「行程卡片」关掉后，30 分钟定时刷新也不能把行程重新喂回去
+    if (!await CalendarSync.cardFeedEnabled(this.context)) {
+      return null;
     }
     return TripDao.todayPlan(this.context);
   }

@@ -181,6 +181,21 @@ export class CalendarSync {
     await prefs.flush();
   }
 
+  /**
+   * 屏14「行程卡片」开关的消费方：关掉后主应用不再向桌面卡片投喂行程数据（卡片回到空态）。
+   * 卡片本身由用户从桌面添加，App 无权摘除，所以这条开关能做的是停止供数。
+   * 读不到偏好（如卡片进程尚未初始化）时按开启处理，避免默认把用户的卡片清空。
+   */
+  static async cardFeedEnabled(context: common.Context): Promise<boolean> {
+    try {
+      const prefs: preferences.Preferences = await CalendarSync.prefsOf(context);
+      return prefs.getSync('flag_card', true) as boolean;
+    } catch (err) {
+      Logger.warn(TAG, `卡片开关读取失败，按开启处理: ${(err as Error).message}`);
+      return true;
+    }
+  }
+
   /** 申请日历读写权限（用户级授权；拒绝或异常返回 false，调用方据此不写任何数据） */
   static async requestPermission(context: common.UIAbilityContext): Promise<boolean> {
     try {
