@@ -387,7 +387,7 @@ YouJing/
 ```
 
 
-### 5.5 色值契约核对
+### 5.5 设计与契约核对脚本
 
 `resources/base/element/color.json` 与 `resources/dark/element/color.json` 是把设计契约
 （底稿 v1 `docs/DESIGN.md` 的 §1 色板 + Translucency ledger）手抄成 48 件 × 两档，
@@ -400,7 +400,16 @@ YouJing/
 `start_window_background`）是派生透明值或系统必需件，脚本按规则跳过并打印出来。
 台账同时给 rgba 与十六进制两列时以十六进制列为准（0.3 换算成 alpha 会四舍五入成 4C，
 而台账写的是 4D）。当前状态：48 件核对，0 偏差。
-hooks 不随仓库分发，所以这条不进 pre-commit，改过色值后手动跑一次。
+
+`python3 tools/audit_type.py` 是第二把尺：`Text` 的字号必须来自 `TypeTokens`、
+`SymbolGlyph` 的必须来自 `IconSizes`（契约字号只有 10/11/12/14/16/18/21/32）。
+它一跑就指出屏13 桌面卡片是唯一绕过字阶 token 的界面，且对着帧的 widget CSS
+（`widget-time 12/600`、`widget-content-text 14/400`）核出时间和站名各小了一档。
+当前 Text 违规 0 件；剩 7 处图标字面量（12/14/18）属"帧在用、禁令 7 未承认"的待裁决档位。
+
+两把尺子的共同理由：色表和字阶都是把契约手抄成几十件，抄错一位（绿通道 196→198、
+字号差一档）肉眼和截图都发现不了。hooks 不随仓库分发，所以这两条不进 pre-commit，
+改过 token 或界面后手动各跑一次。
 
 
 ## 六、开发路线

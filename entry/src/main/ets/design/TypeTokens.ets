@@ -1,5 +1,5 @@
 /**
- * 字阶 tokens · 封闭八档（handoff §3），禁止插值。
+ * 字阶 tokens · 封闭九档（handoff §3），禁止插值。
  *
  * 允许字号只有 10/11/12/14/16/18/21/32；13/15/17/19/20 不存在。
  * 字距全局 0；所有数字 tabular（Text 上 `.fontFeature("'tnum' on")`）。
@@ -29,6 +29,8 @@ export interface TypeTokensType {
   caption: TypeRoleSpec;
   /** 标签 11/600 */
   overline: TypeRoleSpec;
+  /** dock 项标签 10/400/14：全 App 唯一允许的小于 11px 的字符串（DESIGN §2 nav-label） */
+  navLabel: TypeRoleSpec;
   /** 行程时间 12/600 tabular */
   time: TypeRoleSpec;
 }
@@ -54,6 +56,7 @@ export const TypeTokens: TypeTokensType = {
   small: { family: FAMILY_SANS, size: 14, weight: 400, lineHeight: 20 },
   caption: { family: FAMILY_SANS, size: 12, weight: 450, lineHeight: 16 },
   overline: { family: FAMILY_SANS, size: 11, weight: 600, lineHeight: 0 },
+  navLabel: { family: FAMILY_SANS, size: 10, weight: 400, lineHeight: 14 },
   time: { family: FAMILY_SANS, size: 12, weight: 600, lineHeight: 0 }
 };
 

@@ -4,6 +4,18 @@
 
 ## [Unreleased]
 
+### Changed
+
+- 屏13 桌面卡片的字阶回到帧的口径，并全部走 token（2026-10-24，真机桌面截图验收）：
+  新加的 `tools/audit_type.py`（Text 字号必须走 `TypeTokens`、SymbolGlyph 必须走 `IconSizes`）
+  一跑就指出 6 处，全在卡片里——它是唯一绕过字阶 token 的界面。对着帧的 widget CSS 逐条核：
+  `widget-tag-label 11/600`、`widget-time 12/600`、`widget-content-text 14/400`、
+  `widget-footer 11/400`，而我们写的是 11/450 与 12/450——**时间和站名都小了一档、还都加了 450 的半重**。
+  现在 time 走 `TypeTokens.time`(12/600)、站名走 `small`(14/400)、抬头走 `overline`(11/600)、
+  标题走 `headline`(18/600)；只有 11/400 那两行（meta/footer）契约里没有同名档（overline 是 11/600），
+  字号仍走 token、字重留字面量并写明原因。真机截图：站名与时间明显更可读、
+  页脚未被挤出，卡片下方仍有约 120px 空余。
+
 ### Fixed
 
 - `border_subtle` 浅色抄错一个通道（2026-10-24，三方对表查出）：契约

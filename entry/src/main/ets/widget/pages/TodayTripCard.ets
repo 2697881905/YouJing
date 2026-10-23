@@ -1,8 +1,12 @@
 /**
  * 今日行程卡片 UI（屏13 Widget A 2×2 / Widget B 2×4 同组件自适应）。
- * 实色 canvas；最小可读字号 11；2×2 内缩 12 / 2×4 内缩 16（LayoutTokens）。
+ * 实色 canvas；字阶走 TypeTokens（帧的 widget 字阶 11/600、12/600、14/400、11/400
+ * 正好落在 overline / time / small 三档上，只有 11/400 那两行契约里无同名档、留字面量）；
+ * 2×2 内缩 12 / 2×4 内缩 16（LayoutTokens）。
  * serif 在卡片 UIContext 无法注册应用字体，标题暂走 sans 600（精修批次验证卡片字体通道）。
  */
+
+import { TypeTokens } from '../../design/TypeTokens';
 
 let cardStorage: LocalStorage = new LocalStorage();
 
@@ -72,16 +76,16 @@ struct TodayTripCard {
     Column() {
       Row() {
         Text('有径 · 今日')
-          .fontSize(11)
-          .fontWeight(600)
+          .fontSize(TypeTokens.overline.size)
+          .fontWeight(TypeTokens.overline.weight)
           .fontColor($r('app.color.muted'))
           .layoutWeight(1)
       }
       .width('100%')
 
       Text(this.dayTitle)
-        .fontSize(18)
-        .fontWeight(600)
+        .fontSize(TypeTokens.headline.size)
+        .fontWeight(TypeTokens.headline.weight)
         .fontColor($r('app.color.ink'))
         .margin({ top: 2 })
         .maxLines(1)
@@ -91,8 +95,8 @@ struct TodayTripCard {
       // 这行就是标题下的 meta 行）；空态由 footer 一句承担，所以空数据把 meta 留空
       if (this.meta.length > 0) {
         Text(this.meta)
-          .fontSize(11)
-          .fontWeight(450)
+          .fontSize(TypeTokens.overline.size)
+          .fontWeight(400)
           .fontColor($r('app.color.body'))
           .fontFeature("'tnum' on")
           .maxLines(1)
@@ -104,16 +108,17 @@ struct TodayTripCard {
         ForEach(this.cardRows(), (row: CardRow) => {
           Row({ space: 6 }) {
             Text(row.time)
-              .fontSize(11)
-              .fontWeight(450)
+              .fontSize(TypeTokens.time.size)
+              .fontWeight(TypeTokens.time.weight)
               .fontColor($r('app.color.body'))
+              .fontFeature("'tnum' on")
             Circle()
               .width(8)
               .height(8)
               .fill(this.dotColor(row.color))
             Text(row.name)
-              .fontSize(12)
-              .fontWeight(450)
+              .fontSize(TypeTokens.small.size)
+              .fontWeight(TypeTokens.small.weight)
               .fontColor($r('app.color.ink'))
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -126,8 +131,8 @@ struct TodayTripCard {
       .margin({ top: 6 })
 
       Text(this.footer)
-        .fontSize(11)
-        .fontWeight(450)
+        .fontSize(TypeTokens.overline.size)
+        .fontWeight(400)
         .fontColor($r('app.color.muted'))
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })

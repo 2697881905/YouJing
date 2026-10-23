@@ -107,8 +107,9 @@ export struct FloatingDock {
                 .fontSize(IconSizes.control)
                 .fontColor([idx === this.activeIndex ? ColorTokens.primary : ColorTokens.muted])
               Text(item.label)
-                .fontSize(TypeTokens.overline.size)
-                .fontWeight(idx === this.activeIndex ? 600 : 400)
+                .fontSize(TypeTokens.navLabel.size)
+                .fontWeight(idx === this.activeIndex ? 500 : TypeTokens.navLabel.weight)
+                .lineHeight(TypeTokens.navLabel.lineHeight)
                 .fontColor(idx === this.activeIndex ? ColorTokens.primary : ColorTokens.muted)
             }
           }
