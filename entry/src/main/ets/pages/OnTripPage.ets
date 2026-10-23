@@ -16,6 +16,7 @@ import { SpaceTokens } from '../design/SpaceTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { FloatingDock } from '../components/FloatingDock';
+import { ImmersiveSurface } from '../components/ImmersiveSurface';
 import { Activity, ActivityStatus, Trip, TripDay } from '../model/Trip';
 import { TripDao } from '../data/TripDao';
 import { CheckinDao } from '../data/CheckinDao';
@@ -279,63 +280,66 @@ export struct OnTripPage {
       // 官方 List：hero / 下一段 / 打卡分组各占一个 ListItem，分组头吸顶、行间交给 .divider()
       List({ space: SpaceTokens.lg }) {
         ListItem() {
-          Column() {
-            Text('当前节点')
-              .fontSize(TypeTokens.overline.size)
-              .fontWeight(600)
-              .fontColor(ColorTokens.muted)
-            Text(this.current === null ? '今日暂无安排' : this.current.title)
-              .fontSize(TypeTokens.title.size)
-              .fontWeight(700)
-              .fontColor(ColorTokens.ink)
-              .margin({ top: SpaceTokens.xs })
-            Text(this.heroMeta())
-              .fontSize(TypeTokens.caption.size)
-              .fontWeight(450)
-              .fontColor(ColorTokens.body)
-              .fontFeature("'tnum' on")
-              .margin({ top: 2 })
-            Progress({ value: this.progressPct(), total: 100, type: ProgressType.Linear })
-              .color(ColorTokens.primary)
-              .width('100%')
-              .margin({ top: SpaceTokens.md })
-            if (this.current !== null && this.current.note !== undefined && this.current.note.length > 0) {
-              Text(this.current.note)
+          // hero 面板包一层官方 HDS 双边流光（HdsVisualComponent），不支持的设备自动退回实色
+          ImmersiveSurface({ radius: RadiusTokens.hero, surfaceWidth: '100%' }) {
+            Column() {
+              Text('当前节点')
+                .fontSize(TypeTokens.overline.size)
+                .fontWeight(600)
+                .fontColor(ColorTokens.muted)
+              Text(this.current === null ? '今日暂无安排' : this.current.title)
+                .fontSize(TypeTokens.title.size)
+                .fontWeight(700)
+                .fontColor(ColorTokens.ink)
+                .margin({ top: SpaceTokens.xs })
+              Text(this.heroMeta())
                 .fontSize(TypeTokens.caption.size)
                 .fontWeight(450)
-                .fontColor(ColorTokens.warning)
+                .fontColor(ColorTokens.body)
+                .fontFeature("'tnum' on")
+                .margin({ top: 2 })
+              Progress({ value: this.progressPct(), total: 100, type: ProgressType.Linear })
+                .color(ColorTokens.primary)
+                .width('100%')
+                .margin({ top: SpaceTokens.md })
+              if (this.current !== null && this.current.note !== undefined && this.current.note.length > 0) {
+                Text(this.current.note)
+                  .fontSize(TypeTokens.caption.size)
+                  .fontWeight(450)
+                  .fontColor(ColorTokens.warning)
+                  .margin({ top: SpaceTokens.sm })
+              }
+              Row({ space: SpaceTokens.md }) {
+                YoujingButton({
+                  variant: YoujingButtonVariant.SECONDARY,
+                  label: this.checkedIn ? '已打卡' : '完成打卡',
+                  buttonWidth: 140,
+                  onAction: (): void => {
+                    this.toggleCheckin();
+                  }
+                })
+                YoujingButton({
+                  variant: YoujingButtonVariant.PRIMARY,
+                  label: '记一笔费用',
+                  buttonWidth: 150,
+                  onAction: (): void => {
+                    this.pathStack.pushPath({ name: 'Expense', param: this.tripId });
+                  }
+                })
+              }
+              .margin({ top: SpaceTokens.lg })
+              Text('打卡与记账只存本机，不上传服务器')
+                .fontSize(TypeTokens.overline.size)
+                .fontWeight(450)
+                .fontColor(ColorTokens.faint)
                 .margin({ top: SpaceTokens.sm })
             }
-            Row({ space: SpaceTokens.md }) {
-              YoujingButton({
-                variant: YoujingButtonVariant.SECONDARY,
-                label: this.checkedIn ? '已打卡' : '完成打卡',
-                buttonWidth: 140,
-                onAction: (): void => {
-                  this.toggleCheckin();
-                }
-              })
-              YoujingButton({
-                variant: YoujingButtonVariant.PRIMARY,
-                label: '记一笔费用',
-                buttonWidth: 150,
-                onAction: (): void => {
-                  this.pathStack.pushPath({ name: 'Expense', param: this.tripId });
-                }
-              })
-            }
-            .margin({ top: SpaceTokens.lg })
-            Text('打卡与记账只存本机，不上传服务器')
-              .fontSize(TypeTokens.overline.size)
-              .fontWeight(450)
-              .fontColor(ColorTokens.faint)
-              .margin({ top: SpaceTokens.sm })
+            .alignItems(HorizontalAlign.Start)
+            .width('100%')
+            .padding(SpaceTokens.lg)
+            .borderRadius(RadiusTokens.hero)
+            .backgroundColor(ColorTokens.surfaceElevated)
           }
-          .alignItems(HorizontalAlign.Start)
-          .width('100%')
-          .padding(SpaceTokens.lg)
-          .borderRadius(RadiusTokens.hero)
-          .backgroundColor(ColorTokens.surfaceElevated)
         }
 
         // 下一段：真实通勤腿 + 下一节点
