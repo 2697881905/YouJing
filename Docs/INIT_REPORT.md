@@ -47,8 +47,8 @@
 
 ## 4. 已知限制与待办
 
-1. **bundleName 已定稿** `com.youjing.app`（2026-10-15，参考有据 com.youju.app 命名）；AGC 应用注册在自动签名时一并完成，上架前需核对应用市场重名。
-2. **调试签名已就绪**（2026-10-20）：DevEco Studio 自动签名生成，Profile 绑定 `com.youjing.app`、debug 类型、有效期 2026-10-20 → 2027-10-20、含 4 台设备；签名 HAP 已安装到本地模拟器验证通过。签名材料仅存本机 `~/.ohos/config/`，signingConfigs 不入 git（build-profile.json5 已 skip-worktree）。release 签名上架前仍需单独申请。
+1. **bundleName 已定稿** `com.youjing.app`（2026-10-15，参考有据 com.youju.app 命名）；AGC 应用已注册（2026-10-23，应用名「有径」，APP ID `6917619826312400726`，项目「有径」/ projectId `101653523865420226`），上架前需核对应用市场重名。
+2. **调试签名已就绪**（2026-10-20 生成，2026-10-23 换 Profile）：证书与 p12 由 DevEco 自动签名生成（有效期 2026-10-20 → 2027-10-20）；Profile 含 4 台设备；Profile 改用 AGC 手动创建的 `youjing-debug-20261023` —— 自动签名生成的 Profile 带随机 `app-identifier`（`6918745435470575450`），Account Kit 报 `1001502003`；手动 Profile 的 `app-identifier` 才是 APP ID。Profile 内嵌证书与本机 `.cer` 同一张，`hdc install -r` 签名一致，登录态与行程数据跨重启保留。签名材料仅存本机 `~/.ohos/config/`，signingConfigs 不入 git（build-profile.json5 已 skip-worktree）。Profile 有效期至 2027-10-20，到期需重签；release 签名上架前仍需单独申请。
 3. **应用名称未定**：AppScope label 当前为 "YouJing"，中文名「有径」待品牌资源定稿后替换。
 4. **API 26 最低兼容范围未评审**：compatibleSdkVersion=26.0.0 意味着不兼容更低版本设备，上架前需评审覆盖面。
 5. **小艺 Skill 接入协议待调研**：ApiConfig 端点为占位空串，待小艺开放平台 Skill 创建后回填。
@@ -76,7 +76,7 @@
      → **回退实色** `surfaceElevated` + 1px 描边（深色零阴影契约不变）。
    实现条件为 `glassOn && !isDark`；点位②分段控件与两处 Sheet 材质不受模式影响，一直走系统材质。
    点位④（吸顶日标题）底稿本就是无底文字行，未擅自加胶囊材质，待设计定。
-11. **Account Kit 未配置**：AGC 侧无 Client ID / 证书指纹未登记，`AccountConfig.ACCOUNT_KIT_ENABLED=false`，屏1「华为账号一键登录」实际走本机游客分区（uid=`local-guest`，行程数据仍只留本机，与屏1 法务行承诺一致）。真机验收证据：启动日志「恢复登录态 kind=guest uid=local-（掩码）」「迁移完成 1 → 2」。AGC 配置就绪后只改该开关，静默登录与游客数据归户（`TripDao.adoptGuestTrips`）即生效。
+11. **Account Kit 已接入**（2026-10-23 完成）：AGC 侧 APP ID / Client ID 均为 `6917619826312400726`，调试证书 SHA256 指纹 `86:6F:…:CF:70` 已登记，Client ID 与 APP ID 相同（无需 `client_id` metadata）；`AccountConfig.ACCOUNT_KIT_ENABLED=true`。真机验收：屏1 点击后 `LoginWithHuaweiID error_code=0`、`YouJing.Data.AccountStore: 静默登录成功 uid=AABKND***`，落到屏2；冷重启日志「恢复登录态 kind=huawei uid=AABKND***」。游客期行程归户走 `TripDao.adoptGuestTrips`。换签名时必须用 AGC 手动 Profile（见 #2）。
 12. **`AceSheet: radius is not correct type` 是框架噪声，非本工程配置问题**（2026-10-23 归因实验）：
     真机每次开半模态都在 E 级日志打这一行，怀疑过是 `SheetOptions.systemMaterial` 传错。
     对照实验：屏2 城市面板是**不带** `systemMaterial` 的裸 `bindSheet`（只有 height/backgroundColor/showClose），
@@ -168,8 +168,8 @@ hypium 40/40；RDB/账号/日历路径按已知限制 #10 走真机验收。
 | 足迹地图（阶段10） | Map Kit 凭证与 Client ID 未申请；底稿也没有地图屏的帧。dock「地图」现在落到一句实话说明页 | 提供 AGC 地图凭证 + 出一帧地图设计 |
 | 小艺 Skill 平台侧（阶段9） | 应用侧接收端已就绪并真机验证；平台侧建 Skill 需在 AGC 操作 | 见 `Docs/小艺Skill接入清单.md`，用户执行 |
 
-另有三项待用户决策：`AccountConfig.ACCOUNT_KIT_ENABLED` 翻真的 AGC 凭证、§4b 前十处改口文案确认、
-点位④吸顶日标题是否给胶囊材质（§4b-11 卡片 2×2 截断已定 (a) 接受省略号）。
+另有两项待用户决策：§4b 前十处改口文案确认、点位④吸顶日标题是否给胶囊材质
+（§4b-11 卡片 2×2 截断已定 (a) 接受省略号）。Account Kit 的 AGC 凭证已于 2026-10-23 配齐并真机验收。
 
 **2026-10-23 今日改动后的全链路复跑**（真机，逐步截图 `f1_屏1`…`f7_屏8`）：
 屏1 静默登录 → 屏2 开始规划 → 屏3 四步追问（末题 CTA 是「生成行程」，不是「下一题」）→
@@ -193,3 +193,13 @@ hypium 40/40；RDB/账号/日历路径按已知限制 #10 走真机验收。
 
 2×2 真机格宽 134vp 与底稿 328px 画布的差异导致标题/footer 截断；2026-10-23 用户定为 (a)
 接受省略号、完整信息回 App（点卡片直达屏8）。
+
+**2026-10-23 14:46–14:55 Account Kit 真机接通**：此前 `1001502003 Invalid clientId or profile`
+的根因不是 Client ID，而是 DevEco 自动签名 Profile 的 `app-identifier` 为随机值
+（`6918745435470575450`，≠ AGC APP ID）。在 AGC 新建调试 Profile `youjing-debug-20261023`
+（应用「有径」/ 证书 `auto_debug_10086000824313557.cer` / 4 台设备），把下载的 `.p7b`
+换入 `build-profile.json5` 后重建安装：`LoginWithHuaweiID error_code=0`，App 日志
+「静默登录成功 uid=AABKND***」，屏1 → 屏2；冷重启后「恢复登录态 kind=huawei」。
+新旧 Profile 内嵌的 development-certificate 完全相同（本机 `.cer` 指纹 `86:6F:…:CF:70`），
+因此 `hdc install -r` 签名一致，无需卸载。下载的 Profile 存于 `~/.ohos/config/`
+（用户指定位置），`~/Downloads` 的重复件已删。

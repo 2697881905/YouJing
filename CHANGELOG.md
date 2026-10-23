@@ -58,3 +58,15 @@
   - 配置层与环境隔离：`common/constants/BuildConfig.ets`、`common/config/ApiConfig.ets`、`common/config/MockConfig.ets`，`.gitignore` 增补签名/密钥防线
   - 日志与错误基线：`common/logger/Logger.ets`（YouJing. 前缀、IS_DEBUG 门控）、`common/error/AppError.ets`、`common/error/ErrorCode.ets`（1xxx–4xxx 区段 14 码），EntryAbility.onError 接入
   - 设计 tokens：`design/ColorTokens|SpaceTokens|FontTokens|MotionTokens.ets`（占位基线值，待 UI 设计定稿替换）
+
+### Changed
+
+- 华为账号静默登录接通真 UnionID（2026-10-23，真机验收）：AGC 侧注册应用「有径」
+  （APP ID / Client ID `6917619826312400726`、projectId `101653523865420226`），登记调试证书
+  SHA256 指纹 `86:6F:…:CF:70`；`AccountConfig.ACCOUNT_KIT_ENABLED` 翻为 `true`。
+  首次接通仍报 `1001502003 Invalid clientId or profile`，根因是 DevEco 自动签名 Profile 的
+  `app-identifier` 为随机值（`6918745435470575450`）；在 AGC 新建调试 Profile
+  `youjing-debug-20261023`（同一张 `auto_debug_10086000824313557.cer`、4 台设备）替换后
+  `app-identifier` 变为 APP ID，`LoginWithHuaweiID error_code=0`、日志「静默登录成功」，
+  冷重启「恢复登录态 kind=huawei」。新旧 Profile 内嵌证书相同，`hdc install -r` 签名一致。
+  Profile 有效期至 2027-10-20；签名配置仍仅存本机、不入库。

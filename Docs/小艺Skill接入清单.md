@@ -47,11 +47,18 @@
 | `people` | number | 同行人数 | `3` |
 | `param` | string | 路由参数；`route=Itinerary` 时传 tripId | `trip-1792689610437` |
 
-## D. 顺手一起问的：Account Kit（阶段 8 的遗留开关）
+## D. Account Kit（阶段 8 遗留开关）· 已完成（2026-10-23）
 
-屏1「华为账号一键登录」现在走本机游客分区，因为 `AccountConfig.ACCOUNT_KIT_ENABLED=false`。
-你在 AGC 配好 Client ID + 登记签名证书指纹后告诉我，我把它翻成 `true` 就接上真 UnionID，
-游客期行程会自动归户到该账号（`TripDao.adoptGuestTrips`，已实现并留了日志）。
+AGC 已配置并真机验收：APP ID / Client ID 均为 `6917619826312400726`（应用「有径」，
+项目 projectId `101653523865420226`），调试证书 SHA256 指纹 `86:6F:…:CF:70` 已登记；
+`AccountConfig.ACCOUNT_KIT_ENABLED=true`，屏1 按钮走真 UnionID 静默登录，
+游客期行程由 `TripDao.adoptGuestTrips` 自动归户。
+
+换签名时必看：调试签名必须用 AGC **手动创建**的 Profile。DevEco 本地自动签名生成的 Profile 里
+`app-identifier` 是随机值（本次为 `6918745435470575450`），Account Kit 会报
+`1001502003 Invalid clientId or profile`；换成 AGC 侧 Profile（`youjing-debug-20261023`）后
+`app-identifier` 才是 APP ID，登录即通。该 Profile 有效期至 2027-10-20，到期需重新申请并更新
+`build-profile.json5`（含签名口令，不入库）。
 
 ## E. 不等平台就能验的（我明天继续跑，你也可以自己试）
 
