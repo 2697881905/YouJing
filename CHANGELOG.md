@@ -43,6 +43,12 @@
   - dock「地图」落点页改口：`ComingSoonPage` 不再对用户说「骨架占位 / 路由「Map」将在后续批次落地」，
     改成标题「地图视图」+ 一句实话（要接 Map Kit、需 AGC 开通重签）+「返回行程」；
     底稿只有 dock 里的「地图」一格、没有对应地图屏，已列为待设计（`Docs/INIT_REPORT.md` §4b-6）
+  - 桌面卡片真机验收（2026-10-23，用户放置 formId `996982405`）：卡片进程直读 RDB 渲染
+    `Day 1 · 10月23日` + 三站 + `还有 1 个需预约节点 · 18:30 前`；点卡片拉起 EntryAbility 落屏8；
+    `hdc install -r` 后系统重拉 provider 并回灌，卡片内容不变。顺带补尺寸通路：`onAddForm` 读
+    `ohos.extra.param.key.form_dimension`、按 formId 落 preferences、每次回灌带 `dimension`，
+    修掉 2×4 的 16 内缩恒走 2×2 默认值的死分支（2×4 未实机放置，仅代码通路）。
+    2×2 真机文本区 134vp vs 底稿 328px 画布，标题/footer 被系统省略号截断，列为 §4b-11 待设计决策
   - 回归：hypium 40/40（含 TodayPlan 10 条纯逻辑断言）；RDB/账号/日历分片路径改真机验收
     （原因见 `Docs/INIT_REPORT.md` 已知限制 #10）
 
