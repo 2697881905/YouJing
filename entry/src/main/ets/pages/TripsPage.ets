@@ -21,6 +21,7 @@ import { common } from '@kit.AbilityKit';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
 import { Logger } from '../common/logger/Logger';
+import { WidgetSync } from '../widget/TodayCard';
 
 interface TripCardData {
   id: string;
@@ -91,6 +92,65 @@ export struct TripsPage {
       return this.trips;
     }
     return this.trips.filter((t: TripCardData): boolean => t.place.includes(k) || t.dateMeta.includes(k));
+  }
+
+  /** 官方行级动作：左滑出删除钮，删除前走系统对话框二次确认（TripDao.deleteTrip 此前无调用方） */
+  @Builder
+  deleteAction(t: TripCardData) {
+    Row() {
+      Button() {
+        SymbolGlyph($r('sys.symbol.trash'))
+          .fontSize(22)
+          .fontColor([ColorTokens.onPrimary])
+      }
+      .width(56)
+      .height(56)
+      .type(ButtonType.Circle)
+      .backgroundColor(ColorTokens.danger)
+      .onClick((): void => {
+        this.confirmDelete(t);
+      })
+    }
+    .justifyContent(FlexAlign.End)
+    .alignItems(VerticalAlign.Center)
+    .width(84)
+    .height('100%')
+    .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+  }
+
+  private confirmDelete(t: TripCardData): void {
+    this.getUIContext().showAlertDialog({
+      title: '删除这条行程',
+      message: `${t.place} · ${t.dateMeta}\n只删本机记录，不可恢复；日历里已写入的事件不会自动删除。`,
+      primaryButton: {
+        value: '取消',
+        action: (): void => {
+        }
+      },
+      secondaryButton: {
+        value: '删除',
+        fontColor: ColorTokens.danger,
+        action: (): void => {
+          this.doDelete(t.id);
+        }
+      }
+    });
+  }
+
+  private doDelete(id: string): void {
+    const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    TripDao.deleteTrip(ctx, id).then((): void => {
+      this.getUIContext().getPromptAction().showToast({ message: '已删除该行程' });
+      this.reload().catch((err: Error): void => {
+        Logger.error('Ui.Trips', `删除后重载失败: ${err.message}`);
+      });
+      WidgetSync.refreshAll(ctx).catch((err: Error): void => {
+        Logger.warn('Ui.Trips', `卡片刷新失败: ${err.message}`);
+      });
+    }).catch((err: Error): void => {
+      Logger.error('Ui.Trips', `删除行程失败: ${err.message}`);
+      this.getUIContext().getPromptAction().showToast({ message: '删除失败，详见日志' });
+    });
   }
 
   @Builder
@@ -250,6 +310,7 @@ export struct TripsPage {
                 ListItem() {
                   this.tripCard(t)
                 }
+                .swipeAction({ end: this.deleteAction(t), edgeEffect: SwipeEdgeEffect.Spring })
               }, (t: TripCardData): string => `trip-${t.id}-${t.statusLine}-${t.progress}`)
               if (this.visibleTrips().length === 0) {
                 ListItem() {
