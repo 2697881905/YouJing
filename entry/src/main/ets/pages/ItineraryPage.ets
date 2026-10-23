@@ -15,7 +15,10 @@ import { LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
 import { Activity, ActivityCategory, ActivityStatus, IntensityLevel, TripDay, Trip } from '../model/Trip';
 import { TripDao } from '../data/TripDao';
+import { ShareExporter } from '../data/ShareExporter';
+import { WidgetSync } from '../widget/TodayCard';
 import { MapStop, MapStops } from '../utils/MapStops';
+import { IcsBuilder } from '../utils/IcsBuilder';
 import { TripMapView } from '../components/TripMapView';
 import { AccessFlags, CalendarSync, SyncResult } from '../data/CalendarSync';
 import { Logger } from '../common/logger/Logger';
@@ -142,24 +145,21 @@ export struct ItineraryPage {
 
   /** 同意并写入：先申请权限，未授权不写任何数据；开关状态落 preferences */
   private writeToSystem(): void {
-    const ctx: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    const ctx: common.UIAbilityContext = this.ctx();
     const flags: AccessFlags = {
       calendar: this.syncCalendar, card: this.syncCard, remind: this.syncRemind
-    };
-    const toast = (msg: string): void => {
-      this.getUIContext().getPromptAction().showToast({ message: msg, duration: 2000 });
     };
     CalendarSync.saveFlags(ctx, flags).catch((err: Error) => {
       Logger.warn('Ui.Itinerary', `触达开关保存失败: ${err.message}`);
     });
     if (!flags.calendar) {
-      toast('行程仅保存在本机');
+      this.toast('行程仅保存在本机');
       this.showSystemAccess = false;
       return;
     }
     const trip: Trip | null = this.trip;
     if (trip === null) {
-      toast('行程数据未就绪，稍后再试');
+      this.toast('行程数据未就绪，稍后再试');
       return;
     }
     CalendarSync.requestPermission(ctx).then((granted: boolean): Promise<SyncResult> => {
@@ -168,12 +168,122 @@ export struct ItineraryPage {
       }
       return CalendarSync.syncTrip(ctx, trip, flags);
     }).then((r: SyncResult): void => {
-      toast(`已写入 ${r.bookingEvents} 个预约节点 + ${r.dayEvents} 天行程`);
+      this.toast(`已写入 ${r.bookingEvents} 个预约节点 + ${r.dayEvents} 天行程`);
     }).catch((err: Error) => {
       Logger.warn('Ui.Itinerary', `日历写入失败: ${err.message}`);
-      toast(`日历写入失败：${err.message}`);
+      this.toast(`日历写入失败：${err.message}`);
     }).finally((): void => {
       this.showSystemAccess = false;
+    });
+  }
+
+  private ctx(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext;
+  }
+
+  private toast(msg: string): void {
+    this.getUIContext().getPromptAction().showToast({ message: msg, duration: 1800 });
+  }
+
+  /**
+   * 底稿屏10 的「换一个时间」：当日时间槽是既定集合，换时间＝把本站挪到另一站的位置，
+   * 中间各站按槽顺延——与屏9 拖动排序同一套语义，不新造时间、不编通勤腿。
+   */
+  private pickNewTime(): void {
+    const list: Activity[] = this.detailList();
+    const from: number = this.detailIndex();
+    if (from < 0) {
+      this.toast('行程数据未就绪');
+      return;
+    }
+    if (list.length < 2) {
+      this.toast('当日只有一站，没有可换的时间');
+      return;
+    }
+    const labels: string[] = [];
+    const targets: number[] = [];
+    for (let i = 0; i < list.length; i++) {
+      if (i === from) {
+        continue;
+      }
+      labels.push(`${list[i].time} · ${list[i].title}`);
+      targets.push(i);
+    }
+    this.getUIContext().showTextPickerDialog({
+      range: labels,
+      selected: 0,
+      onAccept: (res: TextPickerResult): void => {
+        const pos: number = Array.isArray(res.index) ? res.index[0] : res.index;
+        const target: number | undefined = targets[pos];
+        if (target !== undefined) {
+          this.applySlotMove(target);
+        }
+      }
+    });
+  }
+
+  /** 重排后整份聚合根落库；槽位集合不变，节点逐位回占 */
+  private applySlotMove(targetIdx: number): void {
+    const trip: Trip | null = this.trip;
+    const act: Activity | undefined = this.detailAct;
+    if (trip === null || act === undefined || this.dayIndex >= trip.days.length) {
+      return;
+    }
+    const list: Activity[] = trip.days[this.dayIndex].activities;
+    const from: number = this.detailIndex();
+    if (from < 0 || targetIdx < 0 || targetIdx >= list.length || targetIdx === from) {
+      return;
+    }
+    const byTime: Activity[] = list.slice().sort((a: Activity, b: Activity): number =>
+      a.time < b.time ? -1 : (a.time > b.time ? 1 : 0));
+    const times: string[] = byTime.map((a: Activity): string => a.time);
+    const ends: string[] = byTime.map((a: Activity): string => a.endTime);
+    const order: Activity[] = list.slice();
+    const node: Activity = order.splice(from, 1)[0];
+    order.splice(targetIdx, 0, node);
+    const kept: Activity[] = order.map((a: Activity, i: number): Activity => {
+      const copy: Activity = {
+        id: a.id, time: times[i], endTime: ends[i], title: a.title, location: a.location,
+        address: a.address, longitude: a.longitude, latitude: a.latitude, status: a.status,
+        category: a.category, note: a.note, reason: a.reason, transport: a.transport
+      };
+      return copy;
+    });
+    const days: TripDay[] = trip.days.slice();
+    days[this.dayIndex].activities = kept;
+    const updated: Trip = {
+      id: trip.id, destination: trip.destination, startDate: trip.startDate,
+      endDate: trip.endDate, people: trip.people, budget: trip.budget, style: trip.style,
+      overview: trip.overview, days: days, tips: trip.tips
+    };
+    TripDao.saveTrip(this.ctx(), updated).then((): void => {
+      this.trip = updated;
+      this.days = updated.days;
+      this.syncDayStops();
+      this.detailAct = kept[targetIdx];
+      // bindSheet 的自定义内容不随父组件 @State 重赋值重绘（真机实测：时间线已换槽，
+      // 面板仍停在打开那一刻的 09:00），故应用后收起面板，再进就是真值。
+      this.showDetail = false;
+      Logger.info('Ui.Itinerary', `换时间 ${node.title} ${times[from]}→${times[targetIdx]}`);
+      WidgetSync.refreshAll(this.ctx()).catch((err: Error) => {
+        Logger.warn('Ui.Itinerary', `卡片刷新失败: ${err.message}`);
+      });
+      this.toast(`${node.title} 已改到 ${times[targetIdx]}`);
+    }).catch((err: Error) => {
+      Logger.error('Ui.Itinerary', `换时间保存失败: ${err.message}`);
+      this.toast('保存失败，时间未改动');
+    });
+  }
+
+  /** 底稿屏10 顶栏声明的「分享」：只发当前节点，本机现算文本，不含账号信息 */
+  private shareNode(): void {
+    const act: Activity | undefined = this.detailAct;
+    if (act === undefined) {
+      return;
+    }
+    ShareExporter.shareNode(this.ctx(), this.curDay(), act).catch((err: Error) => {
+      Logger.warn('Ui.Itinerary', `节点分享失败: ${err.message}`);
+      this.toast('分享面板拉起失败');
     });
   }
 
@@ -225,24 +335,10 @@ export struct ItineraryPage {
     return '';
   }
 
+  /** 与单节点分享同一口径（IcsBuilder.statusLabel） */
   private statusFullText(): string {
     const act: Activity | undefined = this.detailAct;
-    if (act === undefined) {
-      return '';
-    }
-    if (act.status === ActivityStatus.NOT_BOOKED) {
-      return '需预约，尚未确认';
-    }
-    if (act.status === ActivityStatus.BOOKED) {
-      return '已预约';
-    }
-    if (act.status === ActivityStatus.FULL) {
-      return '已约满，需改期或换时段';
-    }
-    if (act.status === ActivityStatus.PENDING) {
-      return '待定';
-    }
-    return '无需预约';
+    return act === undefined ? '' : IcsBuilder.statusLabel(act);
   }
 
   private commuteText(): string {
@@ -669,6 +765,21 @@ export struct ItineraryPage {
               }
               .alignItems(HorizontalAlign.Start)
               .layoutWeight(1)
+
+              // 底稿屏10 顶栏声明的分享；面板自带官方关闭钮，故分享落进内容区右上角
+              Button() {
+                SymbolGlyph($r('sys.symbol.share'))
+                  .fontSize(20)
+                  .fontColor([ColorTokens.icon])
+              }
+              .type(ButtonType.Circle)
+              .buttonStyle(ButtonStyleMode.TEXTUAL)
+              .width(LayoutTokens.minTouchTarget)
+              .height(LayoutTokens.minTouchTarget)
+              .accessibilityText('分享此节点')
+              .onClick((): void => {
+                this.shareNode();
+              })
             }
             .alignItems(VerticalAlign.Top)
             .width('100%')
@@ -757,7 +868,7 @@ export struct ItineraryPage {
             label: '换一个时间',
             buttonWidth: 160,
             onAction: (): void => {
-              this.showDetail = false;
+              this.pickNewTime();
             }
           })
           YoujingButton({

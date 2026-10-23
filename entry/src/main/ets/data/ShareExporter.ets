@@ -1,8 +1,9 @@
 /**
  * 分享导出（开发文档 §6 阶段 10：分享导出）。
  *
- * 无后端，所以「链接」做不了：这里走系统分享面板，两条通路都是本机现算的内容——
- * 1) 行程纯文本摘要（general.text）；2) 本机生成的 .ics 日历文件（general.file，
+ * 无后端，所以「链接」做不了：这里走系统分享面板，三条通路都是本机现算的内容——
+ * 1) 行程纯文本摘要（general.text）；2) 单个活动节点摘要（屏10，general.text）；
+ * 3) 本机生成的 .ics 日历文件（general.file，
  * 写进 cacheDir 后交 fileUri，系统分享面板负责给接收方临时读权限）。
  * 不上传任何数据，不含账号信息。
  */
@@ -11,7 +12,7 @@ import { fileIo as fs, fileUri } from '@kit.CoreFileKit';
 import { systemShare } from '@kit.ShareKit';
 import { uniformTypeDescriptor } from '@kit.ArkData';
 import { common } from '@kit.AbilityKit';
-import { Trip } from '../model/Trip';
+import { Trip, TripDay, Activity } from '../model/Trip';
 import { IcsBuilder } from '../utils/IcsBuilder';
 import { Logger } from '../common/logger/Logger';
 
@@ -24,6 +25,16 @@ export class ShareExporter {
       utd: uniformTypeDescriptor.UniformDataType.PLAIN_TEXT,
       content: IcsBuilder.plainSummary(trip),
       title: `${trip.destination} ${trip.days.length} 天行程`
+    };
+    await ShareExporter.present(context, new systemShare.SharedData(record));
+  }
+
+  /** 单个活动节点（屏10 详情面板的分享） */
+  static async shareNode(context: common.UIAbilityContext, day: TripDay, act: Activity): Promise<void> {
+    const record: systemShare.SharedRecord = {
+      utd: uniformTypeDescriptor.UniformDataType.PLAIN_TEXT,
+      content: IcsBuilder.nodeSummary(day, act),
+      title: `${act.title} ${act.time}`
     };
     await ShareExporter.present(context, new systemShare.SharedData(record));
   }

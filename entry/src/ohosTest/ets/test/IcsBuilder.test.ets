@@ -81,5 +81,23 @@ export default function icsBuilderTest(): void {
       expect(t.includes('09:00 故宫博物院（需预约）')).assertTrue();
       expect(t.includes('南锣鼓巷（需预约）')).assertFalse();
     });
+
+    it('node_summary_is_one_node_only', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+      const t: Trip = fixture();
+      const s: string = IcsBuilder.nodeSummary(t.days[0], t.days[0].activities[0]);
+      const lines: string[] = s.split('\n');
+      expect(lines[0]).assertEqual('Day 1 2026-07-01 故宫博物院');
+      expect(lines[1]).assertEqual('时间 09:00–13:00');
+      expect(lines[2]).assertEqual('地址 A;B,C');
+      expect(lines[3]).assertEqual('到达 当日首站，无通勤');
+      expect(lines[4]).assertEqual('预约 需预约，尚未确认');
+      // 分享只含本站：不得把同日他站或没写过的理由段落带进来
+      expect(s.includes('南锣鼓巷')).assertFalse();
+      expect(s.includes('理由')).assertFalse();
+      // note 原样透传（自身可含换行），故不锁总行数
+      expect(s.includes('提醒 x\ny')).assertTrue();
+      const full: string = IcsBuilder.nodeSummary(t.days[1], t.days[1].activities[0]);
+      expect(full.includes('预约 已约满，需改期或换时段')).assertTrue();
+    });
   });
 }

@@ -164,4 +164,39 @@ export class IcsBuilder {
     }
     return out.join('\n');
   }
+
+  /** 单节点纯文本摘要（屏10 详情面板的「分享」，本机现算，不含账号信息） */
+  static nodeSummary(day: TripDay, act: Activity): string {
+    const out: string[] = [`Day ${day.dayIndex} ${day.date} ${act.title}`];
+    out.push(`时间 ${act.time}–${act.endTime}`);
+    out.push(`地址 ${act.address.length > 0 ? act.address : act.location}`);
+    const arrival: string = act.transport !== undefined ?
+      `${act.transport.mode} ${act.transport.duration} 分钟` : '当日首站，无通勤';
+    out.push(`到达 ${arrival}`);
+    out.push(`预约 ${IcsBuilder.statusLabel(act)}`);
+    if (act.note !== undefined && act.note.length > 0) {
+      out.push(`提醒 ${act.note}`);
+    }
+    if (act.reason !== undefined && act.reason.length > 0) {
+      out.push(`理由 ${act.reason}`);
+    }
+    return out.join('\n');
+  }
+
+  /** 预约状态中文标签（屏10 详情面板与单节点分享同一口径） */
+  static statusLabel(act: Activity): string {
+    if (act.status === ActivityStatus.BOOKED) {
+      return '已预约';
+    }
+    if (act.status === ActivityStatus.FULL) {
+      return '已约满，需改期或换时段';
+    }
+    if (act.status === ActivityStatus.PENDING) {
+      return '待定';
+    }
+    if (act.status === ActivityStatus.NOT_BOOKED) {
+      return '需预约，尚未确认';
+    }
+    return '无需预约';
+  }
 }
