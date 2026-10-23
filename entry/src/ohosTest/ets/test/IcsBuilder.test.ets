@@ -6,7 +6,7 @@
 import { describe, it, expect, TestType, Size, Level } from '@ohos/hypium';
 import { IcsBuilder } from '../../../main/ets/utils/IcsBuilder';
 import { util } from '@kit.ArkTS';
-import { Activity, ActivityCategory, ActivityStatus, IntensityLevel, Trip, TripDay } from '../../../main/ets/model/Trip';
+import { Activity, ActivityCategory, ActivityStatus, IntensityLevel, Meal, MealType, Trip, TripDay } from '../../../main/ets/model/Trip';
 
 function act(id: string, time: string, end: string, title: string, status: ActivityStatus): Activity {
   const a: Activity = { id, time, endTime: end, title, location: 'L', address: 'A;B,C',
@@ -14,11 +14,17 @@ function act(id: string, time: string, end: string, title: string, status: Activ
   return a;
 }
 
+function meal(type: MealType, name: string, location: string): Meal {
+  const m: Meal = { type: type, name: name, location: location, estimatedCost: 120 };
+  return m;
+}
+
 function fixture(): Trip {
   const d1: TripDay = { dayIndex: 1, date: '2026-07-01', theme: '东城', intensity: IntensityLevel.LOW,
     dailyCost: 0,
     activities: [act('d1-a1', '09:00', '13:00', '故宫博物院', ActivityStatus.NOT_BOOKED),
-      act('d1-a2', '14:00', '15:00', '南锣鼓巷', ActivityStatus.NO_NEED)], meals: [] };
+      act('d1-a2', '14:00', '15:00', '南锣鼓巷', ActivityStatus.NO_NEED)],
+    meals: [meal(MealType.LUNCH, '本地面馆', '东城区'), meal(MealType.DINNER, '本地饺子馆', '东城区')] };
   const d2: TripDay = { dayIndex: 2, date: '2026-07-02', theme: '海淀', intensity: IntensityLevel.MEDIUM,
     dailyCost: 0, activities: [act('d2-a1', '08:30', '12:00', '颐和园', ActivityStatus.FULL)], meals: [] };
   const t: Trip = { id: 't-9', destination: '北京', startDate: '2026-07-01', endDate: '2026-07-03',
@@ -50,6 +56,8 @@ export default function icsBuilderTest(): void {
       expect(s.includes('DTSTART:20260701T090000')).assertTrue();
       expect(s.includes('DTEND:20260701T130000')).assertTrue();
       expect(s.includes('TZID=')).assertFalse();
+      // 餐次无时刻，不给别人的日历编一个 DTSTART：餐饮只进分享文本
+      expect(s.includes('本地面馆')).assertFalse();
     });
 
     it('escape_rules', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
@@ -80,6 +88,9 @@ export default function icsBuilderTest(): void {
       expect(t.includes('2天1晚')).assertTrue();
       expect(t.includes('09:00 故宫博物院（需预约）')).assertTrue();
       expect(t.includes('南锣鼓巷（需预约）')).assertFalse();
+      expect(t.includes('  午餐 · 本地面馆 · 东城区')).assertTrue();
+      expect(t.includes('  晚餐 · 本地饺子馆 · 东城区')).assertTrue();
+      expect(IcsBuilder.mealLabel(MealType.BREAKFAST)).assertEqual('早餐');
     });
 
     it('node_summary_is_one_node_only', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {

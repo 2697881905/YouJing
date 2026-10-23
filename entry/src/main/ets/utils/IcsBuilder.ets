@@ -6,9 +6,12 @@
  * - 文本里的 `\` `;` `,` 与换行要转义；
  * - 时间用本地浮动时间（不带 TZID），与行程里「09:00 出发」的语义一致，不硬套 UTC；
  * - 每个活动一个 VEVENT；需预约节点额外挂 VALARM（提前 N 天）。
+ *
+ * 每日餐饮只进 plainSummary（分享文本），不进 .ics：Meal 没有时刻字段，
+ * VEVENT 必须有 DTSTART，编一个时间去写进别人日历比漏一条更糟。
  */
 
-import { ActivityStatus } from '../model/Trip';
+import { ActivityStatus, MealType } from '../model/Trip';
 import type { Activity, Trip, TripDay } from '../model/Trip';
 
 const LINE_MAX_BYTES: number = 74;
@@ -161,8 +164,24 @@ export class IcsBuilder {
         const mark: string = IcsBuilder.bookingNode(act) ? '（需预约）' : '';
         out.push(`  ${act.time} ${act.title}${mark}`);
       }
+      // 每日餐饮是生成结果的一部分（屏13 卡片图例把「午餐」当一行），分享文本不能把它丢了
+      for (const m of day.meals) {
+        const where: string = m.location.length > 0 ? ` · ${m.location}` : '';
+        out.push(`  ${IcsBuilder.mealLabel(m.type)} · ${m.name}${where}`);
+      }
     }
     return out.join('\n');
+  }
+
+  /** 餐次中文标签（模型用英文稳定码，展示层负责映射） */
+  static mealLabel(type: MealType): string {
+    if (type === MealType.BREAKFAST) {
+      return '早餐';
+    }
+    if (type === MealType.DINNER) {
+      return '晚餐';
+    }
+    return '午餐';
   }
 
   /** 单节点纯文本摘要（屏10 详情面板的「分享」，本机现算，不含账号信息） */
