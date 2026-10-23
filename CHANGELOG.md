@@ -61,6 +61,11 @@
   到这里才真的吸顶。面板右下角「全图」从裸 `Text + onClick` 换成官方 `Button`
   （NORMAL 档在瓦片上不出表面色，量到胶囊区与底图同色，改 EMPHASIZED 实底胶囊后读得清）。
   真机复测：北京 3 天 Day1 两站 + 一段通勤渲染与滚动正常，点节点仍能开屏10 详情面板。
+- 屏16 分享页迁到官方 `List`（2026-10-24，真机验收）：抬头与行程卡成一个 ListItem，
+  两条动作成一个 `ListItemGroup`，行间手画的 `Divider` 换成官方 `.divider()`，
+  `optionRow` 去掉 `last` 形参。点击热区从内层 `Column` 抬到 `ListItem` 本体
+  （真机 dumpLayout 里两行现在是 `ListItem [87,1431][1049,1626]` 这样的可点节点）。
+  顺带补 `options.length >= 2` 的门槛——原来异步到达前就直接索引 `options[0]`。
 
 ### Added
 

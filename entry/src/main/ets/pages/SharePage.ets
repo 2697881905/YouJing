@@ -105,7 +105,7 @@ export struct SharePage {
   }
 
   @Builder
-  optionRow(opt: ShareOption, last: boolean) {
+  optionRow(opt: ShareOption) {
     Column() {
       Row({ space: SpaceTokens.md }) {
         Column() {
@@ -139,11 +139,8 @@ export struct SharePage {
       }
       .width('100%')
       .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
-
-      if (!last) {
-        Divider().strokeWidth(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
-      }
     }
+    .width('100%')
   }
 
   build() {
@@ -151,106 +148,116 @@ export struct SharePage {
       Stack({ alignContent: Alignment.Bottom }) {
         Column() {
 
-          Scroll() {
-            Column() {
-              Text('分享这份行程')
-                .fontSize(TypeTokens.title.size)
-                .fontWeight(700)
-                .fontFamily(TypeTokens.title.family)
-                .fontColor(ColorTokens.ink)
-                .margin({ top: SpaceTokens.lg })
-              Text(this.subtitle.length > 0 ? this.subtitle : '行程未就绪')
-                .fontSize(TypeTokens.small.size)
-                .fontColor(ColorTokens.body)
-                .fontFeature("'tnum' on")
-                .margin({ top: SpaceTokens.xs, bottom: SpaceTokens.xl })
-
+          // 官方 List：抬头 + 行程卡成一个 ListItem，两条动作成一个 ListItemGroup，
+          // 行间不再手画 Divider，交给官方 .divider()
+          List() {
+            ListItem() {
               Column() {
-                // 「行程纸」：浅色档是白→#F1F2F5，压在浅灰卡上边界会消失（真机浅色拍到过），
-                // 补一条 hairline 描边，两档都读得出这是一块纸而不是空槽
-                Column()
+                Text('分享这份行程')
+                  .fontSize(TypeTokens.title.size)
+                  .fontWeight(700)
+                  .fontFamily(TypeTokens.title.family)
+                  .fontColor(ColorTokens.ink)
+                  .margin({ top: SpaceTokens.lg })
+                Text(this.subtitle.length > 0 ? this.subtitle : '行程未就绪')
+                  .fontSize(TypeTokens.small.size)
+                  .fontColor(ColorTokens.body)
+                  .fontFeature("'tnum' on")
+                  .margin({ top: SpaceTokens.xs, bottom: SpaceTokens.xl })
+
+                Column() {
+                  // 「行程纸」：浅色档是白→#F1F2F5，压在浅灰卡上边界会消失（真机浅色拍到过），
+                  // 补一条 hairline 描边，两档都读得出这是一块纸而不是空槽
+                  Column()
+                    .width('100%')
+                    .height(140)
+                    .borderRadius(RadiusTokens.media)
+                    .border({ width: LayoutTokens.hairlineWidth, color: ColorTokens.borderSubtle })
+                    .linearGradient({
+                      angle: 180,
+                      colors: [[ColorTokens.routeBgTop, 0], [ColorTokens.routeBgBottom, 1]]
+                    })
+                  Row() {
+                    // 三个数在 build 内直读状态变量：@Builder 形参是值快照，行程异步到达后不会刷新
+                    Column() {
+                      Text(`${this.dayCount}`)
+                        .fontSize(TypeTokens.headline.size)
+                        .fontWeight(600)
+                        .fontColor(ColorTokens.ink)
+                        .fontFeature("'tnum' on")
+                      Text('天')
+                        .fontSize(TypeTokens.overline.size)
+                        .fontWeight(450)
+                        .fontColor(ColorTokens.muted)
+                        .margin({ top: 2 })
+                    }
+                    Column() {
+                      Text(`${this.stopCount}`)
+                        .fontSize(TypeTokens.headline.size)
+                        .fontWeight(600)
+                        .fontColor(ColorTokens.ink)
+                        .fontFeature("'tnum' on")
+                      Text('站')
+                        .fontSize(TypeTokens.overline.size)
+                        .fontWeight(450)
+                        .fontColor(ColorTokens.muted)
+                        .margin({ top: 2 })
+                    }
+                    Column() {
+                      Text(`${this.bookingCount}`)
+                        .fontSize(TypeTokens.headline.size)
+                        .fontWeight(600)
+                        .fontColor(ColorTokens.ink)
+                        .fontFeature("'tnum' on")
+                      Text('需预约')
+                        .fontSize(TypeTokens.overline.size)
+                        .fontWeight(450)
+                        .fontColor(ColorTokens.muted)
+                        .margin({ top: 2 })
+                    }
+                  }
                   .width('100%')
-                  .height(140)
-                  .borderRadius(RadiusTokens.media)
-                  .border({ width: LayoutTokens.hairlineWidth, color: ColorTokens.borderSubtle })
-                  .linearGradient({
-                    angle: 180,
-                    colors: [[ColorTokens.routeBgTop, 0], [ColorTokens.routeBgBottom, 1]]
-                  })
-                Row() {
-                  // 三个数在 build 内直读状态变量：@Builder 形参是值快照，行程异步到达后不会刷新
-                  Column() {
-                    Text(`${this.dayCount}`)
-                      .fontSize(TypeTokens.headline.size)
-                      .fontWeight(600)
-                      .fontColor(ColorTokens.ink)
-                      .fontFeature("'tnum' on")
-                    Text('天')
-                      .fontSize(TypeTokens.overline.size)
-                      .fontWeight(450)
-                      .fontColor(ColorTokens.muted)
-                      .margin({ top: 2 })
-                  }
-                  Column() {
-                    Text(`${this.stopCount}`)
-                      .fontSize(TypeTokens.headline.size)
-                      .fontWeight(600)
-                      .fontColor(ColorTokens.ink)
-                      .fontFeature("'tnum' on")
-                    Text('站')
-                      .fontSize(TypeTokens.overline.size)
-                      .fontWeight(450)
-                      .fontColor(ColorTokens.muted)
-                      .margin({ top: 2 })
-                  }
-                  Column() {
-                    Text(`${this.bookingCount}`)
-                      .fontSize(TypeTokens.headline.size)
-                      .fontWeight(600)
-                      .fontColor(ColorTokens.ink)
-                      .fontFeature("'tnum' on")
-                    Text('需预约')
-                      .fontSize(TypeTokens.overline.size)
-                      .fontWeight(450)
-                      .fontColor(ColorTokens.muted)
-                      .margin({ top: 2 })
-                  }
+                  .justifyContent(FlexAlign.SpaceAround)
+                  .margin({ top: SpaceTokens.md })
                 }
                 .width('100%')
-                .justifyContent(FlexAlign.SpaceAround)
-                .margin({ top: SpaceTokens.md })
+                .padding(SpaceTokens.lg)
+                .borderRadius(RadiusTokens.card)
+                .backgroundColor(ColorTokens.surfaceElevated)
               }
+              .alignItems(HorizontalAlign.Start)
               .width('100%')
-              .padding(SpaceTokens.lg)
-              .borderRadius(RadiusTokens.card)
-              .backgroundColor(ColorTokens.surfaceElevated)
+            }
 
-              Column() {
-                Column() {
-                  this.optionRow(this.options[0], false)
+            if (this.options.length >= 2) {
+              ListItemGroup() {
+                ListItem() {
+                  this.optionRow(this.options[0])
                 }
                 .onClick((): void => {
                   this.shareText();
                 })
-                Column() {
-                  this.optionRow(this.options[1], true)
+                ListItem() {
+                  this.optionRow(this.options[1])
                 }
                 .onClick((): void => {
                   this.exportIcs();
                 })
               }
-              .width('100%')
+              .divider({ strokeWidth: LayoutTokens.hairlineWidth, color: ColorTokens.separator })
               .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-              .borderRadius(RadiusTokens.card)
               .backgroundColor(ColorTokens.surfaceSubtle)
+              .borderRadius(RadiusTokens.card)
+              .clip(true)
               .margin({ top: SpaceTokens.xl })
             }
-            .alignItems(HorizontalAlign.Start)
-            .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: 150 })
           }
           .layoutWeight(1)
           .scrollBar(BarState.Off)
-          .align(Alignment.Top)
+          .edgeEffect(EdgeEffect.Spring)
+          .cachedCount(4)
+          .alignListItem(ListItemAlign.Start)
+          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: 150 })
         }
         .width('100%')
         .height('100%')
