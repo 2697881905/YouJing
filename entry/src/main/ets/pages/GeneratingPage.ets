@@ -5,7 +5,7 @@
  * 失败（重试耗尽）replacePath 进屏7 GenerateFailed（§4.1-5 降级链）。
  */
 
-import { APP_NAV } from '../common/constants/AppNav';
+import { APP_NAV, FailInfo } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
@@ -21,6 +21,7 @@ import { Area } from '../model/Area';
 import { Trip } from '../model/Trip';
 import { TripBasicInput } from '../model/PlanParams';
 import { Logger } from '../common/logger/Logger';
+import { AppError } from '../common/error/AppError';
 import { common } from '@kit.AbilityKit';
 
 @Component
@@ -71,9 +72,11 @@ export struct GeneratingPage {
       Logger.info('Ui.Generating', `生成并落库 ${trip.id}`);
       APP_NAV.replacePath({ name: 'Itinerary', param: trip.id });
     } catch (err) {
-      Logger.error('Ui.Generating', `生成失败: ${(err as Error).message}`);
+      const code: number = err instanceof AppError ? (err as AppError).code : 0;
+      Logger.error('Ui.Generating', `生成失败 code=${code}: ${(err as Error).message}`);
       this.done = true;
-      APP_NAV.replacePath({ name: 'GenerateFailed' });
+      const info: FailInfo = { code: code, detail: (err as Error).message };
+      APP_NAV.replacePath({ name: 'GenerateFailed', param: info });
     }
   }
 

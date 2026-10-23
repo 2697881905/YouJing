@@ -1,30 +1,45 @@
 /**
  * 屏7 生成受阻 · 降级重试（帧 a21e614c）。
  * §7 必改已落：scroll padding 104/180→94、solution-info gap 2→0。
- * 触发：Generating 校验失败分支（真实管线阶段 6 接入）；骨架期可经
- * aa start --ps route GenerateFailed 直达（EntryAbility 预填通道）。
+ * 触发：Generating 失败分支，带 FailInfo{code,detail} 进来（阶段 10 接真错误）。
+ * 底稿里「第 3 天没排通 / 伏见稻荷与宇治步行超 90 分钟 / 打车 ¥3,200」是编造的诊断，
+ * 现按错误码出人话标题、原始诊断做次要说明，两条修法改成真能跳过去的步骤。
+ * 骨架期仍可经 aa start --ps route GenerateFailed 直达（EntryAbility 预填通道）。
  */
 
 import { APP_NAV } from '../common/constants/AppNav';
+import { failureHeadline } from '../common/error/FailureCopy';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
+import { BuildConfig } from '../common/constants/BuildConfig';
 
 interface FixOption {
   title: string;
   desc: string;
+  route: string;
 }
 
 @Component
 export struct GenerateFailedPage {
   private pathStack: NavPathStack = APP_NAV;
+  @Prop code: number = 0;
+  @Prop detail: string = '';
   private fixes: FixOption[] = [
-    { title: '把宇治移到第 4 天', desc: '第 4 天还有 3.5 小时空档' },
-    { title: '宇治改为打车 42分钟 · ¥3,200', desc: '预算 +¥3,200' }
+    { title: '回选点页增减景点', desc: '去掉一个必去站，或补几个备选站点', route: 'SpotPick' },
+    { title: '把每天的节奏调松', desc: '改成每天 3 站，给通勤留余量', route: 'PreferenceQA' }
   ];
+
+  /** 原始诊断只在 debug 版露出；release 不甩「ApiConfig 占位」这类技术文本给用户 */
+  private detailText(): string {
+    if (!BuildConfig.IS_DEBUG) {
+      return '可以按下面的方法调整后再试一次。';
+    }
+    return this.detail.length > 0 ? this.detail : '未收到具体原因（此屏为直接预览）';
+  }
 
   @Builder
   solutionRow(fix: FixOption) {
@@ -78,12 +93,12 @@ export struct GenerateFailedPage {
               .fontSize(48)
               .fontColor([ColorTokens.warning])
               .margin({ top: SpaceTokens.fiveXl, bottom: SpaceTokens.lg })
-            Text('第 3 天没排通')
+            Text(failureHeadline(this.code))
               .fontSize(TypeTokens.title.size)
               .fontWeight(700)
               .fontFamily(TypeTokens.title.family)
               .fontColor(ColorTokens.ink)
-            Text('伏见稻荷大社 与 宇治平等院 之间的步行时间超过 90 分钟，无法安排在同一天。')
+            Text(this.detailText())
               .fontSize(TypeTokens.small.size)
               .fontColor(ColorTokens.body)
               .margin({ top: SpaceTokens.xs, bottom: SpaceTokens.xl })
@@ -102,13 +117,18 @@ export struct GenerateFailedPage {
                   .fontColor(ColorTokens.muted)
                   .margin({ bottom: SpaceTokens.xs })
                 ForEach(this.fixes, (fix: FixOption, idx: number) => {
-                  this.solutionRow(fix)
+                  Column() {
+                    this.solutionRow(fix)
+                  }
+                  .onClick((): void => {
+                    this.pathStack.pushPath({ name: fix.route });
+                  })
                   if (idx < this.fixes.length - 1) {
                     Divider()
                       .strokeWidth(LayoutTokens.hairlineWidth)
                       .color(ColorTokens.separator)
                   }
-                }, (fix: FixOption): string => `fix-${fix.title}`)
+                }, (fix: FixOption): string => `fix-${fix.route}-${fix.title}`)
               }
               .alignItems(HorizontalAlign.Start)
               .width('100%')

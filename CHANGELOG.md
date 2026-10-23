@@ -15,6 +15,9 @@
   - 阶段9 系统触达：屏14 Calendar Kit 真写入（预约节点 + 每日全天、按 tripId 幂等清理）；
     今日行程卡片读真 RDB 数据（`data/TodayPlan` 纯函数 + FormExtensionAbility 直读回灌）；
     外部拉起参数通道（`onNewWant` + 屏2 预填回显）为小艺 Skill 接收端就绪
+  - 阶段10 屏7 接真错误：`FailInfo{code,detail}` 随路由传入，`common/error/FailureCopy` 做错误码→人话标题
+    （纯函数，hypium 覆盖），两条修法改成真能跳的「回选点页/调松节奏」，原始诊断仅 debug 版露出；
+    底稿编造的「伏见稻荷与宇治步行超 90 分钟」「打车 ¥3,200」不再对用户说
   - 阶段10 旅行中：DB v3→v4 加 `checkin` 表（(trip_id,activity_id) 唯一）与 `expense.activity_id`；
     屏15 整页由底稿 mock 改为真数据——当前节点/进度/下一段通勤/行内金额/打卡态全部取真值，
     打卡写库并跨重启保留（刻意不入 Trip 契约：行程是 LLM 生成物，打卡是本机用户态）

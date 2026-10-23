@@ -14,3 +14,12 @@ export interface EditTarget {
   tripId: string;
   dayIndex: number;
 }
+
+/**
+ * 屏7 生成受阻的路由参数：把真实错误码与原始诊断带过去，
+ * 页面不再念底稿里编造的「伏见稻荷与宇治步行超 90 分钟」。
+ */
+export interface FailInfo {
+  code: number;
+  detail: string;
+}
