@@ -70,15 +70,12 @@ function area(id: string, name: string, group: AreaGroup, tier: AreaPriceTier,
   return a;
 }
 
-/** 屏5 区域卡的展示包装：AI 理由与通勤为生成结果，不属内置库契约 */
+/** 屏5 区域卡的展示包装：AI 理由与角标为生成结果，不属内置库契约 */
 export interface AreaPick {
   area: Area;
   badgeLabel: string;
   aiRank: number;
   reason: string;
-  firstSpot: string;
-  dailyCommuteMin: number;
-  stayCount: number;
 }
 
 export class MockAreas {
@@ -87,28 +84,19 @@ export class MockAreas {
       area: area('a-gion', '祇园 · 东山', AreaGroup.CORE, AreaPriceTier.COMFORT, 75, 12),
       badgeLabel: 'AI 精选 1',
       aiRank: 1,
-      reason: '早上 7 点前能空着走进清水寺，避开旅行团',
-      firstSpot: '步行 12分钟',
-      dailyCommuteMin: 34,
-      stayCount: 9
+      reason: '早上 7 点前能空着走进清水寺，避开旅行团'
     },
     {
       area: area('a-kawaramachi', '河原町 · 三条', AreaGroup.COMMERCIAL, AreaPriceTier.COMFORT, 70, 10),
       badgeLabel: '商圈便利',
       aiRank: 2,
-      reason: '夜间餐饮选择极多，步行即达锦市场与鸭川沿岸',
-      firstSpot: '巴士 18分钟',
-      dailyCommuteMin: 42,
-      stayCount: 24
+      reason: '夜间餐饮选择极多，步行即达锦市场与鸭川沿岸'
     },
     {
       area: area('a-station', '京都站前', AreaGroup.METRO, AreaPriceTier.ECONOMY, 55, 1),
       badgeLabel: '交通枢纽',
       aiRank: 3,
-      reason: '行李寄存与往返机场最省事，适合早班车出发日',
-      firstSpot: '巴士 22分钟',
-      dailyCommuteMin: 48,
-      stayCount: 15
+      reason: '行李寄存与往返机场最省事，适合早班车出发日'
     }
   ];
 }
