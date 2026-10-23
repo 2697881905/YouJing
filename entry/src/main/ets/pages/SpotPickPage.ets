@@ -202,19 +202,13 @@ export struct SpotPickPage {
               .fontWeight(450)
               .fontColor(ColorTokens.body)
               .fontFeature("'tnum' on")
-            Row() {
-              Row()
-                .height(4)
-                .layoutWeight(Math.max(1, this.priorities.length * 100 / Math.max(1, this.days * 4)))
-                .borderRadius(RadiusTokens.pill)
-                .backgroundColor(ColorTokens.primary)
-              Row()
-                .height(4)
-                .layoutWeight(Math.max(1, 100 - this.priorities.length * 100 / Math.max(1, this.days * 4)))
-                .borderRadius(RadiusTokens.pill)
-                .backgroundColor(ColorTokens.surfaceSunken)
-            }
-            .width('100%')
+            Progress({
+              value: Math.round(this.priorities.length * 100 / Math.max(1, this.days * 4)),
+              total: 100,
+              type: ProgressType.Linear
+            })
+              .color(ColorTokens.primary)
+              .width('100%')
           }
           .justifyContent(FlexAlign.Center)
           .alignItems(HorizontalAlign.Start)

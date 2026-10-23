@@ -26,6 +26,12 @@
   新增种子版本闸门 `v2-geo-2`：已装机不必清数据，冷启动按 id upsert 回填，真机日志
   「北京 灌入 spots=32 areas=36 …」四城重跑。GCJ02 位移自检：中位 573m、区间 457–633m。
 
+- 按钮与进度条交回官方控件（2026-10-24，真机验收）：`YoujingButton` 内部由「Row + 自绘
+  背景/圆角/描边 + onTouch 手抄按压态」改成官方 `Button`（`ButtonType.Capsule/Normal` +
+  `ButtonStyleMode` 三档，按压态与深色色板归系统），14 处调用点签名不变；
+  屏3/屏5/屏11/屏12/屏15 六处「两条 Row + layoutWeight 拼的假进度条」换成官方
+  `Progress({type: ProgressType.Linear})`。真机实测屏12 进度条与屏5 主/次按钮均为官方样式。
+
 - 全 App 顶栏改官方 HDS 标题栏（2026-10-24，真机验收）：根 `Navigation` → `HdsNavigation`，
   13 个路由页 `NavDestination` → `HdsNavDestination` + `.titleBar(HdsChrome.bar(...))`，
   撤掉全部自绘标题 Row 与自绘返回钮（官方自带）；页内动作（分享 / 编辑 / 完成 / 推荐更多 / 全览）

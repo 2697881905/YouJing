@@ -230,19 +230,9 @@ export struct ExpensePage {
         .fontSize(TypeTokens.small.size)
         .fontColor(ColorTokens.ink)
         .width(40)
-      Row() {
-        Row()
-          .height(6)
-          .layoutWeight(Math.max(1, cat.pct))
-          .borderRadius(RadiusTokens.pill)
-          .backgroundColor(cat.color)
-        Row()
-          .height(6)
-          .layoutWeight(Math.max(1, 100 - cat.pct))
-          .borderRadius(RadiusTokens.pill)
-          .backgroundColor(ColorTokens.surfaceSunken)
-      }
-      .layoutWeight(1)
+      Progress({ value: cat.pct, total: 100, type: ProgressType.Linear })
+        .color(cat.color)
+        .layoutWeight(1)
 
       Text(yuan(cat.amount))
         .fontSize(TypeTokens.caption.size)

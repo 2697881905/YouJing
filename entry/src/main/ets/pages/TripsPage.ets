@@ -168,19 +168,9 @@ export struct TripsPage {
           .fontWeight(450)
           .fontColor(ColorTokens.body)
           .fontFeature("'tnum' on")
-        Row() {
-          Row()
-            .height(4)
-            .layoutWeight(Math.max(1, t.progress))
-            .borderRadius(RadiusTokens.pill)
-            .backgroundColor(ColorTokens.primary)
-          Row()
-            .height(4)
-            .layoutWeight(Math.max(1, 100 - t.progress))
-            .borderRadius(RadiusTokens.pill)
-            .backgroundColor(ColorTokens.surfaceSunken)
-        }
-        .width('100%')
+        Progress({ value: t.progress, total: 100, type: ProgressType.Linear })
+          .color(ColorTokens.primary)
+          .width('100%')
       }
       .alignItems(HorizontalAlign.Start)
       .width('100%')

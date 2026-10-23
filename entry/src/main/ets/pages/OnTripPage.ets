@@ -286,21 +286,10 @@ export struct OnTripPage {
                 .fontColor(ColorTokens.body)
                 .fontFeature("'tnum' on")
                 .margin({ top: 2 })
-              Row() {
-                Row()
-                  .height(4)
-                  .layoutWeight(this.progressPct())
-                  .borderRadius(RadiusTokens.pill)
-                  .backgroundColor(ColorTokens.primary)
-                if (this.progressPct() < 100) {
-                  Row()
-                    .height(4)
-                    .layoutWeight(Math.max(1, 100 - this.progressPct()))
-                    .borderRadius(RadiusTokens.pill)
-                    .backgroundColor(ColorTokens.surfaceSunken)
-                }
-              }
-              .width('100%')
+              Progress({ value: this.progressPct(), total: 100, type: ProgressType.Linear })
+                .color(ColorTokens.primary)
+                .width('100%')
+                .margin({ top: SpaceTokens.md })
               .margin({ top: SpaceTokens.md })
               if (this.current !== null && this.current.note !== undefined && this.current.note.length > 0) {
                 Text(this.current.note)

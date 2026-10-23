@@ -132,19 +132,9 @@ export struct GeneratingPage {
             .fontColor(ColorTokens.muted)
             .fontFeature("'tnum' on")
             .margin({ top: SpaceTokens.xs, bottom: SpaceTokens.md })
-          Row() {
-            Row()
-              .height(4)
-              .layoutWeight(Math.max(1, Math.round(this.progress * 100)))
-              .borderRadius(RadiusTokens.pill)
-              .backgroundColor(ColorTokens.primary)
-            Row()
-              .height(4)
-              .layoutWeight(Math.max(1, 100 - Math.round(this.progress * 100)))
-              .borderRadius(RadiusTokens.pill)
-              .backgroundColor(ColorTokens.hairline)
-          }
-          .width('100%')
+          Progress({ value: Math.round(this.progress * 100), total: 100, type: ProgressType.Linear })
+            .color(ColorTokens.primary)
+            .width('100%')
         }
         .alignItems(HorizontalAlign.Start)
         .width('100%')
