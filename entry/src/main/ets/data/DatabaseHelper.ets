@@ -13,7 +13,9 @@
  *   activity    活动节点（含 transport 三列与 reason；tripId+dayIndex 索引）
  *   meal        餐饮（tripId+dayIndex 索引）
  *   spot/area   内置资产库（city 索引；预约/溯源列展平）
- *   expense     手工记账（v3；trip_id+day_index 索引，同 trip 一样按 user_id 分区）
+ *   expense     手工记账（v3；trip_id+day_index 索引，同 trip 一样按 user_id 分区；
+ *               v4 起带 activity_id，可把一笔开销挂到具体节点）
+ *   checkin     节点打卡（v4；(trip_id,activity_id) 唯一，本机用户态不入 AI 契约）
  */
 
 import { relationalStore } from '@kit.ArkData';
@@ -24,7 +26,7 @@ import { AppError } from '../common/error/AppError';
 import { ErrorCode } from '../common/error/ErrorCode';
 
 const STORE_NAME: string = 'youjing.db';
-const DB_VERSION: number = 3;
+const DB_VERSION: number = 4;
 const TAG: string = 'Data.DatabaseHelper';
 
 const SQL_CREATE_TRIP: string = `CREATE TABLE IF NOT EXISTS trip (
@@ -76,6 +78,11 @@ const SQL_CREATE_EXPENSE: string = `CREATE TABLE IF NOT EXISTS expense (
   category TEXT NOT NULL, name TEXT NOT NULL, amount INTEGER NOT NULL,
   created_at INTEGER NOT NULL, user_id TEXT NOT NULL DEFAULT '${AccountConfig.GUEST_UID}')`;
 
+const SQL_CREATE_CHECKIN: string = `CREATE TABLE IF NOT EXISTS checkin (
+  trip_id TEXT NOT NULL, activity_id TEXT NOT NULL, checked_at INTEGER NOT NULL,
+  user_id TEXT NOT NULL DEFAULT '${AccountConfig.GUEST_UID}',
+  PRIMARY KEY (trip_id, activity_id))`;
+
 const SQL_INDEXES: string[] = [
   'CREATE INDEX IF NOT EXISTS idx_trip_day ON trip_day(trip_id)',
   'CREATE INDEX IF NOT EXISTS idx_activity_trip_day ON activity(trip_id, day_index)',
@@ -84,8 +91,12 @@ const SQL_INDEXES: string[] = [
   'CREATE INDEX IF NOT EXISTS idx_area_city ON area(city)',
   'CREATE INDEX IF NOT EXISTS idx_trip_user ON trip(user_id)',
   'CREATE INDEX IF NOT EXISTS idx_expense_trip_day ON expense(trip_id, day_index)',
-  'CREATE INDEX IF NOT EXISTS idx_expense_user ON expense(user_id)'
+  'CREATE INDEX IF NOT EXISTS idx_expense_user ON expense(user_id)',
+  'CREATE INDEX IF NOT EXISTS idx_checkin_user ON checkin(user_id)'
 ];
+
+/** v3 → v4：记账可挂到具体节点（屏15 行内金额取真值） */
+const SQL_V4_ADD_EXPENSE_ACTIVITY: string = 'ALTER TABLE expense ADD COLUMN activity_id TEXT';
 
 /** v1 → v2：行程按账号分区。历史本机数据 DEFAULT 即游客分区，无需回填 */
 const SQL_V2_ADD_TRIP_USER_ID: string =
@@ -159,12 +170,17 @@ export class DatabaseHelper {
         store.executeSql(SQL_CREATE_SPOT);
         store.executeSql(SQL_CREATE_AREA);
         store.executeSql(SQL_CREATE_EXPENSE);
+        store.executeSql(SQL_CREATE_CHECKIN);
       }
       if (oldVersion === 1) {
         store.executeSql(SQL_V2_ADD_TRIP_USER_ID);
       }
       if (oldVersion === 2) {
         store.executeSql(SQL_CREATE_EXPENSE);
+      }
+      if (oldVersion === 3) {
+        store.executeSql(SQL_CREATE_CHECKIN);
+        store.executeSql(SQL_V4_ADD_EXPENSE_ACTIVITY);
       }
       // 索引 DDL 全部 IF NOT EXISTS，逐级迁移后统一补齐
       for (const idx of SQL_INDEXES) {

@@ -19,6 +19,7 @@ export class ExpenseDao {
       const row: relationalStore.ValuesBucket = {
         trip_id: expense.tripId, day_index: expense.dayIndex, category: expense.category,
         name: expense.name, amount: expense.amount, created_at: expense.createdAt,
+        activity_id: expense.activityId === undefined ? null : expense.activityId,
         user_id: AccountStore.uid()
       };
       return store.insert('expense', row);
@@ -63,6 +64,23 @@ export class ExpenseDao {
         };
         return t;
       });
+  }
+
+  /** 按节点聚合开销，屏15 行内金额取这里（一次 SQL，不在页面里循环查） */
+  static sumGroupedByActivity(context: common.Context, tripId: string): Promise<Record<string, number>> {
+    return ExpenseDao.query(context,
+      'SELECT activity_id AS aid, SUM(amount) AS total FROM expense ' +
+        'WHERE trip_id = ? AND user_id = ? AND activity_id IS NOT NULL GROUP BY activity_id',
+      [tripId, AccountStore.uid()],
+      (rs: relationalStore.ResultSet): string[] => {
+        return [rs.getString(rs.getColumnIndex('aid')), `${rs.getLong(rs.getColumnIndex('total'))}`];
+      }).then((rows: string[][]): Record<string, number> => {
+      const out: Record<string, number> = {};
+      for (const pair of rows) {
+        out[pair[0]] = Number(pair[1]);
+      }
+      return out;
+    });
   }
 
   static async totalOfTrip(context: common.Context, tripId: string): Promise<number> {

@@ -24,6 +24,8 @@ export interface Expense {
   amount: number;
   /** 记账时刻（ms） */
   createdAt: number;
+  /** 挂在哪个行程节点上（屏15 行内金额用），可空 */
+  activityId?: string;
 }
 
 /** 分类聚合行（屏11 分类支出条） */
