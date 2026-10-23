@@ -14,7 +14,6 @@ import { SpaceTokens } from '../design/SpaceTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
 import { Activity, ActivityCategory, ActivityStatus, IntensityLevel, TripDay, Trip } from '../model/Trip';
-import { MockTrip } from '../mock/MockTrip';
 import { TripDao } from '../data/TripDao';
 import { AccessFlags, CalendarSync, SyncResult } from '../data/CalendarSync';
 import { Logger } from '../common/logger/Logger';
@@ -47,7 +46,8 @@ export struct ItineraryPage {
   @State private bookingCount: number = 0;
   @State private dayCount: number = 0;
   private trip: Trip | null = null;
-  @State private titleText: string = '京都 · 5天4晚';
+  // 中性占位：加载前不能报一个编造的目的地与天数
+  @State private titleText: string = '行程详情';
   @State private segments: SegmentedItem[] = [
     { label: 'Day 1' }, { label: 'Day 2' }, { label: 'Day 3' }
   ];
@@ -497,7 +497,7 @@ export struct ItineraryPage {
           }
           .alignItems(VerticalAlign.Center)
 
-          Text(`建议停留 ${this.durationText(act)} · ${act.address.replace('京都 ', '')}`)
+          Text(`建议停留 ${this.durationText(act)} · ${act.address}`)
             .fontSize(TypeTokens.caption.size)
             .fontWeight(450)
             .fontColor(ColorTokens.muted)
