@@ -254,8 +254,9 @@ export struct StayPickPage {
       Stack({ alignContent: Alignment.Bottom }) {
         Column() {
 
-          Scroll() {
-            Column() {
+          // 官方 List：地图面板一个 ListItem，三张候选卡各成一个 ListItem（卡间距在卡片自己身上）
+          List() {
+            ListItem() {
               // 候选片区地图：区域库有逐片坐标时上真实底图（三片是互斥选项，不连线），
               // 坐标缺失才退回 route-paper 图例——不拿城市质心假装位置
               Stack({ alignContent: Alignment.BottomStart }) {
@@ -312,16 +313,20 @@ export struct StayPickPage {
               .borderRadius(RadiusTokens.card)
               .clip(true)
               .margin({ bottom: SpaceTokens.md })
-
-              ForEach(this.picks, (pick: AreaPick) => {
-                this.areaCard(pick)
-              }, (pick: AreaPick): string => `card-${pick.area.id}-${pick.aiRank}-${this.selectedId === pick.area.id ? 'on' : 'off'}`)
             }
-            .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: 110 })
+
+            ForEach(this.picks, (pick: AreaPick) => {
+              ListItem() {
+                this.areaCard(pick)
+              }
+            }, (pick: AreaPick): string => `card-${pick.area.id}-${pick.aiRank}-${this.selectedId === pick.area.id ? 'on' : 'off'}`)
           }
           .layoutWeight(1)
           .scrollBar(BarState.Off)
-          .align(Alignment.Top)
+          .edgeEffect(EdgeEffect.Spring)
+          .cachedCount(4)
+          .alignListItem(ListItemAlign.Start)
+          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: 110 })
         }
         .width('100%')
         .height('100%')
