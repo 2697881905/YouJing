@@ -248,17 +248,14 @@ export struct ExpensePage {
 
   @Builder
   categoryChip(option: CategoryOption) {
-    Text(option.label)
+    // 官方胶囊 Button：选中走 EMPHASIZED、未选走 TEXTUAL（无自绘底色/描边）
+    Button(option.label)
       .fontSize(TypeTokens.small.size)
       .fontWeight(this.inputCategory === option.value ? 600 : 450)
-      .fontColor(this.inputCategory === option.value ? ColorTokens.primary : ColorTokens.body)
-      .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.xs, bottom: SpaceTokens.xs })
-      .borderRadius(RadiusTokens.pill)
-      .backgroundColor(this.inputCategory === option.value ? ColorTokens.primaryTint : ColorTokens.surfacePanel)
-      .border({
-        width: 1,
-        color: this.inputCategory === option.value ? ColorTokens.primary : ColorTokens.borderSubtle
-      })
+      .height(32)
+      .type(ButtonType.Capsule)
+      .buttonStyle(this.inputCategory === option.value ? ButtonStyleMode.EMPHASIZED : ButtonStyleMode.TEXTUAL)
+      .margin({ right: SpaceTokens.sm })
       .onClick(() => {
         this.inputCategory = option.value;
       })

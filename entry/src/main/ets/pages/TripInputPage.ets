@@ -17,6 +17,7 @@ import { DateUtils } from '../utils/DateUtils';
 import { BudgetConfig } from '../common/constants/BudgetConfig';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
+import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
 
 const CITIES: string[] = ['北京', '上海', '广州', '深圳', '京都（演示）'];
 
@@ -341,7 +342,9 @@ export struct TripInputPage {
       .bindSheet($$this.showCity, this.citySheet(), {
         height: 300,
         backgroundColor: ColorTokens.canvas,
-        showClose: true
+        showClose: true,
+        // 与其他三处弹层同档：半模态走 ULTRA_THICK 系统材质（材质不可用时回退上面的实色底）
+        systemMaterial: getSheetImmersiveMaterial()
       })
     }
     .titleBar(HdsChrome.bar({ mainTitle: '有径', subTitle: '设定出行基础参数' }))

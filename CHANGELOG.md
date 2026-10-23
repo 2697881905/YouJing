@@ -26,6 +26,11 @@
   新增种子版本闸门 `v2-geo-2`：已装机不必清数据，冷启动按 id upsert 回填，真机日志
   「北京 灌入 spots=32 areas=36 …」四城重跑。GCJ02 位移自检：中位 573m、区间 457–633m。
 
+- 弹层材质一致性与费用分类 chip（2026-10-24）：屏2 城市选择 `bindSheet` 补
+  `systemMaterial: getSheetImmersiveMaterial()`，与屏8 两处、屏9、屏11 同档（此前只有它漏掉，
+  同一 App 里两种弹层质感）；屏11 费用分类筛选 chip 由自绘胶囊（手挑 primaryTint/描边）
+  改官方 `Button` Capsule，选中 EMPHASIZED / 未选 TEXTUAL。
+
 - 选择类 chip 交回官方 Button（2026-10-24，真机验收）：屏2 同行人数（自绘 24vp 圆 +
   primaryTint 底 + 条件描边）→ 官方 `ButtonType.Circle` + `ButtonStyleMode` 选中档；
   地图页 Day 筛选 chip 与底部站点条（自绘胶囊 + 手挑背景色）→ 官方 `ButtonType.Capsule`
