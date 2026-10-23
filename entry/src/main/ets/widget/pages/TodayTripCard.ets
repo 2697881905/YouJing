@@ -9,7 +9,7 @@ let cardStorage: LocalStorage = new LocalStorage();
 interface CardRow {
   time: string;
   name: string;
-  dot: Resource;
+  color: string;
 }
 
 @Entry(cardStorage)
@@ -22,23 +22,46 @@ struct TodayTripCard {
   @LocalStorageProp('dimension') dimension: string = '2*2';
   @LocalStorageProp('r1t') r1t: string = '';
   @LocalStorageProp('r1n') r1n: string = '';
+  @LocalStorageProp('r1c') r1c: string = '';
   @LocalStorageProp('r2t') r2t: string = '';
   @LocalStorageProp('r2n') r2n: string = '';
+  @LocalStorageProp('r2c') r2c: string = '';
   @LocalStorageProp('r3t') r3t: string = '';
   @LocalStorageProp('r3n') r3n: string = '';
+  @LocalStorageProp('r3c') r3c: string = '';
   @LocalStorageProp('tripId') tripId: string = '';
-  private dots: Resource[] = [
-    $r('app.color.primary'), $r('app.color.bookmark'), $r('app.color.accent_mention')
-  ];
+
+  /**
+   * 色名 → 资源。名字由 CategoryStyle 按活动类别给（与屏8 时间线同一口径），
+   * 不再按行序取色——原来第 2 行永远是金色、第 3 行永远是紫色，
+   * 而底稿那三行是按「景点 / 餐饮 / 住宿」着色的。
+   * 这一步只能留在本地：$r() 只接受字面量，卡片的 Form UIContext 也拿不到 ColorTokens。
+   */
+  private dotColor(name: string): Resource {
+    if (name === 'bookmark') {
+      return $r('app.color.bookmark');
+    }
+    if (name === 'accent_mention') {
+      return $r('app.color.accent_mention');
+    }
+    if (name === 'icon') {
+      return $r('app.color.icon');
+    }
+    if (name === 'faint') {
+      return $r('app.color.faint');
+    }
+    return $r('app.color.primary');
+  }
 
   /** 逐格标量回灌（卡片数组 @LocalStorageProp 不刷新），空槽不占行 */
   private cardRows(): CardRow[] {
     const times: string[] = [this.r1t, this.r2t, this.r3t];
     const names: string[] = [this.r1n, this.r2n, this.r3n];
+    const colors: string[] = [this.r1c, this.r2c, this.r3c];
     const rows: CardRow[] = [];
     for (let i = 0; i < times.length; i++) {
       if (names[i].length > 0) {
-        const row: CardRow = { time: times[i], name: names[i], dot: this.dots[i] };
+        const row: CardRow = { time: times[i], name: names[i], color: colors[i] };
         rows.push(row);
       }
     }
@@ -87,7 +110,7 @@ struct TodayTripCard {
             Circle()
               .width(8)
               .height(8)
-              .fill(row.dot)
+              .fill(this.dotColor(row.color))
             Text(row.name)
               .fontSize(12)
               .fontWeight(450)
@@ -97,7 +120,7 @@ struct TodayTripCard {
               .layoutWeight(1)
           }
           .width('100%')
-        }, (row: CardRow): string => `w-${row.time}-${row.name}`)
+        }, (row: CardRow): string => `w-${row.time}-${row.name}-${row.color}`)
       }
       .width('100%')
       .margin({ top: 6 })

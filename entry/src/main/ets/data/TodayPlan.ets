@@ -10,11 +10,14 @@
  */
 
 import { Activity, ActivityStatus, Trip, TripDay } from '../model/Trip';
+import { CategoryStyle } from '../utils/CategoryStyle';
 import { DateUtils } from '../utils/DateUtils';
 
 export interface CardRowData {
   time: string;
   name: string;
+  /** 色点名（CategoryStyle），卡片按它取 $r，不再按行序给色 */
+  dot: string;
 }
 
 export interface TodayPlanData {
@@ -59,7 +62,9 @@ export class TodayPlan {
       ? upcoming.slice(0, MAX_ROWS)
       : day.activities.slice(0, MAX_ROWS);
     const rows: CardRowData[] = picked.map((a: Activity): CardRowData => {
-      const row: CardRowData = { time: a.time, name: a.title };
+      const row: CardRowData = {
+        time: a.time, name: a.title, dot: CategoryStyle.colorName(a.category)
+      };
       return row;
     });
     const bookings: Activity[] = day.activities.filter((a: Activity): boolean => pendingBooking(a));

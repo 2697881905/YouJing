@@ -19,7 +19,8 @@ export const DIM_KEY_2X4: string = '2*4';
 export function emptyCardData(dimension: string): Record<string, string> {
   const data: Record<string, string> = {
     'dayTitle': '今天没有行程安排', 'meta': '', 'footer': '生成行程后自动出现在这里',
-    'r1t': '', 'r1n': '', 'r2t': '', 'r2n': '', 'r3t': '', 'r3n': '', 'tripId': '',
+    'r1t': '', 'r1n': '', 'r1c': '', 'r2t': '', 'r2n': '', 'r2c': '', 'r3t': '', 'r3n': '', 'r3c': '',
+    'tripId': '',
     'dimension': dimension
   };
   return data;
@@ -30,10 +31,13 @@ export function toCardData(plan: TodayPlanData, dimension: string): Record<strin
     'dayTitle': plan.dayTitle, 'meta': plan.meta, 'footer': plan.footer,
     'r1t': plan.rows.length > 0 ? plan.rows[0].time : '',
     'r1n': plan.rows.length > 0 ? plan.rows[0].name : '',
+    'r1c': plan.rows.length > 0 ? plan.rows[0].dot : '',
     'r2t': plan.rows.length > 1 ? plan.rows[1].time : '',
     'r2n': plan.rows.length > 1 ? plan.rows[1].name : '',
+    'r2c': plan.rows.length > 1 ? plan.rows[1].dot : '',
     'r3t': plan.rows.length > 2 ? plan.rows[2].time : '',
     'r3n': plan.rows.length > 2 ? plan.rows[2].name : '',
+    'r3c': plan.rows.length > 2 ? plan.rows[2].dot : '',
     'tripId': plan.tripId,
     'dimension': dimension
   };

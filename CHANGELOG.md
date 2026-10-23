@@ -6,6 +6,18 @@
 
 ### Fixed
 
+- 屏13 桌面卡片的色点是按行序给的，不是按类别（2026-10-24，真机像素比对 + 49/49 用例）：
+  `TodayTripCard` 里写的是 `dots = [primary, bookmark, accent_mention]` 按第几行取色，
+  而底稿帧的图例明写这三行分别是「景点 #0066CC / 餐饮 #9A6206 / 住宿 #5856D6」——
+  色跟着**活动类别**走。结果是三个景点会被画成蓝、金、紫三色，真机上八达岭长城（景点）
+  那颗点就是金色的。
+  现在 `CardRowData` 带上 `dot` 色名，由新的 `utils/CategoryStyle` 统一回答
+  「这类该用哪个色」（屏8 时间线的 `dotColor` 已改为委托它，两处不再各写一份 if 链），
+  卡片经 `r1c/r2c/r3c` 拿到色名后映射成 `$r`（这一步合并不了：`$r()` 只吃字面量，
+  卡片的 Form UIContext 也拿不到 `ColorTokens`）。
+  真机前后各截一帧做差：卡片区域变化 517 px，就是那颗点
+  从 `(249,217,74)`（dark bookmark）变成 `(59,130,247)`（dark primary）。
+  新增 `row_dot_follows_category_not_position` 用例，真机全量回归 49/49（原 48/48）。
 - 屏13 卡片把算好的一行丢了（2026-10-24，真机桌面卡片验收）：`TodayPlan` 按注释口径算出
   `meta = 还剩 N 站 · 共 M 站`，`TodayCard.toCardData` 也把它推进了 form storage，
   但 `TodayTripCard.build()` 从没渲染这个 `@LocalStorageProp` —— 一条算了、存了、推了却

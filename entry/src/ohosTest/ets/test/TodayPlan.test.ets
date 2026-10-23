@@ -14,6 +14,12 @@ function act(id: string, time: string, title: string, status: ActivityStatus): A
   return a;
 }
 
+function actCat(id: string, time: string, title: string, cat: ActivityCategory): Activity {
+  const a: Activity = { id, time, endTime: time, title, location: 'L', address: 'A',
+    longitude: 0, latitude: 0, status: ActivityStatus.NO_NEED, category: cat };
+  return a;
+}
+
 function day(idx: number, date: string, acts: Activity[]): TripDay {
   const d: TripDay = { dayIndex: idx, date, theme: `主题${idx}`, intensity: IntensityLevel.MEDIUM,
     dailyCost: 0, activities: acts, meals: [] };
@@ -59,6 +65,23 @@ export default function todayPlanTest(): void {
         act('a4', '17:00', 'E', ActivityStatus.NO_NEED)], '08:30');
       expect(p === null ? 0 : p.rows.length).assertEqual(3);
       expect(p === null ? '' : p.rows[2].time).assertEqual('13:00');
+    });
+
+    it('row_dot_follows_category_not_position', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+      // 底稿屏13 那三行是按「景点 / 餐饮 / 住宿」着色的，实现原来按行序给色：
+      // 第 2 行永远金色、第 3 行永远紫色，三个景点会被画成三种颜色
+      const p: TodayPlanData | null = planOf([
+        actCat('a', '09:00', '故宫', ActivityCategory.SIGHT),
+        actCat('b', '12:30', '老通城', ActivityCategory.FOOD),
+        actCat('c', '18:00', '住宿片区', ActivityCategory.HOTEL)], '08:00');
+      expect(p === null ? 0 : p.rows.length).assertEqual(3);
+      expect(p === null ? '' : p.rows[0].dot).assertEqual('primary');
+      expect(p === null ? '' : p.rows[1].dot).assertEqual('bookmark');
+      expect(p === null ? '' : p.rows[2].dot).assertEqual('accent_mention');
+      const all: TodayPlanData | null = planOf([
+        actCat('a', '09:00', '故宫', ActivityCategory.SIGHT),
+        actCat('b', '11:00', '天坛', ActivityCategory.SIGHT)], '08:00');
+      expect(all === null ? '' : all.rows[1].dot).assertEqual('primary');
     });
 
     it('rows_fallback_when_fewer_upcoming', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {

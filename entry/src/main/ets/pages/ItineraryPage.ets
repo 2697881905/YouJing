@@ -19,6 +19,7 @@ import { ShareExporter } from '../data/ShareExporter';
 import { WidgetSync } from '../widget/TodayCard';
 import { MapStop, MapStops } from '../utils/MapStops';
 import { IcsBuilder } from '../utils/IcsBuilder';
+import { CategoryStyle } from '../utils/CategoryStyle';
 import { TripMapView } from '../components/TripMapView';
 import { AccessFlags, CalendarSync, SyncResult } from '../data/CalendarSync';
 import { Logger } from '../common/logger/Logger';
@@ -440,17 +441,19 @@ export struct ItineraryPage {
     return this.days[Math.min(this.dayIndex, this.days.length - 1)];
   }
 
+  /** 类别 → 色名由 CategoryStyle 统一（屏13 桌面卡片同一口径），这里只做色名 → token */
   private dotColor(cat: ActivityCategory): Resource {
-    if (cat === ActivityCategory.FOOD) {
+    const name: string = CategoryStyle.colorName(cat);
+    if (name === CategoryStyle.BOOKMARK) {
       return ColorTokens.bookmark;
     }
-    if (cat === ActivityCategory.HOTEL) {
+    if (name === CategoryStyle.ACCENT_MENTION) {
       return ColorTokens.accentMention;
     }
-    if (cat === ActivityCategory.TRANSPORT) {
+    if (name === CategoryStyle.ICON) {
       return ColorTokens.icon;
     }
-    if (cat === ActivityCategory.REST) {
+    if (name === CategoryStyle.FAINT) {
       return ColorTokens.faint;
     }
     return ColorTokens.primary;
