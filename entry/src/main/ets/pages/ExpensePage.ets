@@ -18,8 +18,9 @@ import { SpaceTokens } from '../design/SpaceTokens';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { ImmersiveSegmentBar, SegmentedItem } from '../components/ImmersiveSegmentBar';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
+import { FloatingDock } from '../components/FloatingDock';
 import { ExpenseDao } from '../data/ExpenseDao';
-import { TripDao } from '../data/TripDao';
+import { TripDao, TripSummary } from '../data/TripDao';
 import { CategoryTotal, Expense, ExpenseCategory } from '../model/Expense';
 import { Trip } from '../model/Trip';
 import { DateUtils } from '../utils/DateUtils';
@@ -118,7 +119,18 @@ export struct ExpensePage {
 
   private reload(): void {
     if (this.tripId.length === 0) {
-      Logger.warn('Ui.Expense', '无 tripId，费用页保持空态');
+      // 从 dock 的「费用」tab 进来时没有行程上下文：退到最近一条行程，
+      // 而不是给出一页 ¥0 的死数据
+      TripDao.listSummaries(this.ctx()).then((rows: TripSummary[]): void => {
+        if (rows.length === 0) {
+          Logger.info('Ui.Expense', '本机还没有行程，费用页保持空态');
+          return;
+        }
+        this.tripId = rows[0].id;
+        this.reload();
+      }).catch((err: Error) => {
+        Logger.warn('Ui.Expense', `取最近行程失败: ${err.message}`);
+      });
       return;
     }
     const context: common.Context = this.ctx();
@@ -331,6 +343,7 @@ export struct ExpensePage {
 
   build() {
     NavDestination() {
+      Stack({ alignContent: Alignment.Bottom }) {
       Column() {
         Row() {
           Text('费用')
@@ -519,6 +532,10 @@ export struct ExpensePage {
         showClose: true,
         systemMaterial: getSheetImmersiveMaterial()
       })
+      FloatingDock({ activeIndex: 2, tripId: this.tripId })
+    }
+    .width('100%')
+    .height('100%')
     }
     .hideTitleBar(true)
   }

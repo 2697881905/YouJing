@@ -15,6 +15,7 @@ import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
+import { FloatingDock } from '../components/FloatingDock';
 import { Activity, ActivityStatus, Trip, TripDay } from '../model/Trip';
 import { TripDao } from '../data/TripDao';
 import { CheckinDao } from '../data/CheckinDao';
@@ -262,6 +263,7 @@ export struct OnTripPage {
 
   build() {
     NavDestination() {
+      Stack({ alignContent: Alignment.Bottom }) {
       Column() {
         Row() {
           Text(this.dayLabel.length > 0 ? this.dayLabel : '旅行中')
@@ -450,6 +452,10 @@ export struct OnTripPage {
       .width('100%')
       .height('100%')
       .backgroundColor(ColorTokens.canvas)
+      FloatingDock({ activeIndex: 0, tripId: this.tripId })
+    }
+    .width('100%')
+    .height('100%')
     }
     .hideTitleBar(true)
     .onShown((): void => {

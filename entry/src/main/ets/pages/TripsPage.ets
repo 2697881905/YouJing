@@ -13,6 +13,7 @@ import { SpaceTokens } from '../design/SpaceTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
+import { FloatingDock } from '../components/FloatingDock';
 import { TripDao, TripSummary } from '../data/TripDao';
 import { PlanDraft } from '../data/PlanDraft';
 import { DateUtils } from '../utils/DateUtils';
@@ -197,6 +198,7 @@ export struct TripsPage {
 
   build() {
     NavDestination() {
+      Stack({ alignContent: Alignment.Bottom }) {
       Column() {
         Row() {
           Text('我的行程')
@@ -254,6 +256,10 @@ export struct TripsPage {
       .width('100%')
       .height('100%')
       .backgroundColor(ColorTokens.canvas)
+      FloatingDock({ activeIndex: 3, tripId: '' })
+    }
+    .width('100%')
+    .height('100%')
     }
     .hideTitleBar(true)
   }

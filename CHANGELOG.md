@@ -29,7 +29,12 @@
   - 阶段10 费用与导出：`expense` 表 v2→v3 迁移 + `ExpenseDao` 按 uid 分区，屏11 hero/分类/最近记账
     取记账真值并补底稿遗漏的「记一笔」Pill；`utils/IcsBuilder` 生成 RFC 5545 `.ics`（VALARM 提前提醒、
     字节折行、CRLF）+ `data/ShareExporter` 走系统分享面板；屏10 详情面板 mock 事实全部换成真值或 `—`
-  - 回归：hypium 31/31（含 TodayPlan 10 条纯逻辑断言）；RDB/账号/日历分片路径改真机验收
+  - 阶段10 浮动 dock 收口：屏8 的内联 dock 提为 `components/FloatingDock`（底稿 39 帧扫描确认
+    只有屏8/11/12/15 声明 `dock-item`，屏2–7 规划流与屏16 分享不挂），屏11/12/15 按帧补挂，
+    activeIndex 逐屏对表（屏8/15=行程、屏11=费用、屏12=我的）；
+    屏8 的 dock 壳同时承接屏14 触达面板的 `bindSheet`（一个节点只能挂一个，Stack 已被屏10 详情占用）；
+    屏11 无 tripId 直达时回落到最近一趟行程，不再显示空预算
+  - 回归：hypium 40/40（含 TodayPlan 10 条纯逻辑断言）；RDB/账号/日历分片路径改真机验收
     （原因见 `Docs/INIT_REPORT.md` 已知限制 #10）
 
 - 工程基线初始化（P1–P5，2026-10-15）：

@@ -22,12 +22,7 @@ import { ImmersiveSegmentBar, SegmentedItem } from '../components/ImmersiveSegme
 import { barMaterial, getSheetImmersiveMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
 import { uiMaterial } from '@kit.ArkUI';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
-
-interface DockItem {
-  symbol: Resource;
-  label: string;
-  route: string;
-}
+import { FloatingDock } from '../components/FloatingDock';
 
 const ROW_HEIGHT: number = 76;
 
@@ -53,12 +48,6 @@ export struct ItineraryPage {
   @State private titleText: string = '行程详情';
   @State private segments: SegmentedItem[] = [
     { label: 'Day 1' }, { label: 'Day 2' }, { label: 'Day 3' }
-  ];
-  private dockItems: DockItem[] = [
-    { symbol: $r('sys.symbol.calendar'), label: '行程', route: '' },
-    { symbol: $r('sys.symbol.map'), label: '地图', route: 'Map' },
-    { symbol: $r('sys.symbol.wallet'), label: '费用', route: 'Expense' },
-    { symbol: $r('sys.symbol.person'), label: '我的', route: 'Trips' }
   ];
 
   /** 编辑页返回后要吃回写的库数据，故加载挂在 onShown 而非 aboutToAppear */
@@ -100,21 +89,6 @@ export struct ItineraryPage {
     return acts.length > 0 ? acts[0] : undefined;
   }
 
-  private previewDayIndex(): number {
-    const target: Activity | undefined = this.previewTarget();
-    if (target === undefined) {
-      return 1;
-    }
-    for (const d of this.days) {
-      for (const a of d.activities) {
-        if (a.id === target.id) {
-          return d.dayIndex;
-        }
-      }
-    }
-    return this.curDay().dayIndex;
-  }
-
   private previewWhen(): string {
     const act: Activity | undefined = this.previewTarget();
     if (act === undefined) {
@@ -136,14 +110,14 @@ export struct ItineraryPage {
     return `地址 ${act.address.length > 0 ? act.address : act.location}`;
   }
 
+  /** 与 CalendarSync 实际写入的 description 对齐，预览不承诺没写的东西 */
   private previewNote(): string {
     const act: Activity | undefined = this.previewTarget();
     if (act === undefined) {
       return '';
     }
-    const leg: string = act.transport === undefined ? '步行到达'
-      : `${act.transport.mode} ${act.transport.duration}分钟`;
-    return `备注 行程第 ${this.previewDayIndex()} 天 · ${leg}`;
+    const desc: string = act.reason === undefined ? act.location : `${act.location} · ${act.reason}`;
+    return `备注 ${desc}`;
   }
 
   /** 同意并写入：先申请权限，未授权不写任何数据；开关状态落 preferences */
@@ -583,7 +557,7 @@ export struct ItineraryPage {
           .borderRadius(RadiusTokens.pill)
           .backgroundColor(active ? ColorTokens.primary : ColorTokens.canvas)
           .border({ width: 2, color: active ? ColorTokens.primary : ColorTokens.ink })
-        if (!active) {
+        if (!active && idx >= 1 && idx <= this.detailList().length) {
           Text(`${idx}`)
             .fontSize(TypeTokens.caption.size)
             .fontWeight(600)
@@ -996,37 +970,11 @@ export struct ItineraryPage {
         .width('100%')
         .height('100%')
 
-        // 浮动 dock（玻璃点位③：骨架期实色 + floating 阴影，深色零阴影）
-        Row() {
-          ForEach(this.dockItems, (item: DockItem, idx: number) => {
-            Column({ space: 2 }) {
-              SymbolGlyph(item.symbol)
-                .fontSize(22)
-                .fontColor([idx === 0 ? ColorTokens.primary : ColorTokens.muted])
-              Text(item.label)
-                .fontSize(TypeTokens.overline.size)
-                .fontWeight(idx === 0 ? 600 : 400)
-                .fontColor(idx === 0 ? ColorTokens.primary : ColorTokens.muted)
-            }
-            .width(LayoutTokens.tabItemWidth)
-            .height(LayoutTokens.tabItemHeight)
-            .justifyContent(FlexAlign.Center)
-            .onClick(() => {
-              if (item.route.length > 0) {
-                this.pathStack.pushPath({ name: item.route, param: this.tripId });
-              }
-            })
-          }, (item: DockItem): string => `dock-${item.label}`)
+        // 浮动 dock（玻璃点位③，共享组件；屏14 触达面板挂在这层壳上，
+        // 因为一个节点只能挂一个 bindSheet，Stack 自己已经绑了屏10 详情面板）
+        Column() {
+          FloatingDock({ activeIndex: 0, tripId: this.tripId })
         }
-        .width(LayoutTokens.floatingDockWidth)
-        .height(LayoutTokens.tabBarHeight)
-        .justifyContent(FlexAlign.SpaceEvenly)
-        .borderRadius(RadiusTokens.dock)
-        .attributeModifier(barMaterial(uiMaterial.ImmersiveStyle.THIN, true, this.glassOn && !this.isDark))
-        .backgroundColor(this.glassOn && !this.isDark ? Color.Transparent : ColorTokens.surfaceElevated)
-        .border({ width: 1, color: ColorTokens.borderSubtle, radius: RadiusTokens.dock })
-        .shadow(this.glassOn && !this.isDark || this.isDark ? { radius: 0 } : ShadowTokens.floating)
-        .margin({ bottom: LayoutTokens.floatingDockBottomMargin })
         .bindSheet($$this.showSystemAccess, this.systemAccessSheet(), {
           height: SheetSize.FIT_CONTENT,
           backgroundColor: ColorTokens.canvas,
