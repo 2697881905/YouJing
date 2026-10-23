@@ -20,6 +20,7 @@ import { DateUtils } from '../utils/DateUtils';
 import { common } from '@kit.AbilityKit';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
+import { Logger } from '../common/logger/Logger';
 
 interface TripCardData {
   id: string;
@@ -42,10 +43,14 @@ export struct TripsPage {
   private pathStack: NavPathStack = APP_NAV;
   @StorageProp('isDarkMode') isDark: boolean = false;
   @State private trips: TripCardData[] = [];
+  /** 官方 Search 的关键词：目的地或日期串命中即保留 */
+  @State private keyword: string = '';
+  @State private refreshing: boolean = false;
 
-  aboutToAppear(): void {
+  /** 列表数据只从 RDB 取，刷新动作与首启共用一条路径（Refresh 需要 Promise 收尾） */
+  private reload(): Promise<void> {
     const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
-    TripDao.listSummaries(ctx).then((rows: TripSummary[]) => {
+    return TripDao.listSummaries(ctx).then((rows: TripSummary[]) => {
       const list: TripCardData[] = [];
       for (const r of rows) {
         const span: number = DateUtils.spanDays(r.startDate, r.endDate);
@@ -72,6 +77,20 @@ export struct TripsPage {
       }
       this.trips = list;
     });
+  }
+
+  aboutToAppear(): void {
+    this.reload().catch((err: Error) => {
+      Logger.error('Ui.Trips', `行程列表加载失败: ${err.message}`);
+    });
+  }
+
+  private visibleTrips(): TripCardData[] {
+    const k: string = this.keyword.trim();
+    if (k.length === 0) {
+      return this.trips;
+    }
+    return this.trips.filter((t: TripCardData): boolean => t.place.includes(k) || t.dateMeta.includes(k));
   }
 
   @Builder
@@ -182,7 +201,6 @@ export struct TripsPage {
     .borderRadius(RadiusTokens.card)
     .backgroundColor(ColorTokens.canvas)
     .shadow(this.isDark ? { radius: 0 } : ShadowTokens.card)
-    .margin({ bottom: SpaceTokens.md })
     .onClick(() => {
       this.pathStack.pushPath({ name: t.onTrip ? 'OnTrip' : 'Itinerary', param: t.id });
     })
@@ -192,6 +210,12 @@ export struct TripsPage {
     HdsNavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
       Column() {
+        // 官方 Search：目的地或日期关键词过滤（此前右上角放大镜是个没有动作的死控件）
+        Search({ value: this.keyword, placeholder: '搜索目的地或日期' })
+          .onChange((v: string): void => {
+            this.keyword = v;
+          })
+          .margin({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.sm })
 
         if (this.trips.length === 0) {
           Column({ space: SpaceTokens.md }) {
@@ -219,28 +243,50 @@ export struct TripsPage {
           .layoutWeight(1)
           .justifyContent(FlexAlign.Center)
         } else {
-          Scroll() {
-            Column() {
-              ForEach(this.trips, (t: TripCardData) => {
-                this.tripCard(t)
-              }, (t: TripCardData): string => t.id)
+          // 官方 Refresh + List：下拉重读 RDB，列表项走 ListItem（原来是 Scroll+Column 手排）
+          Refresh({ refreshing: $$this.refreshing }) {
+            List({ space: 12 }) {
+              ForEach(this.visibleTrips(), (t: TripCardData) => {
+                ListItem() {
+                  this.tripCard(t)
+                }
+              }, (t: TripCardData): string => `trip-${t.id}-${t.statusLine}-${t.progress}`)
+              if (this.visibleTrips().length === 0) {
+                ListItem() {
+                  Text(`没有匹配「${this.keyword}」的行程`)
+                    .fontSize(TypeTokens.small.size)
+                    .fontColor(ColorTokens.muted)
+                    .width('100%')
+                    .textAlign(TextAlign.Center)
+                    .padding({ top: SpaceTokens.xl, bottom: SpaceTokens.xl })
+                }
+              }
             }
+            .scrollBar(BarState.Off)
+            .edgeEffect(EdgeEffect.Spring)
+            .cachedCount(4)
             .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.bottomScrollReserve })
           }
-          .layoutWeight(1)
-          .scrollBar(BarState.Off)
-          .align(Alignment.Top)
+          .onRefreshing((): void => {
+            this.reload().then((): void => {
+              this.refreshing = false;
+            }).catch((err: Error): void => {
+              Logger.error('Ui.Trips', `下拉刷新失败: ${err.message}`);
+              this.refreshing = false;
+            });
+          })
         }
       }
       .width('100%')
       .height('100%')
+      .layoutWeight(1)
       .backgroundColor(ColorTokens.canvas)
       FloatingDock({ activeIndex: 3, tripId: '' })
     }
     .width('100%')
     .height('100%')
     }
-    .titleBar(HdsChrome.bar({ mainTitle: '我的行程' }))
+    .titleBar(HdsChrome.bar({ mainTitle: '我的行程', subTitle: this.trips.length > 0 ? `${this.trips.length} 条` : '' }))
     .titleMode(HdsNavDestinationTitleMode.MINI)
   }
 }

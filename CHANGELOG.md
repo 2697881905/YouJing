@@ -26,6 +26,11 @@
   新增种子版本闸门 `v2-geo-2`：已装机不必清数据，冷启动按 id upsert 回填，真机日志
   「北京 灌入 spots=32 areas=36 …」四城重跑。GCJ02 位移自检：中位 573m、区间 457–633m。
 
+- 屏12 我的行程补真交互并迁官方列表（2026-10-24，真机验收）：右上角放大镜原来是个没有动作的
+  死控件，改官方 `Search`（目的地/日期关键词过滤，实测 9 条 → 输入「北京」剩 2 条）；
+  列表由 `Scroll + Column + ForEach` 迁到官方 `Refresh + List/ListItem`（下拉重读 RDB、
+  `space` 统一卡距、`edgeEffect.Spring`、`cachedCount`）；标题栏副标题给真条数「N 条」。
+
 - 弹层材质一致性与费用分类 chip（2026-10-24）：屏2 城市选择 `bindSheet` 补
   `systemMaterial: getSheetImmersiveMaterial()`，与屏8 两处、屏9、屏11 同档（此前只有它漏掉，
   同一 App 里两种弹层质感）；屏11 费用分类筛选 chip 由自绘胶囊（手挑 primaryTint/描边）
