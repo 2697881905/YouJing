@@ -226,11 +226,10 @@ export struct ExpensePage {
   @Builder
   categoryRow(cat: CategorySpend) {
     Row({ space: SpaceTokens.sm }) {
-      Column()
+      Circle()
         .width(8)
         .height(8)
-        .borderRadius(RadiusTokens.pill)
-        .backgroundColor(cat.color)
+        .fill(cat.color)
       Text(cat.name)
         .fontSize(TypeTokens.small.size)
         .fontColor(ColorTokens.ink)

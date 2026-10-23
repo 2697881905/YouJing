@@ -488,17 +488,18 @@ export struct ItineraryPage {
   @Builder
   spineNode(cat: ActivityCategory) {
     Stack() {
-      Column()
-        .width(24)
-        .height(24)
-        .borderRadius(RadiusTokens.pill)
-        .backgroundColor(ColorTokens.canvas)
-        .border({ width: 2, color: ColorTokens.ink })
-      Column()
+      // 官方 Circle 形状件（与有据同一写法）：描边居中在 r=11 的圆上，
+      // 22 + strokeWidth 2 的外沿正好是原来 24 的占位
+      Circle()
+        .width(22)
+        .height(22)
+        .fill(ColorTokens.canvas)
+        .stroke(ColorTokens.ink)
+        .strokeWidth(2)
+      Circle()
         .width(10)
         .height(10)
-        .borderRadius(RadiusTokens.pill)
-        .backgroundColor(this.dotColor(cat))
+        .fill(this.dotColor(cat))
     }
     .width(24)
     .height(24)
@@ -691,12 +692,12 @@ export struct ItineraryPage {
   miniNode(idx: number, meta: string, name: string, active: boolean) {
     Column({ space: SpaceTokens.xs }) {
       Stack() {
-        Column()
-          .width(24)
-          .height(24)
-          .borderRadius(RadiusTokens.pill)
-          .backgroundColor(active ? ColorTokens.primary : ColorTokens.canvas)
-          .border({ width: 2, color: active ? ColorTokens.primary : ColorTokens.ink })
+        Circle()
+          .width(22)
+          .height(22)
+          .fill(active ? ColorTokens.primary : ColorTokens.canvas)
+          .stroke(active ? ColorTokens.primary : ColorTokens.ink)
+          .strokeWidth(2)
         if (!active && idx >= 1 && idx <= this.detailList().length) {
           Text(`${idx}`)
             .fontSize(TypeTokens.caption.size)

@@ -101,11 +101,10 @@ export struct GeneratingPage {
   skeletonRow() {
     Row({ space: SpaceTokens.sm }) {
       this.skeletonBlock(40, 14)
-      Column()
+      Circle()
         .width(24)
         .height(24)
-        .borderRadius(RadiusTokens.pill)
-        .backgroundColor(ColorTokens.skeletonBase)
+        .fill(ColorTokens.skeletonBase)
       Column({ space: SpaceTokens.xs }) {
         this.skeletonBlock('70%', 14)
         this.skeletonBlock('45%', 10)

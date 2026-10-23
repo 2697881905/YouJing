@@ -69,17 +69,16 @@ export struct YoujingStartPage {
   @Builder
   spineNode(dotColor: Resource) {
     Stack({ alignContent: Alignment.Center }) {
-      Column()
-        .width(24)
-        .height(24)
-        .borderRadius(RadiusTokens.pill)
-        .backgroundColor(ColorTokens.canvas)
-        .border({ width: 2, color: ColorTokens.ink })
-      Column()
+      Circle()
+        .width(22)
+        .height(22)
+        .fill(ColorTokens.canvas)
+        .stroke(ColorTokens.ink)
+        .strokeWidth(2)
+      Circle()
         .width(10)
         .height(10)
-        .borderRadius(RadiusTokens.pill)
-        .backgroundColor(dotColor)
+        .fill(dotColor)
     }
     .width(24)
     .height(24)

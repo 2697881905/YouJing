@@ -189,11 +189,10 @@ export struct StayPickPage {
   @Builder
   mapChip(pick: AreaPick) {
     Row({ space: 4 }) {
-      Column()
+      Circle()
         .width(6)
         .height(6)
-        .borderRadius(RadiusTokens.pill)
-        .backgroundColor(this.dotColor(pick.area.group))
+        .fill(this.dotColor(pick.area.group))
       Text(pick.area.name)
         .fontSize(TypeTokens.caption.size)
         .fontWeight(450)
