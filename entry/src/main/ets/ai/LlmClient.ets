@@ -16,7 +16,7 @@ import { buffer } from '@kit.ArkTS';
 import { LlmRequest, PromptBuilder } from './PromptBuilder';
 import { TripParser } from './TripParser';
 import { TripSchema } from './TripSchema';
-import { Trip, TripDay, Activity, Meal, MealType, ActivityCategory, ActivityStatus, IntensityLevel } from '../model/Trip';
+import { Trip, TripDay, Activity, Meal, MealType, ActivityCategory, ActivityStatus, IntensityLevel, TransportInfo } from '../model/Trip';
 import { PlanParams, SelectedSpot, TripBasicInput, PaceOption } from '../model/PlanParams';
 import { Spot } from '../model/Spot';
 import { Area } from '../model/Area';
@@ -82,7 +82,7 @@ export class MockLlmTransport implements LlmTransport {
           category: ActivityCategory.SIGHT,
           note: spot.booking.requiresBooking ? `预约：${spot.booking.bookingMethod ?? '官方渠道'}（以官方为准）` : undefined,
           reason: k === 0 ? '当日首站安排在最开阔时段，动线由近及远。' : undefined,
-          transport: k === 0 ? undefined : { mode: '步行', duration: 15, detail: '约 1km' }
+          transport: k === 0 ? undefined : MockLlmTransport.legMock(k)
         };
         acts.push(act);
         slot = end + 15;
@@ -142,6 +142,16 @@ export class MockLlmTransport implements LlmTransport {
     const h: number = Math.floor(mins / 60) % 24;
     const m: number = mins % 60;
     return `${`${h}`.padStart(2, '0')}:${`${m}`.padStart(2, '0')}`;
+  }
+
+  /** 离线 mock 的通勤段：轮换步行/地铁/打车，让屏8 图标与动线摘要这段渲染真被走到 */
+  private static legMock(k: number): TransportInfo {
+    const modes: string[] = ['步行', '地铁', '打车'];
+    const mode: string = modes[k % modes.length];
+    const minutes: number = mode === '步行' ? 15 : (mode === '地铁' ? 22 : 18);
+    const detail: string = mode === '步行' ? '约 1km' : (mode === '地铁' ? '2 站' : '约 6km');
+    const info: TransportInfo = { mode: mode, duration: minutes, detail: detail };
+    return info;
   }
 }
 

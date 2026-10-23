@@ -286,6 +286,52 @@ export struct ItineraryPage {
     return i >= 0 && i < list.length - 1 ? `下一站 ${list[i + 1].time}` : '当日最后';
   }
 
+  /** 通勤图标按模式取真图标（图标名已对本机 id_defined.json 核实），认不出的一律走步行 */
+  private transitSymbol(mode: string): Resource {
+    if (mode.indexOf('地铁') >= 0 || mode.indexOf('轨道') >= 0 || mode.indexOf('轻轨') >= 0) {
+      return $r('sys.symbol.subway');
+    }
+    if (mode.indexOf('公交') >= 0 || mode.indexOf('巴士') >= 0) {
+      return $r('sys.symbol.bus_fill');
+    }
+    if (mode.indexOf('打车') >= 0 || mode.indexOf('出租') >= 0 || mode.indexOf('网约') >= 0) {
+      return $r('sys.symbol.figure_and_taxi');
+    }
+    if (mode.indexOf('自驾') >= 0) {
+      return $r('sys.symbol.car');
+    }
+    if (mode.indexOf('骑行') >= 0 || mode.indexOf('单车') >= 0) {
+      return $r('sys.symbol.bicycle');
+    }
+    if (mode.indexOf('机场') >= 0 || mode.indexOf('航班') >= 0 || mode.indexOf('飞机') >= 0) {
+      return $r('sys.symbol.airplane');
+    }
+    return $r('sys.symbol.figure_walk');
+  }
+
+  /** 地图面板摘要：只报当日真实通勤段数与模式，底稿的「6.4km」无数据来源故不保留 */
+  private dayRouteSummary(): string {
+    const acts: Activity[] = this.curDay().activities;
+    const order: string[] = [];
+    const counts: Record<string, number> = {};
+    for (const a of acts) {
+      if (a.transport === undefined) {
+        continue;
+      }
+      const mode: string = a.transport.mode.length > 0 ? a.transport.mode : '步行';
+      if (counts[mode] === undefined) {
+        counts[mode] = 0;
+        order.push(mode);
+      }
+      counts[mode] = counts[mode] + 1;
+    }
+    if (order.length === 0) {
+      return '当日仅一站，无通勤';
+    }
+    const parts: string[] = order.map((m: string): string => `${m} ${counts[m]} 段`);
+    return parts.join(' · ');
+  }
+
   private curDay(): TripDay {
     if (this.days.length === 0) {
       const placeholder: TripDay = {
@@ -370,7 +416,7 @@ export struct ItineraryPage {
         .height(LayoutTokens.transitLegHeight)
         .border({ width: { left: 2 }, color: ColorTokens.separator, style: BorderStyle.Dashed })
       Row({ space: SpaceTokens.xs }) {
-        SymbolGlyph($r('sys.symbol.figure_walk'))
+        SymbolGlyph(this.transitSymbol(next.transport === undefined ? '' : next.transport.mode))
           .fontSize(14)
           .fontColor([ColorTokens.icon])
         Text(`${next.transport?.mode} ${next.transport?.duration}分钟 · ${next.transport?.detail}`)
@@ -884,7 +930,7 @@ export struct ItineraryPage {
                     angle: 180,
                     colors: [[ColorTokens.routeBgTop, 0], [ColorTokens.routeBgBottom, 1]]
                   })
-                Text('步行 6.4km · 打车 1 段')
+                Text(this.dayRouteSummary())
                   .fontSize(TypeTokens.caption.size)
                   .fontWeight(450)
                   .fontColor(ColorTokens.ink)

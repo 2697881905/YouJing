@@ -26,6 +26,10 @@ export interface TripSummary {
   people: number;
   totalCost: number;
   spotCount: number;
+  /** 需预约且尚未确认的节点数（not_booked/pending/full） */
+  bookingCount: number;
+  /** 有通勤记录的节点数（transport_mode 非空） */
+  legCount: number;
   updatedAt: number;
 }
 
@@ -79,7 +83,9 @@ export class TripDao {
   static listSummaries(context: common.Context): Promise<TripSummary[]> {
     return TripDao.query(context,
       'SELECT t.id, t.destination, t.start_date, t.end_date, t.people, t.total_cost, t.updated_at, ' +
-        '(SELECT COUNT(*) FROM activity a WHERE a.trip_id = t.id) AS spot_count ' +
+        '(SELECT COUNT(*) FROM activity a WHERE a.trip_id = t.id) AS spot_count, ' +
+        "(SELECT COUNT(*) FROM activity a WHERE a.trip_id = t.id AND a.status IN ('not_booked','pending','full')) AS booking_count, " +
+        '(SELECT COUNT(*) FROM activity a WHERE a.trip_id = t.id AND a.transport_mode IS NOT NULL) AS leg_count ' +
         'FROM trip t WHERE t.user_id = ? ORDER BY t.updated_at DESC', [AccountStore.uid()],
       (rs: relationalStore.ResultSet): TripSummary => {
         const s: TripSummary = {
@@ -90,6 +96,8 @@ export class TripDao {
           people: rs.getLong(rs.getColumnIndex('people')),
           totalCost: rs.getLong(rs.getColumnIndex('total_cost')),
           spotCount: rs.getLong(rs.getColumnIndex('spot_count')),
+          bookingCount: rs.getLong(rs.getColumnIndex('booking_count')),
+          legCount: rs.getLong(rs.getColumnIndex('leg_count')),
           updatedAt: rs.getLong(rs.getColumnIndex('updated_at'))
         };
         return s;

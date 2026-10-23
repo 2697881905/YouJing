@@ -14,6 +14,7 @@ import { LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { TripDao, TripSummary } from '../data/TripDao';
+import { DateUtils } from '../utils/DateUtils';
 import { common } from '@kit.AbilityKit';
 
 interface TripCardData {
@@ -43,14 +44,25 @@ export struct TripsPage {
     TripDao.listSummaries(ctx).then((rows: TripSummary[]) => {
       const list: TripCardData[] = [];
       for (const r of rows) {
+        const span: number = DateUtils.spanDays(r.startDate, r.endDate);
+        const today: string = DateUtils.todayIso();
+        // ISO 串可直接比大小；不能用 spanDays 的差值判在途——它含首尾且下限为 1，
+        // 会把「还没出发」的未来行程误判成旅行中
+        const onTrip: boolean = today >= r.startDate && today <= r.endDate;
+        let progress: number = 100;
+        if (today < r.startDate) {
+          progress = 0;
+        } else if (onTrip) {
+          progress = Math.min(100, Math.round((DateUtils.spanDays(r.startDate, today) / span) * 100));
+        }
         const t: TripCardData = {
           id: r.id, place: r.destination,
           dateMeta: `${r.startDate} – ${r.endDate} · ${r.people} 人`,
-          spots: `${r.spotCount}`, walk: '—', bookingNum: '—',
+          spots: `${r.spotCount}`, walk: `${r.legCount} 段`, bookingNum: `${r.bookingCount}`,
           bookingBadge: r.totalCost > 0 ? `¥${r.totalCost}` : '',
           badgeColor: ColorTokens.success,
-          statusLine: '已生成', progress: 100, mustIdx: -1,
-          onTrip: false, muted: false
+          statusLine: onTrip ? '旅行中' : '已生成', progress: progress, mustIdx: -1,
+          onTrip: onTrip, muted: false
         };
         list.push(t);
       }
@@ -141,7 +153,7 @@ export struct TripsPage {
 
       Row() {
         this.statCol(t.spots, '景点', '', ColorTokens.canvas, t.muted)
-        this.statCol(t.walk, '步行', '', ColorTokens.canvas, t.muted)
+        this.statCol(t.walk, '通勤', '', ColorTokens.canvas, t.muted)
         this.statCol(t.bookingNum, '需预约', t.bookingBadge, t.badgeColor, t.muted)
       }
       .width('100%')
