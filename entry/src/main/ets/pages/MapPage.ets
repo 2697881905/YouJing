@@ -27,6 +27,12 @@ import type { HdsNavigationMenuItemOptions, HdsNavigationTitleBarOptions } from 
 import { HdsChrome } from '../design/HdsChrome';
 
 const ALL_DAYS: number = -1;
+/**
+ * 全览留白（px，真机 1136×2690 上量的）：底图满屏，浮层不满屏。
+ * 上界 = 分段栏底 487 + 图钉头 ~110；下界 = 站点条顶 2101（2690-2101=589）。
+ */
+const FIT_TOP_PX: number = 600;
+const FIT_BOTTOM_PX: number = 600;
 
 @Component
 export struct MapPage {
@@ -55,7 +61,8 @@ export struct MapPage {
     return HdsChrome.bar({ mainTitle: this.titleText, subTitle: sub, menu: items });
   }
 
-  private reload(): void {    if (this.tripId.length === 0) {
+  private reload(): void {
+    if (this.tripId.length === 0) {
       this.loaded = true;
       return;
     }
@@ -160,6 +167,8 @@ export struct MapPage {
             stops: this.stops,
             signature: this.signature,
             request: this.request,
+            fitTopPx: FIT_TOP_PX,
+            fitBottomPx: FIT_BOTTOM_PX,
             onStopClick: (index: number): void => {
               this.focusStop(index);
             }

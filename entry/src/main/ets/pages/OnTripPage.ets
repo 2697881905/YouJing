@@ -227,6 +227,16 @@ export struct OnTripPage {
   }
 
   @Builder
+  groupHeader() {
+    Text('今日已打卡')
+      .fontSize(TypeTokens.overline.size)
+      .fontWeight(600)
+      .fontColor(ColorTokens.muted)
+      .width('100%')
+      .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.xs })
+  }
+
+  @Builder
   checkRow(row: CheckedRow) {
     Row() {
       Text(row.time)
@@ -266,165 +276,159 @@ export struct OnTripPage {
   build() {
     HdsNavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
-      Column() {
-
-        Scroll() {
+      // 官方 List：hero / 下一段 / 打卡分组各占一个 ListItem，分组头吸顶、行间交给 .divider()
+      List({ space: SpaceTokens.lg }) {
+        ListItem() {
           Column() {
-            Column() {
-              Text('当前节点')
-                .fontSize(TypeTokens.overline.size)
-                .fontWeight(600)
-                .fontColor(ColorTokens.muted)
-              Text(this.current === null ? '今日暂无安排' : this.current.title)
-                .fontSize(TypeTokens.title.size)
-                .fontWeight(700)
-                .fontColor(ColorTokens.ink)
-                .margin({ top: SpaceTokens.xs })
-              Text(this.heroMeta())
+            Text('当前节点')
+              .fontSize(TypeTokens.overline.size)
+              .fontWeight(600)
+              .fontColor(ColorTokens.muted)
+            Text(this.current === null ? '今日暂无安排' : this.current.title)
+              .fontSize(TypeTokens.title.size)
+              .fontWeight(700)
+              .fontColor(ColorTokens.ink)
+              .margin({ top: SpaceTokens.xs })
+            Text(this.heroMeta())
+              .fontSize(TypeTokens.caption.size)
+              .fontWeight(450)
+              .fontColor(ColorTokens.body)
+              .fontFeature("'tnum' on")
+              .margin({ top: 2 })
+            Progress({ value: this.progressPct(), total: 100, type: ProgressType.Linear })
+              .color(ColorTokens.primary)
+              .width('100%')
+              .margin({ top: SpaceTokens.md })
+            if (this.current !== null && this.current.note !== undefined && this.current.note.length > 0) {
+              Text(this.current.note)
                 .fontSize(TypeTokens.caption.size)
                 .fontWeight(450)
-                .fontColor(ColorTokens.body)
-                .fontFeature("'tnum' on")
-                .margin({ top: 2 })
-              Progress({ value: this.progressPct(), total: 100, type: ProgressType.Linear })
-                .color(ColorTokens.primary)
-                .width('100%')
-                .margin({ top: SpaceTokens.md })
-              .margin({ top: SpaceTokens.md })
-              if (this.current !== null && this.current.note !== undefined && this.current.note.length > 0) {
-                Text(this.current.note)
-                  .fontSize(TypeTokens.caption.size)
-                  .fontWeight(450)
-                  .fontColor(ColorTokens.warning)
-                  .margin({ top: SpaceTokens.sm })
-              }
-              Row({ space: SpaceTokens.md }) {
-                YoujingButton({
-                  variant: YoujingButtonVariant.SECONDARY,
-                  label: this.checkedIn ? '已打卡' : '完成打卡',
-                  buttonWidth: 140,
-                  onAction: (): void => {
-                    this.toggleCheckin();
-                  }
-                })
-                YoujingButton({
-                  variant: YoujingButtonVariant.PRIMARY,
-                  label: '记一笔费用',
-                  buttonWidth: 150,
-                  onAction: (): void => {
-                    this.pathStack.pushPath({ name: 'Expense', param: this.tripId });
-                  }
-                })
-              }
-              .margin({ top: SpaceTokens.lg })
-              Text('打卡与记账只存本机，不上传服务器')
-                .fontSize(TypeTokens.overline.size)
-                .fontWeight(450)
-                .fontColor(ColorTokens.faint)
+                .fontColor(ColorTokens.warning)
                 .margin({ top: SpaceTokens.sm })
             }
-            .alignItems(HorizontalAlign.Start)
-            .width('100%')
-            .padding(SpaceTokens.lg)
-            .borderRadius(RadiusTokens.hero)
-            .backgroundColor(ColorTokens.surfaceElevated)
-
-            // 下一段：真实通勤腿 + 下一节点
-            if (this.next !== null) {
-              Column() {
-                Row() {
-                  Column().width(52)
-                  Column()
-                    .width(2)
-                    .height(44)
-                    .border({ width: { left: 2 }, color: ColorTokens.separator, style: BorderStyle.Dashed })
-                  Row({ space: SpaceTokens.xs }) {
-                    SymbolGlyph($r('sys.symbol.car'))
-                      .fontSize(14)
-                      .fontColor([ColorTokens.icon])
-                    Text(this.nextLeg)
-                      .fontSize(TypeTokens.caption.size)
-                      .fontWeight(450)
-                      .fontColor(ColorTokens.muted)
-                      .fontFeature("'tnum' on")
-                  }
-                  .padding({ left: SpaceTokens.sm })
+            Row({ space: SpaceTokens.md }) {
+              YoujingButton({
+                variant: YoujingButtonVariant.SECONDARY,
+                label: this.checkedIn ? '已打卡' : '完成打卡',
+                buttonWidth: 140,
+                onAction: (): void => {
+                  this.toggleCheckin();
                 }
-                .height(44)
-                .alignItems(VerticalAlign.Center)
+              })
+              YoujingButton({
+                variant: YoujingButtonVariant.PRIMARY,
+                label: '记一笔费用',
+                buttonWidth: 150,
+                onAction: (): void => {
+                  this.pathStack.pushPath({ name: 'Expense', param: this.tripId });
+                }
+              })
+            }
+            .margin({ top: SpaceTokens.lg })
+            Text('打卡与记账只存本机，不上传服务器')
+              .fontSize(TypeTokens.overline.size)
+              .fontWeight(450)
+              .fontColor(ColorTokens.faint)
+              .margin({ top: SpaceTokens.sm })
+          }
+          .alignItems(HorizontalAlign.Start)
+          .width('100%')
+          .padding(SpaceTokens.lg)
+          .borderRadius(RadiusTokens.hero)
+          .backgroundColor(ColorTokens.surfaceElevated)
+        }
 
-                Row({ space: SpaceTokens.sm }) {
-                  Text(this.next === null ? '' : this.next.time)
-                    .fontSize(TypeTokens.time.size)
+        // 下一段：真实通勤腿 + 下一节点
+        if (this.next !== null) {
+          ListItem() {
+            Column() {
+              Row() {
+                Column().width(52)
+                Column()
+                  .width(2)
+                  .height(44)
+                  .border({ width: { left: 2 }, color: ColorTokens.separator, style: BorderStyle.Dashed })
+                Row({ space: SpaceTokens.xs }) {
+                  SymbolGlyph($r('sys.symbol.car'))
+                    .fontSize(14)
+                    .fontColor([ColorTokens.icon])
+                  Text(this.nextLeg)
+                    .fontSize(TypeTokens.caption.size)
+                    .fontWeight(450)
+                    .fontColor(ColorTokens.muted)
+                    .fontFeature("'tnum' on")
+                }
+                .padding({ left: SpaceTokens.sm })
+              }
+              .height(44)
+              .alignItems(VerticalAlign.Center)
+
+              Row({ space: SpaceTokens.sm }) {
+                Text(this.next === null ? '' : this.next.time)
+                  .fontSize(TypeTokens.time.size)
+                  .fontWeight(600)
+                  .fontColor(ColorTokens.ink)
+                  .fontFeature("'tnum' on")
+                  .width(52)
+                Row({ space: SpaceTokens.xs }) {
+                  Text(this.nextTitle())
+                    .fontSize(TypeTokens.small.size)
                     .fontWeight(600)
                     .fontColor(ColorTokens.ink)
-                    .fontFeature("'tnum' on")
-                    .width(52)
-                  Row({ space: SpaceTokens.xs }) {
-                    Text(this.nextTitle())
-                      .fontSize(TypeTokens.small.size)
+                  if (this.nextNeedsBooking()) {
+                    Text('需预约')
+                      .fontSize(TypeTokens.overline.size)
                       .fontWeight(600)
-                      .fontColor(ColorTokens.ink)
-                    if (this.nextNeedsBooking()) {
-                      Text('需预约')
-                        .fontSize(TypeTokens.overline.size)
-                        .fontWeight(600)
-                        .fontColor(ColorTokens.onPrimary)
-                        .height(18)
-                        .padding({ left: 6, right: 6 })
-                        .borderRadius(RadiusTokens.pill)
-                        .backgroundColor(ColorTokens.warning)
-                    }
+                      .fontColor(ColorTokens.onPrimary)
+                      .height(18)
+                      .padding({ left: 6, right: 6 })
+                      .borderRadius(RadiusTokens.pill)
+                      .backgroundColor(ColorTokens.warning)
                   }
-                  .layoutWeight(1)
                 }
-                .width('100%')
-                .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
-
-                Text(this.nextMeta())
-                  .fontSize(TypeTokens.caption.size)
-                  .fontWeight(450)
-                  .fontColor(ColorTokens.muted)
-                  .margin({ left: 60 })
-                  .alignSelf(ItemAlign.Start)
+                .layoutWeight(1)
               }
               .width('100%')
-              .margin({ top: SpaceTokens.lg })
-            }
+              .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
 
-            Column() {
-              Text('今日已打卡')
-                .fontSize(TypeTokens.overline.size)
-                .fontWeight(600)
+              Text(this.nextMeta())
+                .fontSize(TypeTokens.caption.size)
+                .fontWeight(450)
                 .fontColor(ColorTokens.muted)
+                .margin({ left: 60 })
                 .alignSelf(ItemAlign.Start)
-                .margin({ bottom: SpaceTokens.xs })
-              Column() {
-                if (this.rows.length === 0) {
-                  Text('还没有打卡节点')
-                    .fontSize(TypeTokens.caption.size)
-                    .fontColor(ColorTokens.muted)
-                    .width('100%')
-                    .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
-                }
-                ForEach(this.rows, (row: CheckedRow) => {
-                  this.checkRow(row)
-                }, (row: CheckedRow): string => `ck-${row.time}-${row.name}-${row.amount}`)
-              }
-              .width('100%')
-              .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-              .borderRadius(RadiusTokens.card)
-              .backgroundColor(ColorTokens.canvas)
             }
             .width('100%')
-            .margin({ top: SpaceTokens.xl })
           }
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.bottomScrollReserve })
         }
-        .layoutWeight(1)
-        .scrollBar(BarState.Off)
-        .align(Alignment.Top)
+
+        ListItemGroup({ header: this.groupHeader() }) {
+          if (this.rows.length === 0) {
+            ListItem() {
+              Text('还没有打卡节点')
+                .fontSize(TypeTokens.caption.size)
+                .fontColor(ColorTokens.muted)
+                .width('100%')
+                .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+            }
+          }
+          ForEach(this.rows, (row: CheckedRow) => {
+            ListItem() {
+              this.checkRow(row)
+            }
+          }, (row: CheckedRow): string => `ck-${row.time}-${row.name}-${row.amount}`)
+        }
+        .divider({ strokeWidth: LayoutTokens.hairlineWidth, color: ColorTokens.separator })
+        .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+        .backgroundColor(ColorTokens.canvas)
+        .borderRadius(RadiusTokens.card)
+        .clip(true)
       }
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
+      .sticky(StickyStyle.Header)
+      .cachedCount(6)
+      .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.bottomScrollReserve })
       .width('100%')
       .height('100%')
       .backgroundColor(ColorTokens.canvas)

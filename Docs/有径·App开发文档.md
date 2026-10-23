@@ -326,6 +326,15 @@ SelectedArea（用户选中的住宿区域）
   落 `seed/*.jsonl` 的 `la/lo`），否则整条动线会偏几百米。
 - `MapComponent` 的 `mapCallback` 只由组件挂载后才可能回调，所以「等 ready 再挂 MapComponent」
   会自锁成一张永久空图（首版真机踩过）；底图先挂，加载态与错误态做成覆盖层。
+- **组件拆除期会反手调你的事件回调**：`MapEventManager.off('markerClick', cb)` 在
+  `aboutToDisappear` 里用 `undefined` 把 `cb` 又调了一次，回调里 `marker.getTag()` 抛
+  `TypeError: Cannot read property getTag of undefined`，异常逃出 `aboutToDisappear`
+  就是 JS 崩溃、整个 App 被系统杀掉（真机实测：离开任一含底图的页面必死）。
+  口径：回调第一行判空 + 注销与覆盖物清理各包一层 try/catch；异步 `addMarker` 的
+  `.then` 回来时先确认组件还在（`controller !== null`），别碰已回收的底图对象。
+- `newLatLngBounds` 的留白单位是 px，且**按宿主量、不给全局常量**：底图是满屏的、浮层不是。
+  dock 地图页真机 1136×2690 上，分段栏底 487px、站点条顶 2101px → 上下各留 600px 才不压图钉；
+  屏8 那块 625px 高的小面板另有一档（260/150）。留白小了，首末站图钉会藏进浮层底下。
 
 ### 5.4 工程结构
 

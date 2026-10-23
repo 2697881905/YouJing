@@ -118,40 +118,47 @@ export struct PreferenceQAPage {
         .width('100%')
         .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
 
-        Scroll() {
-          Column() {
-            Text(this.questions[this.qIndex].title)
-              .fontSize(TypeTokens.title.size)
-              .fontWeight(700)
-              .fontFamily(TypeTokens.title.family)
-              .fontColor(ColorTokens.ink)
-              .margin({ top: SpaceTokens.xl, bottom: SpaceTokens.xs })
-            Text(this.questions[this.qIndex].helper === undefined ? '' : this.questions[this.qIndex].helper as string)
-              .fontSize(TypeTokens.small.size)
-              .fontColor(ColorTokens.body)
-              .margin({ bottom: SpaceTokens.xl })
-
-            Column({ space: LayoutTokens.questionOptionGap }) {
-              ForEach(this.questions[this.qIndex].options,
-                (opt: QuestionOption) => {
-                  OptionCard({
-                    label: opt.label,
-                    subline: opt.desc === undefined ? '' : opt.desc,
-                    selected: this.isSelected(this.questions[this.qIndex], opt.value, this.qIndex),
-                    onAction: (): void => {
-                      this.toggle(this.questions[this.qIndex], opt.value, this.qIndex);
-                    }
-                  })
-                }, (opt: QuestionOption): string =>
-                  `${this.questions[this.qIndex].id}-${opt.value}-${this.isSelected(this.questions[this.qIndex], opt.value, this.qIndex)}`)
+        // 官方 List：题干占一个 ListItem，每个选项一个 ListItem（不再 Scroll+Column 手排间距）
+        List({ space: LayoutTokens.questionOptionGap }) {
+          ListItem() {
+            Column() {
+              Text(this.questions[this.qIndex].title)
+                .fontSize(TypeTokens.title.size)
+                .fontWeight(700)
+                .fontFamily(TypeTokens.title.family)
+                .fontColor(ColorTokens.ink)
+                .margin({ top: SpaceTokens.xl, bottom: SpaceTokens.xs })
+              Text(this.questions[this.qIndex].helper === undefined ? '' : this.questions[this.qIndex].helper as string)
+                .fontSize(TypeTokens.small.size)
+                .fontColor(ColorTokens.body)
+                .margin({ bottom: SpaceTokens.lg })
             }
+            .alignItems(HorizontalAlign.Start)
+            .width('100%')
           }
-          .alignItems(HorizontalAlign.Start)
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.bottomScrollReserve })
+
+          ForEach(this.questions[this.qIndex].options,
+            (opt: QuestionOption) => {
+              ListItem() {
+                OptionCard({
+                  label: opt.label,
+                  subline: opt.desc === undefined ? '' : opt.desc,
+                  selected: this.isSelected(this.questions[this.qIndex], opt.value, this.qIndex),
+                  onAction: (): void => {
+                    this.toggle(this.questions[this.qIndex], opt.value, this.qIndex);
+                  }
+                })
+              }
+              .width('100%')
+            }, (opt: QuestionOption): string =>
+              `${this.questions[this.qIndex].id}-${opt.value}-${this.isSelected(this.questions[this.qIndex], opt.value, this.qIndex)}`)
         }
         .layoutWeight(1)
         .scrollBar(BarState.Off)
-        .align(Alignment.Top)
+        .edgeEffect(EdgeEffect.Spring)
+        .cachedCount(6)
+        .alignListItem(ListItemAlign.Start)
+        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.bottomScrollReserve })
 
         Row({ space: SpaceTokens.md }) {
           YoujingButton({

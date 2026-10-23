@@ -4,6 +4,33 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- 离开地图页会杀掉整个 App（2026-10-24，真机复现并验证修复）：`TripMapView.aboutToDisappear`
+  里 `events.off('markerClick', cb)` 被 Map Kit 反手用 `undefined` 调了一次回调，
+  `marker.getTag()` 抛 `TypeError` 逃出生命周期 → JS 崩溃、进程被系统回收。
+  真机栈：`TripMapView.ets:64 ← MapEventManager.ts:204 ← aboutToDisappear`，
+  现象是从屏8/dock 地图页返回桌面后 App 直接消失（hilog `Reason:TypeError` + JS_ERROR）。
+  修法三条：回调首行判空、注销与覆盖物清理各包 try/catch、异步 `addMarker` 回来先确认组件未拆。
+- 屏6 Day 分段栏停在 3 个占位（2026-10-24，真机验收）：`ImmersiveSegmentBar.items` 是数组 @Prop
+  但没有 @Watch，`options` 只在 `aboutToAppear` 建一次，异步加载后条目从占位 3 个变成真值 2 个
+  时界面不跟——北京 2天1晚 的行程顶栏写着「2天1晚」，下面却挂着 Day 1/2/3。
+  items 补 @Watch 重建，并在条目变少时把越界的 `selectedIndex` 收回 0。
+- dock 地图页全览把首末站藏进浮层（2026-10-24，真机验收）：`newLatLngBounds` 的留白单位是 px
+  且原为组件内常量（260/150，按屏8 那块 625px 高的小面板量的）。满屏底图的地图页沿用这档，
+  落点 1 压在分段栏下、落点 2 压在站点条下。留白改成宿主按真机浮层边界传参
+  （地图页上下各 600px：分段栏底 487、站点条顶 2101），小面板保持原档。
+- 屏6 空档日一片空白（2026-10-24，真机验收）：只选 2 个景点时引擎把两天都排不满，
+  Day 2 时间线零行且无任何说明，地图兜底文案还错报「当日仅一站」（该句只讲通勤段数）。
+  现在空档日给「这一天还没有安排节点」，摘要按 `activities.length === 0` 先判成「当日暂无安排」。
+
+### Changed
+
+- 屏3 与屏15 的正文迁到官方 `List`（2026-10-24，真机验收）：屏3 题干一个 ListItem、
+  每个选项一个 ListItem；屏15 hero / 下一段 / 今日已打卡各成一个 ListItem，
+  打卡区改 `ListItemGroup` + 吸顶分组头 + 官方 `.divider()`，不再手排间距。
+  顺带删掉屏15 进度条上一处重复的 `.margin({ top: md })`。
+
 ### Added
 
 - 真实地图三处落地（2026-10-24，真机验收）：AGC 开通地图服务并重出调试 Profile，

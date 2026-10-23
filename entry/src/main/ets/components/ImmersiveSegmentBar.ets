@@ -10,7 +10,9 @@
  *   轨道随身后内容转深时白标签才有对比，否则白字压白底。
  * - `selectedIndexes` 只接受整数数组，无连续/浮点索引入口 → 滑块不跟手逐帧位移，
  *   宿主把 Swiper onChange 落到 selectedIndex，切换动画由官方状态完成。
- * - options 是 @ObjectLink：只在 aboutToAppear 与影响样式的入参变化时重建，逐帧重建打断内部状态。
+ * - options 只在 aboutToAppear 与影响样式的入参变化时重建，逐帧重建打断内部状态。
+ *   items 也在这个集合里（异步加载后条目数会从占位变成真值），所以宿主必须传 @State
+ *   数组字段而不是 build 里的行内字面量——后者每次渲染都是新引用，等于逐帧重建。
  */
 
 import { ItemRestriction, SegmentButton, SegmentButtonOptions, SegmentButtonTextItem,
@@ -24,7 +26,7 @@ export interface SegmentedItem {
 
 @Component
 export struct ImmersiveSegmentBar {
-  @Prop items: SegmentedItem[] = [];
+  @Prop @Watch('rebuildOptions') items: SegmentedItem[] = [];
   @Link @Watch('syncIndexes') selectedIndex: number;
   // 每槽位宽度 vp：>0 时整栏按 items.length × 该值定宽（与按钮并排场景），0 = 撑满父容器
   @Prop itemWidth: number = 0;
@@ -50,6 +52,12 @@ export struct ImmersiveSegmentBar {
 
   private rebuildOptions(): void {
     this.barOptions = this.buildOptions();
+    if (this.selectedIndex >= this.items.length) {
+      // 条目变少（异步加载后从占位换成真值）时把越界索引收回来，@Link 回写会带动 indexes
+      this.selectedIndex = 0;
+    } else {
+      this.indexes = [this.selectedIndex];
+    }
   }
 
   private buildOptions(): SegmentButtonOptions {

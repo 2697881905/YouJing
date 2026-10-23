@@ -29,7 +29,8 @@ const LINE_DARK: number = 0xFF7DB8FF;
 const PIN_BRAND_LIGHT: string = '#FF0066CC';
 const PIN_BRAND_DARK: string = '#FF7DB8FF';
 // newLatLngBounds 的留白单位是 px（不是 vp）：图钉锚点在针尖、圆头往点上方伸一截，
-// 顶部要给足，否则紧凑面板里首末站的图钉头会被上边缘裁掉
+// 顶部要给足，否则紧凑面板里首末站的图钉头会被上边缘裁掉。
+// 下面两个是「屏8 那块 625px 高的小面板」实测值，满屏底图的宿主（dock 地图页）要自己传。
 const FIT_PAD_TOP: number = 260;
 const FIT_PAD_BOTTOM: number = 150;
 const FIT_PAD_SIDE: number = 120;
@@ -49,6 +50,12 @@ export struct TripMapView {
   @Prop @Watch('onRequest') request: string = '';
   /** 落点之间是否连线：行程要连，屏5 的三片候选是互斥选项、连起来就成了动线 */
   @Prop route: boolean = true;
+  /**
+   * 全览留白（px，与 newLatLngBounds 同单位）：由宿主按自己盖在底图上的浮层量出来传，
+   * 因为底图是满屏的、浮层不是。默认值按屏8 那块 625px 高的小面板量的，别当全局值用。
+   */
+  @Prop fitTopPx: number = FIT_PAD_TOP;
+  @Prop fitBottomPx: number = FIT_PAD_BOTTOM;
   /** 点落点时回调（MapStop.index，1 起），父组件据此同步列表高亮 */
   onStopClick?: (index: number) => void;
   @StorageProp('isDarkMode') @Watch('applyTheme') isDark: boolean = false;
@@ -60,7 +67,11 @@ export struct TripMapView {
   private lines: map.MapPolyline[] = [];
   private drawn: string = '';
   private options: mapCommon.MapOptions = TripMapView.initialOptions(BEIJING_LAT, BEIJING_LNG);
-  private onMarkerClick: Callback<map.Marker> = (marker: map.Marker): void => {
+  private onMarkerClick: Callback<map.Marker> = (marker: map.Marker | undefined): void => {
+    // MapKit 在组件拆除期会用 undefined 再回调一次；直接 getTag 抛 TypeError 会把整个进程带走
+    if (marker === undefined || marker === null) {
+      return;
+    }
     const idx: number = Number(`${marker.getTag()}`);
     if (this.onStopClick !== undefined && Number.isInteger(idx) && idx > 0) {
       this.onStopClick(idx);
@@ -104,11 +115,20 @@ export struct TripMapView {
   }
 
   aboutToDisappear(): void {
+    // 拆除期底图的原生侧已在回收：注销与清理覆盖物都可能抛异常，异常逃出这里就是 JS 崩溃、进程被杀
     if (this.events !== null) {
-      this.events.off('markerClick', this.onMarkerClick);
+      try {
+        this.events.off('markerClick', this.onMarkerClick);
+      } catch (err) {
+        Logger.warn(TAG, `注销 markerClick 异常: ${(err as BusinessError).message}`);
+      }
       this.events = null;
     }
-    this.clearOverlays();
+    try {
+      this.clearOverlays();
+    } catch (err) {
+      Logger.warn(TAG, `清理覆盖物异常: ${(err as BusinessError).message}`);
+    }
     this.controller = null;
   }
 
@@ -156,7 +176,7 @@ export struct TripMapView {
       northeast: { latitude: box.maxLat, longitude: box.maxLng }
     };
     const pad: mapCommon.Padding = {
-      left: FIT_PAD_SIDE, right: FIT_PAD_SIDE, top: FIT_PAD_TOP, bottom: FIT_PAD_BOTTOM
+      left: FIT_PAD_SIDE, right: FIT_PAD_SIDE, top: this.fitTopPx, bottom: this.fitBottomPx
     };
     return map.newLatLngBounds(bounds, pad);
   }
@@ -227,6 +247,11 @@ export struct TripMapView {
       return ctrl.addMarker(opts);
     });
     Promise.all(pending).then((markers: map.Marker[]): void => {
+      if (this.controller === null) {
+        // 落点是异步生成的，回来时组件可能已经拆掉，底图对象失效
+        Logger.warn(TAG, '底图已拆除，丢弃本次落点生成结果');
+        return;
+      }
       markers.forEach((marker: map.Marker, i: number): void => {
         marker.setTag(`${stops[i].index}`);
       });

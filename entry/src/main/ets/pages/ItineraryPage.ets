@@ -323,6 +323,9 @@ export struct ItineraryPage {
       }
       counts[mode] = counts[mode] + 1;
     }
+    if (acts.length === 0) {
+      return '当日暂无安排';
+    }
     if (order.length === 0) {
       return '当日仅一站，无通勤';
     }
@@ -970,6 +973,13 @@ export struct ItineraryPage {
               .margin({ top: SpaceTokens.md })
 
               Column() {
+                if (this.curDay().activities.length === 0) {
+                  Text('这一天还没有安排节点')
+                    .fontSize(TypeTokens.caption.size)
+                    .fontColor(ColorTokens.muted)
+                    .width('100%')
+                    .padding({ top: SpaceTokens.lg, bottom: SpaceTokens.sm })
+                }
                 ForEach(this.curDay().activities,
                   (act: Activity, idx: number) => {
                     this.stopRow(act, idx === this.curDay().activities.length - 1)
