@@ -68,20 +68,49 @@ export struct FloatingDock {
     this.pathStack.replacePath({ name: 'Trips' });
   }
 
+  /**
+   * 底稿 dock-glow（屏8/11/12/15 及其 dark 共 10 帧声明）：一团品牌蓝径向光，
+   * 只跟在选中项后面。三档色停（tint 0 → tint 0.35 → 同色相 alpha 0）沿用有据
+   * BottomTabBar.glowOverlay 的写法；外缘用 alpha 0 但保留蓝相，避免渐变往灰里褪。
+   * 帧自身两档尺寸不一致（按格 68×56 vs 氛围大光 180×180 / 140×140），
+   * 这里取按格档并限制在本格热区内，大光等待设计方定点（任务 #28）。
+   */
+  @Builder
+  glowLayer() {
+    Column()
+      .width(LayoutTokens.tabItemWidth)
+      .height(LayoutTokens.tabItemHeight)
+      .radialGradient({
+        center: [LayoutTokens.tabItemWidth / 2, LayoutTokens.tabItemHeight / 2],
+        radius: LayoutTokens.tabItemWidth / 2,
+        colors: [
+          [ColorTokens.primaryTint, 0.0],
+          [ColorTokens.primaryTint, 0.35],
+          [ColorTokens.primaryGlowEdge, 1.0]
+        ]
+      })
+      .hitTestBehavior(HitTestMode.None)
+  }
+
   build() {
     Row() {
       ForEach(ENTRIES, (item: DockEntry, idx: number) => {
         // 官方 Button（TEXTUAL 档）承载 tab 项：按压态、焦点与无障碍由系统给，
         // 原来是裸 Column + onClick，既没有按压反馈也不是可聚焦控件。
         Button() {
-          Column({ space: 2 }) {
-            SymbolGlyph(item.symbol)
-              .fontSize(IconSizes.control)
-              .fontColor([idx === this.activeIndex ? ColorTokens.primary : ColorTokens.muted])
-            Text(item.label)
-              .fontSize(TypeTokens.overline.size)
-              .fontWeight(idx === this.activeIndex ? 600 : 400)
-              .fontColor(idx === this.activeIndex ? ColorTokens.primary : ColorTokens.muted)
+          Stack() {
+            if (idx === this.activeIndex) {
+              this.glowLayer()
+            }
+            Column({ space: 2 }) {
+              SymbolGlyph(item.symbol)
+                .fontSize(IconSizes.control)
+                .fontColor([idx === this.activeIndex ? ColorTokens.primary : ColorTokens.muted])
+              Text(item.label)
+                .fontSize(TypeTokens.overline.size)
+                .fontWeight(idx === this.activeIndex ? 600 : 400)
+                .fontColor(idx === this.activeIndex ? ColorTokens.primary : ColorTokens.muted)
+            }
           }
         }
         .type(ButtonType.Circle)

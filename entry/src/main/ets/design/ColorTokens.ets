@@ -36,6 +36,8 @@ export interface ColorTokensType {
   primary: Resource;
   primaryPress: Resource;
   primaryTint: Resource;
+  /** dock 光晕外缘：alpha 0 但保留品牌蓝色相，避免渐变往灰里褪 */
+  primaryGlowEdge: Resource;
   onPrimary: Resource;
   accentMention: Resource;
   success: Resource;
@@ -89,6 +91,7 @@ export const ColorTokens: ColorTokensType = {
   primary: $r('app.color.primary'),
   primaryPress: $r('app.color.primary_press'),
   primaryTint: $r('app.color.primary_tint'),
+  primaryGlowEdge: $r('app.color.primary_glow_edge'),
   onPrimary: $r('app.color.on_primary'),
   accentMention: $r('app.color.accent_mention'),
   success: $r('app.color.success'),

@@ -18,6 +18,7 @@
     { "name": "primary", "value": "#FF0066CC" },
     { "name": "primary_press", "value": "#FF0055BB" },
     { "name": "primary_tint", "value": "#1A0066CC" },
+    { "name": "primary_glow_edge", "value": "#000066CC" },
     { "name": "on_primary", "value": "#FFFFFFFF" },
     { "name": "accent_mention", "value": "#FF5856D6" },
     { "name": "success", "value": "#FF1C7440" },
