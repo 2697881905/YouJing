@@ -26,6 +26,11 @@
   新增种子版本闸门 `v2-geo-2`：已装机不必清数据，冷启动按 id upsert 回填，真机日志
   「北京 灌入 spots=32 areas=36 …」四城重跑。GCJ02 位移自检：中位 573m、区间 457–633m。
 
+- 选择类 chip 交回官方 Button（2026-10-24，真机验收）：屏2 同行人数（自绘 24vp 圆 +
+  primaryTint 底 + 条件描边）→ 官方 `ButtonType.Circle` + `ButtonStyleMode` 选中档；
+  地图页 Day 筛选 chip 与底部站点条（自绘胶囊 + 手挑背景色）→ 官方 `ButtonType.Capsule`
+  /`Normal` + `buttonStyle`，选中态不再手抄色板，深色模式由系统色板接管。
+
 - 按钮与进度条交回官方控件（2026-10-24，真机验收）：`YoujingButton` 内部由「Row + 自绘
   背景/圆角/描边 + onTouch 手抄按压态」改成官方 `Button`（`ButtonType.Capsule/Normal` +
   `ButtonStyleMode` 三档，按压态与深色色板归系统），14 处调用点签名不变；

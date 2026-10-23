@@ -110,28 +110,17 @@ export struct TripInputPage {
 
   @Builder
   partyChip(count: number) {
-    Column() {
-      Text(count.toString())
-        .width(24)
-        .height(24)
-        .fontSize(TypeTokens.small.size)
-        .fontWeight(600)
-        .fontColor(ColorTokens.ink)
-        .textAlign(TextAlign.Center)
-        .borderRadius(RadiusTokens.pill)
-        .backgroundColor(this.party === count ? ColorTokens.primaryTint : ColorTokens.surfaceSubtle)
-        .border({
-          width: this.party === count ? 1 : 0,
-          color: ColorTokens.primary,
-          radius: RadiusTokens.pill
-        })
-    }
-    .width(LayoutTokens.minTouchTarget)
-    .height(LayoutTokens.minTouchTarget)
-    .justifyContent(FlexAlign.Center)
-    .onClick(() => {
-      this.party = count;
-    })
+    // 官方圆形 Button：选中态走 EMPHASIZED 档，不再自绘底色 + 描边
+    Button(count.toString())
+      .width(LayoutTokens.minTouchTarget)
+      .height(LayoutTokens.minTouchTarget)
+      .fontSize(TypeTokens.small.size)
+      .fontWeight(600)
+      .type(ButtonType.Circle)
+      .buttonStyle(this.party === count ? ButtonStyleMode.EMPHASIZED : ButtonStyleMode.NORMAL)
+      .onClick(() => {
+        this.party = count;
+      })
   }
 
   @Builder

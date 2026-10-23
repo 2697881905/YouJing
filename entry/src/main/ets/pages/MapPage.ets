@@ -104,14 +104,12 @@ export struct MapPage {
 
   @Builder
   chipRow(label: string, idx: number) {
-    Text(label)
+    Button(label)
       .fontSize(TypeTokens.caption.size)
       .fontWeight(idx === this.daySel + 1 ? 600 : 450)
-      .fontColor(idx === this.daySel + 1 ? ColorTokens.onPrimary : ColorTokens.ink)
       .height(32)
-      .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-      .borderRadius(RadiusTokens.pill)
-      .backgroundColor(idx === this.daySel + 1 ? ColorTokens.primary : ColorTokens.surfaceElevated)
+      .type(ButtonType.Capsule)
+      .buttonStyle(idx === this.daySel + 1 ? ButtonStyleMode.EMPHASIZED : ButtonStyleMode.NORMAL)
       .margin({ right: SpaceTokens.sm })
       .onClick((): void => {
         this.applySel(idx === 0 ? ALL_DAYS : idx - 1);
@@ -120,30 +118,34 @@ export struct MapPage {
 
   @Builder
   stopChip(stop: MapStop) {
-    Column({ space: 2 }) {
-      Row({ space: SpaceTokens.xs }) {
-        Text(`${stop.index}`)
-          .fontSize(TypeTokens.overline.size)
-          .fontWeight(600)
-          .fontColor(ColorTokens.primary)
-        Text(stop.subtitle)
-          .fontSize(TypeTokens.overline.size)
-          .fontWeight(450)
-          .fontColor(ColorTokens.muted)
-          .fontFeature("'tnum' on")
+    Button() {
+      Column({ space: 2 }) {
+        Row({ space: SpaceTokens.xs }) {
+          Text(`${stop.index}`)
+            .fontSize(TypeTokens.overline.size)
+            .fontWeight(600)
+            .fontColor(ColorTokens.primary)
+          Text(stop.subtitle)
+            .fontSize(TypeTokens.overline.size)
+            .fontWeight(450)
+            .fontColor(ColorTokens.muted)
+            .fontFeature("'tnum' on")
+        }
+        Text(stop.title)
+          .fontSize(TypeTokens.caption.size)
+          .fontWeight(500)
+          .fontColor(ColorTokens.ink)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
-      Text(stop.title)
-        .fontSize(TypeTokens.caption.size)
-        .fontWeight(500)
-        .fontColor(ColorTokens.ink)
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
+      .alignItems(HorizontalAlign.Start)
     }
-    .alignItems(HorizontalAlign.Start)
     .width(132)
-    .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+    .height(56)
+    .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+    .type(ButtonType.Normal)
     .borderRadius(RadiusTokens.capsule)
-    .backgroundColor(ColorTokens.surfaceSubtle)
+    .buttonStyle(ButtonStyleMode.NORMAL)
     .margin({ right: SpaceTokens.sm })
     .onClick((): void => {
       this.focusStop(stop.index);
