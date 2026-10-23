@@ -38,6 +38,8 @@ interface CategorySpend {
 }
 
 interface Receipt {
+  /** 库里的自增主键：左滑删除要靠它定位，之前只展示不带 id */
+  id: number;
   time: string;
   name: string;
   amount: string;
@@ -151,7 +153,7 @@ export struct ExpensePage {
       return ExpenseDao.listByTrip(context, this.tripId, 12);
     }).then((list: Expense[]): void => {
       this.receipts = list.map((e: Expense): Receipt => {
-        const r: Receipt = { time: clockText(e.createdAt), name: e.name, amount: yuan(e.amount) };
+        const r: Receipt = { id: e.id, time: clockText(e.createdAt), name: e.name, amount: yuan(e.amount) };
         return r;
       });
     }).catch((err: Error) => {
@@ -330,21 +332,117 @@ export struct ExpensePage {
     .backgroundColor(ColorTokens.canvas)
   }
 
+  /** 预算消耗百分比：超支时封顶 100，颜色另说，进度条本身不画负值 */
+  private spentPct(): number {
+    if (this.budgetTotal <= 0) {
+      return 0;
+    }
+    return Math.max(0, Math.min(100, Math.round((this.spent / this.budgetTotal) * 100)));
+  }
+
+  @Builder
+  sectionHeader(title: string) {
+    Text(title)
+      .fontSize(TypeTokens.overline.size)
+      .fontWeight(600)
+      .fontColor(ColorTokens.muted)
+      .width('100%')
+      .padding({ top: SpaceTokens.lg, bottom: SpaceTokens.sm })
+  }
+
+  @Builder
+  receiptRow(r: Receipt) {
+    Row() {
+      Text(r.time)
+        .fontSize(TypeTokens.caption.size)
+        .fontWeight(450)
+        .fontColor(ColorTokens.muted)
+        .fontFeature("'tnum' on")
+        .width(52)
+      Text(r.name)
+        .fontSize(TypeTokens.small.size)
+        .fontColor(ColorTokens.ink)
+        .layoutWeight(1)
+      Text(r.amount)
+        .fontSize(TypeTokens.small.size)
+        .fontWeight(600)
+        .fontColor(ColorTokens.ink)
+        .fontFeature("'tnum' on")
+    }
+    .width('100%')
+    .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+  }
+
+  /** 官方行级动作：误记一笔可以左滑删掉（ExpenseDao.delete 此前无调用方） */
+  @Builder
+  receiptDelete(r: Receipt) {
+    Row() {
+      Button() {
+        SymbolGlyph($r('sys.symbol.trash'))
+          .fontSize(22)
+          .fontColor([ColorTokens.onPrimary])
+      }
+      .width(56)
+      .height(56)
+      .type(ButtonType.Circle)
+      .backgroundColor(ColorTokens.danger)
+      .onClick((): void => {
+        this.confirmDeleteReceipt(r);
+      })
+    }
+    .justifyContent(FlexAlign.End)
+    .alignItems(VerticalAlign.Center)
+    .width(84)
+    .height('100%')
+    .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+  }
+
+  private confirmDeleteReceipt(r: Receipt): void {
+    this.getUIContext().showAlertDialog({
+      title: '删除这笔记账',
+      message: `${r.time} ${r.name} ${r.amount}\n只删本机记录，不可恢复。`,
+      primaryButton: {
+        value: '取消',
+        action: (): void => {
+        }
+      },
+      secondaryButton: {
+        value: '删除',
+        fontColor: ColorTokens.danger,
+        action: (): void => {
+          this.doDeleteReceipt(r.id);
+        }
+      }
+    });
+  }
+
+  private doDeleteReceipt(id: number): void {
+    ExpenseDao.delete(this.ctx(), id).then((): void => {
+      this.getUIContext().getPromptAction().showToast({ message: '已删除该笔记账' });
+      this.reload();
+    }).catch((err: Error): void => {
+      Logger.error('Ui.Expense', `删除记账失败: ${err.message}`);
+      this.getUIContext().getPromptAction().showToast({ message: '删除失败，详见日志' });
+    });
+  }
+
   build() {
     HdsNavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
       Column() {
 
-        Scroll() {
-          Column() {
+        List() {
+          ListItem() {
             ImmersiveSegmentBar({
               items: this.segments,
               selectedIndex: $seg,
               itemWidth: 164,
               buttonVerticalPadding: 2.15
             })
-              .margin({ bottom: SpaceTokens.lg })
+          }
+          .margin({ bottom: SpaceTokens.lg })
 
+          ListItem() {
             // hero 面板：永不带影（决议 4）
             Column() {
               Text(this.seg === 0 ?
@@ -371,23 +469,10 @@ export struct ExpensePage {
               .alignItems(VerticalAlign.Bottom)
               .margin({ top: SpaceTokens.xs })
 
-              Row() {
-                Row()
-                  .height(4)
-                  .layoutWeight(Math.max(1, Math.min(100,
-                    this.budgetTotal === 0 ? 0 : Math.round((this.spent / this.budgetTotal) * 100))))
-                  .borderRadius(RadiusTokens.pill)
-                  .backgroundColor(this.spent > this.budgetTotal ? ColorTokens.danger : ColorTokens.primary)
-                if (this.budgetTotal > 0 && this.spent < this.budgetTotal) {
-                  Row()
-                    .height(4)
-                    .layoutWeight(Math.max(1, 100 - Math.round((this.spent / this.budgetTotal) * 100)))
-                    .borderRadius(RadiusTokens.pill)
-                    .backgroundColor(ColorTokens.surfaceSunken)
-                }
-              }
-              .width('100%')
-              .margin({ top: SpaceTokens.md })
+              Progress({ value: this.spentPct(), total: 100, type: ProgressType.Linear })
+                .color(this.spent > this.budgetTotal ? ColorTokens.danger : ColorTokens.primary)
+                .width('100%')
+                .margin({ top: SpaceTokens.md })
 
               Text(this.spent > this.budgetTotal ?
                 `超支 ${yuan(this.spent - this.budgetTotal)}${this.topCategory.length > 0 ? ` · 主要来自${this.topCategory}` : ''}` :
@@ -403,76 +488,56 @@ export struct ExpensePage {
             .padding(SpaceTokens.lg)
             .borderRadius(RadiusTokens.hero)
             .backgroundColor(ColorTokens.surfaceElevated)
+          }
 
-            Text('分类支出')
-              .fontSize(TypeTokens.overline.size)
-              .fontWeight(600)
-              .fontColor(ColorTokens.muted)
-              .alignSelf(ItemAlign.Start)
-              .margin({ top: SpaceTokens.xl, bottom: SpaceTokens.sm })
-
-            Column() {
-              if (this.totals.length === 0) {
+          ListItemGroup({ header: this.sectionHeader('分类支出') }) {
+            if (this.totals.length === 0) {
+              ListItem() {
                 Text('还没有记账，下面记一笔后这里会出现分类')
                   .fontSize(TypeTokens.caption.size)
                   .fontColor(ColorTokens.muted)
                   .width('100%')
                   .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
               }
-              ForEach(this.currentCats(), (cat: CategorySpend) => {
-                this.categoryRow(cat)
-              }, (cat: CategorySpend): string => `cat-${this.seg}-${cat.name}-${cat.amount}-${cat.pct}`)
             }
-            .width('100%')
-            .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-            .borderRadius(RadiusTokens.card)
-            .backgroundColor(ColorTokens.canvas)
+            ForEach(this.currentCats(), (cat: CategorySpend) => {
+              ListItem() {
+                this.categoryRow(cat)
+              }
+            }, (cat: CategorySpend): string => `cat-${this.seg}-${cat.name}-${cat.amount}-${cat.pct}`)
+          }
+          .divider({ strokeWidth: LayoutTokens.hairlineWidth, color: ColorTokens.separator })
+          .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+          .backgroundColor(ColorTokens.canvas)
+          .borderRadius(RadiusTokens.card)
+          .clip(true)
+          .margin({ top: SpaceTokens.sm })
 
-            Text('最近记账')
-              .fontSize(TypeTokens.overline.size)
-              .fontWeight(600)
-              .fontColor(ColorTokens.muted)
-              .alignSelf(ItemAlign.Start)
-              .margin({ top: SpaceTokens.xl, bottom: SpaceTokens.sm })
-
-            Column() {
-              if (this.receipts.length === 0) {
+          ListItemGroup({ header: this.sectionHeader('最近记账') }) {
+            if (this.receipts.length === 0) {
+              ListItem() {
                 Text('今天还没有记录')
                   .fontSize(TypeTokens.caption.size)
                   .fontColor(ColorTokens.muted)
                   .width('100%')
                   .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
               }
-              ForEach(this.receipts, (r: Receipt, idx: number) => {
-                Row() {
-                  Text(r.time)
-                    .fontSize(TypeTokens.caption.size)
-                    .fontWeight(450)
-                    .fontColor(ColorTokens.muted)
-                    .fontFeature("'tnum' on")
-                    .width(52)
-                  Text(r.name)
-                    .fontSize(TypeTokens.small.size)
-                    .fontColor(ColorTokens.ink)
-                    .layoutWeight(1)
-                  Text(r.amount)
-                    .fontSize(TypeTokens.small.size)
-                    .fontWeight(600)
-                    .fontColor(ColorTokens.ink)
-                    .fontFeature("'tnum' on")
-                }
-                .width('100%')
-                .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
-                if (idx < this.receipts.length - 1) {
-                  Divider().strokeWidth(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
-                }
-              }, (r: Receipt): string => `rc-${r.time}-${r.name}-${r.amount}`)
             }
-            .width('100%')
-            .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-            .borderRadius(RadiusTokens.card)
-            .backgroundColor(ColorTokens.canvas)
+            ForEach(this.receipts, (r: Receipt) => {
+              ListItem() {
+                this.receiptRow(r)
+              }
+              .swipeAction({ end: this.receiptDelete(r), edgeEffect: SwipeEdgeEffect.Spring })
+            }, (r: Receipt): string => `rc-${r.id}-${r.time}-${r.name}-${r.amount}`)
+          }
+          .divider({ strokeWidth: LayoutTokens.hairlineWidth, color: ColorTokens.separator })
+          .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+          .backgroundColor(ColorTokens.canvas)
+          .borderRadius(RadiusTokens.card)
+          .clip(true)
+          .margin({ top: SpaceTokens.sm })
 
+          ListItem() {
             // 记一笔：官方胶囊 Button（原来是 44 高 + 1px 描边的自绘 Pill）
             Button() {
               Row({ space: SpaceTokens.xs }) {
@@ -489,16 +554,17 @@ export struct ExpensePage {
             .height(LayoutTokens.minTouchTarget)
             .type(ButtonType.Capsule)
             .buttonStyle(ButtonStyleMode.NORMAL)
-            .margin({ top: SpaceTokens.xl })
             .onClick(() => {
               this.showRecord = true;
             })
           }
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.bottomScrollReserve })
+          .margin({ top: SpaceTokens.xl })
         }
-        .layoutWeight(1)
         .scrollBar(BarState.Off)
-        .align(Alignment.Top)
+        .edgeEffect(EdgeEffect.Spring)
+        .cachedCount(6)
+        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.bottomScrollReserve })
+        .layoutWeight(1)
       }
       .width('100%')
       .height('100%')
