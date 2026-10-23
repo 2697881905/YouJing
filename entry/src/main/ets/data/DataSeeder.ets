@@ -80,7 +80,7 @@ export class DistrictCoords {
 
 export class DataSeeder {
   /** 首启灌入：spot 表非空即跳过（幂等）。返回是否执行了灌入。 */
-  static async seedIfEmpty(context: common.UIAbilityContext): Promise<boolean> {
+  static async seedIfEmpty(context: common.Context): Promise<boolean> {
     const store: relationalStore.RdbStore = await DatabaseHelper.getStore(context);
     const rs: relationalStore.ResultSet =
       await store.querySql('SELECT COUNT(*) AS c FROM spot');
@@ -108,7 +108,7 @@ export class DataSeeder {
     return true;
   }
 
-  static async readJsonl(context: common.UIAbilityContext, path: string): Promise<string[]> {
+  static async readJsonl(context: common.Context, path: string): Promise<string[]> {
     try {
       const bytes: Uint8Array = await context.resourceManager.getRawFileContent(path);
       const text: string = new util.TextDecoder().decodeToString(bytes);

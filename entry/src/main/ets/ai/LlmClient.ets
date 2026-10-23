@@ -62,6 +62,10 @@ export class MockLlmTransport implements LlmTransport {
       const acts: Activity[] = [];
       let slot: number = 9 * 60;
       for (let k = 0; k < perDay && cursor < chosen.length; k++) {
+        if (slot > 20 * 60) {
+          // 太晚就不硬塞：跨午夜会让 endTime 回卷成比 time 早，剩余站点顺延到次日
+          break;
+        }
         const sel: SelectedSpot = chosen[cursor];
         cursor += 1;
         const spot: Spot | undefined = this.spots.find((s: Spot): boolean => s.id === sel.spotId);
@@ -74,7 +78,7 @@ export class MockLlmTransport implements LlmTransport {
           time: MockLlmTransport.hhmm(slot),
           endTime: MockLlmTransport.hhmm(end),
           title: spot.name,
-          location: spot.name,
+          location: `${spot.city} ${spot.district}`,
           address: `${spot.city} ${spot.district}`,
           longitude: spot.longitude,
           latitude: spot.latitude,

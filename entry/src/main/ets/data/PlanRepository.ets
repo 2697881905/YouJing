@@ -15,7 +15,7 @@ import { MockSpots, MockAreas } from '../mock/MockData';
 import { Logger } from '../common/logger/Logger';
 
 export class PlanRepository {
-  static async loadSpots(context: common.UIAbilityContext, city: string): Promise<Spot[]> {
+  static async loadSpots(context: common.Context, city: string): Promise<Spot[]> {
     if (!MockConfig.USE_MOCK_DATA || city !== '京都') {
       const spots: Spot[] = await SpotDao.loadByCity(context, city);
       if (spots.length > 0) {
@@ -27,7 +27,7 @@ export class PlanRepository {
     return MockSpots.CULTURE.concat(MockSpots.FOOD).concat(MockSpots.NATURE);
   }
 
-  static async loadAreas(context: common.UIAbilityContext, city: string): Promise<Area[]> {
+  static async loadAreas(context: common.Context, city: string): Promise<Area[]> {
     if (!MockConfig.USE_MOCK_DATA || city !== '京都') {
       const areas: Area[] = await AreaDao.loadByCity(context, city);
       if (areas.length > 0) {
@@ -38,7 +38,7 @@ export class PlanRepository {
     return MockAreas.PICKS.map((p): Area => p.area);
   }
 
-  static async hasTrips(context: common.UIAbilityContext): Promise<boolean> {
+  static async hasTrips(context: common.Context): Promise<boolean> {
     const store: relationalStore.RdbStore = await DatabaseHelper.getStore(context);
     const rs: relationalStore.ResultSet = await store.querySql('SELECT COUNT(*) AS c FROM trip');
     let c: number = 0;

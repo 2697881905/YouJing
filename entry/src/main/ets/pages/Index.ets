@@ -4,7 +4,7 @@
  * 未落地路由统一进 ComingSoon 占位，主链批次内保持可点闭环。
  */
 
-import { APP_NAV } from '../common/constants/AppNav';
+import { APP_NAV, EditTarget } from '../common/constants/AppNav';
 import { YoujingStartPage } from './YoujingStartPage';
 import { TripInputPage } from './TripInputPage';
 import { PreferenceQAPage } from './PreferenceQAPage';
@@ -37,7 +37,10 @@ function routerMap(name: string, param: object) {
   } else if (name === 'GenerateFailed') {
     GenerateFailedPage()
   } else if (name === 'EditItinerary') {
-    EditItineraryPage()
+    EditItineraryPage({
+      tripId: typeof param === 'object' ? (param as EditTarget).tripId : '',
+      dayIndex: typeof param === 'object' ? (param as EditTarget).dayIndex : 0
+    })
   } else if (name === 'Expense') {
     ExpensePage({ tripId: typeof param === 'string' ? param as string : '' })
   } else if (name === 'Trips') {

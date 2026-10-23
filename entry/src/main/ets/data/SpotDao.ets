@@ -19,7 +19,7 @@ function parseTags(text: string): SpotTag[] {
 }
 
 export class SpotDao {
-  static saveSpots(context: common.UIAbilityContext, spots: Spot[]): Promise<void> {
+  static saveSpots(context: common.Context, spots: Spot[]): Promise<void> {
     return DatabaseHelper.write(context, async (store: relationalStore.RdbStore): Promise<void> => {
       for (const s of spots) {
         const row: relationalStore.ValuesBucket = {
@@ -41,7 +41,7 @@ export class SpotDao {
     });
   }
 
-  static async loadByCity(context: common.UIAbilityContext, city: string): Promise<Spot[]> {
+  static async loadByCity(context: common.Context, city: string): Promise<Spot[]> {
     const store: relationalStore.RdbStore = await DatabaseHelper.getStore(context);
     const rs: relationalStore.ResultSet =
       await store.querySql('SELECT * FROM spot WHERE city = ? ORDER BY popularity DESC', [city]);

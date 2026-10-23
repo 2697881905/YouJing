@@ -109,6 +109,10 @@ export class TripParser {
       transport: o['transport'] === undefined || o['transport'] === null
         ? undefined : TripParser.readTransport(o['transport'], `${p}.transport`)
     };
+    if (act.endTime <= act.time) {
+      throw new AppError(ErrorCode.TYPE_GUARD_FAILED,
+        `${p}.endTime(${act.endTime}) 必须晚于 time(${act.time})，跨午夜的排布不予接受`);
+    }
     return act;
   }
 

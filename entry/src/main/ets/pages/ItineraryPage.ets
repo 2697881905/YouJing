@@ -6,7 +6,7 @@
  * 精修批次换 EXQUISITE）；深色零阴影经 isDarkMode 门控。
  */
 
-import { APP_NAV } from '../common/constants/AppNav';
+import { APP_NAV, EditTarget } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
@@ -58,7 +58,8 @@ export struct ItineraryPage {
     { symbol: $r('sys.symbol.person'), label: '我的', route: 'Trips' }
   ];
 
-  aboutToAppear(): void {
+  /** 编辑页返回后要吃回写的库数据，故加载挂在 onShown 而非 aboutToAppear */
+  private reload(): void {
     if (this.tripId.length > 0) {
       const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
       TripDao.loadTrip(ctx, this.tripId).then((trip: Trip | null) => {
@@ -437,6 +438,9 @@ export struct ItineraryPage {
     const t: string[] = act.time.split(':');
     const e: string[] = act.endTime.split(':');
     const mins: number = Number(e[0]) * 60 + Number(e[1]) - Number(t[0]) * 60 - Number(t[1]);
+    if (mins <= 0) {
+      return '—';
+    }
     const h: number = Math.floor(mins / 60);
     const m: number = mins % 60;
     if (h > 0 && m > 0) {
@@ -900,7 +904,10 @@ export struct ItineraryPage {
                 .fontColor([ColorTokens.ink])
                 .margin({ left: SpaceTokens.lg })
                 .onClick(() => {
-                  this.pathStack.pushPath({ name: 'EditItinerary' });
+                  this.pathStack.pushPath({
+                    name: 'EditItinerary',
+                    param: { tripId: this.tripId, dayIndex: this.dayIndex } as EditTarget
+                  });
                 })
             }
             .width('100%')
@@ -1033,5 +1040,8 @@ export struct ItineraryPage {
       })
     }
     .hideTitleBar(true)
+    .onShown((): void => {
+      this.reload();
+    })
   }
 }

@@ -98,6 +98,18 @@ export default function tripParserTest(): void {
         .assertEqual(`${ErrorCode.SCHEMA_VALIDATION_FAILED}`);
     });
 
+    it('guard_end_time_not_later', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+      // 22:45 起 4 小时会回卷成 02:45——真机曾因此渲染出「建议停留 0分钟」
+      const bad: string = mutateJson((o: Obj): void => {
+        const days: Object[] = o['days'] as Object[];
+        const acts: Object[] = (days[0] as Obj)['activities'] as Object[];
+        (acts[0] as Obj)['time'] = '22:45';
+        (acts[0] as Obj)['endTime'] = '02:45';
+      });
+      expect(expectErrCode(() => TripParser.parseTrip(bad), 0))
+        .assertEqual(`${ErrorCode.TYPE_GUARD_FAILED}`);
+    });
+
     it('guard_date_order', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
       const bad: string = mutateJson((o: Obj): void => {
         o['startDate'] = '2026-06-20';

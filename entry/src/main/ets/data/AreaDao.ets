@@ -19,7 +19,7 @@ function parseArr(text: string): string[] {
 }
 
 export class AreaDao {
-  static saveAreas(context: common.UIAbilityContext, areas: Area[]): Promise<void> {
+  static saveAreas(context: common.Context, areas: Area[]): Promise<void> {
     return DatabaseHelper.write(context, async (store: relationalStore.RdbStore): Promise<void> => {
       for (const a of areas) {
         const row: relationalStore.ValuesBucket = {
@@ -36,7 +36,7 @@ export class AreaDao {
     });
   }
 
-  static async loadByCity(context: common.UIAbilityContext, city: string): Promise<Area[]> {
+  static async loadByCity(context: common.Context, city: string): Promise<Area[]> {
     const store: relationalStore.RdbStore = await DatabaseHelper.getStore(context);
     const rs: relationalStore.ResultSet =
       await store.querySql('SELECT * FROM area WHERE city = ?', [city]);
