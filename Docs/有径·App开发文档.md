@@ -373,11 +373,34 @@ YouJing/
 │       ├── mock/
 │       │   └── MockTrip.ets                 # Mock 数据
 │       └── utils/
-│           ├── GeoUtils.ets                  # 经纬度距离计算
+│           ├── Geo.ets                       # 大圆距离（屏5「帮我选」按距离取片区）
+│           ├── CategoryStyle.ets             # 活动类别 → 色名（屏8/屏13 同一口径）
+│           ├── IcsBuilder.ets                # .ics 与分享文本（RFC 5545 口径）
+│           ├── MapStops.ets                  # 底图落点与视野盒
+│           ├── NumberedPin.ets               # 编号图钉
+│           ├── immersiveMaterial.ets         # 系统材质档位与能力门控
 │           └── DateUtils.ets                 # 日期工具
+├── tools/
+│   └── audit_colors.py                       # 色值 ↔ 设计契约核对（见 §5.5）
 ├── AppScope/
 └── build-profile.json5
 ```
+
+
+### 5.5 色值契约核对
+
+`resources/base/element/color.json` 与 `resources/dark/element/color.json` 是把设计契约
+（底稿 v1 `docs/DESIGN.md` 的 §1 色板 + Translucency ledger）手抄成 48 件 × 两档，
+抄错一位肉眼看不出来——2026-10-24 就抓到过一处：`border_subtle` 浅色写成
+`#66C4C6CA`（绿通道 198），契约 `glass-bar-border` 是 `rgba(196, 196, 202, 0.4)` =
+`66 C4 C4 CA`（绿通道 196），33 处帧内联值也都是 196,196,202。
+
+`python3 tools/audit_colors.py [DESIGN.md 路径]` 逐件比对两份 color.json 与契约，
+退出码非 0 即有偏差；契约未直接命名的三件（`on_dark_degraded`、`primary_glow_edge`、
+`start_window_background`）是派生透明值或系统必需件，脚本按规则跳过并打印出来。
+台账同时给 rgba 与十六进制两列时以十六进制列为准（0.3 换算成 alpha 会四舍五入成 4C，
+而台账写的是 4D）。当前状态：48 件核对，0 偏差。
+hooks 不随仓库分发，所以这条不进 pre-commit，改过色值后手动跑一次。
 
 
 ## 六、开发路线

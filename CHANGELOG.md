@@ -6,6 +6,17 @@
 
 ### Fixed
 
+- `border_subtle` 浅色抄错一个通道（2026-10-24，三方对表查出）：契约
+  `glass-bar-border = rgba(196, 196, 202, 0.4)` = `66 C4 C4 CA`，底稿 33 处内联值也都是
+  `196, 196, 202`，我们的 `resources/base/element/color.json` 写成 `#66C4C6CA`（绿通道 198）。
+  差 2/255 在 40% 透明下不可见，所以肉眼和截图都发现不了——它是契约偏差，不是观感问题。
+  深色件 `#5245454B` 与 `dark-glass-bar-border rgba(69,69,75,0.32)` 对得上，未动。
+  同时补了 `tools/audit_colors.py`：逐件核对两份 color.json 与 DESIGN.md
+  （§1 色板 + Translucency ledger，台账同时给 rgba 与十六进制时以十六进制列为准，
+  0.3 换算 alpha 会四舍五入成 4C 而契约写 4D）。当前 48 件核对 0 偏差；
+  反向验证过：把值改回 `#66C4C6CA` 脚本立刻报「浅色偏差 border_subtle」并以退出码 1 失败。
+  契约未直接命名的三件（`on_dark_degraded` 白 @60%、`primary_glow_edge` 蓝 @0%、
+  `start_window_background` 系统必需）按派生值跳过并打印，不混进偏差里。
 - 屏13 桌面卡片的色点是按行序给的，不是按类别（2026-10-24，真机像素比对 + 49/49 用例）：
   `TodayTripCard` 里写的是 `dots = [primary, bookmark, accent_mention]` 按第几行取色，
   而底稿帧的图例明写这三行分别是「景点 #0066CC / 餐饮 #9A6206 / 住宿 #5856D6」——
