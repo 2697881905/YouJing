@@ -10,7 +10,7 @@ import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
-import { LayoutTokens } from '../design/LayoutTokens';
+import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { TripDao } from '../data/TripDao';
 import { ShareExporter } from '../data/ShareExporter';
@@ -110,7 +110,7 @@ export struct SharePage {
       Row({ space: SpaceTokens.md }) {
         Column() {
           SymbolGlyph(opt.symbol)
-            .fontSize(22)
+            .fontSize(IconSizes.control)
             .fontColor([ColorTokens.ink])
         }
         .width(44)
@@ -134,7 +134,7 @@ export struct SharePage {
         .layoutWeight(1)
 
         SymbolGlyph($r('sys.symbol.chevron_right'))
-          .fontSize(22)
+          .fontSize(IconSizes.control)
           .fontColor([ColorTokens.faint])
       }
       .width('100%')

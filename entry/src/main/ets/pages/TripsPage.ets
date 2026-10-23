@@ -10,7 +10,7 @@ import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
-import { LayoutTokens } from '../design/LayoutTokens';
+import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { FloatingDock } from '../components/FloatingDock';
@@ -100,7 +100,7 @@ export struct TripsPage {
     Row() {
       Button() {
         SymbolGlyph($r('sys.symbol.trash'))
-          .fontSize(22)
+          .fontSize(IconSizes.control)
           .fontColor([ColorTokens.onPrimary])
       }
       .width(56)
@@ -280,7 +280,7 @@ export struct TripsPage {
         if (this.trips.length === 0) {
           Column({ space: SpaceTokens.md }) {
             SymbolGlyph($r('sys.symbol.map'))
-              .fontSize(48)
+              .fontSize(IconSizes.display)
               .fontColor([ColorTokens.muted])
             Text('还没有行程')
               .fontSize(TypeTokens.title.size)

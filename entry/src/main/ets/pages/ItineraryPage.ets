@@ -11,7 +11,7 @@ import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
-import { LayoutTokens } from '../design/LayoutTokens';
+import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
 import { Activity, ActivityCategory, ActivityStatus, IntensityLevel, TripDay, Trip } from '../model/Trip';
 import { TripDao } from '../data/TripDao';
@@ -769,13 +769,16 @@ export struct ItineraryPage {
               // 底稿屏10 顶栏声明的分享；面板自带官方关闭钮，故分享落进内容区右上角
               Button() {
                 SymbolGlyph($r('sys.symbol.share'))
-                  .fontSize(20)
+                  .fontSize(IconSizes.control)
                   .fontColor([ColorTokens.icon])
               }
               .type(ButtonType.Circle)
               .buttonStyle(ButtonStyleMode.TEXTUAL)
               .width(LayoutTokens.minTouchTarget)
               .height(LayoutTokens.minTouchTarget)
+              // 官方 showClose 的 ✕ 实测占 [961,543]-[1086,668]（px，密度 3.0），
+              // 不左移两枚 44 热区会叠在一起（真机截图复现过）
+              .margin({ right: 52 })
               .accessibilityText('分享此节点')
               .onClick((): void => {
                 this.shareNode();

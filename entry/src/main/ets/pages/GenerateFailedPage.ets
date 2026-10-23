@@ -13,7 +13,7 @@ import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
-import { LayoutTokens } from '../design/LayoutTokens';
+import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { BuildConfig } from '../common/constants/BuildConfig';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
@@ -61,7 +61,7 @@ export struct GenerateFailedPage {
       .layoutWeight(1)
 
       SymbolGlyph($r('sys.symbol.chevron_right'))
-        .fontSize(22)
+        .fontSize(IconSizes.control)
         .fontColor([ColorTokens.faint])
     }
     .width('100%')
@@ -75,7 +75,7 @@ export struct GenerateFailedPage {
 
           Column() {
             SymbolGlyph($r('sys.symbol.exclamationmark_circle'))
-              .fontSize(48)
+              .fontSize(IconSizes.display)
               .fontColor([ColorTokens.warning])
               .margin({ top: SpaceTokens.fiveXl, bottom: SpaceTokens.lg })
             Text(failureHeadline(this.code))

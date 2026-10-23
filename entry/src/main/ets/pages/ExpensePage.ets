@@ -382,7 +382,7 @@ export struct ExpensePage {
     Row() {
       Button() {
         SymbolGlyph($r('sys.symbol.trash'))
-          .fontSize(22)
+          .fontSize(IconSizes.control)
           .fontColor([ColorTokens.onPrimary])
       }
       .width(56)

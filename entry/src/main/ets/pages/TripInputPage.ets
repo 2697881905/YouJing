@@ -9,7 +9,7 @@ import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
-import { LayoutTokens } from '../design/LayoutTokens';
+import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { PlanDraft } from '../data/PlanDraft';
 import { TripBasicInput } from '../model/PlanParams';
@@ -121,7 +121,7 @@ export struct TripInputPage {
   @Builder
   chevron() {
     SymbolGlyph($r('sys.symbol.chevron_right'))
-      .fontSize(22)
+      .fontSize(IconSizes.control)
       .fontColor([ColorTokens.faint])
   }
 
@@ -153,7 +153,7 @@ export struct TripInputPage {
             .layoutWeight(1)
           if (c === this.city) {
             SymbolGlyph($r('sys.symbol.checkmark'))
-              .fontSize(22)
+              .fontSize(IconSizes.control)
               .fontColor([ColorTokens.primary])
           }
         }

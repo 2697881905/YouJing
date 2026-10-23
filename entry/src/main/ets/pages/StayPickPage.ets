@@ -13,7 +13,7 @@ import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
-import { LayoutTokens } from '../design/LayoutTokens';
+import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
 import { AreaPick } from '../mock/MockData';
 import { Area, AreaGroup, AreaPriceTier } from '../model/Area';
@@ -247,7 +247,7 @@ export struct StayPickPage {
 
         if (this.selectedId === pick.area.id) {
           SymbolGlyph($r('sys.symbol.checkmark'))
-            .fontSize(22)
+            .fontSize(IconSizes.control)
             .fontColor([ColorTokens.primary])
         }
       }

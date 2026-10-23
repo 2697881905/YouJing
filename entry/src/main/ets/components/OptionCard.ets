@@ -12,7 +12,7 @@ import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
-import { LayoutTokens } from '../design/LayoutTokens';
+import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 
 @Component
 export struct OptionCard {
@@ -48,7 +48,7 @@ export struct OptionCard {
 
         if (this.selected) {
           SymbolGlyph($r('sys.symbol.checkmark'))
-            .fontSize(22)
+            .fontSize(IconSizes.control)
             .fontColor([this.subColor()])
         }
       }

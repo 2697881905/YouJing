@@ -14,7 +14,8 @@ import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
-import { LayoutTokens } from '../design/LayoutTokens';
+import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
+import { ShadowTokens } from '../design/ShadowTokens';
 import { Activity, Trip } from '../model/Trip';
 import { ActivityCategory, ActivityStatus } from '../model/Trip';
 import { Spot } from '../model/Spot';
@@ -31,6 +32,7 @@ import { HdsChrome } from '../design/HdsChrome';
 @Component
 export struct EditItineraryPage {
   private pathStack: NavPathStack = APP_NAV;
+  @StorageProp('isDarkMode') isDark: boolean = false;
   @Prop tripId: string = '';
   @Prop dayIndex: number = 0;
   @State private acts: Activity[] = [];
@@ -273,7 +275,7 @@ export struct EditItineraryPage {
     .padding(SpaceTokens.md)
     .borderRadius(RadiusTokens.card)
     .backgroundColor(ColorTokens.canvas)
-    .shadow({ radius: 16, offsetX: 0, offsetY: 6, color: '#17000000' })
+    .shadow(this.isDark ? { radius: 0 } : ShadowTokens.floating)
   }
 
   @Builder
@@ -308,7 +310,7 @@ export struct EditItineraryPage {
       // 换成官方 Button（Circle + TEXTUAL 档，不出额外表面），图标与配色原样。
       Button() {
         SymbolGlyph($r('sys.symbol.arrow_2_circlepath'))
-          .fontSize(22)
+          .fontSize(IconSizes.control)
           .fontColor([ColorTokens.icon])
       }
       .type(ButtonType.Circle)
@@ -323,7 +325,7 @@ export struct EditItineraryPage {
 
       Button() {
         SymbolGlyph($r('sys.symbol.trash'))
-          .fontSize(22)
+          .fontSize(IconSizes.control)
           .fontColor([ColorTokens.muted])
       }
       .type(ButtonType.Circle)

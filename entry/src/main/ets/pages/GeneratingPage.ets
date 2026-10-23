@@ -10,7 +10,7 @@ import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
-import { LayoutTokens } from '../design/LayoutTokens';
+import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { PlanDraft } from '../data/PlanDraft';
 import { PlanRepository } from '../data/PlanRepository';
 import { TripDao } from '../data/TripDao';
@@ -146,7 +146,7 @@ export struct GeneratingPage {
             Row({ space: SpaceTokens.sm }) {
               SymbolGlyph(idx < this.stage ? $r('sys.symbol.checkmark_circle_fill') :
                 (idx === this.stage ? $r('sys.symbol.arrow_clockwise') : $r('sys.symbol.circle')))
-                .fontSize(22)
+                .fontSize(IconSizes.control)
                 .fontColor([idx < this.stage ? ColorTokens.success :
                   (idx === this.stage ? ColorTokens.primary : ColorTokens.faint)])
               Text(name)
