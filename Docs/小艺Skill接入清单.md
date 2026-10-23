@@ -66,6 +66,9 @@
    - 小艺回复：`已记下：上海，8月1日出发，4天，3人。打开「有径」会自动进入行程规划页并填好这些信息。`
    - 用户点开有径 → 屏2 显示：`上海` / `8月1日 – 8月4日` / `4天3晚` / `3 位成人`
    - Skill 返回 `status=success`，`data.launched=false`，`data.message` 同上
+   - **2026-10-23 16:31 已按此链路真机复测通过**：小艺原话「已记下：上海，10月24日出发，
+     3天，2人。打开「有径」会自动进入行程规划页并填好这些信息～」；打开有径后屏2 实测
+     `上海 / 10月24日 – 10月26日 / 3天2晚 / 2 位成人`。
 4. 再测两条边界：
    - 说「帮我规划去成都的行程」→ 不应拉起，返回 `ERR_INVALID_PARAMS`，
      `suggestion` 为「目前只支持北京、上海、广州、深圳，你想去哪一个？」
@@ -183,6 +186,7 @@ public async planTrip(info: scriptManager.ArkTSScriptInfo, ...argv: string[]): P
 | App 存活时复用 | `onNewWant` 日志 `外部预填 route=TripInput …`，页面栈不重建 |
 | 平台真机调用 | 2026-10-23 15:54 小艺日志 `execCli2 payload=...--args '{"arg1":"上海","arg2":"2026-08-01","arg3":"4","arg4":"3"}'`，参数解析无误 |
 | 失败真因 | 同次调用返回 `code:-1`，`errMsg: startAbility failed: 201 The application does not have permission to call the interface.` |
+| 修正后复测 | 16:31:34 日志 `已写入预填 上海 2026-10-24 3天 2人` → `startAbility 未获准 code=201` → 16:32:44 `取出预填` + `Skill 预填 上海 2026-10-24→2026-10-26 2人`；屏2 五项对表通过 |
 
 > `bm dump -n com.youjing.app` **不会**列出 `skillProfiles`（只列 ability 的 home skills），
 > 不要用它判断 Skill 是否注册；以 `skillManager.getSkillInfosForSelf` 的启动日志为准。
@@ -222,11 +226,11 @@ hdc shell aa start -a EntryAbility -b com.youjing.app \
 
 ## F. 你的操作清单（打勾即可）
 
-- [ ] 准备 HarmonyOS 7.0 真机 + Beta 小艺，安装当前签名 HAP
-- [ ] 登录小艺开放平台（与 AGC 同账号）
-- [ ] Skill → 新建 Skill → 导入 Skill（bundle `com.youjing.app`，skill `youjing-plan-trip`，版本 `1.0.0`）
-- [ ] 核对平台解析出的触发场景 / `planTrip` / 参数 Schema
-- [ ] 真机测试「帮我规划去上海的行程，8 月 1 号出发，4 天，3 个人」→ 小艺回复「已记下」；
-      点开有径后屏2 预填正确（`上海 / 8月1日–8月4日 / 4天3晚 / 3 位成人`）
-- [ ] 测试不支持城市与缺日期两条边界
-- [ ] 选「仅自己可用」发布 → 自测稳定后再升级范围
+- [x] 准备 HarmonyOS 7.0 真机 + Beta 小艺，安装当前签名 HAP
+- [x] 登录小艺开放平台（与 AGC 同账号）
+- [x] Skill → 新建 Skill → 导入 Skill（bundle `com.youjing.app`，skill `youjing-plan-trip`，版本 `1.0.0`）
+- [x] 核对平台解析出的触发场景 / `planTrip` / 参数 Schema
+- [x] 真机测试「帮我规划去上海的行程」→ 小艺先追问日期；补「明天」后回复「已记下」；
+      点开有径后屏2 预填正确（实测 `上海 / 10月24日–10月26日 / 3天2晚 / 2 位成人`）
+- [x] 测试不支持城市与缺日期两条边界（杭州被四城白名单拦下；未给日期时小艺先追问）
+- [ ] 选「仅自己可用」发布 → 自测稳定后再升级范围（真机测试已发布，正式发布待用户决定）
