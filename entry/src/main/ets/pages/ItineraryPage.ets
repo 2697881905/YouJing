@@ -536,6 +536,27 @@ export struct ItineraryPage {
     .width('100%')
   }
 
+  /** 吸顶日标题（玻璃点位④：骨架期实色），挂在 ListItemGroup.header 上由 sticky 吸顶 */
+  @Builder
+  dayHeader() {
+    Row() {
+      Text(`Day ${this.curDay().dayIndex} · ${this.curDay().date.slice(5).replace('-', '月')}日`)
+        .fontSize(TypeTokens.body.size)
+        .fontWeight(600)
+        .fontColor(ColorTokens.ink)
+        .fontFeature("'tnum' on")
+      Blank()
+      Text(this.curDay().theme)
+        .fontSize(TypeTokens.caption.size)
+        .fontWeight(450)
+        .fontColor(ColorTokens.muted)
+    }
+    .width('100%')
+    .height(LayoutTokens.dayDividerHeight)
+    .padding({ top: SpaceTokens.md })
+    .backgroundColor(ColorTokens.canvas)
+  }
+
   @Builder
   statCol(value: string, label: string) {
     Column() {
@@ -900,8 +921,10 @@ export struct ItineraryPage {
           }
           .backgroundColor(ColorTokens.surfaceElevated)
 
-          Scroll() {
-            Column() {
+          // 官方 List：地图面板一个 ListItem，节点与通勤腿各成一个 ListItem，
+          // 日标题走 ListItemGroup 的 header —— 底稿写的「吸顶日标题」由 sticky 真正兑现
+          List() {
+            ListItem() {
               // 地图面板：有可用坐标就上真实底图（当天落点 + 分段动线），
               // 没坐标时保留 route-paper 底 + 摘要，不画假位置
               Stack({ alignContent: Alignment.BottomStart }) {
@@ -933,14 +956,17 @@ export struct ItineraryPage {
                     .backgroundColor(ColorTokens.canvas)
                   Blank()
                   if (this.dayStops.length > 0) {
-                    Text('全图')
+                    // 与地图页 chip 同档的官方 Button（原来是裸 Text + onClick）。
+                    // 走过 NORMAL 档：真机上胶囊表面在底图上完全不出色（量到与瓦片同色），
+                    // 显式 backgroundColor 也被样式吃掉，所以用 EMPHASIZED 档——
+                    // 实底胶囊压在瓦片上反而读得清，配色与地图页选中档一致
+                    Button('全图')
                       .fontSize(TypeTokens.caption.size)
                       .fontWeight(500)
-                      .fontColor(ColorTokens.primary)
                       .height(28)
-                      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
-                      .borderRadius(RadiusTokens.pill)
-                      .backgroundColor(ColorTokens.canvas)
+                      .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+                      .type(ButtonType.Capsule)
+                      .buttonStyle(ButtonStyleMode.EMPHASIZED)
                       .onClick(() => {
                         this.pathStack.pushPath({ name: 'Map', param: this.tripId });
                       })
@@ -954,48 +980,38 @@ export struct ItineraryPage {
               .borderRadius(RadiusTokens.card)
               .clip(true)
               .margin({ top: SpaceTokens.md })
+            }
 
-              // 吸顶日标题（玻璃点位④：骨架期实色）
-              Row() {
-                Text(`Day ${this.curDay().dayIndex} · ${this.curDay().date.slice(5).replace('-', '月')}日`)
-                  .fontSize(TypeTokens.body.size)
-                  .fontWeight(600)
-                  .fontColor(ColorTokens.ink)
-                  .fontFeature("'tnum' on")
-                Blank()
-                Text(this.curDay().theme)
-                  .fontSize(TypeTokens.caption.size)
-                  .fontWeight(450)
-                  .fontColor(ColorTokens.muted)
-              }
-              .width('100%')
-              .height(LayoutTokens.dayDividerHeight)
-              .margin({ top: SpaceTokens.md })
-
-              Column() {
-                if (this.curDay().activities.length === 0) {
+            ListItemGroup({ header: this.dayHeader() }) {
+              if (this.curDay().activities.length === 0) {
+                ListItem() {
                   Text('这一天还没有安排节点')
                     .fontSize(TypeTokens.caption.size)
                     .fontColor(ColorTokens.muted)
                     .width('100%')
                     .padding({ top: SpaceTokens.lg, bottom: SpaceTokens.sm })
                 }
-                ForEach(this.curDay().activities,
-                  (act: Activity, idx: number) => {
+              }
+              ForEach(this.curDay().activities,
+                (act: Activity, idx: number) => {
+                  ListItem() {
                     this.stopRow(act, idx === this.curDay().activities.length - 1)
-                    if (idx < this.curDay().activities.length - 1 &&
-                      this.curDay().activities[idx + 1].transport !== undefined) {
+                  }
+                  if (idx < this.curDay().activities.length - 1 &&
+                    this.curDay().activities[idx + 1].transport !== undefined) {
+                    ListItem() {
                       this.transitLeg(this.curDay().activities[idx + 1])
                     }
-                  }, (act: Activity): string => `itin-${this.tripId}-${this.dayIndex}-${act.id}-${act.title}`)
-              }
-              .width('100%')
+                  }
+                }, (act: Activity): string => `itin-${this.tripId}-${this.dayIndex}-${act.id}-${act.title}`)
             }
-            .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.bottomScrollReserve })
           }
           .layoutWeight(1)
           .scrollBar(BarState.Off)
-          .align(Alignment.Top)
+          .edgeEffect(EdgeEffect.Spring)
+          .sticky(StickyStyle.Header)
+          .cachedCount(6)
+          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.bottomScrollReserve })
         }
         .width('100%')
         .height('100%')

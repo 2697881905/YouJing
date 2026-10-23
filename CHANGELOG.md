@@ -55,6 +55,12 @@
   每个选项一个 ListItem；屏15 hero / 下一段 / 今日已打卡各成一个 ListItem，
   打卡区改 `ListItemGroup` + 吸顶分组头 + 官方 `.divider()`，不再手排间距。
   顺带删掉屏15 进度条上一处重复的 `.margin({ top: md })`。
+- 屏6 行程正文迁到官方 `List`（2026-10-24，真机验收）：原来是 `Scroll > Column` 里手排
+  地图面板 + 日标题 + 节点/通勤腿。现在地图面板一个 ListItem，节点与通勤腿各成一个 ListItem，
+  日标题挂 `ListItemGroup.header` 并开 `.sticky(StickyStyle.Header)`——底稿写的「吸顶日标题」
+  到这里才真的吸顶。面板右下角「全图」从裸 `Text + onClick` 换成官方 `Button`
+  （NORMAL 档在瓦片上不出表面色，量到胶囊区与底图同色，改 EMPHASIZED 实底胶囊后读得清）。
+  真机复测：北京 3 天 Day1 两站 + 一段通勤渲染与滚动正常，点节点仍能开屏10 详情面板。
 
 ### Added
 
