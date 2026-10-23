@@ -1,0 +1,262 @@
+---
+name: youjing-plan-trip
+description: 为「有径」预填旅行基础参数并打开行程规划页，响应“帮我规划去上海的行程”等说法
+---
+
+# youjing-plan-trip
+
+本Skill基于ArkTS函数`planTrip`，响应自然语言中"帮我规划去某地""安排几天几晚的旅行"等意图，
+把目的地、出发日期、天数、同行人数写入宿主应用「有径」的规划草稿并拉起行程规划页，
+由用户在页面内继续选择玩法偏好与景点后生成行程。
+
+## 触发场景
+
+当用户明确表达**新建一段旅行规划**，且目的地属于北京、上海、广州、深圳时调用。典型话术:
+
+- “帮我规划去北京的行程”
+- “安排一次上海三天两晚的旅游”
+- “下个月去广州玩四天，两个人”
+- “我想去深圳玩，9 月 10 号出发”
+
+不要调用的情况:
+
+- 用户只是问景点介绍、天气、订票或美食推荐——本Skill只负责预填行程参数并打开规划页。
+- 用户说“看看我之前做的行程”“打开我的行程”——意图是查看已有行程，不是新建规划。
+- 目的地不在北京、上海、广州、深圳——当前数据未覆盖，不要调用，直接告知暂不支持。
+- 用户没有给出出发日期——先追问具体日期，不要猜测或代填今天。
+- 用户已经打开有径且正在规划另一段行程——不要打断当前编辑，先询问是否新建。
+
+### 场景1:预填并打开行程规划(planTrip)
+
+**触发场景**:用户说"帮我规划去北京的行程"、"安排一次上海三天两晚的旅游"等
+
+**执行参数**:
+示例如下:
+
+```
+exec-cli(command: ohos-arkTSScript --skillName 'youjing-plan-trip' --scriptPath 'scripts/PlanTripSkill.ets' --functionName 'planTrip' --args '{
+    "arg1": "上海",
+    "arg2": "2026-08-01",
+    "arg3": "4",
+    "arg4": "3"
+}'
+)
+```
+
+约束如下:
+
+```
+{
+    "type": "object",
+    "properties": {
+        "command": {
+            "type": "string",
+            "description": "命令行",
+            "const": "ohos-arkTSScript"
+        },
+        "skillName": {
+            "type": "string",
+            "description": "skill名称",
+            "const": "youjing-plan-trip"
+        },
+        "scriptPath": {
+            "type": "string",
+            "description": "ETS文件路径",
+            "const": "scripts/PlanTripSkill.ets"
+        },
+        "functionName": {
+            "type": "string",
+            "description": "函数名称",
+            "const": "planTrip"
+        },
+        "args": {
+            "type": "object",
+            "description": "Object类型的参数,由系统智能体填入。举例:{'arg1':'上海','arg2':'2026-08-01','arg3':'4','arg4':'3'}",
+            "properties": {
+                "arg1": {
+                    "type": "string",
+                    "description": "目的地城市,只支持北京、上海、广州、深圳",
+                    "enum": ["北京", "上海", "广州", "深圳"]
+                },
+                "arg2": {
+                    "type": "string",
+                    "description": "出发日期,ISO 格式 YYYY-MM-DD,如 2026-08-01"
+                },
+                "arg3": {
+                    "type": "string",
+                    "description": "行程天数(含首尾),1-30 的整数字符串;用户未说天数时省略,默认 3 天"
+                },
+                "arg4": {
+                    "type": "string",
+                    "description": "同行人数,1-30 的整数字符串;用户未说人数时省略,默认 2 人"
+                }
+            },
+            "required": ["arg1", "arg2"]
+        }
+    },
+    "required": [
+        "command",
+        "skillName",
+        "scriptPath",
+        "functionName",
+        "args"
+    ]
+}
+```
+
+**执行返回值**:
+示例如下:
+
+1. 成功预填并拉起规划页
+
+```
+{
+  "type": "result",
+  "status": "success",
+  "data": {
+    "destination": "上海",
+    "startDate": "2026-08-01",
+    "days": 4,
+    "people": 3,
+    "route": "TripInput",
+    "launched": true
+  }
+}
+```
+
+2. 入参非法
+
+```
+{
+  "type": "result",
+  "status": "failed",
+  "errCode": "ERR_INVALID_PARAMS",
+  "errMsg": "destination 成都 is not supported",
+  "suggestion": "目前只支持北京、上海、广州、深圳，你想去哪一个？"
+}
+```
+
+3. 内部错误
+
+```
+{
+  "type": "result",
+  "status": "failed",
+  "errCode": "ERR_INTERNAL",
+  "errMsg": "startAbility failed: 16000001 The specified ability does not exist",
+  "suggestion": "打开有径失败了，请手动打开应用再试"
+}
+```
+
+约束如下:
+
+```
+{
+  "type": "object",
+  "required": ["type", "status"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "description": "结果类型标识",
+      "const": "result"
+    },
+    "status": {
+      "type": "string",
+      "description": "执行状态: success表示成功, failed表示失败",
+      "enum": ["success", "failed"]
+    },
+    "data": {
+      "type": "object",
+      "description": "开发者返回的自定义业务数据,结构由具体分支决定"
+    },
+    "errCode": {
+      "type": "string",
+      "description": "错误码,仅在status=failed时出现",
+      "enum": ["ERR_INVALID_PARAMS", "ERR_INTERNAL"]
+    },
+    "errMsg": {
+      "type": "string",
+      "description": "错误描述",
+      "minLength": 1
+    },
+    "suggestion": {
+      "type": "string",
+      "description": "建议的下一步操作,可由系统智能体直接组织成自然语言回复",
+      "minLength": 1
+    }
+  },
+  "oneOf": [
+    {
+      "description": "成功: 规划页已拉起,基础参数已预填",
+      "properties": {
+        "status": { "const": "success" },
+        "data": {
+          "type": "object",
+          "required": ["destination", "startDate", "days", "people", "route", "launched"],
+          "properties": {
+            "destination": {
+              "type": "string",
+              "description": "目的地城市",
+              "minLength": 1
+            },
+            "startDate": {
+              "type": "string",
+              "description": "出发日期,ISO 格式 YYYY-MM-DD",
+              "minLength": 1
+            },
+            "days": {
+              "type": "integer",
+              "description": "行程天数(含首尾)",
+              "minimum": 1,
+              "maximum": 30
+            },
+            "people": {
+              "type": "integer",
+              "description": "同行人数",
+              "minimum": 1,
+              "maximum": 30
+            },
+            "route": {
+              "type": "string",
+              "description": "已打开的页面路由",
+              "const": "TripInput"
+            },
+            "launched": {
+              "type": "boolean",
+              "description": "是否已成功拉起应用页面",
+              "const": true
+            }
+          }
+        }
+      },
+      "required": ["type", "status", "data"]
+    },
+    {
+      "description": "失败-参数: 目的地/日期/天数/人数非法,不可重试(同入参)",
+      "properties": {
+        "status":  { "const": "failed" },
+        "errCode": { "const": "ERR_INVALID_PARAMS" },
+        "errMsg":  { "type": "string", "minLength": 1 },
+        "suggestion": {
+          "type": "string",
+          "description": "例如:目前只支持北京、上海、广州、深圳，你想去哪一个？"
+        }
+      },
+      "required": ["type", "status", "errCode", "errMsg", "suggestion"]
+    },
+    {
+      "description": "失败-内部: 拉起页面失败或未知异常,可重试(建议节流)",
+      "properties": {
+        "status":  { "const": "failed" },
+        "errCode": { "const": "ERR_INTERNAL" },
+        "errMsg":  { "type": "string", "minLength": 1 },
+        "suggestion": {
+          "type": "string",
+          "description": "例如:打开有径失败了，请手动打开应用再试"
+        }
+      },
+      "required": ["type", "status", "errCode", "errMsg", "suggestion"]
+    }
+  ]
+}
+```

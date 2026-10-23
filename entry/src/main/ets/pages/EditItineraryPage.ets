@@ -19,6 +19,7 @@ import { Activity, Trip } from '../model/Trip';
 import { ActivityCategory, ActivityStatus } from '../model/Trip';
 import { Spot } from '../model/Spot';
 import { TripDao } from '../data/TripDao';
+import { WidgetSync } from '../widget/TodayCard';
 import { PlanRepository } from '../data/PlanRepository';
 import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
 import { Logger } from '../common/logger/Logger';
@@ -157,6 +158,9 @@ export struct EditItineraryPage {
     };
     TripDao.saveTrip(this.ctx(), updated).then((): void => {
       Logger.info('Ui.Edit', `保存 Day ${this.dayIndex + 1} 共 ${kept.length} 站`);
+      WidgetSync.refreshAll(this.ctx()).catch((err: Error) => {
+        Logger.warn('Ui.Edit', `卡片刷新失败: ${err.message}`);
+      });
       this.toast(`已保存 ${kept.length} 站`);
       this.pathStack.pop();
     }).catch((err: Error) => {

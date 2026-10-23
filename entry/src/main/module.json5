@@ -10,6 +10,16 @@
     "deliveryWithInstall": true,
     "installationFree": false,
     "pages": "$profile:main_pages",
+    "skillProfiles": [
+      {
+        "name": "youjing-plan-trip",
+        "abilityName": "EntryAbility",
+        "srcEntries": [
+          "../../skills/youjing-plan-trip/scripts/PlanTripSkill.ets"
+        ],
+        "version": "1.0.0"
+      }
+    ],
     "requestPermissions": [
       {
         "name": "ohos.permission.READ_CALENDAR",

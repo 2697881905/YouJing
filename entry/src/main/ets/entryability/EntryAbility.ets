@@ -1,4 +1,4 @@
-import { AbilityConstant, Configuration, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
+import { AbilityConstant, Configuration, ConfigurationConstant, skillManager, UIAbility, Want } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 import { Logger } from '../common/logger/Logger';
@@ -9,6 +9,8 @@ import { PlanDraft } from '../data/PlanDraft';
 import { TripBasicInput } from '../model/PlanParams';
 import { DateUtils } from '../utils/DateUtils';
 import { IntentHandoff } from '../data/IntentHandoff';
+import { BuildConfig } from '../common/constants/BuildConfig';
+import { WidgetSync } from '../widget/TodayCard';
 
 const DOMAIN = 0x0000;
 
@@ -164,7 +166,26 @@ export default class EntryAbility extends UIAbility {
     DataSeeder.seedIfEmpty(this.context).catch((err: Error) => {
       Logger.error('EntryAbility', `种子灌入失败: ${err.message}`);
     });
+    this.logSkillProfiles();
+    WidgetSync.refreshAll(this.context).catch((err: Error) => {
+      Logger.warn('EntryAbility', `卡片刷新失败: ${err.message}`);
+    });
     this.routePending();
+  }
+
+  /** 小艺 Skill 是否真的随 HAP 注册（debug 可查；发布包不查） */
+  private async logSkillProfiles(): Promise<void> {
+    if (!BuildConfig.IS_DEBUG) {
+      return;
+    }
+    try {
+      const infos: skillManager.SkillInfo[] = await skillManager.getSkillInfosForSelf(
+        skillManager.SkillInfoFlag.GET_SKILL_INFO_WITH_SRC_ENTRIES);
+      const names: string[] = infos.map((info: skillManager.SkillInfo): string => info.skillName);
+      Logger.info('EntryAbility', `Skill 注册 ${infos.length} 个: ${names.join(',')}`);
+    } catch (err) {
+      Logger.error('EntryAbility', `Skill 查询失败: ${(err as Error).message}`);
+    }
   }
 
   /** 统一出口：want 通道优先，其次意图执行器留下的交接路由；消费即清空 */

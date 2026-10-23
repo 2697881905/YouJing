@@ -17,6 +17,8 @@ import { AccountStore } from '../data/AccountStore';
 import { PlanDraft } from '../data/PlanDraft';
 import { AccountKind, AccountState } from '../model/Account';
 import { TripDao } from '../data/TripDao';
+import { WidgetSync } from '../widget/TodayCard';
+import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
 
 interface PreviewStop {
@@ -44,7 +46,11 @@ export struct YoujingStartPage {
     const ctx: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
     const state: AccountState = await AccountStore.login(ctx);
     if (state.kind === AccountKind.HUAWEI) {
-      await TripDao.adoptGuestTrips(ctx, state.uid);
+      await TripDao.adoptGuestData(ctx, state.uid);
+      // 归户会换掉卡片可读的分区键，立刻回灌一次，别让桌面空等 30 分钟
+      WidgetSync.refreshAll(ctx).catch((err: Error) => {
+        Logger.warn('Ui.Start', `卡片刷新失败: ${err.message}`);
+      });
     }
     this.pathStack.pushPath({ name: 'TripInput' });
   }

@@ -208,20 +208,32 @@ export class TripDao {
     return null;
   }
 
-  /** 静默登录取到 UnionID 后，把游客分区行程归户到该账号；返回归户后该账号名下条数 */
-  static async adoptGuestTrips(context: common.Context, toUid: string): Promise<number> {
+  /**
+   * 静默登录取到 UnionID 后，把游客分区数据归户到该账号；返回归户后该账号名下行程数。
+   * 三张带 user_id 的表必须同一事务迁移：只迁 trip 会让登录前记的费用与打卡从屏15/屏16 消失。
+   */
+  static async adoptGuestData(context: common.Context, toUid: string): Promise<number> {
     if (toUid === AccountConfig.GUEST_UID) {
       return 0;
     }
     await DatabaseHelper.write(context, async (store: relationalStore.RdbStore): Promise<void> => {
       store.executeSync('UPDATE trip SET user_id = ? WHERE user_id = ?', [toUid, AccountConfig.GUEST_UID]);
+      store.executeSync('UPDATE expense SET user_id = ? WHERE user_id = ?', [toUid, AccountConfig.GUEST_UID]);
+      store.executeSync('UPDATE checkin SET user_id = ? WHERE user_id = ?', [toUid, AccountConfig.GUEST_UID]);
     });
-    const counts: number[] = await TripDao.query(context,
-      'SELECT COUNT(*) AS c FROM trip WHERE user_id = ?', [toUid],
-      (rs: relationalStore.ResultSet): number => rs.getLong(rs.getColumnIndex('c')));
-    const count: number = counts.length > 0 ? counts[0] : 0;
-    Logger.info(TAG, `游客数据归户 uid=${AccountStore.masked()} count=${count}`);
+    const trips: number[] = await TripDao.countByUid(context, 'trip', toUid);
+    const expenses: number[] = await TripDao.countByUid(context, 'expense', toUid);
+    const checkins: number[] = await TripDao.countByUid(context, 'checkin', toUid);
+    const count: number = trips.length > 0 ? trips[0] : 0;
+    Logger.info(TAG,
+      `游客数据归户 uid=${AccountStore.masked()} trip=${count} ` +
+      `expense=${expenses.length > 0 ? expenses[0] : 0} checkin=${checkins.length > 0 ? checkins[0] : 0}`);
     return count;
+  }
+
+  private static countByUid(context: common.Context, table: string, uid: string): Promise<number[]> {
+    return TripDao.query(context, `SELECT COUNT(*) AS c FROM ${table} WHERE user_id = ?`, [uid],
+      (rs: relationalStore.ResultSet): number => rs.getLong(rs.getColumnIndex('c')));
   }
 
   static deleteTrip(context: common.Context, tripId: string): Promise<void> {

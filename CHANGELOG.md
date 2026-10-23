@@ -6,12 +6,26 @@
 
 ### Added
 
+- 小艺 Skill 应用内接入（2026-10-23，真机验收）：API 26 `skillProfiles` 注册 `youjing-plan-trip`；
+  `entry/skills/youjing-plan-trip/SKILL.md` 按官方样例给完整 `exec-cli` 命令对象 Schema 与
+  `oneOf` 返回值 Schema；`PlanTripSkill.ets` 校验四参后拉起 `EntryAbility`
+  （Want 参数 `route/destination/start/days/people`）。HAP 内含 SKILL.md，启动日志
+  「Skill 注册 1 个: youjing-plan-trip」；下游屏2 预填真机通过。
+  平台侧新建 / 导入步骤见 `Docs/小艺Skill接入清单.md`（需用户操作，真机测试要求 HarmonyOS 7.0 + Beta 小艺）
+- 游客数据归户补全：`TripDao.adoptGuestData` 同一事务迁移 `trip` / `expense` / `checkin` 三表
+  （此前只迁 `trip`，登录前记的费用与打卡会从屏15 / 旅行中页消失）；真机日志
+  `trip=6 expense=1 checkin=1`，费用页「故宫门票 ¥320」与旅行中「故宫博物院 已打卡」均可见
+- 桌面卡片账号分区修复：FormExtensionAbility 是独立进程，此前只按游客分区读 RDB，归户后卡片显示空态。
+  provider 刷新前先 `AccountStore.init` 恢复 UnionID；新增 `widget/TodayCard.ets` 共享卡片数据映射 +
+  `WidgetSync.refreshAll`，主应用在归户 / 生成 / 编辑 / 冷启动后主动回灌，不必等 30 分钟定时。
+  真机日志 `Widget.TodayCard: 已刷新卡片 996982405 2*2`，桌面恢复今日三站
+
 - 业务阶段 1–8 落地（2026-10-20 → 2026-10-22，真机验收）：
   - 阶段1/3 数据契约与防线：`model/`（Trip/Spot/Area/PlanParams 接口与枚举）、`ai/TripSchema`（枚举白名单单一事实源）+ `ai/TripParser` 逐字段守卫（错误路径定位到 `days[i].activities[j].field`）
   - 阶段2/4 UI 与存储：设计底稿 39 帧全量落 `pages/`+`components/`+`design/`（46 色 light/dark 双值、衬线字体注册、深色零阴影门控、系统材质沉浸栏）；`data/DatabaseHelper` RdbStore 单例 + 单写通道事务 + 版本驱动迁移
   - 阶段5 内置资产：北上广深种子库（每城 32 景点 / 36 区域，rawfile JSONL）+ `DataSeeder` 首启幂等灌入
   - 阶段6/7 AI 与交互：`ai/PromptBuilder`（Schema 内嵌）+ `ai/LlmClient`（Mock 离线闭环 / HTTP 备选 / 失败重试一次）；屏2–6 多轮选项状态机 `data/PlanDraft` + `data/PlanRepository` 打通到落库
-  - 阶段8 账号与分区：`common/config/AccountConfig` + `data/AccountStore`（UnionID 静默登录、失败退本机游客分区、登录态 Preferences 持久化）；DB v1→v2 加 `trip.user_id` 分区列与索引，`TripDao` 列表/详情读按 uid 收口、`adoptGuestTrips` 游客数据归户
+  - 阶段8 账号与分区：`common/config/AccountConfig` + `data/AccountStore`（UnionID 静默登录、失败退本机游客分区、登录态 Preferences 持久化）；DB v1→v2 加 `trip.user_id` 分区列与索引，`TripDao` 列表/详情读按 uid 收口、`adoptGuestData` 游客数据归户
   - 阶段9 系统触达：屏14 Calendar Kit 真写入（预约节点 + 每日全天、按 tripId 幂等清理）；
     今日行程卡片读真 RDB 数据（`data/TodayPlan` 纯函数 + FormExtensionAbility 直读回灌）；
     外部拉起参数通道（`onNewWant` + 屏2 预填回显）为小艺 Skill 接收端就绪
@@ -61,6 +75,9 @@
 
 ### Changed
 
+- `Docs/小艺Skill接入清单.md` 重写为 API 26 应用内 Skill 指南：旧版指向已下线的 IntentsKit 控制台路径，
+  且把「意图声明格式待调研」留在待办里；现记录 `skillProfiles` / SKILL.md / 脚本入口契约、平台侧
+  新建 → 真机测试 → 发布流程、已验证据与本地不可直调 Skill 的边界
 - 华为账号静默登录接通真 UnionID（2026-10-23，真机验收）：AGC 侧注册应用「有径」
   （APP ID / Client ID `6917619826312400726`、projectId `101653523865420226`），登记调试证书
   SHA256 指纹 `86:6F:…:CF:70`；`AccountConfig.ACCOUNT_KIT_ENABLED` 翻为 `true`。

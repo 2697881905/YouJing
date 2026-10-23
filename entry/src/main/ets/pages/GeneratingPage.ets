@@ -14,6 +14,7 @@ import { LayoutTokens } from '../design/LayoutTokens';
 import { PlanDraft } from '../data/PlanDraft';
 import { PlanRepository } from '../data/PlanRepository';
 import { TripDao } from '../data/TripDao';
+import { WidgetSync } from '../widget/TodayCard';
 import { LlmClient } from '../ai/LlmClient';
 import { PlanParams } from '../model/PlanParams';
 import { Spot } from '../model/Spot';
@@ -70,6 +71,9 @@ export struct GeneratingPage {
       this.stage = this.stages.length;
       this.progress = 1;
       Logger.info('Ui.Generating', `生成并落库 ${trip.id}`);
+      WidgetSync.refreshAll(context).catch((err: Error) => {
+        Logger.warn('Ui.Generating', `卡片刷新失败: ${err.message}`);
+      });
       APP_NAV.replacePath({ name: 'Itinerary', param: trip.id });
     } catch (err) {
       const code: number = err instanceof AppError ? (err as AppError).code : 0;

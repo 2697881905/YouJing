@@ -2,47 +2,23 @@
  * 今日行程万能卡片 FormExtensionAbility（屏13，帧 7fc1cb85）。
  * 契约：卡片实色填充、永不模糊（DESIGN.md L593，widget 本就不支持 backdrop-filter）。
  *
- * 数据通路：卡片进程直接读同一份 RDB（分区键走 AccountStore 默认游客分区），
+ * 数据通路：卡片进程直接读同一份 RDB，但它是独立进程，必须先 AccountStore.init
+ * 从 preferences 恢复 UnionID 分区，否则登录用户的数据会被游客分区挡住。
  * onAddForm 先回空态、异步取到今日行程后 formProvider.updateForm 回灌；
- * 定时刷新由 form_config.json 的 updateDuration=1（30 分钟，系统最小粒度）驱动 onUpdateForm。
+ * 定时刷新由 form_config.json 的 updateDuration=1（30 分钟，系统最小粒度）驱动 onUpdateForm，
+ * 主应用侧在落库/归户后由 WidgetSync.refreshAll 主动回灌，不等定时。
  */
 
 import { FormExtensionAbility, formBindingData, formInfo, formProvider } from '@kit.FormKit';
 import { Want } from '@kit.AbilityKit';
 import { preferences } from '@kit.ArkData';
 import { Logger } from '../common/logger/Logger';
+import { AccountStore } from '../data/AccountStore';
 import { TripDao } from '../data/TripDao';
 import { TodayPlanData } from '../data/TodayPlan';
+import { DIM_KEY_2X2, DIM_KEY_2X4, emptyCardData, toCardData, WIDGET_DIM_PREFS } from './TodayCard';
 
 const TAG: string = 'Widget.TodayTrip';
-/** 卡片尺寸不入库，落在 preferences：onUpdateForm 只有 formId，进程重启后要靠它还原 2×4 的 16 内缩 */
-const DIM_PREFS: string = 'widget_form_dims';
-const DIM_KEY_2X2: string = '2*2';
-const DIM_KEY_2X4: string = '2*4';
-
-function emptyData(dimension: string): Record<string, string> {
-  const data: Record<string, string> = {
-    'dayTitle': '今天没有行程安排', 'meta': '打开有径规划一段', 'footer': '生成行程后自动出现在这里',
-    'r1t': '', 'r1n': '', 'r2t': '', 'r2n': '', 'r3t': '', 'r3n': '', 'tripId': '',
-    'dimension': dimension
-  };
-  return data;
-}
-
-function toData(plan: TodayPlanData, dimension: string): Record<string, string> {
-  const data: Record<string, string> = {
-    'dayTitle': plan.dayTitle, 'meta': plan.meta, 'footer': plan.footer,
-    'r1t': plan.rows.length > 0 ? plan.rows[0].time : '',
-    'r1n': plan.rows.length > 0 ? plan.rows[0].name : '',
-    'r2t': plan.rows.length > 1 ? plan.rows[1].time : '',
-    'r2n': plan.rows.length > 1 ? plan.rows[1].name : '',
-    'r3t': plan.rows.length > 2 ? plan.rows[2].time : '',
-    'r3n': plan.rows.length > 2 ? plan.rows[2].name : '',
-    'tripId': plan.tripId,
-    'dimension': dimension
-  };
-  return data;
-}
 
 export default class TodayTripFormAbility extends FormExtensionAbility {
   private dimPrefs: preferences.Preferences | null = null;
@@ -53,7 +29,7 @@ export default class TodayTripFormAbility extends FormExtensionAbility {
     Logger.info(TAG, `onAddForm ${formId} ${dimension}`);
     this.saveDimension(formId, dimension);
     this.refresh(formId);
-    return formBindingData.createFormBindingData(emptyData(dimension));
+    return formBindingData.createFormBindingData(emptyCardData(dimension));
   }
 
   onCastToNormalForm(formId: string): void {
@@ -120,7 +96,7 @@ export default class TodayTripFormAbility extends FormExtensionAbility {
   private prefs(): preferences.Preferences | null {
     if (this.dimPrefs === null) {
       try {
-        this.dimPrefs = preferences.getPreferencesSync(this.context, { name: DIM_PREFS });
+        this.dimPrefs = preferences.getPreferencesSync(this.context, { name: WIDGET_DIM_PREFS });
       } catch (err) {
         Logger.warn(TAG, `尺寸偏好打开失败: ${(err as Error).message}`);
         return null;
@@ -161,13 +137,23 @@ export default class TodayTripFormAbility extends FormExtensionAbility {
     }
   }
 
+  /** 卡片进程独立于主应用：先恢复登录态，再把今日行程喂给卡片 */
+  private async loadPlan(): Promise<TodayPlanData | null> {
+    try {
+      await AccountStore.init(this.context);
+    } catch (err) {
+      Logger.warn(TAG, `登录态恢复失败，按游客分区读卡片: ${(err as Error).message}`);
+    }
+    return TripDao.todayPlan(this.context);
+  }
+
   private refresh(formId: string): void {
     if (formId.length === 0) {
       return;
     }
     const dimension: string = this.storedDimension(formId);
-    TripDao.todayPlan(this.context).then((plan: TodayPlanData | null) => {
-      const data: Record<string, string> = plan === null ? emptyData(dimension) : toData(plan, dimension);
+    this.loadPlan().then((plan: TodayPlanData | null) => {
+      const data: Record<string, string> = plan === null ? emptyCardData(dimension) : toCardData(plan, dimension);
       return formProvider.updateForm(formId, formBindingData.createFormBindingData(data));
     }).then((): void => {
       Logger.info(TAG, `回灌卡片 ${formId} ${dimension}`);

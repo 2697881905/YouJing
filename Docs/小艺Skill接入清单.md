@@ -1,79 +1,213 @@
 # 小艺 Skill 接入清单（有径）
 
-> 分工：**平台侧你在控制台做（§A）**，**应用侧我做（§B）**。参数契约在 §C，两边都按它对齐。
-> 现状：应用侧接收通道已实现并真机验证（commit `28fced4`），平台侧还没有 Skill，所以语音还唤不起。
+> 日期：2026-10-23。**应用侧已完成并真机验证；平台侧需要你在小艺开放平台操作。**
+> 本项目走的是 API 26 的「应用内 Skill」（app skill），不是旧的 IntentsKit 意图声明。
+> 旧的 `resources/base/profile/insight_intent.json` 与 `PlanTripExecutor` 仍留在工程里，
+> 但当前小艺入口以本文的 Skill 为准，两者互不依赖。
 
-## A. 你在小艺开放平台要做的事
+## A. 先看结论
 
-开发文档 §3 已定方案：**小艺开放平台 LLM 模式**（平台承担算力成本，纯 ArkTS 集成）。控制台路径：
+| 项 | 值 |
+|---|---|
+| Skill 名 | `youjing-plan-trip` |
+| 能力 | 预填目的地 / 出发日 / 天数 / 同行人数，并打开屏2「行程规划」 |
+| 契约文件 | `entry/skills/youjing-plan-trip/SKILL.md`（随 HAP 打包） |
+| 入口脚本 | `entry/skills/youjing-plan-trip/scripts/PlanTripSkill.ets` |
+| 注册声明 | `entry/src/main/module.json5` → `skillProfiles` |
+| 版本 | `1.0.0`（`skillProfiles.version`，平台侧需与之一致） |
+| 真机注册证据 | 启动日志 `YouJing.EntryAbility: Skill 注册 1 个: youjing-plan-trip` |
+| 平台侧要做什么 | 新建 / 导入 Skill → 真机测试 → 发布（见 §B） |
 
-1. 登录 [小艺开放平台](https://developer.huawei.com/consumer/cn/harmonyos/51-IntentsKit/) → **Skill** → **新建 Skill**
-   - 名称：`有径行程规划`
-   - 描述：面向「帮我规划一次旅行」这类说法，说明能给出行程
-   - 触发意图：填用户会说的话，例：`帮我规划去北京的行程`、`安排一次三天两晚的旅游`
-2. 选择 **Agent** → **添加 LLM 模式 Agent**
-3. 在 Agent 的**出参 / 拉起应用**配置里，按 §C 的键名把槽位传给我们（这一步最关键，键名错了应用收到空值）
-4. 关联到本应用：bundleName `com.youjing.app`（AGC 侧应用需已注册，与调试签名同一账号体系）
-5. 提交审核（开发文档 §8 风险表：**Skill 上架有延迟**，所以 App 内闭环已先做完，Skill 只当增量入口）
+平台**不需要你手工填槽位**：SKILL.md 里已经写好 `exec-cli` 与完整 JSON Schema，
+平台导入后按它识别 `planTrip` 的参数与返回值。这是应用内 Skill 与旧「意图」方案最大的区别。
 
-你需要准备/确认的信息：AGC 应用是否已注册、签名指纹是否已登记、这个 Skill 用哪个 AGC 项目。这三项和 §D 的 Account Kit 是同一套配置，一次问清比较省事。
+## B. 你在小艺开放平台要做的（按顺序）
 
-## B. 应用侧我已完成 / 待做
+### B0. 前置条件
 
-已完成（真机验证）：
+1. 一台 **HarmonyOS 7.0** 真机，且小艺 App 为 **Beta 版**（应用内 Skill 的真机测试走 Beta 小艺）。
+2. 要测的 HAP 已安装到该真机；bundleName 必须是 `com.youjing.app`。
+3. AGC 应用「有径」已注册（已完成，APP ID `6917619826312400726`）。
+4. 用与 AGC 同一账号登录小艺开放平台。
 
-- `EntryAbility.applyWant()`：解析外部拉起的 `want.parameters`
-  - `route` → 落到哪一屏（`TripInput` / `Trips` / `Itinerary` …，路由表见 `Docs/ARCHITECTURE.md`）
-  - `destination` / `start` / `end` / `days` / `people` → 预填屏2 基础参数（非法日期直接忽略，不会覆盖已有草稿）
-  - `param` → 路由参数（如屏8 需要的 tripId）
-- `onNewWant()`：App 已在前台时同样生效（单例复用页面栈，不重建窗口）
-- 屏2 `aboutToAppear` 回显草稿真值 —— 预填不是只写进内存，用户看得见
+### B1. 新建 / 导入 Skill
 
-待我做（拿到平台侧结论后）：
+1. 打开小艺开放平台控制台：<https://developer.huawei.com/consumer/cn/hag/hagindex.html#/>
+2. 进入 **Skill** → **新建 Skill**。
+3. 选择「导入 Skill / 从应用导入」这类入口（应用内 Skill 的包就在 HAP 里）。
+   如果当前控制台只提供「上传 Skill 包」，就上传**当前签名的 HAP**
+   （`entry/build/default/outputs/default/entry-default-signed.hap`）。
+   控制台文案可能随版本调整，以页面实际入口为准。
+4. 绑定信息：
+   - 应用 / bundleName：`com.youjing.app`
+   - Skill 名：`youjing-plan-trip`
+   - Skill 版本：`1.0.0`（必须与 `module.json5` 的 `skillProfiles.version` 相同）
+5. 导入后核对平台解析结果：
+   - 触发场景：`帮我规划去北京的行程`、`安排一次上海三天两晚的旅游`、`下个月去广州玩四天，两个人`
+   - 场景 1（`planTrip`）参数：`arg1` 目的地、`arg2` 出发日 `YYYY-MM-DD`、`arg3` 天数、`arg4` 人数
+   - 返回值：`success` 带 `destination/startDate/days/people/route/launched`；
+     失败为 `ERR_INVALID_PARAMS` 或 `ERR_INTERNAL`，均带 `suggestion`
 
-- 意图声明落进 HAP：`@kit.IntentsKit` 在本机 SDK 里确认可用（`insightIntent` + `InsightIntentUIExtensionAbility`），
-  但**意图注册的具体声明文件与 JSON 格式我还没核实**，明天我按 SDK 声明文件和官方样例确认后补，不凭记忆写。
-- 若平台侧只能拉起 Ability 不能带自定义参数，退路是：Skill 只传 `route`，参数由屏2 让用户确认（不硬编数字）。
+### B2. 真机测试
 
-## C. 参数契约（贴进 Skill 出参配置的就是这张表）
+1. 在平台点「真机测试」，按提示选中已安装有径的设备。
+2. 对小艺说：
+   > 帮我规划去上海的行程，8 月 1 号出发，4 天，3 个人
+3. 预期链路：
+   - 小艺命中 Skill → 调 `planTrip`
+   - 有径被拉起（前台或冷启动均可）
+   - 屏2 显示：`上海` / `8月1日 – 8月4日` / `4天3晚` / `3 位成人`
+   - Skill 返回 `status=success`，`data.launched=true`
+4. 再测两条边界：
+   - 说「帮我规划去成都的行程」→ 不应拉起，返回 `ERR_INVALID_PARAMS`，
+     `suggestion` 为「目前只支持北京、上海、广州、深圳，你想去哪一个？」
+   - 只说「帮我规划去上海」不给日期 → 小艺应先追问日期（SKILL.md 的「不要调用的情况」已写明）
 
-| 键 | 类型 | 含义 | 例 |
-|---|---|---|---|
-| `route` | string | 落点屏名，缺省则不跳转只预填 | `TripInput` |
-| `destination` | string | 目的地城市，屏2 城市表内的值才生效 | `上海` |
-| `start` | string | 出发日 ISO `YYYY-MM-DD` | `2026-08-01` |
-| `end` | string | 返程日 ISO，与 `days` 二选一，`days` 优先 | `2026-08-04` |
-| `days` | number | 天数（含首尾），会反算 `end` | `4` |
-| `people` | number | 同行人数 | `3` |
-| `param` | string | 路由参数；`route=Itinerary` 时传 tripId | `trip-1792689610437` |
+### B3. 发布
 
-## D. Account Kit（阶段 8 遗留开关）· 已完成（2026-10-23）
+平台给三档发布范围：
 
-AGC 已配置并真机验收：APP ID / Client ID 均为 `6917619826312400726`（应用「有径」，
-项目 projectId `101653523865420226`），调试证书 SHA256 指纹 `86:6F:…:CF:70` 已登记；
-`AccountConfig.ACCOUNT_KIT_ENABLED=true`，屏1 按钮走真 UnionID 静默登录，
-游客期行程由 `TripDao.adoptGuestTrips` 自动归户。
+| 范围 | 用途 |
+|---|---|
+| 仅自己可用 | 先自测，不对外 |
+| 发布到小艺 | 小艺能调用，但不进 Skill 广场 |
+| 上架 Skill 广场 | 公开可搜索 |
 
-换签名时必看：调试签名必须用 AGC **手动创建**的 Profile。DevEco 本地自动签名生成的 Profile 里
-`app-identifier` 是随机值（本次为 `6918745435470575450`），Account Kit 会报
-`1001502003 Invalid clientId or profile`；换成 AGC 侧 Profile（`youjing-debug-20261023`）后
-`app-identifier` 才是 APP ID，登录即通。该 Profile 有效期至 2027-10-20，到期需重新申请并更新
-`build-profile.json5`（含签名口令，不入库）。
+首次建议先选「仅自己可用」跑通 B2，再按需要升级。审核通常 **1–3 个工作日**。
+开发文档 §8 已把「Skill 上架有延迟」列为风险，所以 App 内主链不依赖 Skill。
 
-## E. 不等平台就能验的（我明天继续跑，你也可以自己试）
+### B4. 以后改 Skill 的发布流程
 
-```bash
-# 冷启动预填
-hdc shell aa start -a EntryAbility -b com.youjing.app \
-  --ps route TripInput --ps destination 上海 --ps start 2026-08-01 --ps days 4 --ps people 3
+1. 改 `SKILL.md` / `PlanTripSkill.ets`。
+2. 提升 `entry/src/main/module.json5` 里 `skillProfiles.version`（如 `1.0.1`）。
+3. 重新构建并签名 HAP，装到测试机。
+4. 回平台重新导入 / 提交新版本，再审一次。
 
-# App 已在前台时改参（走 onNewWant）
-hdc shell aa start -a EntryAbility -b com.youjing.app \
-  --ps route TripInput --ps destination 北京 --ps start 2026-09-10 --ps days 6 --ps people 1
+> 只改脚本不改 SKILL.md，平台侧看到的契约不变；只改 SKILL.md 不改版本，平台可能仍拿旧契约。
 
-# 直达某屏 / 带路由参数
-hdc shell aa start -a EntryAbility -b com.youjing.app --ps route Trips
+## C. 应用侧已实现（我做的，真机验过）
+
+### C1. 注册声明
+
+`entry/src/main/module.json5`：
+
+```json5
+"skillProfiles": [
+  {
+    "name": "youjing-plan-trip",
+    "abilityName": "EntryAbility",
+    "srcEntries": [
+      "../../skills/youjing-plan-trip/scripts/PlanTripSkill.ets"
+    ],
+    "version": "1.0.0"
+  }
+]
 ```
 
-真机实测结论：第一条屏2 显示「上海 / 8月1日–8月4日 / 4天3晚 / 3 位成人」；第二条同一进程内改成
-「北京 / 9月10日–9月15日 / 6天5晚 / 1 位成人」，日志见 `YouJing.EntryAbility: 外部预填 route=…`。
+构建后 HAP 内 `module.json` 的 `srcEntries` 会被规范化为
+`@normalized:N&&&entry/skills/youjing-plan-trip/scripts/PlanTripSkill&`，属于正常现象。
+
+### C2. Skill 入口契约
+
+`PlanTripSkill.ets` 是薄适配层，只做三件事：
+
+1. 校验 `argv`（位置参数依次为目的地、出发日、天数、人数）。
+2. 组装 Want 拉起 `EntryAbility`，参数交给 `EntryAbility.applyWant` 统一落草稿。
+3. 用 `scriptManager.completeArkTSScriptInApp` 回 `result`。
+
+入口签名（平台按 SKILL.md 调用）：
+
+```ts
+public async planTrip(info: scriptManager.ArkTSScriptInfo, ...argv: string[]): Promise<void>
+```
+
+参数映射：
+
+| argv | 含义 | 规则 |
+|---|---|---|
+| `arg1` | 目的地 | 只接受 北京 / 上海 / 广州 / 深圳 |
+| `arg2` | 出发日 | 必须是真实存在的 ISO 日期（`2026-02-30` 会被拒） |
+| `arg3` | 天数 | 1–30 整数；省略时默认 3 |
+| `arg4` | 人数 | 1–30 整数；省略时默认 2 |
+
+拉起 Want：
+
+```ts
+{
+  bundleName: 'com.youjing.app',
+  abilityName: 'EntryAbility',
+  parameters: {
+    route: 'TripInput',
+    destination: '上海',
+    start: '2026-08-01',
+    days: 4,
+    people: 3
+  }
+}
+```
+
+`EntryAbility.applyWant()` 已处理：
+
+- `route` 落点（`TripInput` / `Trips` / `Itinerary` …）
+- 非法日期忽略、`days` 反算 `end`、不覆盖已有草稿
+- App 已在前台时走 `onNewWant`，单例复用页面栈
+
+### C3. SKILL.md 契约
+
+按官方样例（`guide-snippets/.../ArktsSkillDevelopmentGuide`）对齐，包含：
+
+- YAML `name` / `description`
+- `## 触发场景`：典型话术 + 不调用的情况
+- `### 场景1:预填并打开行程规划(planTrip)`
+  - `**触发场景**`
+  - `**执行参数**`：exec-cli 示例 + 完整命令对象 Schema
+    （`command` / `skillName` / `scriptPath` / `functionName` 全为 `const`，`args` 要求 `arg1`、`arg2`）
+  - `**执行返回值**`：成功 / 参数非法 / 内部错误三组示例 + 带 `oneOf` 与 `required` 的完整 Schema
+
+### C4. 已验证的证据
+
+| 项 | 证据 |
+|---|---|
+| HAP 内含契约 | `unzip -l ...hap` 见 `skills/youjing-plan-trip/SKILL.md` |
+| 系统注册 | 启动日志 `Skill 注册 1 个: youjing-plan-trip` |
+| 下游预填 | `aa start` 传同一组 Want 参数：屏2 显示 `上海 / 8月1日–8月4日 / 4天3晚 / 3 位成人` |
+| App 存活时复用 | `onNewWant` 日志 `外部预填 route=TripInput …`，页面栈不重建 |
+
+> `bm dump -n com.youjing.app` **不会**列出 `skillProfiles`（只列 ability 的 home skills），
+> 不要用它判断 Skill 是否注册；以 `skillManager.getSkillInfosForSelf` 的启动日志为准。
+> 该日志受 `BuildConfig.IS_DEBUG` 门控，release 包不打印，但注册本身不受影响。
+
+## D. 本地自验（不依赖平台）
+
+```bash
+# 冷启动 / 前台改参：与 Skill 下发的 Want 完全相同
+hdc shell aa start -a EntryAbility -b com.youjing.app \
+  --ps route TripInput --ps destination 上海 --ps start 2026-08-01 --ps days 4 --ps people 3
+```
+
+真机实测：屏2 显示 `上海 / 8月1日 – 8月4日 / 4天3晚 / 3 位成人`。
+
+局限：设备 `/system/bin` 下没有 `ohos-arkTSScript` 命令，**无法用 hdc 直接调 Skill 函数**；
+本地只能验证 Skill 的下游（Want → 草稿 → 屏2）。真正的「小艺说一句话 → 调 Skill」
+必须在平台真机测试里完成。
+
+## E. 已知边界与雷区
+
+1. **只支持四城**：北京 / 上海 / 广州 / 深圳。种子库未覆盖的城市直接返回 `ERR_INVALID_PARAMS`，
+   不要靠模型硬编。
+2. **出发日期必填**：用户没说日期时，SKILL.md 要求先追问，不代填今天。
+3. **HarmonyOS 7.0 + Beta 小艺**：低版本或正式版小艺可能看不到应用内 Skill，这不是应用侧 bug。
+4. **平台导入的是「当前签名 HAP」**：换签名 / 换版本后要重新导入；调试签名每次重装不必重新导入，
+   但 Skill 内容变了必须升版本。
+5. **不要把 Client Secret、签名口令等写进 SKILL.md 或脚本**；Skill 包会随 HAP 分发。
+6. **发布有延迟**：审核 1–3 个工作日；App 内闭环不依赖它。
+
+## F. 你的操作清单（打勾即可）
+
+- [ ] 准备 HarmonyOS 7.0 真机 + Beta 小艺，安装当前签名 HAP
+- [ ] 登录小艺开放平台（与 AGC 同账号）
+- [ ] Skill → 新建 Skill → 导入 Skill（bundle `com.youjing.app`，skill `youjing-plan-trip`，版本 `1.0.0`）
+- [ ] 核对平台解析出的触发场景 / `planTrip` / 参数 Schema
+- [ ] 真机测试「帮我规划去上海的行程，8 月 1 号出发，4 天，3 个人」→ 屏2 预填正确
+- [ ] 测试不支持城市与缺日期两条边界
+- [ ] 选「仅自己可用」发布 → 自测稳定后再升级范围

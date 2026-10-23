@@ -51,7 +51,11 @@
 2. **调试签名已就绪**（2026-10-20 生成，2026-10-23 换 Profile）：证书与 p12 由 DevEco 自动签名生成（有效期 2026-10-20 → 2027-10-20）；Profile 含 4 台设备；Profile 改用 AGC 手动创建的 `youjing-debug-20261023` —— 自动签名生成的 Profile 带随机 `app-identifier`（`6918745435470575450`），Account Kit 报 `1001502003`；手动 Profile 的 `app-identifier` 才是 APP ID。Profile 内嵌证书与本机 `.cer` 同一张，`hdc install -r` 签名一致，登录态与行程数据跨重启保留。签名材料仅存本机 `~/.ohos/config/`，signingConfigs 不入 git（build-profile.json5 已 skip-worktree）。Profile 有效期至 2027-10-20，到期需重签；release 签名上架前仍需单独申请。
 3. **应用名称未定**：AppScope label 当前为 "YouJing"，中文名「有径」待品牌资源定稿后替换。
 4. **API 26 最低兼容范围未评审**：compatibleSdkVersion=26.0.0 意味着不兼容更低版本设备，上架前需评审覆盖面。
-5. **小艺 Skill 接入协议待调研**：ApiConfig 端点为占位空串，待小艺开放平台 Skill 创建后回填。
+5. **小艺 Skill 应用侧已落地（2026-10-23）**：走 API 26 的应用内 Skill——`module.json5` 的 `skillProfiles`
+   注册 `youjing-plan-trip`，契约在 `entry/skills/youjing-plan-trip/SKILL.md`，入口为 `PlanTripSkill.ets`；
+   启动日志实测 `Skill 注册 1 个: youjing-plan-trip`，HAP 内含 SKILL.md，Want 下游预填真机通过。
+   平台侧新建 / 导入 Skill 需用户在小艺开放平台操作，步骤见 `Docs/小艺Skill接入清单.md`。
+   `ApiConfig` 是 LLM HTTP 备选端点占位，与本 Skill 无关。
 6. **日志输出已真机补验通过**（2026-10-20，本地模拟器）：四级 Logger 临时调用注入 → 签名 HAP 安装启动 → hilog 按 `YouJing.` 过滤抓到 D/I/W/E 全部四条（domain A00100），验毕临时代码已删除、还原版已重装。
 7. **deveco_mcp 的 PROJECT_PATH 指向 HarmonyProject1**（旧工程）：MCP 的 build/check 工具对本工程无效，初始化期间一律以本地 hvigor 直跑替代；需在 MCP 配置中改指向本工程后方可使用。
 8. **LSP 静态检查（check_ets_files）不可用**：20s 超时无诊断返回，静态检查以 hvigor CompileArkTS 为准。
@@ -76,7 +80,10 @@
      → **回退实色** `surfaceElevated` + 1px 描边（深色零阴影契约不变）。
    实现条件为 `glassOn && !isDark`；点位②分段控件与两处 Sheet 材质不受模式影响，一直走系统材质。
    点位④（吸顶日标题）底稿本就是无底文字行，未擅自加胶囊材质，待设计定。
-11. **Account Kit 已接入**（2026-10-23 完成）：AGC 侧 APP ID / Client ID 均为 `6917619826312400726`，调试证书 SHA256 指纹 `86:6F:…:CF:70` 已登记，Client ID 与 APP ID 相同（无需 `client_id` metadata）；`AccountConfig.ACCOUNT_KIT_ENABLED=true`。真机验收：屏1 点击后 `LoginWithHuaweiID error_code=0`、`YouJing.Data.AccountStore: 静默登录成功 uid=AABKND***`，落到屏2；冷重启日志「恢复登录态 kind=huawei uid=AABKND***」。游客期行程归户走 `TripDao.adoptGuestTrips`。换签名时必须用 AGC 手动 Profile（见 #2）。
+11. **Account Kit 已接入**（2026-10-23 完成）：AGC 侧 APP ID / Client ID 均为 `6917619826312400726`，调试证书 SHA256 指纹 `86:6F:…:CF:70` 已登记，Client ID 与 APP ID 相同（无需 `client_id` metadata）；`AccountConfig.ACCOUNT_KIT_ENABLED=true`。真机验收：屏1 点击后 `LoginWithHuaweiID error_code=0`、`YouJing.Data.AccountStore: 静默登录成功 uid=AABKND***`，落到屏2；冷重启日志「恢复登录态 kind=huawei uid=AABKND***」。游客期数据归户走 `TripDao.adoptGuestData`（同一事务迁移 trip / expense / checkin 三表，
+真机日志 `trip=6 expense=1 checkin=1`）；桌面卡片的独立进程在刷新前先 `AccountStore.init`
+恢复 UnionID 分区，主应用在归户 / 生成 / 编辑后由 `WidgetSync.refreshAll` 主动回灌。
+换签名时必须用 AGC 手动 Profile（见 #2）。
 12. **`AceSheet: radius is not correct type` 是框架噪声，非本工程配置问题**（2026-10-23 归因实验）：
     真机每次开半模态都在 E 级日志打这一行，怀疑过是 `SheetOptions.systemMaterial` 传错。
     对照实验：屏2 城市面板是**不带** `systemMaterial` 的裸 `bindSheet`（只有 height/backgroundColor/showClose），
@@ -166,7 +173,7 @@ hypium 40/40；RDB/账号/日历路径按已知限制 #10 走真机验收。
 |---|---|---|
 | 预算协同（阶段10） | 种子库没有「区域真实价位区间」字段，任何分档差异都会是编造数字 | 产品定数据来源，或砍掉该功能 |
 | 足迹地图（阶段10） | Map Kit 凭证与 Client ID 未申请；底稿也没有地图屏的帧。dock「地图」现在落到一句实话说明页 | 提供 AGC 地图凭证 + 出一帧地图设计 |
-| 小艺 Skill 平台侧（阶段9） | 应用侧接收端已就绪并真机验证；平台侧建 Skill 需在 AGC 操作 | 见 `Docs/小艺Skill接入清单.md`，用户执行 |
+| 小艺 Skill 平台侧（阶段9） | 应用侧已按 API 26 应用内 Skill 完成并真机验证（注册日志 + Want 下游）；平台侧新建 / 导入 Skill 仍需用户操作 | 见 `Docs/小艺Skill接入清单.md`，用户执行 |
 
 另有两项待用户决策：§4b 前十处改口文案确认、点位④吸顶日标题是否给胶囊材质
 （§4b-11 卡片 2×2 截断已定 (a) 接受省略号）。Account Kit 的 AGC 凭证已于 2026-10-23 配齐并真机验收。
@@ -203,3 +210,24 @@ hypium 40/40；RDB/账号/日历路径按已知限制 #10 走真机验收。
 新旧 Profile 内嵌的 development-certificate 完全相同（本机 `.cer` 指纹 `86:6F:…:CF:70`），
 因此 `hdc install -r` 签名一致，无需卸载。下载的 Profile 存于 `~/.ohos/config/`
 （用户指定位置），`~/Downloads` 的重复件已删。
+
+**2026-10-23 15:00–15:20 小艺 Skill + 数据归户 + 卡片分区修复（真机）**：
+
+- **Skill 契约**：`entry/skills/youjing-plan-trip/SKILL.md` 按官方 `ArktsSkillDevelopmentGuide` 样例重写——
+  执行参数给出完整 `exec-cli` 命令对象 Schema（`command/skillName/scriptPath/functionName` 全 `const`），
+  执行返回值给成功 / 参数非法 / 内部错误三组示例 + 带 `oneOf`/`required` 的完整 Schema；5 个 JSON 块本地解析全通过。
+  重新构建后 HAP 含 `skills/youjing-plan-trip/SKILL.md`，启动日志 `Skill 注册 1 个: youjing-plan-trip`。
+  设备无 `ohos-arkTSScript` 命令，Skill 函数本身只能等平台真机测试；下游用同一组 Want 参数验证：
+  屏2 显示 `上海 / 8月1日–8月4日 / 4天3晚 / 3 位成人`。
+- **归户补全**：`adoptGuestData` 在同一事务迁移 `trip` / `expense` / `checkin` 三表，
+  真机日志 `游客数据归户 uid=AABKND*** trip=6 expense=1 checkin=1`。消费端复验：
+  屏15 费用页显示「故宫门票 ¥320 / 已花 ¥320 / 分类 门票」，旅行中页显示「故宫博物院 已打卡」。
+- **卡片分区修复（本轮新发现）**：桌面「有径 · 今日」在归户后仍显示「今天没有行程」。
+  根因是 FormExtensionAbility 是独立进程，卡片刷新只走 `TripDao` 默认游客分区，读不到已归户到 UnionID 的数据。
+  修复：provider 在 `refresh` 前 `AccountStore.init(this.context)` 从 preferences 恢复 UnionID；
+  新增 `widget/TodayCard.ets` 共享卡片数据映射 + `WidgetSync.refreshAll`，主应用在归户 / 生成 / 编辑 /
+  冷启动时主动回灌，卡片不用等 30 分钟定时。真机日志 `Widget.TodayCard: 已刷新卡片 996982405 2*2`，
+  桌面截图显示 `Day 1 · 10月… / 09:00 故宫博物院 / 13:15 八达岭长城 / 18:30 颐和园 / 还有 1 个需预约节点…`
+  （2×2 截断为用户已定的 (a) 接受省略号，见 §4b-11）。
+- **主链复跑**：真账号（UnionID）下屏1 → 屏2 → 四步偏好 → 选 3 个景点 → 选王府井片区 → 生成 → 屏8；
+  新行程在列表首条显示 `3 景点 / 2 段通勤 / ¥1140`。`BuildConfig.IS_DEBUG` 保持 true（debug 包）。
