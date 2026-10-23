@@ -10,7 +10,7 @@ import { TripSchema } from '../../../main/ets/ai/TripSchema';
 import { PlanParams, SelectedSpot, TravelStyle, TransitPreference, TripBasicInput, SpotPriority, PaceOption } from '../../../main/ets/model/PlanParams';
 import { Spot, SpotTag } from '../../../main/ets/model/Spot';
 import { Area, AreaGroup, AreaPriceTier } from '../../../main/ets/model/Area';
-import { Trip } from '../../../main/ets/model/Trip';
+import { Trip, IntensityLevel } from '../../../main/ets/model/Trip';
 import { AppError } from '../../../main/ets/common/error/AppError';
 import { ErrorCode } from '../../../main/ets/common/error/ErrorCode';
 
@@ -50,6 +50,37 @@ function makeParams(): PlanParams {
     basic: basic, style: TravelStyle.CULTURE, stayTier: 'comfort',
     transit: TransitPreference.PUBLIC, paces: [PaceOption.STANDARD],
     selectedSpots: [sel1, sel2], selectedArea: { areaId: 't-a1' }
+  };
+  return p;
+}
+
+function makeManySpots(n: number): Spot[] {
+  const out: Spot[] = [];
+  for (let i = 1; i <= n; i++) {
+    const s: Spot = {
+      id: `t-m${i}`, name: `景点${i}`, city: '北京', tags: [SpotTag.MUST_SEE], brief: 'b',
+      suggestedDuration: 60, popularity: 70, nearbySpotIds: [], longitude: 116.4 + i * 0.01,
+      latitude: 39.9, district: '东城区', nearestMetro: 'A', booking: { requiresBooking: false },
+      provenance: { source: 'test', updatedAt: '2026-10-23' }
+    };
+    out.push(s);
+  }
+  return out;
+}
+
+function makePaceParams(paces: PaceOption[], stopCount: number): PlanParams {
+  const basic: TripBasicInput = {
+    destination: '北京', startDate: '2026-07-01', endDate: '2026-07-03', people: 2, budget: 8000
+  };
+  const sels: SelectedSpot[] = [];
+  for (let i = 1; i <= stopCount; i++) {
+    const s: SelectedSpot = { spotId: `t-m${i}`, priority: SpotPriority.MUST };
+    sels.push(s);
+  }
+  const p: PlanParams = {
+    basic: basic, style: TravelStyle.CULTURE, stayTier: 'comfort',
+    transit: TransitPreference.PUBLIC, paces: paces,
+    selectedSpots: sels, selectedArea: { areaId: 't-a1' }
   };
   return p;
 }
@@ -95,6 +126,30 @@ export default function llmPipelineTest(): void {
       expect(trip.days[1].activities[0].title).assertEqual('测试景点二');
       // 每天的首站没有通勤腿（当日第一段路无从算起）
       expect(trip.days[1].activities[0].transport === undefined).assertTrue();
+    });
+
+    it('offline_lays_selected_paces_across_day_segments', TestType.FUNCTION | Size.MEDIUMTEST | Level.LEVEL1, async () => {
+      // 屏3b helper 写「可多选，按天段分别排布」：勾了轻松 + 紧凑就得真的排出松段与紧段，
+      // 不能像以前那样按优先级只取一档（那样多选等于白选）
+      const spots: Spot[] = makeManySpots(12);
+      const mixed: Trip = await LlmClient.generateTrip(
+        makePaceParams([PaceOption.RELAXED, PaceOption.PACKED], 12), spots, makeArea());
+      expect(mixed.days.length).assertEqual(3);
+      expect(mixed.days[0].activities.length).assertEqual(3);
+      expect(mixed.days[1].activities.length).assertEqual(3);
+      expect(mixed.days[2].activities.length).assertEqual(6);
+      expect(mixed.days[0].intensity).assertEqual(IntensityLevel.LOW);
+      expect(mixed.days[2].intensity).assertEqual(IntensityLevel.HIGH);
+      // 天段顺序按档位轻→紧固定，不跟点选先后走
+      const reversed: Trip = await LlmClient.generateTrip(
+        makePaceParams([PaceOption.PACKED, PaceOption.RELAXED], 12), spots, makeArea());
+      expect(reversed.days[0].activities.length).assertEqual(3);
+      expect(reversed.days[2].activities.length).assertEqual(6);
+      // 单选仍是整趟同一档
+      const single: Trip = await LlmClient.generateTrip(
+        makePaceParams([PaceOption.STANDARD], 12), spots, makeArea());
+      expect(single.days[0].activities.length).assertEqual(4);
+      expect(single.days[2].activities.length).assertEqual(4);
     });
 
     it('retry_exhausted', TestType.FUNCTION | Size.MEDIUMTEST | Level.LEVEL1, async () => {

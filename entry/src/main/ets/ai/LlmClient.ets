@@ -49,20 +49,46 @@ export class MockLlmTransport implements LlmTransport {
     return Promise.resolve(this.synthesize());
   }
 
+  private static capOf(pace: PaceOption): number {
+    if (pace === PaceOption.RELAXED) {
+      return 3;
+    }
+    return pace === PaceOption.PACKED ? 6 : 4;
+  }
+
+  /**
+   * 屏3b 的 helper 写「可多选，按天段分别排布」：多选时把整趟按所选档位数切成等长天段，
+   * 顺序固定走 轻松→标准→紧凑（与底稿选项顺序一致），不跟用户点选的先后走——
+   * 否则同一组勾选会因为点击顺序不同而排出不同的行程。单选时每天都吃同一档（等价旧行为）。
+   */
+  private dayCaps(dayCount: number): number[] {
+    const order: PaceOption[] = [PaceOption.RELAXED, PaceOption.STANDARD, PaceOption.PACKED];
+    const picked: PaceOption[] = order.filter((o: PaceOption): boolean =>
+      this.params.paces.indexOf(o) >= 0);
+    const list: PaceOption[] = picked.length > 0 ? picked : [PaceOption.STANDARD];
+    const caps: number[] = [];
+    for (let d = 0; d < dayCount; d++) {
+      const seg: number = Math.min(list.length - 1, Math.floor(d * list.length / dayCount));
+      caps.push(MockLlmTransport.capOf(list[seg]));
+    }
+    return caps;
+  }
+
   private synthesize(): string {
     const b: TripBasicInput = this.params.basic;
     const dayCount: number = Math.max(1, this.daysBetween(b.startDate, b.endDate) + 1);
-    const perDay: number = this.params.paces.indexOf(PaceOption.RELAXED) >= 0 ? 3 :
-      (this.params.paces.indexOf(PaceOption.PACKED) >= 0 ? 6 : 4);
+    const caps: number[] = this.dayCaps(dayCount);
     const chosen: SelectedSpot[] = this.params.selectedSpots;
     const days: TripDay[] = [];
-    // 每天的名额按「选中的量摊到各天」算，而不是一律吃满 perDay：
-    // 2 个景点排 3 天时若按 perDay 贪心装，第 1 天就全塞完、后两天空着（真机拍到过），
-    // 用户看到的就是「三天两晚只有头一天有东西」。上限仍是 perDay，不放松节奏档位。
-    const quota: number = Math.max(1, Math.min(perDay, Math.ceil(chosen.length / dayCount)));
     let cursor: number = 0;
     let total: number = 0;
     for (let d = 0; d < dayCount; d++) {
+      const perDay: number = caps[d];
+      // 每天的名额按「剩余量摊到剩余天」算，而不是一律吃满当日上限：
+      // 2 个景点排 3 天时若按 perDay 贪心装，第 1 天就全塞完、后两天空着（真机拍到过），
+      // 用户看到的就是「三天两晚只有头一天有东西」。上限仍是当日档，不放松节奏。
+      const left: number = chosen.length - cursor;
+      const quota: number = Math.max(1, Math.min(perDay, Math.ceil(left / (dayCount - d))));
       const acts: Activity[] = [];
       let slot: number = 9 * 60;
       for (let k = 0; k < quota && cursor < chosen.length; k++) {
