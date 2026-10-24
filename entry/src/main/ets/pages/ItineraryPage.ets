@@ -1047,7 +1047,8 @@ export struct ItineraryPage {
               ImmersiveSegmentBar({
                 items: this.segments,
                 selectedIndex: $dayIndex,
-                buttonVerticalPadding: 2.15
+                buttonVerticalPadding: 2.15,
+                a11yLabel: '行程日期切换'
               })
             }
             .width('100%')

@@ -37,9 +37,23 @@ export struct ImmersiveSegmentBar {
   // 浅色内容态：顶栏背板转深时标签切白（与 overrideTrackMaterial 必须同值）
   @Prop @Watch('rebuildOptions') lightContent: boolean = false;
   @Prop @Watch('rebuildOptions') overrideTrackMaterial: boolean = false;
+  /**
+   * 无障碍组标签（帧的 aria-label 口径，如屏11「支出维度切换」）。
+   * 非空时整条栏合成一个朗读元素，并把当前选中项一起念出来——
+   * 官方 SegmentButton 的条目是 options 里的纯文本，没有逐条 accessibilityText 入口。
+   */
+  @Prop a11yLabel: string = '';
   onSelect?: (index: number) => void = undefined;
   @State private barOptions: SegmentButtonOptions | undefined = undefined;
   @State private indexes: number[] = [0];
+
+  private a11yText(): string {
+    if (this.a11yLabel.length === 0 || this.items.length === 0) {
+      return '';
+    }
+    const idx: number = Math.min(Math.max(0, this.selectedIndex), this.items.length - 1);
+    return `${this.a11yLabel}，当前 ${this.items[idx].label}`;
+  }
 
   aboutToAppear(): void {
     this.indexes = [this.selectedIndex];
@@ -109,5 +123,7 @@ export struct ImmersiveSegmentBar {
       }
     }
     .width(this.barWidth())
+    .accessibilityGroup(this.a11yLabel.length > 0)
+    .accessibilityText(this.a11yText())
   }
 }

@@ -439,7 +439,8 @@ export struct ExpensePage {
               items: this.segments,
               selectedIndex: $seg,
               itemWidth: 164,
-              buttonVerticalPadding: 2.15
+              buttonVerticalPadding: 2.15,
+              a11yLabel: '支出维度切换'
             })
           }
           .margin({ bottom: SpaceTokens.lg })

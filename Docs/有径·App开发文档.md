@@ -525,6 +525,7 @@ YouJing/
 | RDB 写并发 | busy 错误 | 全应用复用同一 RdbStore，写事务收敛为单写通道 |
 | bindSheet 内容不随父组件 @State 重绘 | 面板显示过期真值（真机实测：时间线已换槽，屏10 仍停在打开那一刻的时间） | 改完数据即收起面板，重开读真值；不在面板里留一个不生效的刷新口子 |
 | 面板内做不出「实时置灰」 | 屏14 试过 `Toggle.enabled(this.syncCalendar)`：关掉日历同步后，提醒开关的置灰与文案都不变（@Builder 入参是值快照，面板内容又不随父 @State 重绘，两条叠在一起） | 依赖写进文案本身（"随日历同步写入"），落库时兜底 `remind = calendar ? remind : false` 并 toast 说明；不留一个只会骗人的禁用态 |
+| `uitest dumpLayout` 不导出 `accessibilityText` | 无障碍标签写了什么，dump 里查不到（整棵树只有 `accessibilityId`，`accessibilityText` 字段根本不出现），所以"标签是否被朗读"不能用 dump 验收 | 分组是否生效可以看旁证：`accessibilityGroup(true)` 后容器会多出一个 text 为子项合并（`预算, 实际`）的节点，改动前的同一组件没有这个节点；标签本身要真读屏（小艺朗读）验收 |
 
 
 ## 九、命名决策记录
