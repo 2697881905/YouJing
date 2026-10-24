@@ -3,6 +3,8 @@
  * §7 必改已落：icon-btn margin 10→8、option-icon-box margin 6→4、scroll 76→94。
  * 阶段 10 接真：.ics 本机生成后走系统分享面板；行程文本同样走分享面板。
  * 无后端 ⇒ 生成不了「7 天有效」的链接，故按钮与副文案按实际能力改口（分享行程文本 / 本机生成不上传）。
+ * 帧 hero 第三格是「步行 24.6km」：AI 载荷不给节点间步行距离、也无路线服务可算，不编造，
+ * 该格改显「需预约」节点数（真数，且与 .ics 的提醒条数同源）。
  */
 
 import { APP_NAV } from '../common/constants/AppNav';
