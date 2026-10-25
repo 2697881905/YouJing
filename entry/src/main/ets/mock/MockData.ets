@@ -6,6 +6,7 @@
 
 import { Spot, SpotTag } from '../model/Spot';
 import { Area, AreaGroup, AreaPriceTier } from '../model/Area';
+import { AreaPick } from '../model/PlanParams';
 
 function spot(id: string, name: string, tags: SpotTag[], district: string,
   durationMin: number, popularity: number, needsBooking: boolean): Spot {
@@ -70,13 +71,10 @@ function area(id: string, name: string, group: AreaGroup, tier: AreaPriceTier,
   return a;
 }
 
-/** 屏5 区域卡的展示包装：AI 理由与角标为生成结果，不属内置库契约 */
-export interface AreaPick {
-  area: Area;
-  badgeLabel: string;
-  aiRank: number;
-  reason: string;
-}
+/**
+ * 屏5 区域卡的展示包装（AreaPick）定义在 model/PlanParams.ets：
+ * 页面与 mock 演示数据共用同一视图模型，mock/ 只允许被 data/ 路由读取。
+ */
 
 export class MockAreas {
   static readonly PICKS: AreaPick[] = [

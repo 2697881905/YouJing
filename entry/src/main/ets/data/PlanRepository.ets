@@ -4,9 +4,7 @@
  */
 
 import { common } from '@kit.AbilityKit';
-import { relationalStore } from '@kit.ArkData';
 import { MockConfig } from '../common/config/MockConfig';
-import { DatabaseHelper } from './DatabaseHelper';
 import { SpotDao } from './SpotDao';
 import { AreaDao } from './AreaDao';
 import { Spot } from '../model/Spot';
@@ -16,39 +14,28 @@ import { Logger } from '../common/logger/Logger';
 
 export class PlanRepository {
   static async loadSpots(context: common.Context, city: string): Promise<Spot[]> {
-    if (!MockConfig.USE_MOCK_DATA || city !== '京都') {
-      const spots: Spot[] = await SpotDao.loadByCity(context, city);
-      if (spots.length > 0) {
-        return spots;
-      }
+    // mock 只服务「京都」这一座演示城；四城走真种子库。
+    // 不支持的城市返回空列表，由调用方走空态——不拿京都数据冒充别的城市
+    if (MockConfig.USE_MOCK_DATA && city === '京都') {
+      Logger.info('Data.PlanRepository', `loadSpots ${city} 走 mock 演示数据`);
+      return MockSpots.CULTURE.concat(MockSpots.FOOD).concat(MockSpots.NATURE);
     }
-    // mock 兜底：京都演示数据（底稿帧同源）
-    Logger.info('Data.PlanRepository', `loadSpots ${city} 走 mock 兜底`);
-    return MockSpots.CULTURE.concat(MockSpots.FOOD).concat(MockSpots.NATURE);
+    const spots: Spot[] = await SpotDao.loadByCity(context, city);
+    if (spots.length === 0) {
+      Logger.info('Data.PlanRepository', `loadSpots ${city} 景点库为空`);
+    }
+    return spots;
   }
 
   static async loadAreas(context: common.Context, city: string): Promise<Area[]> {
-    if (!MockConfig.USE_MOCK_DATA || city !== '京都') {
-      const areas: Area[] = await AreaDao.loadByCity(context, city);
-      if (areas.length > 0) {
-        return areas.map((a: Area): Area => a);
-      }
+    if (MockConfig.USE_MOCK_DATA && city === '京都') {
+      Logger.info('Data.PlanRepository', `loadAreas ${city} 走 mock 演示数据`);
+      return MockAreas.PICKS.map((p): Area => p.area);
     }
-    Logger.info('Data.PlanRepository', `loadAreas ${city} 走 mock 兜底`);
-    return MockAreas.PICKS.map((p): Area => p.area);
-  }
-
-  static async hasTrips(context: common.Context): Promise<boolean> {
-    const store: relationalStore.RdbStore = await DatabaseHelper.getStore(context);
-    const rs: relationalStore.ResultSet = await store.querySql('SELECT COUNT(*) AS c FROM trip');
-    let c: number = 0;
-    try {
-      if (rs.goToFirstRow()) {
-        c = rs.getLong(rs.getColumnIndex('c'));
-      }
-    } finally {
-      rs.close();
+    const areas: Area[] = await AreaDao.loadByCity(context, city);
+    if (areas.length === 0) {
+      Logger.info('Data.PlanRepository', `loadAreas ${city} 区域库为空`);
     }
-    return c > 0;
+    return areas;
   }
 }

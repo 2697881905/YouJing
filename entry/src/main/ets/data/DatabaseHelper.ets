@@ -7,15 +7,20 @@
  * - 版本号驱动迁移：onUpgrade 按 old→new 逐级执行，多条迁移放事务，成功才写新版本号；
  * - 过滤列建索引；单条记录 ≤2MB（行程 JSON 列远小于该值，tips/highlights 为文本）。
  *
- * 表结构（v2）：
+ * 表结构（v5）：
  *   trip        行程聚合根（overview/tips 展平为列与 JSON 文本；user_id 为账号分区键）
  *   trip_day    单日（tripId+dayIndex 索引）
  *   activity    活动节点（含 transport 三列与 reason；tripId+dayIndex 索引）
  *   meal        餐饮（tripId+dayIndex 索引）
- *   spot/area   内置资产库（city 索引；预约/溯源列展平）
+ *   spot/area   内置资产库（city 索引；预约/溯源列展平；v5 起 spot 带 confidence）
  *   expense     手工记账（v3；trip_id+day_index 索引，同 trip 一样按 user_id 分区；
  *               v4 起带 activity_id，可把一笔开销挂到具体节点）
  *   checkin     节点打卡（v4；(trip_id,activity_id) 唯一，本机用户态不入 AI 契约）
+ *
+ * 迁移纪律（开发文档 §5.2）：onUpgrade 的判断一律用 `oldVersion < N` 累积式，
+ * 不用 `=== N` 精确匹配——精确匹配会让 v1 老库直接升到最新版时跳过中间步骤
+ * （v1→v4 曾因此漏建 expense/checkin 两表、漏加 expense.activity_id 列）。
+ * 任意 oldVersion → newVersion 的跨级升级都必须逐级补齐。
  */
 
 import { relationalStore } from '@kit.ArkData';
@@ -26,7 +31,7 @@ import { AppError } from '../common/error/AppError';
 import { ErrorCode } from '../common/error/ErrorCode';
 
 const STORE_NAME: string = 'youjing.db';
-const DB_VERSION: number = 4;
+const DB_VERSION: number = 5;
 const TAG: string = 'Data.DatabaseHelper';
 
 const SQL_CREATE_TRIP: string = `CREATE TABLE IF NOT EXISTS trip (
@@ -61,7 +66,8 @@ const SQL_CREATE_SPOT: string = `CREATE TABLE IF NOT EXISTS spot (
   district TEXT NOT NULL DEFAULT '', nearest_metro TEXT NOT NULL DEFAULT '', entrance_tip TEXT,
   requires_booking INTEGER NOT NULL DEFAULT 0, booking_method TEXT, advance_days INTEGER,
   release_time TEXT, closed_day TEXT, difficulty TEXT,
-  source TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT '')`;
+  source TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT '',
+  confidence TEXT NOT NULL DEFAULT '')`;
 
 const SQL_CREATE_AREA: string = `CREATE TABLE IF NOT EXISTS area (
   id TEXT PRIMARY KEY, name TEXT NOT NULL, city TEXT NOT NULL, longitude REAL NOT NULL DEFAULT 0,
@@ -73,6 +79,8 @@ const SQL_CREATE_AREA: string = `CREATE TABLE IF NOT EXISTS area (
   price_range TEXT, grp TEXT NOT NULL DEFAULT 'core', source TEXT NOT NULL DEFAULT '',
   updated_at TEXT NOT NULL DEFAULT '')`;
 
+// expense 按 v3 形态建表；activity_id 一律交给 v4 迁移加列——新建库同样走一遍迁移，
+// 避免「CREATE 已带该列 + 随后 ALTER 重复加列」的 duplicate column 错误
 const SQL_CREATE_EXPENSE: string = `CREATE TABLE IF NOT EXISTS expense (
   id INTEGER PRIMARY KEY AUTOINCREMENT, trip_id TEXT NOT NULL, day_index INTEGER NOT NULL,
   category TEXT NOT NULL, name TEXT NOT NULL, amount INTEGER NOT NULL,
@@ -94,6 +102,10 @@ const SQL_INDEXES: string[] = [
   'CREATE INDEX IF NOT EXISTS idx_expense_user ON expense(user_id)',
   'CREATE INDEX IF NOT EXISTS idx_checkin_user ON checkin(user_id)'
 ];
+
+/** v4 → v5：景点溯源组补「可信度」列（§3.2 字段组完整；存量行默认空串） */
+const SQL_V5_ADD_SPOT_CONFIDENCE: string =
+  'ALTER TABLE spot ADD COLUMN confidence TEXT NOT NULL DEFAULT \'\'';
 
 /** v3 → v4：记账可挂到具体节点（屏15 行内金额取真值） */
 const SQL_V4_ADD_EXPENSE_ACTIVITY: string = 'ALTER TABLE expense ADD COLUMN activity_id TEXT';
@@ -172,21 +184,25 @@ export class DatabaseHelper {
         store.executeSql(SQL_CREATE_EXPENSE);
         store.executeSql(SQL_CREATE_CHECKIN);
       }
-      if (oldVersion === 1) {
+      // 累积式迁移：每个 if 独立判断，跨级升级时全部命中、逐级补齐
+      if (oldVersion < 2) {
         store.executeSql(SQL_V2_ADD_TRIP_USER_ID);
       }
-      if (oldVersion === 2) {
+      if (oldVersion < 3) {
         store.executeSql(SQL_CREATE_EXPENSE);
       }
-      if (oldVersion === 3) {
+      if (oldVersion < 4) {
         store.executeSql(SQL_CREATE_CHECKIN);
         store.executeSql(SQL_V4_ADD_EXPENSE_ACTIVITY);
+      }
+      if (oldVersion < 5) {
+        store.executeSql(SQL_V5_ADD_SPOT_CONFIDENCE);
       }
       // 索引 DDL 全部 IF NOT EXISTS，逐级迁移后统一补齐
       for (const idx of SQL_INDEXES) {
         store.executeSql(idx);
       }
-      // 后续版本在此逐级追加：if (oldVersion < 3) { ...ALTER/CREATE... }
+      // 后续版本在此逐级追加：if (oldVersion < 6) { ...ALTER/CREATE... }
       store.version = DB_VERSION;
       await store.commit();
       Logger.info(TAG, `迁移完成 ${oldVersion} → ${DB_VERSION}`);

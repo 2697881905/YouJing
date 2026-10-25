@@ -23,16 +23,20 @@ import { AppError } from '../common/error/AppError';
 import { ErrorCode } from '../common/error/ErrorCode';
 
 type Obj = Record<string, Object>;
-type Strs = string[];
 
 const TAG: string = 'Data.Seeder';
 const SEED_DATE: string = '2026-10-23';
 /** 种子结构版本：jsonl 字段或坐标数据一变就 bump，触发已装机 upsert 回填 */
-const SEED_VERSION: string = 'v2-geo-2';
+const SEED_VERSION: string = 'v2-geo-3';
 const SEED_PREFS: string = 'youjing_seed';
 const KEY_SEED_VERSION: string = 'version';
 /** 坐标缺失时片区不落点（0 会被 MapStops.usable 滤掉），比按城市质心插错地方诚实 */
 const NO_COORD: number = 0;
+
+/** 标签白名单（SpotTag 四值封闭）：种子里的陌生值直接丢，不猜 */
+const SPOT_TAGS: string[] = ['must_see', 'classic', 'niche', 'family'];
+const AREA_TIERS: string[] = ['economy', 'comfort', 'luxury'];
+const AREA_GROUPS: string[] = ['core', 'commercial', 'metro'];
 
 interface CitySeed {
   city: string;
@@ -99,10 +103,22 @@ export class DataSeeder {
     }
     for (const c of CITIES) {
       const spotLines: string[] = await DataSeeder.readJsonl(context, c.spotsFile);
-      const spots: Spot[] = spotLines.map((line: string): Spot => DataSeeder.toSpot(line, c.city));
+      const spots: Spot[] = [];
+      for (const line of spotLines) {
+        const spot: Spot | null = DataSeeder.toSpot(line, c.city);
+        if (spot !== null) {
+          spots.push(spot);
+        }
+      }
       await SpotDao.saveSpots(context, spots);
       const areaLines: string[] = await DataSeeder.readJsonl(context, c.areasFile);
-      const areas: Area[] = areaLines.map((line: string): Area => DataSeeder.toArea(line, c.city));
+      const areas: Area[] = [];
+      for (const line of areaLines) {
+        const area: Area | null = DataSeeder.toArea(line, c.city);
+        if (area !== null) {
+          areas.push(area);
+        }
+      }
       await AreaDao.saveAreas(context, areas);
       Logger.info(TAG, `${c.city} 灌入 spots=${spots.length} areas=${areas.length}`);
     }
@@ -166,32 +182,111 @@ export class DataSeeder {
     return [la, lo];
   }
 
-  static toSpot(line: string, city: string): Spot {
-    const o: Obj = JSON.parse(line) as Obj;
-    const tags: string[] = o['t'] as Strs;
-    const bk: Obj = o['bk'] as Obj;
+  // ---- 种子行安全读取原语：JSON.parse 出来的是 Object，禁直接断言 ----
+  // 缺键/错类型一律走默认值或跳过该行；一个坏键不该在首启 bootstrap 里炸掉启动
+  private static strOf(o: Obj, key: string, fallback: string): string {
+    const v: Object | undefined = o[key];
+    return typeof v === 'string' ? v as string : fallback;
+  }
+
+  private static numOf(o: Obj, key: string, fallback: number): number {
+    const v: Object | undefined = o[key];
+    return typeof v === 'number' && Number.isFinite(v) ? v as number : fallback;
+  }
+
+  private static strsOf(o: Obj, key: string): string[] {
+    const v: Object | undefined = o[key];
+    if (!Array.isArray(v)) {
+      return [];
+    }
+    // Array.isArray 窄化后 ArkTS 仍按 any[] 处理，先显式转成 Object[] 再遍历
+    const arr: Object[] = v as Object[];
+    const out: string[] = [];
+    for (const item of arr) {
+      if (typeof item === 'string') {
+        out.push(item as string);
+      }
+    }
+    return out;
+  }
+
+  private static objOf(o: Obj, key: string): Obj {
+    const v: Object | undefined = o[key];
+    if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
+      return v as Obj;
+    }
+    return {};
+  }
+
+  /** 白名单过滤：只保留契约枚举内的值，顺序保持种子序 */
+  private static whitelist(values: string[], allowed: string[]): string[] {
+    const out: string[] = [];
+    for (const v of values) {
+      if (allowed.indexOf(v) >= 0 && out.indexOf(v) < 0) {
+        out.push(v);
+      }
+    }
+    return out;
+  }
+
+  /**
+   * 单值枚举白名单：命中返回原值，否则返回 fallback。
+   * 不能写成 `whitelist([v], allowed)[0]`——键存在但值非法时 whitelist 返回空数组，
+   * 下标取到 undefined 会直接写进库（ohosTest 的 toArea_whitelist_fallback 抓到过）。
+   */
+  private static pickEnum(value: string, allowed: string[], fallback: string): string {
+    return allowed.indexOf(value) >= 0 ? value : fallback;
+  }
+
+  /**
+   * 种子行 → Spot。id/name 缺失或 JSON 坏行返回 null（该行不灌库）。
+   * brief / nearestMetro / entranceTip / nearbySpotIds：种子未采集这些字段，
+   * 一律留空——不拿「名称（区）」冒充简介，也不编地铁站名（§3.2 数据缺口登记在 INIT_REPORT）。
+   */
+  static toSpot(line: string, city: string): Spot | null {
+    let o: Obj;
+    try {
+      o = JSON.parse(line) as Obj;
+    } catch (err) {
+      Logger.warn(TAG, `景点种子行 JSON 解析失败，跳过: ${line.substring(0, 40)}`);
+      return null;
+    }
+    const id: string = DataSeeder.strOf(o, 'id', '');
+    const name: string = DataSeeder.strOf(o, 'n', '');
+    const district: string = DataSeeder.strOf(o, 'd', '');
+    if (id.length === 0 || name.length === 0) {
+      Logger.warn(TAG, `景点种子行缺 id/name，跳过: ${line.substring(0, 40)}`);
+      return null;
+    }
+    const bk: Obj = DataSeeder.objOf(o, 'bk');
     const geo: number[] | null = DataSeeder.geoOf(o);
-    const coord: number[] = geo !== null ? geo : DistrictCoords.lookup(city, o['d'] as string);
+    const coord: number[] = geo !== null ? geo : DistrictCoords.lookup(city, district);
+    const method: string = DataSeeder.strOf(bk, 'm', '');
+    const release: string = DataSeeder.strOf(bk, 'rel', '');
+    const closed: string = DataSeeder.strOf(bk, 'closed', '');
+    const diff: string = DataSeeder.strOf(bk, 'diff', '');
+    const advance: number = DataSeeder.numOf(bk, 'adv', 0);
     const spot: Spot = {
-      id: o['id'] as string,
-      name: o['n'] as string,
+      id: id,
+      name: name,
       city: city,
-      tags: tags.map((t: string): SpotTag => t as SpotTag),
-      brief: `${o['n'] as string}（${o['d'] as string}）`,
-      suggestedDuration: o['dur'] as number,
-      popularity: o['pop'] as number,
+      tags: DataSeeder.whitelist(DataSeeder.strsOf(o, 't'), SPOT_TAGS).map(
+        (t: string): SpotTag => t as SpotTag),
+      brief: '',
+      suggestedDuration: Math.max(1, DataSeeder.numOf(o, 'dur', 60)),
+      popularity: DataSeeder.numOf(o, 'pop', 50),
       nearbySpotIds: [],
       longitude: coord[1],
       latitude: coord[0],
-      district: o['d'] as string,
+      district: district,
       nearestMetro: '',
       booking: {
         requiresBooking: bk['req'] === true,
-        bookingMethod: (bk['m'] as string).length > 0 ? bk['m'] as string : undefined,
-        advanceDays: (bk['adv'] as number) > 0 ? bk['adv'] as number : undefined,
-        releaseTime: (bk['rel'] as string).length > 0 ? bk['rel'] as string : undefined,
-        closedDay: (bk['closed'] as string).length > 0 ? bk['closed'] as string : undefined,
-        difficulty: (bk['diff'] as string).length > 0 ? bk['diff'] as string : undefined
+        bookingMethod: method.length > 0 ? method : undefined,
+        advanceDays: advance > 0 ? advance : undefined,
+        releaseTime: release.length > 0 ? release : undefined,
+        closedDay: closed.length > 0 ? closed : undefined,
+        difficulty: diff.length > 0 ? diff : undefined
       },
       provenance: {
         source: geo !== null ? 'seed-v2-geo' : 'seed-v1',
@@ -202,28 +297,51 @@ export class DataSeeder {
     return spot;
   }
 
-  static toArea(line: string, city: string): Area {
-    const o: Obj = JSON.parse(line) as Obj;
+  /**
+   * 种子行 → Area。id/name 缺失或 JSON 坏行返回 null。
+   * description：种子未采集一句话描述，留空（不拿区域名冒充）。
+   * priceTier / group 白名单校验，陌生值落到默认档（comfort / metro）。
+   */
+  static toArea(line: string, city: string): Area | null {
+    let o: Obj;
+    try {
+      o = JSON.parse(line) as Obj;
+    } catch (err) {
+      Logger.warn(TAG, `区域种子行 JSON 解析失败，跳过: ${line.substring(0, 40)}`);
+      return null;
+    }
+    const id: string = DataSeeder.strOf(o, 'id', '');
+    const name: string = DataSeeder.strOf(o, 'n', '');
+    if (id.length === 0 || name.length === 0) {
+      Logger.warn(TAG, `区域种子行缺 id/name，跳过: ${line.substring(0, 40)}`);
+      return null;
+    }
     // 片区没有「所在区」字段，编不出坐标就不落点：以前统一取 lookup(city, city)，
     // 而表里没有 city:city 键，四城 144 片全部落到深圳那个兜底值上
     const geo: number[] | null = DataSeeder.geoOf(o);
     const coord: number[] = geo !== null ? geo : [NO_COORD, NO_COORD];
+    // 白名单逐项判定：键缺失走 strOf 默认值、键在但值非法走 pickEnum 回退，
+    // 两条路都不会把 undefined 写进库
+    const tier: string = DataSeeder.pickEnum(
+      DataSeeder.strOf(o, 'tier', 'comfort'), AREA_TIERS, 'comfort');
+    const group: string = DataSeeder.pickEnum(
+      DataSeeder.strOf(o, 'g', 'metro'), AREA_GROUPS, 'metro');
     const area: Area = {
-      id: o['id'] as string,
-      name: o['n'] as string,
+      id: id,
+      name: name,
       city: city,
       longitude: coord[1],
       latitude: coord[0],
-      description: `${o['n'] as string}`,
-      anchorStations: o['st'] as Strs,
-      metroLines: o['lines'] as Strs,
-      airportMinutes: o['air'] as number,
-      trainStationMinutes: o['train'] as number,
+      description: '',
+      anchorStations: DataSeeder.strsOf(o, 'st'),
+      metroLines: DataSeeder.strsOf(o, 'lines'),
+      airportMinutes: Math.max(0, DataSeeder.numOf(o, 'air', 0)),
+      trainStationMinutes: Math.max(0, DataSeeder.numOf(o, 'train', 0)),
       commerceTags: [],
-      diningDensity: o['din'] as string,
-      suitableCrowds: o['crowds'] as Strs,
-      priceTier: o['tier'] as string as AreaPriceTier,
-      group: o['g'] as string as AreaGroup,
+      diningDensity: DataSeeder.strOf(o, 'din', ''),
+      suitableCrowds: DataSeeder.strsOf(o, 'crowds'),
+      priceTier: tier as AreaPriceTier,
+      group: group as AreaGroup,
       source: geo !== null ? 'seed-v2-geo' : 'seed-v1',
       updatedAt: SEED_DATE
     };

@@ -34,7 +34,8 @@ export class SpotDao {
           release_time: s.booking.releaseTime === undefined ? null : s.booking.releaseTime,
           closed_day: s.booking.closedDay === undefined ? null : s.booking.closedDay,
           difficulty: s.booking.difficulty === undefined ? null : s.booking.difficulty,
-          source: s.provenance.source, updated_at: s.provenance.updatedAt
+          source: s.provenance.source, updated_at: s.provenance.updatedAt,
+          confidence: s.provenance.confidence === undefined ? '' : s.provenance.confidence
         };
         store.insertSync('spot', row, relationalStore.ConflictResolution.ON_CONFLICT_REPLACE);
       }
@@ -53,6 +54,7 @@ export class SpotDao {
         const release: string = rs.getString(rs.getColumnIndex('release_time'));
         const closed: string = rs.getString(rs.getColumnIndex('closed_day'));
         const diff: string = rs.getString(rs.getColumnIndex('difficulty'));
+        const conf: string = rs.getString(rs.getColumnIndex('confidence'));
         let nearby: string[] = [];
         try {
           nearby = JSON.parse(rs.getString(rs.getColumnIndex('nearby_ids'))) as string[];
@@ -84,7 +86,8 @@ export class SpotDao {
           },
           provenance: {
             source: rs.getString(rs.getColumnIndex('source')),
-            updatedAt: rs.getString(rs.getColumnIndex('updated_at'))
+            updatedAt: rs.getString(rs.getColumnIndex('updated_at')),
+            confidence: conf.length > 0 ? conf : undefined
           }
         };
         out.push(spot);

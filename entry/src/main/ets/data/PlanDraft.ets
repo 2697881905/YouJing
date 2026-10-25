@@ -9,8 +9,11 @@ import { BudgetConfig } from '../common/constants/BudgetConfig';
 export class PlanDraft {
   private static instance: PlanDraft | null = null;
 
+  // 日期默认留空：具体日期由屏2 按「今天起算」填充（写死字面量会让新装用户在
+  // 若干个月后看到默认出发日在过去）。屏4/屏6 的静默兜底一律走 DateUtils.spanDays，
+  // 空串在那里按 1 天处理，不会产生 NaN。
   basic: TripBasicInput = {
-    destination: '北京', startDate: '2026-07-01', endDate: '2026-07-03', people: 2, budget: BudgetConfig.DEFAULT
+    destination: '北京', startDate: '', endDate: '', people: 2, budget: BudgetConfig.DEFAULT
   };
   style: TravelStyle = TravelStyle.LEISURE;
   stayTier: string = 'comfort';

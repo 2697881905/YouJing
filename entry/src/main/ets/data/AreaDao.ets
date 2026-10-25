@@ -39,7 +39,8 @@ export class AreaDao {
   static async loadByCity(context: common.Context, city: string): Promise<Area[]> {
     const store: relationalStore.RdbStore = await DatabaseHelper.getStore(context);
     const rs: relationalStore.ResultSet =
-      await store.querySql('SELECT * FROM area WHERE city = ?', [city]);
+      // 显式排序：不依赖 SQLite 隐式行序，屏5 候选切片才是可复现的
+      await store.querySql('SELECT * FROM area WHERE city = ? ORDER BY grp, id', [city]);
     const out: Area[] = [];
     try {
       while (rs.goToNextRow()) {

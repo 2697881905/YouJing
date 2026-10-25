@@ -22,7 +22,9 @@ export class CheckinDao {
         };
         store.insertSync('checkin', row, relationalStore.ConflictResolution.ON_CONFLICT_REPLACE);
       } else {
-        store.executeSync('DELETE FROM checkin WHERE trip_id = ? AND activity_id = ?', [tripId, activityId]);
+        // 分区键必须带上：同机切换账号后，A 不该能删掉 B 的打卡
+        store.executeSync('DELETE FROM checkin WHERE trip_id = ? AND activity_id = ? AND user_id = ?',
+          [tripId, activityId, AccountStore.uid()]);
       }
       Logger.info(TAG, `${checked ? '打卡' : '取消打卡'} ${tripId}:${activityId}`);
     });

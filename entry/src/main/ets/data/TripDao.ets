@@ -190,11 +190,16 @@ export class TripDao {
 
   /** 桌面卡片数据源：当前登录分区里覆盖今天的行程（按更新时间取最近一条） */
   static async todayPlan(context: common.Context): Promise<TodayPlanData | null> {
-    const summaries: TripSummary[] = await TripDao.listSummaries(context);
     const today: string = TodayPlan.today();
     const now: string = TodayPlan.nowHHmm();
-    for (const s of summaries) {
-      const trip: Trip | null = await TripDao.loadTrip(context, s.id);
+    // 先用日期范围预筛：不再对每条行程都整份 loadTrip（每次 4 条 SQL），
+    // 行程数增长后卡片刷新成本从「行程数 × 全量加载」降为「命中数 × 全量加载」
+    const ids: string[] = await TripDao.query(context,
+      'SELECT id FROM trip WHERE user_id = ? AND start_date <= ? AND end_date >= ? ' +
+        'ORDER BY updated_at DESC', [AccountStore.uid(), today, today],
+      (rs: relationalStore.ResultSet): string => rs.getString(rs.getColumnIndex('id')));
+    for (const id of ids) {
+      const trip: Trip | null = await TripDao.loadTrip(context, id);
       if (trip === null) {
         continue;
       }
@@ -204,7 +209,7 @@ export class TripDao {
         return plan;
       }
     }
-    Logger.info(TAG, `今日无在途行程 today=${today} 行程数=${summaries.length}`);
+    Logger.info(TAG, `今日无在途行程 today=${today} 候选数=${ids.length}`);
     return null;
   }
 

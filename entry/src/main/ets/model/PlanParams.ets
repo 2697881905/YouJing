@@ -4,6 +4,7 @@
  */
 
 import { SpotTag } from './Spot';
+import { Area } from './Area';
 
 /** 旅行风格（屏3 Q1：休闲/暴走/亲子/美食/文化） */
 export enum TravelStyle {
@@ -45,6 +46,18 @@ export interface SelectedSpot {
 /** 用户选中的住宿区域 */
 export interface SelectedArea {
   areaId: string;
+}
+
+/**
+ * 屏5 区域卡展示包装：角标与理由句为呈现层生成结果，不属内置库契约。
+ * 定义在 model/ 而非 mock/：页面与 mock 演示数据共用同一视图模型，
+ * mock/ 只允许被 data/ 层路由读取（ARCHITECTURE.md 依赖表）。
+ */
+export interface AreaPick {
+  area: Area;
+  badgeLabel: string;
+  aiRank: number;
+  reason: string;
 }
 
 /** 行程基础输入（屏2：目的地 + 日期 + 人数 + 预算） */

@@ -6,8 +6,22 @@
 const ISO_DATE: RegExp = /^\d{4}-\d{2}-\d{2}$/;
 
 export class DateUtils {
+  /**
+   * 合法 ISO 日期 = 格式对 + 真实日历日存在。
+   * 只过正则不够：`2026-02-30` 会被 JS Date 规范化成 3 月，
+   * 放它过去就会产出 startDate=2026-02-30 / endDate=2026-03-xx 的撕裂行程。
+   * 与 PlanTripSkill 的入参回检同一口径（小艺 Skill 清单承诺「2026-02-30 会被拒」）。
+   */
   static isValidIsoDate(text: string): boolean {
-    return ISO_DATE.test(text);
+    if (!ISO_DATE.test(text)) {
+      return false;
+    }
+    const parts: string[] = text.split('-');
+    const year: number = Number(parts[0]);
+    const month: number = Number(parts[1]);
+    const day: number = Number(parts[2]);
+    const date: Date = new Date(year, month - 1, day);
+    return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
   }
 
   /** ISO 日期加减天数，越界自动进位；入参非法返回空串 */

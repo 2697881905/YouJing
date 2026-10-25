@@ -196,13 +196,28 @@ export class HttpLlmTransport implements LlmTransport {
       throw new AppError(ErrorCode.LLM_UNAVAILABLE, 'LLM 端点未配置（ApiConfig 占位）');
     }
     const body: Record<string, Object> = {};
-    body['messages'] = [
+    // 消息字面量带具名 Record 标注（工程纪律：对象字面量必须对应具名类型）
+    const messages: Object[] = [
       { 'role': 'system', 'content': req.system } as Record<string, string>,
       { 'role': 'user', 'content': req.user } as Record<string, string>
-    ] as Object;
-    body['response_format'] = req.jsonSchemaStrict
-      ? { 'type': 'json_schema' } as Record<string, string> as Object
-      : { 'type': 'json_object' } as Record<string, string> as Object;
+    ];
+    body['messages'] = messages;
+    // §4.3 第二层防线：response_format 强制模型遵循 Schema（strict），
+    // schema 本体与第一层 Prompt 内嵌、第三层 TripParser 守卫同源（TripSchema.TRIP_JSON_SCHEMA）
+    if (req.jsonSchemaStrict) {
+      const jsonSchema: Record<string, Object> = {};
+      jsonSchema['name'] = 'Trip';
+      jsonSchema['schema'] = JSON.parse(TripSchema.TRIP_JSON_SCHEMA);
+      jsonSchema['strict'] = true;
+      const responseFormat: Record<string, Object> = {};
+      responseFormat['type'] = 'json_schema';
+      responseFormat['json_schema'] = jsonSchema;
+      body['response_format'] = responseFormat;
+    } else {
+      const responseFormat: Record<string, Object> = {};
+      responseFormat['type'] = 'json_object';
+      body['response_format'] = responseFormat;
+    }
     const reqHandle = http.createHttp();
     try {
       const resp: http.HttpResponse = await reqHandle.request(
@@ -220,7 +235,8 @@ export class HttpLlmTransport implements LlmTransport {
       if (err instanceof AppError) {
         throw err;
       }
-      throw new AppError(ErrorCode.NETWORK_TIMEOUT, `LLM 请求失败: ${(err as Error).message}`);
+      // 无细分信息时按「请求失败」报，不默认成超时——连接失败/DNS 错误都曾被谎报成超时
+      throw new AppError(ErrorCode.NETWORK_REQUEST_FAILED, `LLM 请求失败: ${(err as Error).message}`);
     } finally {
       reqHandle.destroy();
     }
@@ -248,10 +264,5 @@ export class LlmClient {
     }
     throw new AppError(ErrorCode.TRIP_GENERATE_RETRY_EXHAUSTED,
       `两次生成均失败: ${lastErr !== null ? lastErr.message : ''}`);
-  }
-
-  /** 校验枚举白名单与 Schema 同源（测试辅助） */
-  static schemaStatuses(): string[] {
-    return TripSchema.ACTIVITY_STATUS;
   }
 }

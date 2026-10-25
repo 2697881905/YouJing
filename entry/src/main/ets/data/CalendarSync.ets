@@ -2,8 +2,12 @@
  * 系统日历写入（开发文档 §6 阶段 9：Calendar Kit 日程写入 + 提前提醒）。
  *
  * 屏14「同意并写入」是唯一入口，未授权/未同意不写任何数据：
- * - 需预约节点 → 一条定时日程，标题带「需预约」，开提醒时按 booking.advanceDays 提前量给 reminderTime；
+ * - 需预约节点 → 一条定时日程，标题带「需预约」；
  * - 每日 → 一条全天日程（Day N 主题 + 首末站），保证日历上能看到整段行程。
+ *
+ * 提醒提前量：固定提前 1 天（reminderTime [1440]，分钟）。Activity 模型不带
+ * booking.advanceDays（那是景点库字段，未进 AI 契约），按预约提前量逐条提醒
+ * 需要先把 advanceDays 带进 Activity，届时再改这一处。
  *
  * 幂等：每次写入前按 tripId 删除本机上次写入的事件 id（只删自己写的，绝不动用户自建日程），
  * 事件 id 清单存 preferences 分片 youjing_access。

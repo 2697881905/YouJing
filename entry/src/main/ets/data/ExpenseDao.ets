@@ -28,7 +28,8 @@ export class ExpenseDao {
 
   static delete(context: common.Context, id: number): Promise<void> {
     return DatabaseHelper.write(context, async (store: relationalStore.RdbStore): Promise<void> => {
-      store.executeSync('DELETE FROM expense WHERE id = ?', [id]);
+      // 分区键必须带上：同机切换账号后，A 不该能删掉 B 的记账
+      store.executeSync('DELETE FROM expense WHERE id = ? AND user_id = ?', [id, AccountStore.uid()]);
     });
   }
 

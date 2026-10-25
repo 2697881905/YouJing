@@ -10,12 +10,12 @@ import { common, scriptManager, Want } from '@kit.AbilityKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { Logger } from '../../../src/main/ets/common/logger/Logger';
 import { SkillPrefill, SkillPrefillRecord } from '../../../src/main/ets/data/SkillPrefill';
+import { DateUtils } from '../../../src/main/ets/utils/DateUtils';
 
 const TAG: string = 'Skill.PlanTrip';
 const BUNDLE_NAME: string = 'com.youjing.app';
 const ABILITY_NAME: string = 'EntryAbility';
 const CITIES: string[] = ['北京', '上海', '广州', '深圳'];
-const ISO_DATE: RegExp = /^\d{4}-\d{2}-\d{2}$/;
 const DEFAULT_DAYS: number = 3;
 const DEFAULT_PEOPLE: number = 2;
 
@@ -31,18 +31,6 @@ interface ParsedArgs {
   args: PlanArgs;
   errMsg: string;
   suggestion: string;
-}
-
-function isIsoDate(text: string): boolean {
-  if (!ISO_DATE.test(text)) {
-    return false;
-  }
-  const parts: string[] = text.split('-');
-  const year: number = Number(parts[0]);
-  const month: number = Number(parts[1]);
-  const day: number = Number(parts[2]);
-  const date: Date = new Date(year, month - 1, day);
-  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
 }
 
 /** 空串取默认值；非法或越界返回 -1 */
@@ -76,7 +64,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     return invalid(`destination ${destination} is not supported`,
       '目前只支持北京、上海、广州、深圳，你想去哪一个？');
   }
-  if (!isIsoDate(start)) {
+  if (!DateUtils.isValidIsoDate(start)) {
     return invalid(`start ${start} is not a valid ISO date`, '请告诉我出发日期，例如 2026 年 8 月 1 日。');
   }
   const days: number = parseCount(daysRaw, DEFAULT_DAYS, 1, 30);
