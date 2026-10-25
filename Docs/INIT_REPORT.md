@@ -106,7 +106,14 @@
    理论差 2.46 倍亮度）。
 2. `EntryAbility.onCreate` 播种 `isDarkMode`（`e206e77`）——此前它只在 `onConfigurationUpdate` 里写。
 
-结果：费用页实拍两格仍同色。**三种可能已分开两种**——
+**⚠ 下面这条「仍未修」的结论本身要作废重测**：那次复测跑在 `e206e77` 的产物上，
+而 `e206e77` 的播种写的是 `config.colorMode === COLOR_MODE_DARK`——实测 `colorMode=0`（NOT_SET），
+所以那一版 `isDarkMode` **依然是 false**，我补的文字色分支从来没执行过。
+拿一个根因还在生效的构建去判「修复无效」，是我又犯了一次「测了个没生效的东西」的错。
+`b985c30` 换成资源法之后 `isDarkMode=true` 已被日志证实，但分段栏**还没有在这一版上重测过**。
+所以下面所有「两格同色」的读数只能算 `isDarkMode=false` 条件下的旧证据，不能当结论。
+
+三种可能的当前状态：
 `b985c30` 的日志给出 `config.colorMode=0`（NOT_SET），假设 (a) 坐实：旧的 `=== COLOR_MODE_DARK`
 在冷启恒 false，所以深色档下那段分支从来没走过。改用资源法（解 canvas/ink 比亮度）后日志
 报 `isDarkMode=true`，**但两格读数依旧相同（最亮都是 64）**，所以剩下的解释是 (b)/(c)：
