@@ -2,6 +2,26 @@
 
 > 生成日期：2026-10-15。初始化流程 P0–P7 全部完成，验收清单见第 2 节，遗留事项见第 4 节。
 
+
+## 4d. 字段落点复核（2026-10-25，脚本扫 + 人工分类）
+
+`model/*.ets` 的 12 个接口共 131 个字段，用 `\.字段名` 在 `pages/` `components/` `widget/` 里找读方，
+31 个一次都没被 UI 读过。按消费层分类（注意：`.field` 也会匹配到**写值**的 DAO/解析器，
+所以"非 UI 有引用"不等于"有消费方"，逐条人工看过）：
+
+| 类别 | 字段 | 结论 |
+|---|---|---|
+| AI 产出、界面不显示 | `TripOverview.summary` / `.highlights`、`TripDay.risk` / `.accommodation` / `.intensity` / `.dailyCost` | 已在任务 #29 等用户定点，不自己加卡 |
+| 全库零引用 | `PlanParams.tagAffinity?`；`CheckinMark` 接口本身（DAO 走 `ValuesBucket` + `Record<id,ms>`，从不构造它） | 属阶段 1 冻结契约的表面；删或补用途由用户定（P0「决策不抢跑」） |
+| prompt/种子层在用 | `Spot.nearbySpotIds`、`Area.source` / `.updatedAt`、`DataProvenance.*`、`Expense.activityId`、`CheckinMark.activityId`、`SelectedSpot.userNote`、`AccountState.loginAt` | 合理：它们服务于提示词、幂等或分区，不是给用户看的 |
+| 景点库字段，界面一个没露 | `Spot.brief` / `.entranceTip` / `.nearestMetro` / `.provenance`、`SpotBooking.releaseTime` / `.closedDay` / `.difficulty`、`Area.description` / `.commerceTags` / `.priceRange` | 与 §4b-4 同一件事：底稿要显示这些就得先把它们带进 Activity/AI 契约，否则屏8/屏10 只能显示模型里真有的字段 |
+| 特别提醒 | `SpotBooking.advanceDays` | 日历提醒一律提前 1440 分钟。`CalendarSync` 头注释已写明原因：`Activity` 不带 `booking`（AI 契约里没有），要按景点各自要求提前，得先扩阶段 1 契约 → 与 #29 同族，等用户定 |
+
+**不是缺陷的一条**：`checkin.checked_at` 确实落库、`CheckinDao.listForTrip` 也返回时刻，
+但屏15 只用「这个节点有没有卡」，已打卡列表显示的是**计划时间**（帧 7fc140cd 也是这么画的），
+所以界面没有承诺过"显示打卡时刻"。
+
+
 ## 1. 完成清单
 
 **目录骨架**（P1，`entry/src/main/ets/`）：pages / components / model / data / ai / mock / utils / design / common/{config, constants, error, logger}，职责与依赖方向见 `Docs/ARCHITECTURE.md`。
