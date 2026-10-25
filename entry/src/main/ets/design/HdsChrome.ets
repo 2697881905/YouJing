@@ -44,6 +44,8 @@ export interface ChromeSpec {
   subTitle?: string;
   /** 右侧官方圆钮菜单（替代自绘 SymbolGlyph + onClick） */
   menu?: Array<HdsNavigationMenuItemOptions>;
+  /** 栏内最多直出几枚图标，其余收进官方「更多」；不给即 3 */
+  menuMaxCount?: number;
   /** 沉浸画布页（地图/全屏底图）：内容铺到状态栏下，栏体只作透明悬浮层 */
   fullBleed?: boolean;
   /** 页面滚动状态：驱动 blurRadius，静止时不给模糊（有据静止态白底白图标教训） */
@@ -102,7 +104,8 @@ export class HdsChrome {
     };
     let menu: HdsNavigationMenuContentOptions | undefined = undefined;
     if (spec.menu !== undefined && spec.menu.length > 0) {
-      const built: HdsNavigationMenuContentOptions = { value: spec.menu, maxCount: 3 };
+      const cap: number = spec.menuMaxCount === undefined ? 3 : spec.menuMaxCount;
+      const built: HdsNavigationMenuContentOptions = { value: spec.menu, maxCount: cap };
       menu = built;
     }
     const content: TitleBarContentOptions = { title: title, menu: menu };

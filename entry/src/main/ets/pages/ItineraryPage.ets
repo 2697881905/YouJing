@@ -1218,8 +1218,13 @@ export struct ItineraryPage {
             name: 'EditItinerary',
             param: { tripId: this.tripId, dayIndex: this.dayIndex } as EditTarget
           });
+        }),
+        HdsChrome.item($r('sys.symbol.calendar'), '写入系统与提醒', (): void => {
+          this.showSystemAccess = true;
         })
-      ]
+      ],
+      // 直出两枚、第三枚收进官方「更多」——屏11 帧在顶栏右侧画的就是 ellipsis
+      menuMaxCount: 2
     }))
     .titleMode(HdsNavDestinationTitleMode.MINI)
     .onShown((): void => {
