@@ -7,7 +7,7 @@
  */
 
 import { MAP_NAV } from '../common/constants/AppNav';
-import { TripDao } from '../data/TripDao';
+import { TripDao, TripSummary } from '../data/TripDao';
 import { Trip, TripDay } from '../model/Trip';
 import { MapStop, MapStops } from '../utils/MapStops';
 import { TripMapView } from '../components/TripMapView';
@@ -61,7 +61,23 @@ export struct MapPage {
 
   private reload(): void {
     if (this.tripId.length === 0) {
-      this.loaded = true;
+      // 作为 dock「地图」tab 的根页时不走 push 参数，tripId 会是空（rootMode 的必然结果）：
+      // 退到本机最近一条行程，而不是给一张空底图。与 ExpensePage 同一兜底口径。
+      const ctx0: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      TripDao.listSummaries(ctx0)
+        .then((rows: TripSummary[]): void => {
+          if (rows.length === 0) {
+            this.loaded = true;
+            Logger.info('Ui.MapPage', '本机还没有行程，地图页保持空态');
+            return;
+          }
+          this.tripId = rows[0].id;
+          this.reload();
+        })
+        .catch((err: Error): void => {
+          this.loaded = true;
+          Logger.warn('Ui.MapPage', `取最近行程失败: ${err.message}`);
+        });
       return;
     }
     const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
