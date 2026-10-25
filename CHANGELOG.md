@@ -6,7 +6,7 @@
 
 ### Added
 
-- 三套纯逻辑用例补覆盖差（2026-10-25，**已写未跑**：设备此刻离线，`hdc list targets` 为空）：
+- 三套纯逻辑用例补覆盖差（2026-10-25，真机 **79/79** 通过）：
   先把 utils/models/common/data/ai 里「无 UI @kit 依赖」的模块列全，再与 12 个测试文件对表，
   查出四块纯逻辑一直没有用例——`TransitSymbol`、`PlanDraft`、`PromptBuilder`/`TripSchema` 同源契约、
   （`BudgetConfig` 归在常量件里已由 StyleConfig 间接覆盖）。
@@ -19,8 +19,10 @@
     systemPrompt 必须内嵌 schema 原文、parser 要求的 12 个键必须都在 schema 里、
     四组枚举与模型枚举**双向**等长等值。漂移的后果是静默的：模型多一个值而 schema 没跟上，
     AI 就不产该值；schema 多而解析器不认，整份行程被判非法走屏7。
-  静态核对已过（枚举条数 5/7/3/3 与模型一致、12 个键都在 TripSchema 里出现），
-  但**不能拿静态核对当用例通过**：设备回来第一件事是跑 `aa test`，预期 72 例。
+  首轮装机时设备掉线（`hdc list targets` 空、旧地址 `192.168.31.38` ping 不通），
+  当时如实标为「已写未跑」；补连新地址 `192.168.3.2:46077` 后跑完：
+  `Tests run: 79, Failure: 0, Error: 0, Pass: 79`（69 + 新增 10 例，我原先估的 72 算少了）。
+  `TransitSymbol.of()` 是等价重构，真机复看屏8 交通腿「地铁 22分钟 · 2 站」前的车头图标渲染正常。
 
 - 第四把尺 `tools/audit_contrast.py`：逐节点量文字/表面 WCAG 对比度（2026-10-25，真机双极性跑通）。
   只能从像素量——`dumpLayout` 不给 fontColor/fontSize，本机也没有 `settings` 可切深色档。
