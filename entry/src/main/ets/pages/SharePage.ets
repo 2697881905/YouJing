@@ -29,6 +29,9 @@ interface ShareOption {
   desc: string;
 }
 
+/** .ics 提醒提前天数：与 CalendarSync 同一口径（固定 1 天） */
+const ICS_ADVANCE_DAYS: number = 1;
+
 @Component
 export struct SharePage {
   private pathStack: NavPathStack = APP_NAV;
@@ -98,7 +101,8 @@ export struct SharePage {
       this.toast('行程未就绪');
       return;
     }
-    ShareExporter.shareIcs(this.ctx(), trip, 1).then((events: number): void => {
+    // 提醒提前量与 CalendarSync 同一口径：固定提前 1 天（Activity 不带 advanceDays）
+    ShareExporter.shareIcs(this.ctx(), trip, ICS_ADVANCE_DAYS).then((events: number): void => {
       Logger.info('Ui.Share', `ics 导出 ${events} 事件`);
     }).catch((err: Error) => {
       Logger.warn('Ui.Share', `ics 导出失败: ${err.message}`);
@@ -115,8 +119,8 @@ export struct SharePage {
             .fontSize(IconSizes.control)
             .fontColor([ColorTokens.ink])
         }
-        .width(44)
-        .height(44)
+        .width(LayoutTokens.minTouchTarget)
+        .height(LayoutTokens.minTouchTarget)
         .justifyContent(FlexAlign.Center)
         .borderRadius(RadiusTokens.media)
         .backgroundColor(ColorTokens.surfaceSubtle)
@@ -136,7 +140,7 @@ export struct SharePage {
 
         SymbolGlyph($r('sys.symbol.chevron_right'))
           .fontSize(IconSizes.control)
-          .fontColor([ColorTokens.faint])
+          .fontColor([ColorTokens.muted])
       }
       .width('100%')
       .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })

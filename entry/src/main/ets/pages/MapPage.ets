@@ -20,8 +20,6 @@ import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
-import { barMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
-import { uiMaterial } from '@kit.ArkUI';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import type { HdsNavigationMenuItemOptions, HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
@@ -48,7 +46,6 @@ export struct MapPage {
   @State private titleText: string = '地图';
   @State private loaded: boolean = false;
   private seq: number = 0;
-  private glassOn: boolean = isSystemMaterialActive();
 
   /** 编辑页/屏8 返回后要吃到回写的库数据，统一挂 onShown（首帧也会触发） */
   /** 官方标题栏：行程名 + 副标题步数，「全览」走 content.menu 圆钮 */
@@ -111,10 +108,13 @@ export struct MapPage {
 
   @Builder
   chipRow(label: string, idx: number) {
+    // 选中档走 EMPHASIZED 实底：真机上 NORMAL 胶囊表面压在瓦片上与瓦片同色、
+    // 显式 backgroundColor 也被样式吃掉（ItineraryPage「全图」钮同一实测口径）。
+    // 高度 44 最小命中区，字重随选中切换
     Button(label)
       .fontSize(TypeTokens.caption.size)
       .fontWeight(idx === this.daySel + 1 ? 600 : 450)
-      .height(32)
+      .height(LayoutTokens.minTouchTarget)
       .type(ButtonType.Capsule)
       .buttonStyle(idx === this.daySel + 1 ? ButtonStyleMode.EMPHASIZED : ButtonStyleMode.NORMAL)
       .margin({ right: SpaceTokens.sm })
@@ -132,6 +132,7 @@ export struct MapPage {
             .fontSize(TypeTokens.overline.size)
             .fontWeight(600)
             .fontColor(ColorTokens.primary)
+            .fontFeature("'tnum' on")
           Text(stop.subtitle)
             .fontSize(TypeTokens.overline.size)
             .fontWeight(450)
@@ -183,7 +184,7 @@ export struct MapPage {
               Row() {
                 ForEach(this.chips(), (label: string, idx: number) => {
                   this.chipRow(label, idx)
-                }, (label: string): string => `mapchip-${label}-${this.daySel}`)
+                }, (label: string): string => `mapchip-${label}`)
               }
               .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
             }
@@ -200,7 +201,7 @@ export struct MapPage {
                 Row() {
                   ForEach(this.stops, (stop: MapStop) => {
                     this.stopChip(stop)
-                  }, (stop: MapStop): string => `mapstop-${this.signature}-${stop.index}`)
+                  }, (stop: MapStop): string => `mapstop-${stop.index}`)
                 }
                 .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
               }
@@ -212,10 +213,12 @@ export struct MapPage {
             .width('100%')
             .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
             .borderRadius({ topLeft: RadiusTokens.hero, topRight: RadiusTokens.hero })
-            .attributeModifier(barMaterial(uiMaterial.ImmersiveStyle.THIN, true, this.glassOn && !this.isDark))
-            .backgroundColor(this.glassOn && !this.isDark ? Color.Transparent : ColorTokens.surfaceElevated)
-            .border({ width: 1, color: ColorTokens.borderSubtle })
-            .shadow(this.glassOn && !this.isDark || this.isDark ? { radius: 0 } : ShadowTokens.floating)
+            // 站点条不是契约四处玻璃面之一（顶栏/分段/dock/吸顶日标题，禁令 9）：
+            // 原挂 THIN 材质属第五处玻璃。改实色 surface-elevated + hairline 描边，
+            // 与深色零阴影口径一致；hitTestBehavior Transparent 让手势穿到地图不变
+            .backgroundColor(ColorTokens.surfaceElevated)
+            .border({ width: LayoutTokens.hairlineWidth, color: ColorTokens.borderSubtle })
+            .shadow(this.isDark ? { radius: 0 } : ShadowTokens.floating)
           } else if (this.loaded) {
             Text(this.tripId.length === 0 ? '先从「我的行程」选一条行程' : '这条行程里没有可显示的坐标')
               .fontSize(TypeTokens.caption.size)

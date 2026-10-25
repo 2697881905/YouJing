@@ -83,7 +83,8 @@ export struct TripMapView {
   private onCreated: AsyncCallback<map.MapComponentController> =
     (err: BusinessError, ctrl: map.MapComponentController): void => {
       if (err !== undefined && err !== null) {
-        this.mapError = `底图初始化失败（${err.code}）`;
+        // 用户看到人话；错误码只进 Logger（1002600003 之类别甩给用户）
+        this.mapError = '地图加载失败';
         Logger.error(TAG, `MapComponent 初始化失败 code=${err.code} msg=${err.message}`);
         return;
       }
@@ -221,12 +222,19 @@ export struct TripMapView {
         run.map((s: MapStop): mapCommon.LatLng => { return { latitude: s.latitude, longitude: s.longitude }; });
       const lineOpts: mapCommon.MapPolylineOptions = {
         points: runPoints,
-        width: 6,
+        // 动线宽 2vp（契约 route-line-width）。Map Kit 吃 px，按真机密度 3.125 折算：
+        // 6.25px ≈ 2vp（6px 会细 4%，§5.5 实测过这个偏差）
+        width: 6.25,
         color: this.isDark ? LINE_DARK : LINE_LIGHT,
         clickable: false,
         geodesic: false
       };
       ctrl.addPolyline(lineOpts).then((line: map.MapPolyline): void => {
+        // 与 markers 同一口径：异步回来时组件可能已拆掉，底图对象失效
+        if (this.controller === null) {
+          Logger.warn(TAG, '底图已拆除，丢弃本次动线生成结果');
+          return;
+        }
         this.lines.push(line);
       }).catch((err: BusinessError): void => {
         Logger.error(TAG, `第 ${r + 1} 段动线绘制失败 code=${err.code} msg=${err.message}`);
@@ -262,7 +270,7 @@ export struct TripMapView {
       ctrl.moveCamera(this.cameraFor(stops));
     }).catch((err: BusinessError): void => {
       Logger.error(TAG, `落点绘制失败 code=${err.code} msg=${err.message}`);
-      this.mapError = `落点绘制失败（${err.code}）`;
+      this.mapError = '地图加载失败';
     });
   }
 

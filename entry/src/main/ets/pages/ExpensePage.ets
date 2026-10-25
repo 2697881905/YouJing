@@ -92,7 +92,8 @@ function clockText(millis: number): string {
 }
 
 function yuan(amount: number): string {
-  return `¥${amount.toLocaleString('en-US')}`;
+  // DESIGN §4 数字格式：整数 + 单位，不用千分位
+  return `¥${amount}`;
 }
 
 @Component
@@ -252,13 +253,21 @@ export struct ExpensePage {
 
   @Builder
   categoryChip(option: CategoryOption) {
-    // 官方胶囊 Button：选中走 EMPHASIZED、未选走 TEXTUAL（无自绘底色/描边）
+    // 选中态按契约 tint 配方（DESIGN §9）：tint 底 + 1px primary 描边 + ink 字。
+    // 原走 EMPHASIZED 实心蓝，与本 sheet 里的「保存」主按钮形成同屏双实心（禁令 1）
     Button(option.label)
       .fontSize(TypeTokens.small.size)
       .fontWeight(this.inputCategory === option.value ? 600 : 450)
-      .height(32)
+      .fontColor(this.inputCategory === option.value ? ColorTokens.ink : ColorTokens.body)
+      .height(LayoutTokens.minTouchTarget)
       .type(ButtonType.Capsule)
-      .buttonStyle(this.inputCategory === option.value ? ButtonStyleMode.EMPHASIZED : ButtonStyleMode.TEXTUAL)
+      .buttonStyle(ButtonStyleMode.NORMAL)
+      .backgroundColor(this.inputCategory === option.value
+        ? ColorTokens.primaryTint : ColorTokens.surfaceElevated)
+      .border({
+        width: this.inputCategory === option.value ? LayoutTokens.glassBorderWidth : 0,
+        color: ColorTokens.primary
+      })
       .margin({ right: SpaceTokens.sm })
       .onClick(() => {
         this.inputCategory = option.value;
@@ -388,6 +397,8 @@ export struct ExpensePage {
       .height(56)
       .type(ButtonType.Circle)
       .backgroundColor(ColorTokens.danger)
+      .accessibilityText(`删除 ${r.name}`)
+      .id('rec-del')
       .onClick((): void => {
         this.confirmDeleteReceipt(r);
       })
@@ -440,6 +451,9 @@ export struct ExpensePage {
               selectedIndex: $seg,
               itemWidth: 164,
               buttonVerticalPadding: 2.15,
+              // 契约四处玻璃面之一：分段控件轨道走系统材质（handoff §5/§9）。
+              // 本页轨道下有 surfaceElevated 实色背板而非滚动内容，lightContent 保持 false
+              overrideTrackMaterial: true,
               a11yLabel: '支出维度切换'
             })
           }

@@ -3,7 +3,7 @@
  * §7 必改已落：badge padding 3→4、check-right gap 6→4、stop-row padding 10→8、scroll 72→94。
  * hero 站名走 sans 21/700（禁令 8：serif 不上站名）。
  *
- * 数据（阶段 10 接真）：当日节点、当前时刻、进度、下一段通勤、行内金额与打卡状态全部取真值。
+ * 数据（RDB 已接真）：当日节点、当前时刻、进度、下一段通勤、行内金额与打卡状态全部取真值。
  * 打卡写 checkin 表（v4），行内金额取挂在该节点上的 expense 合计；
  * 底稿里「周一人少，10:00 后团队到达」「打车 ¥1,900」这类无来源文案不保留。
  */
@@ -13,7 +13,7 @@ import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
-import { LayoutTokens } from '../design/LayoutTokens';
+import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { FloatingDock } from '../components/FloatingDock';
 import { ImmersiveSurface } from '../components/ImmersiveSurface';
@@ -22,6 +22,7 @@ import { TripDao } from '../data/TripDao';
 import { CheckinDao } from '../data/CheckinDao';
 import { ExpenseDao } from '../data/ExpenseDao';
 import { DateUtils } from '../utils/DateUtils';
+import { TransitSymbol } from '../utils/TransitSymbol';
 import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
@@ -162,7 +163,7 @@ export struct OnTripPage {
             const paid: number | undefined = sums[a.id];
             const row: CheckedRow = {
               time: a.time, name: a.title,
-              amount: paid === undefined ? '' : `¥${paid.toLocaleString('en-US')}`,
+              amount: paid === undefined ? '' : `¥${paid}`,
               ongoing: false
             };
             list.push(row);
@@ -265,7 +266,7 @@ export struct OnTripPage {
         .fontColor(row.ongoing ? ColorTokens.primary : ColorTokens.success)
       if (!row.ongoing) {
         SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
-          .fontSize(14)
+          .fontSize(IconSizes.control)
           .fontColor([ColorTokens.success])
           .margin({ left: SpaceTokens.xs })
       }
@@ -327,11 +328,11 @@ export struct OnTripPage {
                 })
               }
               .margin({ top: SpaceTokens.lg })
-              Text('打卡与记账只存本机，不上传服务器')
-                .fontSize(TypeTokens.overline.size)
-                .fontWeight(450)
-                .fontColor(ColorTokens.faint)
-                .margin({ top: SpaceTokens.sm })
+                Text('打卡与记账只存本机，不上传服务器')
+                  .fontSize(TypeTokens.overline.size)
+                  .fontWeight(450)
+                  .fontColor(ColorTokens.muted)
+                  .margin({ top: SpaceTokens.sm })
             }
             .alignItems(HorizontalAlign.Start)
             .width('100%')
@@ -348,12 +349,13 @@ export struct OnTripPage {
               Row() {
                 Column().width(LayoutTokens.itineraryTimeGutter)
                 Column()
-                  .width(2)
-                  .height(44)
-                  .border({ width: { left: 2 }, color: ColorTokens.separator, style: BorderStyle.Dashed })
+                  .width(LayoutTokens.routeLineWidth)
+                  .height(LayoutTokens.transitLegHeight)
+                  .border({ width: { left: LayoutTokens.routeLineWidth }, color: ColorTokens.separator, style: BorderStyle.Dashed })
                 Row({ space: SpaceTokens.xs }) {
-                  SymbolGlyph($r('sys.symbol.car'))
-                    .fontSize(14)
+                  // 按下一段的真实模式取图标（原来是写死的汽车，地铁/公交段会显示错图标）
+                  SymbolGlyph(TransitSymbol.of(this.next.transport === undefined ? '' : this.next.transport.mode))
+                    .fontSize(IconSizes.control)
                     .fontColor([ColorTokens.icon])
                   Text(this.nextLeg)
                     .fontSize(TypeTokens.caption.size)
@@ -363,7 +365,7 @@ export struct OnTripPage {
                 }
                 .padding({ left: SpaceTokens.sm })
               }
-              .height(44)
+              .height(LayoutTokens.transitLegHeight)
               .alignItems(VerticalAlign.Center)
 
               Row({ space: SpaceTokens.sm }) {

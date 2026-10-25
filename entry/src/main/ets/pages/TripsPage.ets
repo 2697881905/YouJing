@@ -34,7 +34,6 @@ interface TripCardData {
   badgeColor: Resource;
   statusLine: string;
   progress: number;
-  mustIdx: number;
   onTrip: boolean;
   muted: boolean;
 }
@@ -70,8 +69,8 @@ export struct TripsPage {
           dateMeta: `${r.startDate} – ${r.endDate} · ${r.people} 人`,
           spots: `${r.spotCount}`, walk: `${r.legCount} 段`, bookingNum: `${r.bookingCount}`,
           bookingBadge: r.totalCost > 0 ? `¥${r.totalCost}` : '',
-          badgeColor: ColorTokens.success,
-          statusLine: onTrip ? '旅行中' : '已生成', progress: progress, mustIdx: -1,
+          badgeColor: ColorTokens.surfaceSubtle,
+          statusLine: onTrip ? '旅行中' : '已生成', progress: progress,
           onTrip: onTrip, muted: false
         };
         list.push(t);
@@ -107,6 +106,8 @@ export struct TripsPage {
       .height(56)
       .type(ButtonType.Circle)
       .backgroundColor(ColorTokens.danger)
+      .accessibilityText(`删除 ${t.place} 的行程`)
+      .id('trip-del')
       .onClick((): void => {
         this.confirmDelete(t);
       })
@@ -154,7 +155,7 @@ export struct TripsPage {
   }
 
   @Builder
-  miniRoute(mustIdx: number) {
+  miniRoute() {
     Row() {
       ForEach([0, 1, 2, 3, 4], (i: number) => {
         if (i > 0) {
@@ -164,13 +165,14 @@ export struct TripsPage {
           Text(`${i + 1}`)
             .fontSize(TypeTokens.overline.size)
             .fontWeight(600)
-            .fontColor(i === mustIdx ? ColorTokens.onPrimary : ColorTokens.body)
+            .fontColor(ColorTokens.body)
+            .fontFeature("'tnum' on")
         }
         .width(20)
         .height(20)
         .justifyContent(FlexAlign.Center)
         .borderRadius(RadiusTokens.pill)
-        .backgroundColor(i === mustIdx ? ColorTokens.bookmark : ColorTokens.surfaceSubtle)
+        .backgroundColor(ColorTokens.surfaceSubtle)
       }, (i: number): string => `node-${i}`)
     }
     .margin({ top: SpaceTokens.md, bottom: SpaceTokens.md })
@@ -189,7 +191,9 @@ export struct TripsPage {
           Text(badge)
             .fontSize(TypeTokens.overline.size)
             .fontWeight(600)
-            .fontColor(ColorTokens.onPrimary)
+            // 徽章第②式（handoff §6）：中性底 + body 字。
+            // 金额不是「已确认」态，原来恒用 success 实心底是把语义色当装饰
+            .fontColor(ColorTokens.body)
             .height(18)
             .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs })
             .borderRadius(RadiusTokens.pill)
@@ -230,7 +234,7 @@ export struct TripsPage {
       .alignItems(HorizontalAlign.Start)
       .width('100%')
 
-      this.miniRoute(t.mustIdx)
+      this.miniRoute()
 
       Row() {
         this.statCol(t.spots, '景点', '', ColorTokens.canvas, t.muted)
@@ -303,13 +307,14 @@ export struct TripsPage {
         } else {
           // 官方 Refresh + List：下拉重读 RDB，列表项走 ListItem（原来是 Scroll+Column 手排）
           Refresh({ refreshing: $$this.refreshing }) {
-            List({ space: 12 }) {
+            List({ space: SpaceTokens.md }) {
               ForEach(this.visibleTrips(), (t: TripCardData) => {
                 ListItem() {
                   this.tripCard(t)
                 }
                 .swipeAction({ end: this.deleteAction(t), edgeEffect: SwipeEdgeEffect.Spring })
-              }, (t: TripCardData): string => `trip-${t.id}-${t.statusLine}-${t.progress}`)
+              // key 只用稳定 id：状态/进度变化靠 @State 重渲染，不带进 key
+              }, (t: TripCardData): string => `trip-${t.id}`)
               if (this.visibleTrips().length === 0) {
                 ListItem() {
                   Text(`没有匹配「${this.keyword}」的行程`)

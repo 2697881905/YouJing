@@ -12,8 +12,8 @@ import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton
 
 @Component
 export struct ComingSoonPage {
-  @Prop title: string = '这个视图';
-  @Prop why: string = '还没有做出来。';
+  @Prop title: string = '这个页面';
+  @Prop why: string = '还在准备中，稍后回来试试。';
   private pathStack: NavPathStack = APP_NAV;
 
   build() {
@@ -28,7 +28,7 @@ export struct ComingSoonPage {
         Text(this.why)
           .fontSize(TypeTokens.small.size)
           .fontColor(ColorTokens.body)
-          .lineHeight(22)
+          .lineHeight(TypeTokens.small.lineHeight)
           .alignSelf(ItemAlign.Start)
         YoujingButton({
           variant: YoujingButtonVariant.SECONDARY,

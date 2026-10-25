@@ -21,6 +21,7 @@ import { Spot } from '../model/Spot';
 import { Area } from '../model/Area';
 import { Trip } from '../model/Trip';
 import { TripBasicInput } from '../model/PlanParams';
+import { DateUtils } from '../utils/DateUtils';
 import { Logger } from '../common/logger/Logger';
 import { AppError } from '../common/error/AppError';
 import { common } from '@kit.AbilityKit';
@@ -35,8 +36,15 @@ export struct GeneratingPage {
   @State private done: boolean = false;
   private stages: string[] = ['筛选景点', '排布每日动线', '校验开放时间与预约', '估算步行耗时'];
   private timer: number = -1;
+  /**
+   * 取消竞态：页面离开（取消钮或系统返回）后 in-flight 的 run() 必须停止导航，
+   * 否则生成完成后会把用户强行拽到 Itinerary/GenerateFailed。
+   * Mock 传输微秒级返回时窗口极小，切 HttpLlmTransport 后会拉长到秒级。
+   */
+  private cancelled: boolean = false;
 
   aboutToAppear(): void {
+    this.cancelled = false;
     this.timer = setInterval(() => {
       if (!this.done && this.stage < this.stages.length) {
         this.stage += 1;
@@ -47,6 +55,7 @@ export struct GeneratingPage {
   }
 
   aboutToDisappear(): void {
+    this.cancelled = true;
     if (this.timer >= 0) {
       clearInterval(this.timer);
       this.timer = -1;
@@ -58,7 +67,13 @@ export struct GeneratingPage {
     const draft = PlanDraft.get();
     try {
       const spots: Spot[] = await PlanRepository.loadSpots(context, draft.basic.destination);
+      if (this.cancelled) {
+        return;
+      }
       const areas: Area[] = await PlanRepository.loadAreas(context, draft.basic.destination);
+      if (this.cancelled) {
+        return;
+      }
       const area: Area | undefined = areas.find((a: Area): boolean => a.id === draft.selectedArea.areaId);
       if (area === undefined) {
         throw new Error('住宿区域缺失');
@@ -69,7 +84,13 @@ export struct GeneratingPage {
         selectedSpots: draft.selectedSpots, selectedArea: draft.selectedArea
       };
       const trip: Trip = await LlmClient.generateTrip(params, spots, area);
+      if (this.cancelled) {
+        return;
+      }
       await TripDao.saveTrip(context, trip);
+      if (this.cancelled) {
+        return;
+      }
       this.done = true;
       this.stage = this.stages.length;
       this.progress = 1;
@@ -79,6 +100,9 @@ export struct GeneratingPage {
       });
       APP_NAV.replacePath({ name: 'Itinerary', param: trip.id });
     } catch (err) {
+      if (this.cancelled) {
+        return;
+      }
       const code: number = err instanceof AppError ? (err as AppError).code : 0;
       Logger.error('Ui.Generating', `生成失败 code=${code}: ${(err as Error).message}`);
       this.done = true;
@@ -92,7 +116,8 @@ export struct GeneratingPage {
     Column()
       .width(w)
       .height(h)
-      .borderRadius(RadiusTokens.media)
+      // 契约 skeleton：md 圆角、镜像真实行程行（52px 时间块 / 76px 行 / 160px 默认宽）
+      .borderRadius(RadiusTokens.reason)
       .backgroundColor(ColorTokens.skeletonBase)
       .opacity(0.6)
   }
@@ -100,19 +125,20 @@ export struct GeneratingPage {
   @Builder
   skeletonRow() {
     Row({ space: SpaceTokens.sm }) {
-      this.skeletonBlock(40, 14)
+      this.skeletonBlock(LayoutTokens.itineraryTimeGutter, 14)
       Circle()
         .width(LayoutTokens.itineraryNodeSize)
         .height(LayoutTokens.itineraryNodeSize)
         .fill(ColorTokens.skeletonBase)
       Column({ space: SpaceTokens.xs }) {
-        this.skeletonBlock('70%', 14)
-        this.skeletonBlock('45%', 10)
+        this.skeletonBlock(160, 14)
+        this.skeletonBlock(56, 10)
       }
       .alignItems(HorizontalAlign.Start)
       .layoutWeight(1)
     }
     .width('100%')
+    .constraintSize({ minHeight: LayoutTokens.itineraryRowMinHeight })
     .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
   }
 
@@ -134,6 +160,7 @@ export struct GeneratingPage {
             .margin({ top: SpaceTokens.xs, bottom: SpaceTokens.md })
           Progress({ value: Math.round(this.progress * 100), total: 100, type: ProgressType.Linear })
             .color(ColorTokens.primary)
+            .backgroundColor(ColorTokens.surfaceSunken)
             .width('100%')
         }
         .alignItems(HorizontalAlign.Start)
@@ -185,7 +212,8 @@ export struct GeneratingPage {
         .layoutWeight(1)
 
         Column({ space: SpaceTokens.sm }) {
-          Text('全程在本机生成，无需等待网络')
+          // 文案不绑定传输实现：离线合成与直连 LLM 两种模式下都为真
+          Text('正在按你的偏好逐项核对')
             .fontSize(TypeTokens.caption.size)
             .fontWeight(450)
             .fontColor(ColorTokens.muted)
@@ -214,6 +242,6 @@ export struct GeneratingPage {
 
   private daysCount(): number {
     const b: TripBasicInput = PlanDraft.get().basic;
-    return Math.max(1, Math.round((Date.parse(b.endDate) - Date.parse(b.startDate)) / 86400000) + 1);
+    return DateUtils.spanDays(b.startDate, b.endDate);
   }
 }

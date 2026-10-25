@@ -25,14 +25,13 @@ import { AccessFlags, CalendarSync, SyncResult } from '../data/CalendarSync';
 import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
 import { ImmersiveSegmentBar, SegmentedItem } from '../components/ImmersiveSegmentBar';
-import { barMaterial, getSheetImmersiveMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
-import { uiMaterial } from '@kit.ArkUI';
+import { getSheetImmersiveMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { FloatingDock } from '../components/FloatingDock';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
-
-const ROW_HEIGHT: number = 76;
+import { DateUtils } from '../utils/DateUtils';
+import { TransitSymbol } from '../utils/TransitSymbol';
 
 @Component
 export struct ItineraryPage {
@@ -390,28 +389,6 @@ export struct ItineraryPage {
   }
 
   /** 通勤图标按模式取真图标（图标名已对本机 id_defined.json 核实），认不出的一律走步行 */
-  private transitSymbol(mode: string): Resource {
-    if (mode.indexOf('地铁') >= 0 || mode.indexOf('轨道') >= 0 || mode.indexOf('轻轨') >= 0) {
-      return $r('sys.symbol.subway');
-    }
-    if (mode.indexOf('公交') >= 0 || mode.indexOf('巴士') >= 0) {
-      return $r('sys.symbol.bus_fill');
-    }
-    if (mode.indexOf('打车') >= 0 || mode.indexOf('出租') >= 0 || mode.indexOf('网约') >= 0) {
-      return $r('sys.symbol.figure_and_taxi');
-    }
-    if (mode.indexOf('自驾') >= 0) {
-      return $r('sys.symbol.car');
-    }
-    if (mode.indexOf('骑行') >= 0 || mode.indexOf('单车') >= 0) {
-      return $r('sys.symbol.bicycle');
-    }
-    if (mode.indexOf('机场') >= 0 || mode.indexOf('航班') >= 0 || mode.indexOf('飞机') >= 0) {
-      return $r('sys.symbol.airplane');
-    }
-    return $r('sys.symbol.figure_walk');
-  }
-
   /** 地图面板摘要：只报当日真实通勤段数与模式，底稿的「6.4km」无数据来源故不保留 */
   private dayRouteSummary(): string {
     const acts: Activity[] = this.curDay().activities;
@@ -491,7 +468,9 @@ export struct ItineraryPage {
       return ColorTokens.success;
     }
     if (status === ActivityStatus.PENDING) {
-      return ColorTokens.bookmark;
+      // 待定 = 需要用户行动，归 warning（需预约/需证件同族）；
+      // 曾是 bookmark（必去金），用户会把「待定」读成「必去」
+      return ColorTokens.warning;
     }
     return ColorTokens.warning;
   }
@@ -523,10 +502,10 @@ export struct ItineraryPage {
       Column()
         .width(LayoutTokens.routeLineWidth)
         .height(LayoutTokens.transitLegHeight)
-        .border({ width: { left: 2 }, color: ColorTokens.separator, style: BorderStyle.Dashed })
+        .border({ width: { left: LayoutTokens.routeLineWidth }, color: ColorTokens.separator, style: BorderStyle.Dashed })
       Row({ space: SpaceTokens.xs }) {
-        SymbolGlyph(this.transitSymbol(next.transport === undefined ? '' : next.transport.mode))
-          .fontSize(14)
+        SymbolGlyph(TransitSymbol.of(next.transport === undefined ? '' : next.transport.mode))
+          .fontSize(IconSizes.control)
           .fontColor([ColorTokens.icon])
         Text(`${next.transport?.mode} ${next.transport?.duration}分钟 · ${next.transport?.detail}`)
           .fontSize(TypeTokens.caption.size)
@@ -635,7 +614,8 @@ export struct ItineraryPage {
       }
       .alignItems(VerticalAlign.Top)
       .width('100%')
-      .height(ROW_HEIGHT + (act.reason !== undefined ? 84 : 0))
+      // 76px 是 minimum 不是 cap（DESIGN §7）：系统字号放大或长理由文案时行要能撑开
+      .constraintSize({ minHeight: LayoutTokens.itineraryRowMinHeight })
       .onClick(() => {
         this.detailAct = act;
         this.showDetail = true;
@@ -644,13 +624,28 @@ export struct ItineraryPage {
     .width('100%')
   }
 
+  /**
+   * 日标题的日期后缀：空数据占位（date='————'）时不渲染日期段，
+   * 避免出现「Day 1 · 日」这种切空串的残句
+   */
+  private dayDateSuffix(): string {
+    const date: string = this.curDay().date;
+    if (!DateUtils.isValidIsoDate(date)) {
+      return '';
+    }
+    return ` · ${date.slice(5).replace('-', '月')}日`;
+  }
+
   /** 吸顶日标题（玻璃点位④：骨架期实色），挂在 ListItemGroup.header 上由 sticky 吸顶 */
   @Builder
   dayHeader() {
     Row() {
-      Text(`Day ${this.curDay().dayIndex} · ${this.curDay().date.slice(5).replace('-', '月')}日`)
-        .fontSize(TypeTokens.body.size)
-        .fontWeight(600)
+      // day-label 档：serif 21/700（DESIGN Layout §3 日分隔 = serif day-label；
+      // 此处曾是 body 16/600 sans，是 serif 该上而没上的位置）
+      Text(`Day ${this.curDay().dayIndex}${this.dayDateSuffix()}`)
+        .fontSize(TypeTokens.title.size)
+        .fontWeight(700)
+        .fontFamily(TypeTokens.title.family)
         .fontColor(ColorTokens.ink)
         .fontFeature("'tnum' on")
       Blank()
@@ -807,8 +802,10 @@ export struct ItineraryPage {
             .width('100%')
             .padding(SpaceTokens.md)
             .borderRadius(RadiusTokens.card)
-            .attributeModifier(barMaterial(uiMaterial.ImmersiveStyle.ULTRA_THIN, true, this.glassOn && !this.isDark))
-          .backgroundColor(this.glassOn && !this.isDark ? Color.Transparent : ColorTokens.surfaceElevated)
+            // 契约：玻璃只有四处，sheet 内的卡片不是玻璃。
+            // 原来挂的 barMaterial 在 bindSheet builder 内属生效范围外（immersiveMaterial 自书铁律），
+            // glassOn 时还把底置透明——API 26 上这张卡既无材质也无底色。恒实色。
+            .backgroundColor(ColorTokens.surfaceElevated)
             .margin({ top: SpaceTokens.lg })
 
             Column() {
@@ -826,6 +823,17 @@ export struct ItineraryPage {
                 .fontWeight(450)
                 .fontColor(ColorTokens.warning)
                 .fontFeature("'tnum' on")
+                .width('100%')
+                .margin({ top: SpaceTokens.xs })
+            }
+
+            // 预约硬信息口径（§3.2/§7）：以官方为准，不让用户把规划数据当实时准确
+            if (this.detailAct.status === ActivityStatus.NOT_BOOKED ||
+              this.detailAct.status === ActivityStatus.PENDING) {
+              Text('预约状态与放票时间以官方为准')
+                .fontSize(TypeTokens.overline.size)
+                .fontWeight(400)
+                .fontColor(ColorTokens.muted)
                 .width('100%')
                 .margin({ top: SpaceTokens.xs })
             }
@@ -1048,6 +1056,9 @@ export struct ItineraryPage {
                 items: this.segments,
                 selectedIndex: $dayIndex,
                 buttonVerticalPadding: 2.15,
+                // 契约四处玻璃面之一：分段控件轨道走系统材质（handoff §5/§9）。
+                // 本页轨道下有 surfaceElevated 实色背板而非滚动内容，lightContent 保持 false
+                overrideTrackMaterial: true,
                 a11yLabel: '行程日期切换'
               })
             }
@@ -1058,8 +1069,9 @@ export struct ItineraryPage {
           .backgroundColor(ColorTokens.surfaceElevated)
 
           // 官方 List：地图面板一个 ListItem，节点与通勤腿各成一个 ListItem，
-          // 日标题走 ListItemGroup 的 header —— 底稿写的「吸顶日标题」由 sticky 真正兑现
-          List() {
+          // 日标题走 ListItemGroup 的 header —— 底稿写的「吸顶日标题」由 sticky 真正兑现。
+          // 行距 12px（itinerary-block-gap）：不传 space 时 List 默认 0，站点行与交通腿会紧贴
+          List({ space: LayoutTokens.itineraryBlockGap }) {
             ListItem() {
               // 地图面板：有可用坐标就上真实底图（当天落点 + 分段动线），
               // 没坐标时保留 route-paper 底 + 摘要，不画假位置

@@ -19,29 +19,40 @@ import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit'
 import { HdsChrome } from '../design/HdsChrome';
 import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
 
-const CITIES: string[] = ['北京', '上海', '广州', '深圳', '京都（演示）'];
+// 京都为 mock 演示城（底稿帧同源），标注「示例数据」不谎报是正式内置库；
+// 北上广深为种子库正式四城（开发文档 §7 城市范围）
+const CITIES: string[] = ['北京', '上海', '广州', '深圳', '京都（示例数据）'];
 
 @Component
 export struct TripInputPage {
   private pathStack: NavPathStack = APP_NAV;
   @State private party: number = 2;
   @State private city: string = '北京';
-  @State private startDate: string = '2026-07-01';
-  @State private endDate: string = '2026-07-03';
+  @State private startDate: string = '';
+  @State private endDate: string = '';
   @State private showCity: boolean = false;
   @State private budget: number = BudgetConfig.DEFAULT;
   private basePartyOptions: number[] = [1, 2, 4];
 
   /** 屏2 是草稿的展示方：外部拉起（小艺/深链）预填与返回本屏都要回显真值 */
   aboutToAppear(): void {
+    // 默认日期按今天起算：写死的 2026-07-01 早已在过去，picker 也不该允许选过去
+    const today: string = DateUtils.todayIso();
+    this.startDate = today;
+    this.endDate = DateUtils.addDays(today, 2);
     const b: TripBasicInput = PlanDraft.get().basic;
-    if (CITIES.indexOf(b.destination) >= 0) {
+    // 预填城市不在支持列表也如实回显（屏4 空态会说明暂不支持），
+    // 不静默改成北京——那会让「小艺说已记下杭州、界面显示北京」对不上
+    if (b.destination.length > 0) {
       this.city = b.destination;
     }
-    if (DateUtils.isValidIsoDate(b.startDate)) {
+    // 草稿里的日期若已经过去就丢弃，按今天起算：
+    // 老版本的 PlanDraft 默认值写死过 2026-07-01，装在机上的旧草稿会带着它进来
+    if (DateUtils.isValidIsoDate(b.startDate) && b.startDate >= today) {
       this.startDate = b.startDate;
     }
-    if (DateUtils.isValidIsoDate(b.endDate) && DateUtils.spanDays(this.startDate, b.endDate) >= 1) {
+    if (DateUtils.isValidIsoDate(b.endDate) && b.endDate >= this.startDate
+      && DateUtils.spanDays(this.startDate, b.endDate) >= 1) {
       this.endDate = b.endDate;
     }
     if (b.people > 0) {
@@ -69,7 +80,7 @@ export struct TripInputPage {
   }
 
   private dayCount(): number {
-    return Math.max(1, Math.round((Date.parse(this.endDate) - Date.parse(this.startDate)) / 86400000) + 1);
+    return DateUtils.spanDays(this.startDate, this.endDate);
   }
 
   private static toIso(value: Date): string {
@@ -83,11 +94,13 @@ export struct TripInputPage {
    * 一次点按走完「出发 → 返程」两档官方日期弹窗。
    * 原来返程藏在同一行的长按手势里：底稿这格只有一个「选择出行日期」入口，
    * 长按既不在帧上也没有任何提示，用户改不了返程。
+   * picker 起点是今天：不让用户把出发日选进过去。
    */
   private pickDate(): void {
     const lastDay: Date = new Date('2027-12-31');
+    const today: Date = new Date(DateUtils.todayIso());
     this.getUIContext().showDatePickerDialog({
-      start: new Date('2026-01-01'),
+      start: today,
       end: lastDay,
       selected: new Date(this.startDate),
       onDateAccept: (value: Date): void => {
@@ -120,21 +133,31 @@ export struct TripInputPage {
 
   @Builder
   chevron() {
+    // DESIGN §8：整行可点的 chevron 是控制件，取 muted（5.46:1）；
+    // faint 只许装饰/禁用，是家族要纠正的旧习惯
     SymbolGlyph($r('sys.symbol.chevron_right'))
       .fontSize(IconSizes.control)
-      .fontColor([ColorTokens.faint])
+      .fontColor([ColorTokens.muted])
   }
 
   @Builder
   partyChip(count: number) {
-    // 官方圆形 Button：选中态走 EMPHASIZED 档，不再自绘底色 + 描边
+    // 选中态按契约 tint 配方（DESIGN §9）：primary-tint 底 + 1px primary 描边 + ink 字。
+    // 不用官方 EMPHASIZED 实心蓝——那会与底部主按钮形成同屏双实心蓝（禁令 1），
+    // 且选中文案压实底靠的是官方换色，不如契约配方可预期
     Button(count.toString())
       .width(LayoutTokens.minTouchTarget)
       .height(LayoutTokens.minTouchTarget)
       .fontSize(TypeTokens.small.size)
-      .fontWeight(600)
+      .fontWeight(this.party === count ? 600 : 450)
+      .fontColor(this.party === count ? ColorTokens.ink : ColorTokens.body)
       .type(ButtonType.Circle)
-      .buttonStyle(this.party === count ? ButtonStyleMode.EMPHASIZED : ButtonStyleMode.NORMAL)
+      .buttonStyle(ButtonStyleMode.NORMAL)
+      .backgroundColor(this.party === count ? ColorTokens.primaryTint : ColorTokens.surfaceElevated)
+      .border({
+        width: this.party === count ? LayoutTokens.glassBorderWidth : 0,
+        color: ColorTokens.primary
+      })
       .accessibilityText(`${count}人`)
       .onClick(() => {
         this.party = count;
@@ -274,8 +297,9 @@ export struct TripInputPage {
               Column({ space: SpaceTokens.sm }) {
                 Row() {
                   Column() {
-                    this.fieldLabel('预算档位')
-                    Text(`¥${this.budget.toLocaleString('en-US')} / 人`)
+                  this.fieldLabel('预算档位')
+                  // DESIGN §4 数字格式：summary 一律「整数 + 单位」，不用千分位
+                  Text(`¥${this.budget} / 人`)
                       .fontSize(TypeTokens.headline.size)
                       .fontWeight(600)
                       .fontColor(ColorTokens.ink)

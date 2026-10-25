@@ -31,6 +31,8 @@ export interface TypeTokensType {
   overline: TypeRoleSpec;
   /** dock 项标签 10/400/14：全 App 唯一允许的小于 11px 的字符串（DESIGN §2 nav-label） */
   navLabel: TypeRoleSpec;
+  /** 桌面卡片辅助行 11/400/14（widget 最小字号档；契约 widget-min-text 11） */
+  widgetMeta: TypeRoleSpec;
   /** 行程时间 12/600 tabular */
   time: TypeRoleSpec;
 }
@@ -57,6 +59,7 @@ export const TypeTokens: TypeTokensType = {
   caption: { family: FAMILY_SANS, size: 12, weight: 450, lineHeight: 16 },
   overline: { family: FAMILY_SANS, size: 11, weight: 600, lineHeight: 0 },
   navLabel: { family: FAMILY_SANS, size: 10, weight: 400, lineHeight: 14 },
+  widgetMeta: { family: FAMILY_SANS, size: 11, weight: 400, lineHeight: 14 },
   time: { family: FAMILY_SANS, size: 12, weight: 600, lineHeight: 0 }
 };
 

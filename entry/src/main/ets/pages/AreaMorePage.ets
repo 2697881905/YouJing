@@ -10,7 +10,7 @@
  */
 
 import { APP_NAV } from '../common/constants/AppNav';
-import { AreaDao } from '../data/AreaDao';
+import { PlanRepository } from '../data/PlanRepository';
 import { Area, AreaGroup, AreaPriceTier } from '../model/Area';
 import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
@@ -18,7 +18,8 @@ import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
-import { IconSizes } from '../design/LayoutTokens';
+import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
+import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
 
@@ -34,7 +35,8 @@ export struct AreaMorePage {
 
   aboutToAppear(): void {
     const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
-    AreaDao.loadByCity(ctx, this.city).then((rows: Area[]) => {
+    // 与屏5 同一取数口：京都演示城也要能走 mock 路由，不直连 DAO
+    PlanRepository.loadAreas(ctx, this.city).then((rows: Area[]) => {
       this.areas = rows;
       this.loading = false;
     }).catch((err: Error) => {
@@ -104,9 +106,12 @@ export struct AreaMorePage {
       .alignItems(HorizontalAlign.Start)
       .layoutWeight(1)
 
+      // 选这片：44vp 最小命中区 + button 档字号（16/600），不用 32vp 小热区
       Button('选这片')
-        .fontSize(TypeTokens.caption.size)
-        .height(32)
+        .fontSize(TypeTokens.body.size)
+        .fontWeight(600)
+        .height(LayoutTokens.minTouchTarget)
+        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
         .type(ButtonType.Capsule)
         .buttonStyle(ButtonStyleMode.NORMAL)
         .onClick((): void => {
@@ -141,6 +146,34 @@ export struct AreaMorePage {
           }
           .layoutWeight(1)
           .justifyContent(FlexAlign.Center)
+        } else if (this.areas.length === 0) {
+          // 空态（契约 empty-state 规格：48px 展示档图标 + title + callout + 一个主按钮）
+          Column({ space: SpaceTokens.md }) {
+            SymbolGlyph($r('sys.symbol.map'))
+              .fontSize(IconSizes.display)
+              .fontColor([ColorTokens.muted])
+            Text('还没有这座城市的区域数据')
+              .fontSize(TypeTokens.title.size)
+              .fontWeight(700)
+              .fontFamily(TypeTokens.title.family)
+              .fontColor(ColorTokens.ink)
+            Text('首批支持北京、上海、广州、深圳，换一座城市试试')
+              .fontSize(TypeTokens.small.size)
+              .fontColor(ColorTokens.muted)
+              .textAlign(TextAlign.Center)
+            YoujingButton({
+              variant: YoujingButtonVariant.PRIMARY,
+              label: '返回',
+              buttonWidth: 160,
+              onAction: (): void => {
+                this.pathStack.pop();
+              }
+            })
+          }
+          .width('100%')
+          .layoutWeight(1)
+          .justifyContent(FlexAlign.Center)
+          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
         } else if (this.visible().length === 0) {
           Text(`没有匹配「${this.keyword}」的区域`)
             .fontSize(TypeTokens.small.size)
@@ -149,7 +182,7 @@ export struct AreaMorePage {
             .textAlign(TextAlign.Center)
             .margin({ top: SpaceTokens.xl })
         } else {
-          List({ space: 8 }) {
+          List({ space: SpaceTokens.xs }) {
             ForEach(GROUP_ORDER, (g: AreaGroup) => {
               if (this.inGroup(g).length > 0) {
                 ListItemGroup({ header: this.groupHeader(this.groupLabel(g)) }) {

@@ -22,6 +22,14 @@ import { isImmersiveLightSenseSupported } from '../utils/immersiveMaterial';
 /**
  * 浅色档的流光配色。默认那几档是从有据带过来的深色值（白 77% + 紫蓝 56%），
  * 压在白卡上会在两个上角结成一坨品红（真机浅色拍到过）——浅色底要收力度并换成品牌蓝。
+ *
+ * 色值说明（HDS scene 参数只吃 ResourceColor 字符串，$r 引用不进这里，
+ * 故这八件无法进 color.json 被 audit_colors.py 机核；全部从 DESIGN.md 契约色派生，
+ * 变更须与契约对照后手动登记）：
+ * - LIGHT_* 四件 = primary #0066CC 的 4%/8%/50% 与 star-night-badge #4D9FFF 的 40%；
+ * - maskColors / edgeColor 深色档 = 白与 primary 的契约内 alpha 档；
+ * - edgeColor2 深色档 2026-10-25 由 #8F5FA8FF 改为 #664D9FFF：#5FA8FF 不在契约任何色表
+ *   （§0.1「表外色相即缺陷」），#4D9FFF 是契约 star-night-badge 同色相。
  */
 const LIGHT_MASK_TOP: string = '#0A0066CC';
 const LIGHT_MASK_BOTTOM: string = '#140066CC';
@@ -38,11 +46,12 @@ export struct ImmersiveSurface {
   /** 背景蒙层色（渐变起止）：透明度宜克制（10%~14%），别盖过页面主色 */
   @Prop maskColors: Array<ResourceColor> = ['#1EFFFFFF', '#260066CC'];
   @Prop edgeColor: ResourceColor = '#C4FFFFFF';
-  @Prop edgeColor2: ResourceColor = '#8F5FA8FF';
+  @Prop edgeColor2: ResourceColor = '#664D9FFF';
   /** 弹性布局（layoutWeight 拉伸）下测量不可靠时显式给真实宽高，避免流光按未拉伸尺寸绘制 */
   @Prop explicitWidth: number = 0;
   @Prop explicitHeight: number = 0;
-  @StorageProp('isDarkMode') @Watch('applyScene') isDark: boolean = true;
+  // 与其余组件一致：默认浅色，StorageProp 就位后按真主题重设 scene
+  @StorageProp('isDarkMode') @Watch('applyScene') isDark: boolean = false;
   private sceneController: HdsSceneController | null = null;
   @State private glowWidth: number = 0;
   @State private glowHeight: number = 0;
@@ -107,8 +116,9 @@ export struct ImmersiveSurface {
     .width(this.explicitWidth > 0 ? this.explicitWidth : this.surfaceWidth)
     .height(this.explicitHeight > 0 ? this.explicitHeight : this.surfaceHeight)
     .onAreaChange((oldValue: Area, newValue: Area): void => {
-      const w: number = parseFloat(String(newValue.width));
-      const h: number = parseFloat(String(newValue.height));
+      // Length 可能是 number/string/Resource：只认 number，其余按 0 让流光层不画
+      const w: number = typeof newValue.width === 'number' ? newValue.width : 0;
+      const h: number = typeof newValue.height === 'number' ? newValue.height : 0;
       if (w > 0 && h > 0 && (w !== this.glowWidth || h !== this.glowHeight)) {
         this.glowWidth = w;
         this.glowHeight = h;

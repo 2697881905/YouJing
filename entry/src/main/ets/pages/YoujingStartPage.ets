@@ -11,7 +11,7 @@ import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
-import { LayoutTokens } from '../design/LayoutTokens';
+import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { ImmersiveSurface } from '../components/ImmersiveSurface';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { AccountStore } from '../data/AccountStore';
@@ -34,7 +34,7 @@ interface PreviewLeg {
 }
 
 // 预览动线行高：契约 itinerary-row-min-height，行内 spine 线取定值避免百分比循环
-const ROW_HEIGHT: number = 76;
+const ROW_HEIGHT: number = LayoutTokens.itineraryRowMinHeight;
 
 @Component
 export struct YoujingStartPage {
@@ -45,13 +45,19 @@ export struct YoujingStartPage {
     // 从首启页进规划 = 明确的新建意图，先丢掉上一段的草稿
     PlanDraft.fresh();
     const ctx: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
-    const state: AccountState = await AccountStore.login(ctx);
-    if (state.kind === AccountKind.HUAWEI) {
-      await TripDao.adoptGuestData(ctx, state.uid);
-      // 归户会换掉卡片可读的分区键，立刻回灌一次，别让桌面空等 30 分钟
-      WidgetSync.refreshAll(ctx).catch((err: Error) => {
-        Logger.warn('Ui.Start', `卡片刷新失败: ${err.message}`);
-      });
+    try {
+      const state: AccountState = await AccountStore.login(ctx);
+      if (state.kind === AccountKind.HUAWEI) {
+        await TripDao.adoptGuestData(ctx, state.uid);
+        // 归户会换掉卡片可读的分区键，立刻回灌一次，别让桌面空等 30 分钟
+        WidgetSync.refreshAll(ctx).catch((err: Error) => {
+          Logger.warn('Ui.Start', `卡片刷新失败: ${err.message}`);
+        });
+      }
+    } catch (err) {
+      // 登录/归户失败不阻断进主链：按本机游客分区继续（EntryAbility.bootstrap 同一口径）。
+      // 原来这里裸 await，一处 rejection 就让用户静默卡在首启页
+      Logger.error('Ui.Start', `登录或归户失败，按游客分区继续: ${(err as Error).message}`);
     }
     this.pathStack.pushPath({ name: 'TripInput' });
   }
@@ -98,7 +104,7 @@ export struct YoujingStartPage {
       Stack({ alignContent: Alignment.Top }) {
         Column()
           .width(LayoutTokens.routeLineWidth)
-          .height(index === this.stops.length - 1 ? 12 : ROW_HEIGHT)
+          .height(index === this.stops.length - 1 ? SpaceTokens.md : ROW_HEIGHT)
           .backgroundColor(ColorTokens.surfaceSunken)
         this.spineNode(stop.dotColor)
       }
@@ -131,7 +137,7 @@ export struct YoujingStartPage {
     Row() {
       Row({ space: SpaceTokens.sm }) {
         SymbolGlyph($r('sys.symbol.figure_walk'))
-          .fontSize(14)
+          .fontSize(IconSizes.control)
           .fontColor([ColorTokens.icon])
         Text(leg.text)
           .fontSize(TypeTokens.caption.size)
@@ -142,11 +148,11 @@ export struct YoujingStartPage {
       .height(LayoutTokens.transitLegHeight)
       .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
       .borderRadius(RadiusTokens.capsule)
-      .border({ width: 2, style: BorderStyle.Dashed, color: ColorTokens.separator, radius: RadiusTokens.capsule })
+      .border({ width: LayoutTokens.routeLineWidth, style: BorderStyle.Dashed, color: ColorTokens.separator, radius: RadiusTokens.capsule })
       .layoutWeight(1)
     }
     .width('100%')
-    .padding({ left: 48 })
+    .padding({ left: SpaceTokens.fiveXl })
     .margin({ bottom: SpaceTokens.sm })
   }
 
@@ -220,7 +226,7 @@ export struct YoujingStartPage {
             Text('基于本地精选数据库与步行动线计算，每个站点均明确耗时与预约状态。')
               .fontSize(TypeTokens.caption.size)
               .fontColor(ColorTokens.body)
-              .lineHeight(18)
+              .lineHeight(TypeTokens.caption.lineHeight)
               .margin({ top: SpaceTokens.xs })
           }
           .alignItems(HorizontalAlign.Start)
@@ -248,15 +254,12 @@ export struct YoujingStartPage {
             this.enterApp();
           }
         })
-        Row({ space: SpaceTokens.xs }) {
-          SymbolGlyph($r('sys.symbol.lock'))
-            .fontSize(12)
-            .fontColor([ColorTokens.muted])
-          Text('仅使用 UnionID 静默授权，行程数据保留于本地')
-            .fontSize(TypeTokens.caption.size)
-            .fontWeight(450)
-            .fontColor(ColorTokens.muted)
-        }
+        // 隐私说明不再挂 12px 锁形图标：禁令 7 只承认 22/48 两档，行内 12px 离档；
+        // 句子本身已说清事，去掉图标（减法）比硬抬到 22px 更合适
+        Text('仅使用 UnionID 静默授权，行程数据保留于本地')
+          .fontSize(TypeTokens.caption.size)
+          .fontWeight(450)
+          .fontColor(ColorTokens.muted)
       }
       .width('100%')
       .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md })

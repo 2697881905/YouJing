@@ -23,6 +23,21 @@ import { AreaMorePage } from './AreaMorePage';
 import { ComingSoonPage } from './ComingSoonPage';
 import { HdsNavigation } from '@kit.UIDesignKit';
 
+/**
+ * 路由参数窄化（@Builder 内不允许局部 const，故放普通函数）：
+ * typeof null === 'object'，必须先排掉 null 再断言，
+ * 否则深链不带参数直达会抛 TypeError。
+ */
+function asFailInfo(param: object): FailInfo {
+  const fallback: FailInfo = { code: 0, detail: '' };
+  return (typeof param === 'object' && param !== null) ? param as FailInfo : fallback;
+}
+
+function asEditTarget(param: object): EditTarget {
+  const fallback: EditTarget = { tripId: '', dayIndex: 0 };
+  return (typeof param === 'object' && param !== null) ? param as EditTarget : fallback;
+}
+
 @Builder
 function routerMap(name: string, param: object) {
   if (name === 'TripInput') {
@@ -38,15 +53,9 @@ function routerMap(name: string, param: object) {
   } else if (name === 'Itinerary') {
     ItineraryPage({ tripId: typeof param === 'string' ? param as string : '' })
   } else if (name === 'GenerateFailed') {
-    GenerateFailedPage({
-      code: typeof param === 'object' ? (param as FailInfo).code : 0,
-      detail: typeof param === 'object' ? (param as FailInfo).detail : ''
-    })
+    GenerateFailedPage({ code: asFailInfo(param).code, detail: asFailInfo(param).detail })
   } else if (name === 'EditItinerary') {
-    EditItineraryPage({
-      tripId: typeof param === 'object' ? (param as EditTarget).tripId : '',
-      dayIndex: typeof param === 'object' ? (param as EditTarget).dayIndex : 0
-    })
+    EditItineraryPage({ tripId: asEditTarget(param).tripId, dayIndex: asEditTarget(param).dayIndex })
   } else if (name === 'Expense') {
     ExpensePage({ tripId: typeof param === 'string' ? param as string : '' })
   } else if (name === 'Trips') {
@@ -60,7 +69,7 @@ function routerMap(name: string, param: object) {
   } else if (name === 'Map') {
     MapPage({ tripId: typeof param === 'string' ? param as string : '' })
   } else {
-    ComingSoonPage({ title: '这个视图', why: '还没有做出来。' })
+    ComingSoonPage()
   }
 }
 

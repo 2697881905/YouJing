@@ -3,7 +3,7 @@
  * 拖拽配方（有据实证 + 项目记忆）：List.onItemDragStart 自定义拖影、
  * 把手只挂把手、onItemDrop 带 insertIndex 落位（onItemDragEnd 不存在）。
  *
- * 数据（阶段 10 接真）：吃屏8 传进来的 tripId + 当前日，改动在「完成」时整份聚合根回写 RDB。
+ * 数据（RDB 已接真）：吃屏8 传进来的 tripId + 当前日，改动在「完成」时整份聚合根回写 RDB。
  * 拖动语义 = 改游览顺序：当日的时间槽不变，节点按新顺序重新占槽
  * （否则把 18:30 的站拖到第二位会留下 09:00→18:30→13:15 的乱序时间线）。
  * 替换语义 = 换节点不换槽：保留该位置的时间、结束时间与到达通勤。
@@ -286,7 +286,9 @@ export struct EditItineraryPage {
         .width(LayoutTokens.itineraryTimeGutter)
         .fontSize(TypeTokens.time.size)
         .fontWeight(600)
-        .fontColor(this.dragIdx === idx ? ColorTokens.primary : ColorTokens.ink)
+        // 拖动态字色恒为 ink：tint 底上压 primary 蓝字双端 sub-AA（DESIGN §9）；
+        // 「正在拖」由 tint 底 + 左侧 primary 竖条表达，不靠蓝字
+        .fontColor(ColorTokens.ink)
         .textAlign(TextAlign.End)
         .fontFeature("'tnum' on")
       Column() {
@@ -341,6 +343,11 @@ export struct EditItineraryPage {
     .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
     .borderRadius(RadiusTokens.card)
     .backgroundColor(this.dragIdx === idx ? ColorTokens.primaryTint : ColorTokens.surfaceElevated)
+    // 拖动态的左竖条：2px primary（契约 route-line 同宽），补上蓝字让位后的状态表达
+    .border({
+      width: { left: this.dragIdx === idx ? LayoutTokens.routeLineWidth : 0 },
+      color: ColorTokens.primary
+    })
   }
 
   @Builder
@@ -359,6 +366,22 @@ export struct EditItineraryPage {
         .margin({ bottom: SpaceTokens.md })
 
       List({ space: SpaceTokens.xs }) {
+        if (this.candidates.length === 0) {
+          // 空态：本城景点库已全部在当日（或库为空），别给一张空 List 不吭声
+          ListItem() {
+            Column({ space: SpaceTokens.sm }) {
+              SymbolGlyph($r('sys.symbol.checkmark_circle'))
+                .fontSize(IconSizes.display)
+                .fontColor([ColorTokens.muted])
+              Text(this.replaceIdx < 0 ? '本城景点都已在这天里了' : '没有可替换的其它景点')
+                .fontSize(TypeTokens.small.size)
+                .fontColor(ColorTokens.muted)
+            }
+            .width('100%')
+            .padding({ top: SpaceTokens.xl, bottom: SpaceTokens.xl })
+            .justifyContent(FlexAlign.Center)
+          }
+        }
         ForEach(this.candidates, (spot: Spot) => {
           ListItem() {
             Column() {
@@ -433,12 +456,16 @@ export struct EditItineraryPage {
               ListItem() {
                 this.editRow(act, idx)
               }
-            }, (act: Activity): string => `edit-${act.id}-${act.time}-${act.title}`)
+            // key 只用稳定 id：拖动会改 time，带 time 的 key 会让整项重建、丢掉拖动态
+            }, (act: Activity): string => `edit-${act.id}`)
           }
           .layoutWeight(1)
           .scrollBar(BarState.Off)
           .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.bottomScrollReserve })
           .onItemDragStart((event: ItemDragInfo, itemIndex: number): CustomBuilder => {
+            // 官方 API 限制：onItemDragStart 挂在 List 级（整行长按触发），
+            // 与「把手只挂把手」的视觉约定有差距——拖影由本函数自定义，
+            // 命中区收窄做不到，靠长按 + 拖影反馈兜底
             this.dragIdx = itemIndex;
             const act: Activity = this.acts[itemIndex];
             return (): void => {

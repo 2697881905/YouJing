@@ -1,10 +1,12 @@
 /**
- * 追问选项卡（屏3/3b · handoff §6 徽章胶囊第③式）。
+ * 追问选项卡（屏3/3b · handoff §6 徽章胶囊第③式 + DESIGN §9 选中配方）。
  *
- * 2026-10-24 去自绘：外壳改官方 `Button`（ButtonType.Normal + 圆角 card），
- * 选中/未选走官方 `ButtonStyleMode.EMPHASIZED / NORMAL` 两档，
- * 不再自己写 primaryTint 底色 + 1px primary 描边（那是手抄官方选中态）。
- * 文字颜色跟着档位翻：EMPHASIZED 档的实底上要换 onPrimary，否则深蓝字压蓝底。
+ * 选中态按契约 recipe：primary-tint 底 + 1px primary 描边 + **ink 字** + 右上对勾。
+ * 不用官方 EMPHASIZED 实心蓝——DESIGN.md §9 实测：tint 底上压蓝字双端 sub-AA，
+ * 且实心 chip 会与同屏主按钮形成双实心蓝（禁令 1）。外壳仍是官方 Button
+ * （NORMAL 档：按压态/焦点/无障碍由系统给），只把颜色换回契约 token。
+ * 2026-10-24 曾一段时期走 EMPHASIZED「去自绘」，本轮按契约配方回摆并留痕。
+ *
  * 状态切换禁用 opacity（禁令 10）。
  */
 
@@ -22,11 +24,12 @@ export struct OptionCard {
   onAction?: () => void = undefined;
 
   private titleColor(): Resource {
-    return this.selected ? ColorTokens.onPrimary : ColorTokens.ink;
+    // tint 底上永远是 ink 字（14.44:1），不是蓝字（4.49:1 sub-AA）
+    return ColorTokens.ink;
   }
 
   private subColor(): Resource {
-    return this.selected ? ColorTokens.onPrimary : ColorTokens.body;
+    return this.selected ? ColorTokens.body : ColorTokens.muted;
   }
 
   build() {
@@ -35,7 +38,7 @@ export struct OptionCard {
         Column({ space: 0 }) {
           Text(this.label)
             .fontSize(TypeTokens.body.size)
-            .fontWeight(600)
+            .fontWeight(400)
             .fontColor(this.titleColor())
           Text(this.subline)
             .fontSize(TypeTokens.caption.size)
@@ -49,17 +52,23 @@ export struct OptionCard {
         if (this.selected) {
           SymbolGlyph($r('sys.symbol.checkmark'))
             .fontSize(IconSizes.control)
-            .fontColor([this.subColor()])
+            .fontColor([ColorTokens.primary])
         }
       }
       .width('100%')
     }
     .width('100%')
-    .constraintSize({ minHeight: LayoutTokens.minTouchTarget })
+    // 契约 option-chip minHeight 56（44 只是最小命中区）
+    .constraintSize({ minHeight: LayoutTokens.questionOptionMinHeight })
     .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.lg, bottom: SpaceTokens.lg })
     .type(ButtonType.Normal)
     .borderRadius(RadiusTokens.card)
-    .buttonStyle(this.selected ? ButtonStyleMode.EMPHASIZED : ButtonStyleMode.NORMAL)
+    .buttonStyle(ButtonStyleMode.NORMAL)
+    .backgroundColor(this.selected ? ColorTokens.primaryTint : ColorTokens.surfaceElevated)
+    .border({
+      width: this.selected ? LayoutTokens.glassBorderWidth : 0,
+      color: ColorTokens.primary
+    })
     .onClick(() => {
       if (this.onAction !== undefined) {
         this.onAction();

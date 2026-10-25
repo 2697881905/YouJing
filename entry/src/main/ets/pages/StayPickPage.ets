@@ -4,6 +4,8 @@
  * 顶部地图卡：v2 起区域库有逐片坐标，上真实底图（三片互斥、不连线）；
  * 三列通勤取 Area 真字段（到机场/到火车站/餐饮密度），底稿的「到首个景点/日均通勤/房源数」
  * 要的是路径规划与住宿库存，本项目两者都没有。详见 Docs/INIT_REPORT.md §4b-7/8。
+ * 候选收敛（§3.3 住宿区域同理）：App 端先按与屏4 所选景点的平均直线距离排序，
+ * 取前 12 片做候选，再展示前 3 片；没有可用坐标时退回种子库顺序，不谎报距离。
  * 「帮我选」：底稿写「按通勤最短」，无路径规划时能算的最近似是与屏4 所选景点的平均
  * 直线距离（utils/Geo），按钮按这个口径写成「离景点最近」，不谎报成导航里程。
  */
@@ -15,7 +17,7 @@ import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
-import { AreaPick } from '../mock/MockData';
+import { AreaPick } from '../model/PlanParams';
 import { Area, AreaGroup, AreaPriceTier } from '../model/Area';
 import { Spot } from '../model/Spot';
 import { SelectedSpot } from '../model/PlanParams';
@@ -30,6 +32,17 @@ import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit'
 import type { HdsNavigationMenuItemOptions, HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
 import { Logger } from '../common/logger/Logger';
+
+/** §3.3：App 端距离筛选后的候选片区上限 */
+const AREA_CANDIDATES: number = 12;
+/** 展示给用户的候选卡片数（AI 精选 2-3 个的呈现档；LLM 通道就绪前按距离取前 3） */
+const AREA_PICKS: number = 3;
+
+/** 片区与到所选景点集合的平均直线距离（km） */
+interface AreaDistance {
+  area: Area;
+  dist: number;
+}
 
 @Component
 export struct StayPickPage {
@@ -46,25 +59,55 @@ export struct StayPickPage {
   aboutToAppear(): void {
     const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
     const city: string = PlanDraft.get().basic.destination;
-    PlanRepository.loadAreas(ctx, city).then((areas: Area[]) => {
+    // 先取景点坐标、再排区域候选：两条 Promise 链式衔接，不用「谁先回来算谁」
+    this.loadSpotPoints(ctx, city).then((): Promise<Area[]> => {
+      return PlanRepository.loadAreas(ctx, city);
+    }).then((areas: Area[]) => {
+      const ranked: Area[] = StayPickPage.rankByDistance(areas, this.spotPoints);
+      const top: Area[] = ranked.slice(0, AREA_PICKS);
       const list: AreaPick[] = [];
-      const top: Area[] = areas.slice(0, 3);
       for (let i = 0; i < top.length; i++) {
         list.push(this.makePick(top[i], i));
       }
       this.picks = list;
       this.selectedId = list.length > 0 ? list[0].area.id : '';
       this.applyStops(top);
+      Logger.info('Ui.StayPick',
+        `候选片区 ${areas.length} → 距离排序取前 ${AREA_CANDIDATES} → 展示 ${list.length}`);
+    }).catch((err: Error) => {
+      Logger.error('Ui.StayPick', `区域库加载失败: ${err.message}`);
     });
-    this.loadSpotPoints(ctx, city);
   }
 
-  private loadSpotPoints(ctx: common.UIAbilityContext, city: string): void {
+  /**
+   * §3.3 住宿候选收敛：按与所选景点的平均直线距离升序；
+   * 景点/片区任一侧缺坐标的行排最后（保持种子库顺序），不把没坐标的片区当最近。
+   */
+  private static rankByDistance(areas: Area[], spotPoints: GeoPoint[]): Area[] {
+    if (spotPoints.length === 0) {
+      return areas;
+    }
+    const withDist: AreaDistance[] = [];
+    const noGeo: Area[] = [];
+    for (const a of areas) {
+      if (Geo.usable(a.latitude, a.longitude)) {
+        const g: GeoPoint = { latitude: a.latitude, longitude: a.longitude };
+        withDist.push({ area: a, dist: Geo.meanDistanceKm(g, spotPoints) });
+      } else {
+        noGeo.push(a);
+      }
+    }
+    withDist.sort((x: AreaDistance, y: AreaDistance): number => x.dist - y.dist);
+    return withDist.slice(0, AREA_CANDIDATES).map((x: AreaDistance): Area => x.area)
+      .concat(noGeo);
+  }
+
+  private loadSpotPoints(ctx: common.UIAbilityContext, city: string): Promise<void> {
     const chosen: string[] = PlanDraft.get().selectedSpots.map((s: SelectedSpot): string => s.spotId);
     if (chosen.length === 0) {
-      return;
+      return Promise.resolve();
     }
-    PlanRepository.loadSpots(ctx, city).then((spots: Spot[]): void => {
+    return PlanRepository.loadSpots(ctx, city).then((spots: Spot[]): void => {
       const pts: GeoPoint[] = [];
       for (const s of spots) {
         if (chosen.indexOf(s.id) >= 0 && Geo.usable(s.latitude, s.longitude)) {
@@ -105,8 +148,8 @@ export struct StayPickPage {
       this.selectedId = this.picks[0].area.id;
       Logger.warn('Ui.StayPick',
         `帮我选退回推荐顺序 targets=${targets.length} usableAreas=${areaPoints.length}`);
-      this.toast(targets.length === 0 ? '所选景点没有可用坐标，先按推荐顺序选了一片' :
-        '候选片区都缺坐标，先按推荐顺序选了一片');
+      this.toast(targets.length === 0 ? '暂时算不出距离，先按推荐顺序选了一片' :
+        '候选片区都缺位置信息，先按推荐顺序选了一片');
       return;
     }
     const pick: AreaPick = this.picks[usableIdx[at]];
@@ -188,7 +231,7 @@ export struct StayPickPage {
 
   @Builder
   mapChip(pick: AreaPick) {
-    Row({ space: 4 }) {
+    Row({ space: SpaceTokens.xs }) {
       Circle()
         .width(6)
         .height(6)
@@ -198,10 +241,10 @@ export struct StayPickPage {
         .fontWeight(450)
         .fontColor(ColorTokens.ink)
     }
-    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: 4, bottom: 4 })
+    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs, bottom: SpaceTokens.xs })
     .borderRadius(RadiusTokens.media)
     .backgroundColor(ColorTokens.surfaceElevated)
-    .margin(4)
+    .margin(SpaceTokens.xs)
   }
 
   private dotColor(group: AreaGroup): Resource {
@@ -362,10 +405,10 @@ export struct StayPickPage {
                     }
                     .width('100%')
                     .margin({ left: SpaceTokens.md, right: SpaceTokens.md })
-                    Text('坐标待补，先按推荐顺序列出')
+                    Text('该城市暂未提供位置信息，按推荐顺序列出')
                       .fontSize(TypeTokens.caption.size)
                       .fontWeight(450)
-                      .fontColor(ColorTokens.faint)
+                      .fontColor(ColorTokens.muted)
                   }
                   .width('100%')
                   .height('100%')
@@ -384,7 +427,7 @@ export struct StayPickPage {
               ListItem() {
                 this.areaCard(pick)
               }
-            }, (pick: AreaPick): string => `card-${pick.area.id}-${pick.aiRank}-${this.selectedId === pick.area.id ? 'on' : 'off'}`)
+            }, (pick: AreaPick): string => `card-${pick.area.id}`)
           }
           .layoutWeight(1)
           .scrollBar(BarState.Off)

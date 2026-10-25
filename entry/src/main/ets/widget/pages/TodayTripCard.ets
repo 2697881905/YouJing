@@ -1,7 +1,8 @@
 /**
  * 今日行程卡片 UI（屏13 Widget A 2×2 / Widget B 2×4 同组件自适应）。
- * 实色 canvas；字阶走 TypeTokens（帧的 widget 字阶 11/600、12/600、14/400、11/400
- * 正好落在 overline / time / small 三档上，只有 11/400 那两行契约里无同名档、留字面量）；
+ * 实色 surface-elevated + 1px hairline 描边（契约 widget-card：永不模糊、永不半透，
+ * 深色 #1E1E1E）；字阶走 TypeTokens（帧的 widget 字阶 11/600、12/600、14/400、11/400
+ * 分别落在 overline / time / small / widgetMeta 四档上）；
  * 2×2 内缩 12 / 2×4 内缩 16（LayoutTokens）。
  * serif 在卡片 UIContext 无法注册应用字体，标题暂走 sans 600（精修批次验证卡片字体通道）。
  */
@@ -96,15 +97,15 @@ struct TodayTripCard {
       // 这行就是标题下的 meta 行）；空态由 footer 一句承担，所以空数据把 meta 留空
       if (this.meta.length > 0) {
         Text(this.meta)
-          .fontSize(TypeTokens.overline.size)
-          .fontWeight(400)
+          .fontSize(TypeTokens.widgetMeta.size)
+          .fontWeight(TypeTokens.widgetMeta.weight)
           .fontColor($r('app.color.body'))
           .fontFeature("'tnum' on")
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
 
-      Column({ space: 4 }) {
+      Column({ space: SpaceTokens.xs }) {
         ForEach(this.cardRows(), (row: CardRow) => {
           Row({ space: SpaceTokens.xs }) {
             Text(row.time)
@@ -113,8 +114,8 @@ struct TodayTripCard {
               .fontColor($r('app.color.body'))
               .fontFeature("'tnum' on")
             Circle()
-              .width(8)
-              .height(8)
+              .width(LayoutTokens.activityDotSize)
+              .height(LayoutTokens.activityDotSize)
               .fill(this.dotColor(row.color))
             Text(row.name)
               .fontSize(TypeTokens.small.size)
@@ -131,8 +132,8 @@ struct TodayTripCard {
       .margin({ top: SpaceTokens.xs })
 
       Text(this.footer)
-        .fontSize(TypeTokens.overline.size)
-        .fontWeight(400)
+        .fontSize(TypeTokens.widgetMeta.size)
+        .fontWeight(TypeTokens.widgetMeta.weight)
         .fontColor($r('app.color.muted'))
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -142,8 +143,15 @@ struct TodayTripCard {
     .width('100%')
     .height('100%')
     .padding(this.dimension === '2*4' ? LayoutTokens.widget2x4Padding : LayoutTokens.widget2x2Padding)
-    .backgroundColor($r('app.color.canvas'))
+    // 契约 widget-card：实色 surface-elevated（深色 #1E1E1E）+ 1px hairline 描边，
+    // 永不模糊、永不半透——亮/暗桌面上都读得出这是一块卡（原来用 canvas 无描边）
+    .backgroundColor($r('app.color.surface_elevated'))
+    .border({ width: 1, color: $r('app.color.hairline') })
     .onClick(() => {
+      // 空态不跳转：没有 tripId 时点卡会落到空行程页，让用户以为行程丢了
+      if (this.tripId.length === 0) {
+        return;
+      }
       const routeParams: Record<string, string> = { 'route': 'Itinerary', 'param': this.tripId };
       postCardAction(this, {
         action: 'router',

@@ -42,7 +42,7 @@ export interface LayoutTokensType {
   tabBarHeight: number;
   /** 浮动 dock 宽 */
   floatingDockWidth: number;
-  /** 浮动 dock 距底（另加安全区，见 dockBottomSafe） */
+  /** 浮动 dock 距底（系统安全区由窗口 avoidSafeArea 兜底，不另设叠加 token） */
   floatingDockBottomMargin: number;
   /** 浮动 dock 左右距边 */
   floatingDockSideMargin: number;
@@ -74,6 +74,10 @@ export interface LayoutTokensType {
   dayDividerHeight: number;
   /** 追问选项间隙 */
   questionOptionGap: number;
+  /** 追问进度圆点直径（契约 question-progress-dot 6） */
+  questionProgressDot: number;
+  /** 活动类型色点直径（契约 activity-type-dot 8） */
+  activityDotSize: number;
   /** 2×2 卡片内缩 */
   widget2x2Padding: number;
   /** 2×4 卡片内缩 */
@@ -88,6 +92,11 @@ export interface LayoutTokensType {
   tabItemHeight: number;
   tabSideMargin: number;
   tabBottomGap: number;
+  /** 追问选项卡最小高（契约 option-chip minHeight 56） */
+  questionOptionMinHeight: number;
+  /** 屏4 景点行缩略位（3:4 媒体比例） */
+  spotThumbWidth: number;
+  spotThumbHeight: number;
   /** 状态栏安全区兜底值（env(safe-area-inset-bottom, 12px) 的 12） */
   safeAreaFallback: number;
 }
@@ -128,6 +137,11 @@ export const LayoutTokens: LayoutTokensType = {
   mapHeightCompact: 200,
   dayDividerHeight: 44,
   questionOptionGap: 8,
+  questionProgressDot: 6,
+  activityDotSize: 8,
+  questionOptionMinHeight: 56,
+  spotThumbWidth: 36,
+  spotThumbHeight: 48,
   widget2x2Padding: 12,
   widget2x4Padding: 16,
   postCardPadding: 16,

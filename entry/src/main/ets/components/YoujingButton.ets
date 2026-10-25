@@ -11,7 +11,8 @@
 
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
-import { LayoutTokens } from '../design/LayoutTokens';
+import { SpaceTokens } from '../design/SpaceTokens';
+import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 
 export enum YoujingButtonVariant {
   PRIMARY = 'primary',
@@ -36,10 +37,10 @@ export struct YoujingButton {
 
   build() {
     Button() {
-      Row({ space: 8 }) {
+      Row({ space: SpaceTokens.xs }) {
         if (this.leadingSymbol !== undefined) {
           SymbolGlyph(this.leadingSymbol)
-            .fontSize(18)
+            .fontSize(IconSizes.control)
             .fontColor([this.labelColor()])
         }
         Text(this.label)
@@ -49,7 +50,7 @@ export struct YoujingButton {
           .fontFeature("'tnum' on")
         if (this.trailingSymbol !== undefined) {
           SymbolGlyph(this.trailingSymbol)
-            .fontSize(18)
+            .fontSize(IconSizes.control)
             .fontColor([this.labelColor()])
         }
       }

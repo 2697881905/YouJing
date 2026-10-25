@@ -121,7 +121,7 @@ export struct FloatingDock {
         .onClick((): void => {
           this.go(idx);
         })
-      }, (item: DockEntry): string => `dock-${item.label}-${this.activeIndex}`)
+      }, (item: DockEntry): string => `dock-${item.label}`)
     }
     .width(LayoutTokens.floatingDockWidth)
     .height(LayoutTokens.tabBarHeight)
@@ -129,7 +129,13 @@ export struct FloatingDock {
     .borderRadius(RadiusTokens.dock)
     .attributeModifier(barMaterial(uiMaterial.ImmersiveStyle.THIN, true, this.glassOn && !this.isDark))
     .backgroundColor(this.glassOn && !this.isDark ? Color.Transparent : ColorTokens.surfaceElevated)
-    .border({ width: 1, color: ColorTokens.borderSubtle, radius: RadiusTokens.dock })
+    // 材质生效时描边也要撤（DESIGN Elevation：background/border/shadow 三项一起 zero out），
+    // 否则系统材质外沿再套一道自绘线 = 双环
+    .border({
+      width: this.glassOn && !this.isDark ? 0 : LayoutTokens.glassBorderWidth,
+      color: ColorTokens.borderSubtle,
+      radius: RadiusTokens.dock
+    })
     .shadow(this.glassOn && !this.isDark || this.isDark ? { radius: 0 } : ShadowTokens.floating)
     .margin({ bottom: LayoutTokens.floatingDockBottomMargin })
   }

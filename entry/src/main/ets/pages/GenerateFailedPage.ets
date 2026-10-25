@@ -62,7 +62,7 @@ export struct GenerateFailedPage {
 
       SymbolGlyph($r('sys.symbol.chevron_right'))
         .fontSize(IconSizes.control)
-        .fontColor([ColorTokens.faint])
+        .fontColor([ColorTokens.muted])
     }
     .width('100%')
     .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
@@ -133,11 +133,13 @@ export struct GenerateFailedPage {
         Column({ space: SpaceTokens.sm }) {
           YoujingButton({
             variant: YoujingButtonVariant.PRIMARY,
-            label: '按建议修复',
+            label: '再试一次',
             fullWidth: true,
             onAction: (): void => {
-              this.pathStack.popToName('Generating');
-              this.pathStack.pushPath({ name: 'Generating' });
+              // Generating 是被 replacePath 移出栈的（栈里没有它），popToName 会落空；
+              // 再 pushPath 会把 Generating 堆到失败页上面，生成成功后 Itinerary 底下
+              // 仍压着失败页。直接替换栈顶，语义就是「本屏换成重试屏」
+              this.pathStack.replacePath({ name: 'Generating' });
             }
           })
           YoujingButton({
@@ -146,7 +148,11 @@ export struct GenerateFailedPage {
             fullWidth: true,
             buttonWidth: '100%',
             onAction: (): void => {
-              this.pathStack.pop();
+              // 按钮承诺的落点是屏2 基础输入：pop() 只会落到 StayPick，名不对实。
+              // 栈里没有该页（深链直启本屏）时退回 push，别让按钮变死键
+              if (this.pathStack.popToName('TripInput') < 0) {
+                this.pathStack.pushPath({ name: 'TripInput' });
+              }
             }
           })
           YoujingButton({
@@ -155,7 +161,10 @@ export struct GenerateFailedPage {
             fullWidth: true,
             buttonWidth: '100%',
             onAction: (): void => {
-              this.pathStack.pop();
+              // 落点是屏4 选点页，同上：popToName 失败则 push 兜底
+              if (this.pathStack.popToName('SpotPick') < 0) {
+                this.pathStack.pushPath({ name: 'SpotPick' });
+              }
             }
           })
         }

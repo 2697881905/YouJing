@@ -8,7 +8,6 @@
 import { APP_NAV } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
-import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
 import { QuestionFlowConfig } from '../common/constants/QuestionFlowConfig';
@@ -103,20 +102,23 @@ export struct PreferenceQAPage {
     HdsNavDestination() {
       Column() {
 
-        Row() {
-          Row()
-            .height(4)
-            .layoutWeight(this.qIndex + 1)
-            .borderRadius(RadiusTokens.pill)
-            .backgroundColor(ColorTokens.primary)
-          Row()
-            .height(4)
-            .layoutWeight(this.questions.length - this.qIndex - 1)
-            .borderRadius(RadiusTokens.pill)
-            .backgroundColor(ColorTokens.hairline)
+        // 契约 question-card 进度形态：6px 圆点串（active primary / 其余 surface-sunken）
+        // + overline「第 N/M 步」——原来是一条 4px 通栏轨道，与组件规格对不上
+        Row({ space: SpaceTokens.xs }) {
+          ForEach(this.questions, (q: FlowQuestion, i: number) => {
+            Circle()
+              .width(LayoutTokens.questionProgressDot)
+              .height(LayoutTokens.questionProgressDot)
+              .fill(i <= this.qIndex ? ColorTokens.primary : ColorTokens.surfaceSunken)
+          }, (q: FlowQuestion): string => `qdot-${q.id}`)
+          Text(`第 ${this.qIndex + 1}/${this.questions.length} 步`)
+            .fontSize(TypeTokens.overline.size)
+            .fontWeight(600)
+            .fontColor(ColorTokens.muted)
+            .margin({ left: SpaceTokens.sm })
         }
         .width('100%')
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md })
 
         // 官方 List：题干占一个 ListItem，每个选项一个 ListItem（不再 Scroll+Column 手排间距）
         List({ space: LayoutTokens.questionOptionGap }) {
@@ -150,8 +152,8 @@ export struct PreferenceQAPage {
                 })
               }
               .width('100%')
-            }, (opt: QuestionOption): string =>
-              `${this.questions[this.qIndex].id}-${opt.value}-${this.isSelected(this.questions[this.qIndex], opt.value, this.qIndex)}`)
+              // key 只含稳定 id：选中态变化靠 @State 重渲染，不带进 key
+            }, (opt: QuestionOption): string => `${this.questions[this.qIndex].id}-${opt.value}`)
         }
         .layoutWeight(1)
         .scrollBar(BarState.Off)
