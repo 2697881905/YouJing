@@ -9,6 +9,9 @@ import geoTest from './Geo.test';
 import mapStopsTest from './MapStops.test';
 import todayCardTest from './TodayCard.test';
 import styleConfigTest from './StyleConfig.test';
+import transitSymbolTest from './TransitSymbol.test';
+import planDraftTest from './PlanDraft.test';
+import promptContractTest from './PromptContract.test';
 
 export default function testsuite() {
   tripParserTest();
@@ -22,4 +25,7 @@ export default function testsuite() {
   mapStopsTest();
   todayCardTest();
   styleConfigTest();
+  transitSymbolTest();
+  planDraftTest();
+  promptContractTest();
 }

@@ -6,6 +6,22 @@
 
 ### Added
 
+- 三套纯逻辑用例补覆盖差（2026-10-25，**已写未跑**：设备此刻离线，`hdc list targets` 为空）：
+  先把 utils/models/common/data/ai 里「无 UI @kit 依赖」的模块列全，再与 12 个测试文件对表，
+  查出四块纯逻辑一直没有用例——`TransitSymbol`、`PlanDraft`、`PromptBuilder`/`TripSchema` 同源契约、
+  （`BudgetConfig` 归在常量件里已由 StyleConfig 间接覆盖）。
+  - `TransitSymbol.test.ets`：同义词归一、未知模式兜底成步行（屏15 原来写死汽车）、
+    识别顺序锁住「机场巴士→bus 而机场大巴→airplane」。为此把识别逻辑提成 `keyOf(mode): string`，
+    `of()` 只做键→`$r` 映射——Resource 没有可比的值，这与 `CategoryStyle.colorName` 是同一套理由。
+  - `PlanDraft.test.ets`：单例同一实例、默认值诚实（日期必须留空，写死会让新装用户看到过去的出发日）、
+    `fresh()` 真的清掉被改过的 spots/area/paces（守的是"连做第二段会静默带上上一段"那个真机缺陷）。
+  - `PromptContract.test.ets`：钉住 TripSchema 头注释那句「Schema、接口、守卫三者同源」——
+    systemPrompt 必须内嵌 schema 原文、parser 要求的 12 个键必须都在 schema 里、
+    四组枚举与模型枚举**双向**等长等值。漂移的后果是静默的：模型多一个值而 schema 没跟上，
+    AI 就不产该值；schema 多而解析器不认，整份行程被判非法走屏7。
+  静态核对已过（枚举条数 5/7/3/3 与模型一致、12 个键都在 TripSchema 里出现），
+  但**不能拿静态核对当用例通过**：设备回来第一件事是跑 `aa test`，预期 72 例。
+
 - 第四把尺 `tools/audit_contrast.py`：逐节点量文字/表面 WCAG 对比度（2026-10-25，真机双极性跑通）。
   只能从像素量——`dumpLayout` 不给 fontColor/fontSize，本机也没有 `settings` 可切深色档。
   取法：Text 节点 bounds 框内，亮度中位数当底、对侧最极端 0.5% 均值当字色；
