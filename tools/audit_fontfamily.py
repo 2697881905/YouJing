@@ -37,6 +37,12 @@ TOKEN_TIER = {'display': 'display', 'title': 'title'}
 
 # display/title 档挂在链上却没带 fontFamily 的白名单（必须写理由）
 FAMILY_SKIP = {
+    ('entry/src/main/ets/widget/pages/TodayTripCard.ets', 'title'):
+        "帧 7fc1cb85 的卡片日标签是 .serif-title 21/700，档位已对齐；字族拿不到——"
+        "卡片里 getUIContext/getFont/registerFont 被编译器 11706006 判 "
+        "can't support form application（实测三连报错，TodayTripCard.ets:39），"
+        "应用字体通道在卡片里是关的。唯一未试通道是通用字族 'serif'（不需注册），"
+        "但它落到哪个字面没实拍验证过，不写没验过的属性 → 任务 #37",
 
     ('entry/src/main/ets/pages/ExpensePage.ets', 'display'):
         '契约 §typography 备注：金额 hero 与 display 同档但 family 换 sans（DESIGN hierarchy '
