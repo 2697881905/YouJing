@@ -5,12 +5,13 @@
  * 分别落在 overline / time / small / widgetMeta 四档上）；
  * 2×2 内缩 12 / 2×4 内缩 16（LayoutTokens）。
  *
- * 衬线通道（屏13 帧的日标签是 .serif-title 21/700）：**卡片进程注册自定义字体这条路
- * 被编译器封死**——实测 11706006 三连报错：'getUIContext' / 'getFont' / 'registerFont'
- * 全部 can't support form application（TodayTripCard.ets 里写 aboutToAppear 注册即编译失败）。
- * 所以应用字体这条通道在卡片里是**关的**（旧注释写"无法注册"是猜的，现在有编译器原文为证）。
- * 唯一未试的通道是通用字族 `.fontFamily('serif')`（不需要注册），但它落到哪个字面
- * 没实拍验证过，就先不写进代码——宁缺不假。
+ * 衬线通道（屏13 帧的日标签是 .serif-title 21/700）**两条都实测判死，卡片拿不到宋体**：
+ * ① 卡片进程注册应用字体——编译器 11706006 三连报错，'getUIContext'/'getFont'/'registerFont'
+ *   全部 can't support form application（写 aboutToAppear 注册即编译失败）；
+ * ② 通用字族 `.fontFamily('serif')`——不需要注册，能编译，但同一套文本引擎在真机上
+ *   把它解析成**黑体**（对照实验：屏15 已知衬线的标题从 NotoSerifSC 换成 'serif'，
+ *   裁图笔画均匀无衬脚，且行盒从 94px 缩到 77px）。
+ * 所以这里只对齐档位 21/700，字族留 sans，不写一个实测无效的声明。
  */
 
 import { TypeTokens } from '../../design/TypeTokens';
