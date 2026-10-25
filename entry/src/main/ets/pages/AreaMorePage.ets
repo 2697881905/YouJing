@@ -13,6 +13,8 @@ import { APP_NAV } from '../common/constants/AppNav';
 import { PlanRepository } from '../data/PlanRepository';
 import { Area, AreaGroup, AreaPriceTier } from '../model/Area';
 import { Logger } from '../common/logger/Logger';
+import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
+import { listLanesForBreakpoint } from '../utils/responsive';
 import { common } from '@kit.AbilityKit';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
@@ -27,6 +29,9 @@ const GROUP_ORDER: AreaGroup[] = [AreaGroup.CORE, AreaGroup.COMMERCIAL, AreaGrou
 
 @Component
 export struct AreaMorePage {
+  /** 断点（唯一来源 utils/breakpointCenter.ets）：宽屏下列表并成多栏，不再被整屏拉宽 */
+  @StorageProp(KEY_CURRENT_BREAKPOINT) bp: string = 'sm';
+
   private pathStack: NavPathStack = APP_NAV;
   @Prop city: string = '';
   @State private areas: Area[] = [];
@@ -195,6 +200,7 @@ export struct AreaMorePage {
               }
             }, (g: AreaGroup): string => `areamore-group-${g}`)
           }
+          .lanes(listLanesForBreakpoint(this.bp))
           .scrollBar(BarState.Off)
           .edgeEffect(EdgeEffect.Spring)
           .sticky(StickyStyle.Header)

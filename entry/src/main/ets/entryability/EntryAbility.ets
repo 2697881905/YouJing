@@ -1,5 +1,6 @@
 import { AbilityConstant, Configuration, ConfigurationConstant, skillManager, UIAbility, Want } from '@kit.AbilityKit';
 import { window } from '@kit.ArkUI';
+import { initBreakpointCenter } from '../utils/breakpointCenter';
 import { Logger } from '../common/logger/Logger';
 import { stackOfRoute, tabOfRoute, TAB_INDEX_KEY, TAB_ITINERARY, ACTIVE_TRIP_KEY } from '../common/constants/AppNav';
 import { DataSeeder } from '../data/DataSeeder';
@@ -127,6 +128,9 @@ export default class EntryAbility extends UIAbility {
   onWindowStageCreate(windowStage: window.WindowStage): void {
     // Main window is created, set main page for this ability
     Logger.info('EntryAbility', 'Ability onWindowStageCreate');
+    // 断点中心必须在 loadContent 之前起：页面第一次 build 就要能读到 currentBreakpoint，
+    // 否则宽屏首帧会先按手机档画一遍再跳列数（有据同一顺序：EntryAbility:85）
+    initBreakpointCenter(this.context);
 
     windowStage.loadContent('pages/Index', (err) => {
       if (err.code) {

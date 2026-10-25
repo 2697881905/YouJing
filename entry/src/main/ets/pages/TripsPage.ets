@@ -22,6 +22,8 @@ import { routerMap } from './AppRouter';
 import { HdsChrome } from '../design/HdsChrome';
 import { AccountStore } from '../data/AccountStore';
 import { Logger } from '../common/logger/Logger';
+import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
+import { listLanesForBreakpoint } from '../utils/responsive';
 import { WidgetSync } from '../widget/TodayCard';
 
 interface TripCardData {
@@ -41,6 +43,9 @@ interface TripCardData {
 
 @Component
 export struct TripsPage {
+  /** 断点（唯一来源 utils/breakpointCenter.ets）：宽屏下列表并成多栏，不再被整屏拉宽 */
+  @StorageProp(KEY_CURRENT_BREAKPOINT) bp: string = 'sm';
+
   /** 本页是 MINE_NAV 这条 tab 栈的宿主，push 必须落在自己的栈上 */
   private pathStack: NavPathStack = MINE_NAV;
   @StorageProp('isDarkMode') isDark: boolean = false;
@@ -368,6 +373,7 @@ export struct TripsPage {
                 }
               }
             }
+            .lanes(listLanesForBreakpoint(this.bp))
             .scrollBar(BarState.Off)
             .edgeEffect(EdgeEffect.Spring)
             .cachedCount(4)

@@ -20,6 +20,8 @@ import { PlanDraft } from '../data/PlanDraft';
 import { SelectedSpot, SpotPriority, TripBasicInput } from '../model/PlanParams';
 import { DateUtils } from '../utils/DateUtils';
 import { Logger } from '../common/logger/Logger';
+import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
+import { listLanesForBreakpoint } from '../utils/responsive';
 import { getMenuImmersiveMaterial } from '../utils/immersiveMaterial';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { common } from '@kit.AbilityKit';
@@ -42,6 +44,9 @@ const REVEAL_STEP: number = 4;
 
 @Component
 export struct SpotPickPage {
+  /** 断点（唯一来源 utils/breakpointCenter.ets）：宽屏下列表并成多栏，不再被整屏拉宽 */
+  @StorageProp(KEY_CURRENT_BREAKPOINT) bp: string = 'sm';
+
   private pathStack: NavPathStack = APP_NAV;
   @State private groups: SpotGroup[] = [];
   @State private all: Spot[] = [];
@@ -373,6 +378,7 @@ export struct SpotPickPage {
                 .clip(true)
               }, (group: SpotGroup): string => `grp-${group.label}-${this.revealCap}`)
             }
+            .lanes(listLanesForBreakpoint(this.bp))
             .scrollBar(BarState.Off)
             .edgeEffect(EdgeEffect.Spring)
             .sticky(StickyStyle.Header)

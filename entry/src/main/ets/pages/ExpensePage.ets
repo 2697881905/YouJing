@@ -25,6 +25,8 @@ import { Trip } from '../model/Trip';
 import { DateUtils } from '../utils/DateUtils';
 import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
 import { Logger } from '../common/logger/Logger';
+import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
+import { listLanesForBreakpoint } from '../utils/responsive';
 import { common } from '@kit.AbilityKit';
 import { HdsNavigation, HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { routerMap } from './AppRouter';
@@ -98,6 +100,9 @@ function yuan(amount: number): string {
 
 @Component
 export struct ExpensePage {
+  /** 断点（唯一来源 utils/breakpointCenter.ets）：宽屏下列表并成多栏，不再被整屏拉宽 */
+  @StorageProp(KEY_CURRENT_BREAKPOINT) bp: string = 'sm';
+
   /** 本页是 EXPENSE_NAV 这条 tab 栈的宿主，push 必须落在自己的栈上 */
   private pathStack: NavPathStack = EXPENSE_NAV;
   @Prop tripId: string = '';
@@ -603,6 +608,7 @@ export struct ExpensePage {
           }
           .margin({ top: SpaceTokens.xl })
         }
+        .lanes(listLanesForBreakpoint(this.bp))
         .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.Spring)
         .cachedCount(6)

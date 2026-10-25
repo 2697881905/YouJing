@@ -32,6 +32,8 @@ import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit'
 import type { HdsNavigationMenuItemOptions, HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
 import { Logger } from '../common/logger/Logger';
+import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
+import { listLanesForBreakpoint } from '../utils/responsive';
 
 /** §3.3：App 端距离筛选后的候选片区上限 */
 const AREA_CANDIDATES: number = 12;
@@ -46,6 +48,9 @@ interface AreaDistance {
 
 @Component
 export struct StayPickPage {
+  /** 断点（唯一来源 utils/breakpointCenter.ets）：宽屏下列表并成多栏，不再被整屏拉宽 */
+  @StorageProp(KEY_CURRENT_BREAKPOINT) bp: string = 'sm';
+
   private pathStack: NavPathStack = APP_NAV;
   @StorageProp('isDarkMode') isDark: boolean = false;
   @State private selectedId: string = '';
@@ -429,6 +434,7 @@ export struct StayPickPage {
               }
             }, (pick: AreaPick): string => `card-${pick.area.id}`)
           }
+          .lanes(listLanesForBreakpoint(this.bp))
           .layoutWeight(1)
           .scrollBar(BarState.Off)
           .edgeEffect(EdgeEffect.Spring)

@@ -6,6 +6,8 @@
  */
 
 import { APP_NAV } from '../common/constants/AppNav';
+import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
+import { listLanesForBreakpoint } from '../utils/responsive';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
@@ -20,6 +22,9 @@ import { HdsChrome } from '../design/HdsChrome';
 
 @Component
 export struct PreferenceQAPage {
+  /** 断点（唯一来源 utils/breakpointCenter.ets）：宽屏下列表并成多栏，不再被整屏拉宽 */
+  @StorageProp(KEY_CURRENT_BREAKPOINT) bp: string = 'sm';
+
   private pathStack: NavPathStack = APP_NAV;
   @State private qIndex: number = 0;
   @State private singleAnswers: string[] = ['leisure', 'comfort', 'public', ''];
@@ -156,6 +161,7 @@ export struct PreferenceQAPage {
               // key 只含稳定 id：选中态变化靠 @State 重渲染，不带进 key
             }, (opt: QuestionOption): string => `${this.questions[this.qIndex].id}-${opt.value}`)
         }
+        .lanes(listLanesForBreakpoint(this.bp))
         .layoutWeight(1)
         .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.Spring)
