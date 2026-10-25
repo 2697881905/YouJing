@@ -218,6 +218,9 @@ export struct TripsPage {
 
   @Builder
   tripCard(t: TripCardData) {
+    // 整卡可点是这屏的主导航：官方 Button 承载（裸 Column 没有按压态、读屏也进不去）。
+    // 视觉仍由内层 Column 原样承担，Button 只是可点/可聚焦的壳。
+    Button({ type: ButtonType.Normal, stateEffect: true }) {
     Column() {
       Column() {
         Text(t.place)
@@ -263,6 +266,12 @@ export struct TripsPage {
     .borderRadius(RadiusTokens.card)
     .backgroundColor(ColorTokens.canvas)
     .shadow(this.isDark ? { radius: 0 } : ShadowTokens.card)
+    }
+    .buttonStyle(ButtonStyleMode.TEXTUAL)
+    .width('100%')
+    .padding(0)
+    .borderRadius(RadiusTokens.card)
+    .accessibilityText(`${t.place} ${t.dateMeta}，${t.statusLine}，打开行程`)
     .onClick(() => {
       this.pathStack.pushPath({ name: t.onTrip ? 'OnTrip' : 'Itinerary', param: t.id });
     })

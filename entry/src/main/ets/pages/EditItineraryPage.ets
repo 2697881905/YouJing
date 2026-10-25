@@ -384,7 +384,9 @@ export struct EditItineraryPage {
         }
         ForEach(this.candidates, (spot: Spot) => {
           ListItem() {
-            Column() {
+            // 候选项整块可点：官方 Button 承载（裸 Column 无按压态、读屏进不去）
+          Button({ type: ButtonType.Normal, stateEffect: true }) {
+          Column() {
               Text(spot.name)
                 .fontSize(TypeTokens.small.size)
                 .fontWeight(600)
@@ -403,10 +405,15 @@ export struct EditItineraryPage {
             .padding(SpaceTokens.md)
             .borderRadius(RadiusTokens.card)
             .backgroundColor(ColorTokens.surfacePanel)
-            .onClick(() => {
-              this.applyReplace(spot);
-            })
           }
+          .buttonStyle(ButtonStyleMode.TEXTUAL)
+          .width('100%')
+          .padding(0)
+          .borderRadius(RadiusTokens.card)
+          .accessibilityText(`替换为 ${spot.name}，${spot.district}`)
+          .onClick(() => {
+            this.applyReplace(spot);
+          })          }
         }, (spot: Spot): string => `rep-${spot.id}`)
       }
       .layoutWeight(1)

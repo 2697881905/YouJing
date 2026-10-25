@@ -168,21 +168,29 @@ export struct TripInputPage {
   citySheet() {
     Column() {
       ForEach(CITIES, (c: string) => {
-        Row() {
-          Text(c)
-            .fontSize(TypeTokens.body.size)
-            .fontWeight(c === this.city ? 600 : 400)
-            .fontColor(c === this.city ? ColorTokens.primary : ColorTokens.ink)
-            .layoutWeight(1)
-          if (c === this.city) {
-            SymbolGlyph($r('sys.symbol.checkmark'))
-              .fontSize(IconSizes.control)
-              .fontColor([ColorTokens.primary])
+        // 官方 Button 承载整行：原来是裸 Row + onClick，读屏进不去也没有按压态。
+        // 外观仍由内层 Row 承载，Button 只做可点/可聚焦的壳。
+        Button({ type: ButtonType.Normal, stateEffect: true }) {
+          Row() {
+            Text(c)
+              .fontSize(TypeTokens.body.size)
+              .fontWeight(c === this.city ? 600 : 400)
+              .fontColor(c === this.city ? ColorTokens.primary : ColorTokens.ink)
+              .layoutWeight(1)
+            if (c === this.city) {
+              SymbolGlyph($r('sys.symbol.checkmark'))
+                .fontSize(IconSizes.control)
+                .fontColor([ColorTokens.primary])
+            }
           }
+          .width('100%')
+          .height(LayoutTokens.minTouchTarget)
+          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
         }
+        .buttonStyle(ButtonStyleMode.TEXTUAL)
         .width('100%')
-        .height(LayoutTokens.minTouchTarget)
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+        .padding(0)
+        .accessibilityText(c === this.city ? `选择目的地 ${c}，当前已选` : `选择目的地 ${c}`)
         .onClick(() => {
           this.city = c;
           this.showCity = false;
@@ -216,54 +224,70 @@ export struct TripInputPage {
 
             Column({ space: SpaceTokens.md }) {
               // 目的地
-              Row() {
-                Column() {
-                  this.fieldLabel('目的地')
-                  Text(this.city)
-                    .fontSize(TypeTokens.headline.size)
-                    .fontWeight(600)
-                    .fontColor(ColorTokens.ink)
-                    .margin({ top: SpaceTokens.xs })
-                }
-                .alignItems(HorizontalAlign.Start)
-                .layoutWeight(1)
+              Button({ type: ButtonType.Normal, stateEffect: true }) {
+                Row() {
+                  Column() {
+                    this.fieldLabel('目的地')
+                    Text(this.city)
+                      .fontSize(TypeTokens.headline.size)
+                      .fontWeight(600)
+                      .fontColor(ColorTokens.ink)
+                      .margin({ top: SpaceTokens.xs })
+                  }
+                  .alignItems(HorizontalAlign.Start)
+                  .layoutWeight(1)
 
-                this.chevron()
+                  this.chevron()
+                }
+                .width('100%')
+                .padding(SpaceTokens.lg)
+                .borderRadius(RadiusTokens.card)
+                .backgroundColor(ColorTokens.surfaceSubtle)
               }
+              .buttonStyle(ButtonStyleMode.TEXTUAL)
               .width('100%')
-              .padding(SpaceTokens.lg)
+              .padding(0)
               .borderRadius(RadiusTokens.card)
-              .backgroundColor(ColorTokens.surfaceSubtle)
+              // 帧 7d2eafa8 这格声明的是 aria-label="选择目的地"，读屏要连当前值一起念
+              .accessibilityText(`选择目的地，当前 ${this.city}`)
               .onClick(() => {
                 this.showCity = true;
               })
 
               // 出行日期
-              Row() {
-                Column() {
-                  this.fieldLabel('出行日期')
-                  Text(`${this.fmt(this.startDate)} – ${this.fmt(this.endDate)}`)
-                    .fontSize(TypeTokens.headline.size)
-                    .fontWeight(600)
-                    .fontColor(ColorTokens.ink)
-                    .fontFeature("'tnum' on")
-                    .margin({ top: SpaceTokens.xs })
-                  Text(`${this.dayCount()}天${this.dayCount() - 1}晚`)
-                    .fontSize(TypeTokens.caption.size)
-                    .fontWeight(450)
-                    .fontColor(ColorTokens.muted)
-                    .fontFeature("'tnum' on")
-                    .margin({ top: SpaceTokens.xs })
-                }
-                .alignItems(HorizontalAlign.Start)
-                .layoutWeight(1)
+              Button({ type: ButtonType.Normal, stateEffect: true }) {
+                Row() {
+                  Column() {
+                    this.fieldLabel('出行日期')
+                    Text(`${this.fmt(this.startDate)} – ${this.fmt(this.endDate)}`)
+                      .fontSize(TypeTokens.headline.size)
+                      .fontWeight(600)
+                      .fontColor(ColorTokens.ink)
+                      .fontFeature("'tnum' on")
+                      .margin({ top: SpaceTokens.xs })
+                    Text(`${this.dayCount()}天${this.dayCount() - 1}晚`)
+                      .fontSize(TypeTokens.caption.size)
+                      .fontWeight(450)
+                      .fontColor(ColorTokens.muted)
+                      .fontFeature("'tnum' on")
+                      .margin({ top: SpaceTokens.xs })
+                  }
+                  .alignItems(HorizontalAlign.Start)
+                  .layoutWeight(1)
 
-                this.chevron()
+                  this.chevron()
+                }
+                .width('100%')
+                .padding(SpaceTokens.lg)
+                .borderRadius(RadiusTokens.card)
+                .backgroundColor(ColorTokens.surfaceSubtle)
               }
+              .buttonStyle(ButtonStyleMode.TEXTUAL)
               .width('100%')
-              .padding(SpaceTokens.lg)
+              .padding(0)
               .borderRadius(RadiusTokens.card)
-              .backgroundColor(ColorTokens.surfaceSubtle)
+              // 帧声明 aria-label="选择出行日期"；一次点按串两档弹窗（出发→返程）
+              .accessibilityText(`选择出行日期，当前 ${this.dayCount()}天${this.dayCount() - 1}晚`)
               .onClick(() => {
                 this.pickDate();
               })
