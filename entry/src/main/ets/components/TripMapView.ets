@@ -95,6 +95,16 @@ export struct TripMapView {
       this.ready = true;
       this.applyTheme();
       this.redraw();
+      // 首帧就收敛到全部落点：aboutToAppear 只能把相机停在 stops[0] + DEFAULT_ZOOM，
+      // 而收敛此前只在父组件显式发 'fit' 指令时才做——屏8 的地图卡不发，
+      // 于是实拍上看到的是默认缩放下气泡挤成一坨、还被卡片上沿裁掉。
+      if (this.stops.length > 0) {
+        try {
+          this.controller.moveCamera(this.cameraFor(this.stops));
+        } catch (err) {
+          Logger.warn(TAG, `首帧收敛失败: ${(err as Error).message}`);
+        }
+      }
     };
 
   private static initialOptions(lat: number, lng: number): mapCommon.MapOptions {

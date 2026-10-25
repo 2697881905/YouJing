@@ -101,6 +101,12 @@ export struct ImmersiveSegmentBar {
     }
     if (this.isDark && !this.lightContent) {
       opts.selectedBackgroundColor = $r('app.color.glass_selection_surface');
+      // 深色档下光靠选中底色读不出选中态：glass_selection_surface 是 20% 不透明度
+      // （#332E2E32），叠在 surface_elevated #1E1E1E 上实测只到 ≈#212124，差 3 级。
+      // 所以这里补上文字级的选中区分（选中亮白、未选走降级白），
+      // 不改任何 token 值——抬 alpha 属动设计定稿，留给用户定。
+      opts.fontColor = $r('app.color.on_dark_degraded');
+      opts.selectedFontColor = $r('app.color.on_dark');
     }
     if (this.overrideTrackMaterial) {
       const material: uiMaterial.Material | undefined = getSegmentImmersiveMaterial();
