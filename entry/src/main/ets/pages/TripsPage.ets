@@ -37,6 +37,10 @@ interface TripCardData {
   badgeColor: Resource;
   statusLine: string;
   progress: number;
+  /** 进度条的读法标注（§5.14：没有标注时它看着像一条渲染残留的蓝线） */
+  progressLabel: string;
+  /** 'upcoming' 未出发 / 'onTrip' 旅行中 / 'past' 已结束——三态区分要素（§5.13） */
+  phase: string;
   onTrip: boolean;
   muted: boolean;
 }
@@ -65,11 +69,24 @@ export struct TripsPage {
         // ISO 串可直接比大小；不能用 spanDays 的差值判在途——它含首尾且下限为 1，
         // 会把「还没出发」的未来行程误判成旅行中
         const onTrip: boolean = today >= r.startDate && today <= r.endDate;
+        // 三态而不是两态：未出发与已结束此前都叫「已生成」，进度条一个 0 一个 100，
+        // 于是同一天出发的几条过去行程在列表里长得一模一样（§5.13 的根因）
         let progress: number = 100;
+        let phase: string = 'past';
+        let statusLine: string = '已结束';
+        let progressLabel: string = '已完成';
         if (today < r.startDate) {
           progress = 0;
+          phase = 'upcoming';
+          statusLine = '未出发';
+          progressLabel = '未出发 · 0%';
         } else if (onTrip) {
           progress = Math.min(100, Math.round((DateUtils.spanDays(r.startDate, today) / span) * 100));
+          phase = 'onTrip';
+          statusLine = `旅行中 · 第 ${DateUtils.spanDays(r.startDate, today)} 日`;
+          progressLabel = `行程进度 ${progress}%`;
+        } else {
+          progressLabel = '已结束 · 100%';
         }
         const t: TripCardData = {
           id: r.id, place: r.destination,
@@ -77,7 +94,7 @@ export struct TripsPage {
           spots: `${r.spotCount}`, walk: `${r.legCount} 段`, bookingNum: `${r.bookingCount}`,
           bookingBadge: r.totalCost > 0 ? `¥${r.totalCost}` : '',
           badgeColor: ColorTokens.surfaceSubtle,
-          statusLine: onTrip ? '旅行中' : '已生成', progress: progress,
+          statusLine: statusLine, progress: progress, phase: phase, progressLabel: progressLabel,
           onTrip: onTrip, muted: false
         };
         list.push(t);
@@ -279,8 +296,21 @@ export struct TripsPage {
           .fontWeight(450)
           .fontColor(ColorTokens.body)
           .fontFeature("'tnum' on")
+        Row() {
+          Text(t.progressLabel)
+            .fontSize(TypeTokens.overline.size)
+            .fontWeight(TypeTokens.overline.weight)
+            .fontColor(t.phase === 'onTrip' ? ColorTokens.primary : ColorTokens.muted)
+            .fontFeature("'tnum' on")
+            .margin({ bottom: SpaceTokens.xs })
+        }
+        .width('100%')
+        .justifyContent(FlexAlign.Start)
+
         Progress({ value: t.progress, total: 100, type: ProgressType.Linear })
-          .color(ColorTokens.primary)
+          // 只有「旅行中」用品牌蓝；未出发/已结束退到分隔色，
+          // 否则一列表全是同一条蓝线，读起来就是渲染残留（§5.13 / §5.14）
+          .color(t.phase === 'onTrip' ? ColorTokens.primary : ColorTokens.separator)
           .width('100%')
       }
       .alignItems(HorizontalAlign.Start)
