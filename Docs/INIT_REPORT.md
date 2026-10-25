@@ -30,7 +30,11 @@
 
 | 已验 | 未验（及原因） |
 |---|---|
-| 每个提交都过 pre-commit 构建闸（hvigor assembleHap debug）；六把静态尺在 HEAD 全部 exit 0；`47e695e` 的三处衬线改动有真机截图目视证据（屏15「颐和园」、屏10「故宫博物院」裁图已是宋体）；`85218cb` 有编译器报错原文 | `3517ed9` 之后的 4 个提交**未重跑 79 例**：设备处于锁屏，`aa test` 直接失败——`10106102 The device screen is locked during the application launch, unlock screen failed`，且"developer mode 下不能自动解锁"。这不是代码问题，需要真人解锁屏幕；不做绕开（不代输密码、不改开发者模式设置） |
+| 每个提交都过 pre-commit 构建闸（hvigor assembleHap debug）；七把静态尺在 HEAD 全部 exit 0；`47e695e` 的三处衬线改动有真机截图目视证据（屏15「颐和园」、屏10「故宫博物院」裁图已是宋体）；`85218cb` 有编译器报错原文 | ~~`3517ed9` 之后的 4 个提交未重跑 79 例~~ **已于 2026-10-25 20:11 补验闭合**：设备解锁后在当前 HEAD `11d9dc6` 重新构建 ohosTest 包（产物 20:11:45）、装机、跑 `aa test`，结果 `Tests run: 79, Failure: 0, Error: 0, Pass: 79, Ignore: 0`；主包 `assembleHap debug` 同批复跑 BUILD SUCCESSFUL |
+
+补验过程记录：锁屏期间共尝试 6 次，全部 `10106102 The device screen is locked during the application launch, unlock screen failed`
+（developer mode 不能自动解锁），期间**没有**代输密码、改设置或唤醒屏幕去绕开；
+一次把锁屏时钟组件（截图均亮 104）误读成桌面，据 `dumpLayout` 的可见文本（日期 + 通知 + 运营商）当场纠正。
 
 解锁后一条命令即可补验：
 `hdc shell "aa test -b com.youjing.app -m entry_test -s unittest OpenHarmonyTestRunner"`
