@@ -102,9 +102,16 @@ export struct GenerateFailedPage {
                   .fontColor(ColorTokens.muted)
                   .margin({ bottom: SpaceTokens.xs })
                 ForEach(this.fixes, (fix: FixOption, idx: number) => {
-                  Column() {
+                  // 官方 Button 承载整行：原来是裸 Column + onClick——没有按压态、
+                  // 不是可聚焦控件，读屏与外接键盘都跳不过去
+                  Button({ type: ButtonType.Normal, stateEffect: true }) {
                     this.solutionRow(fix)
                   }
+                  .buttonStyle(ButtonStyleMode.TEXTUAL)
+                  .width('100%')
+                  .padding(0)
+                  .borderRadius(RadiusTokens.capsule)
+                  .accessibilityText(`${fix.title}，${fix.desc}`)
                   .onClick((): void => {
                     this.pathStack.pushPath({ name: fix.route });
                   })

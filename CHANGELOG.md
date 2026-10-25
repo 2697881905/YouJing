@@ -35,6 +35,15 @@
 
 ### Fixed
 
+- 屏7 两条「可行修法」换成官方 Button（2026-10-25，真机验收）：原来是裸 `Column + onClick`
+  ——没有按压态、不是可聚焦控件，读屏与外接键盘都跳不过去（和当初 dock 同一类毛病）。
+  现用 `Button({ type: Normal, stateEffect: true })` + `ButtonStyleMode.TEXTUAL`，
+  外观逐像素不变（仍透明底、卡片内分隔线照旧），但真机 dumpLayout 量到触点
+  **299.5 × 46.4vp**（≥44vp 最小命中区）、`clickable=true`，并补了无障碍名。
+  点击通路复测：落屏4 选点页 ✓。
+  顺带记一条虚警：dump 里屏4 有个节点 text 是 `0.000000`，看着像坐标漏进界面，
+  实为官方 `Progress` 组件自报的进度值（不是屏幕像素），未做无根据的"修复"。
+
 - RDB 迁移链断裂（2026-10-25，模拟器实测 `迁移完成 4 → 5`）：`onUpgrade` 原先按
   `oldVersion === N` 精确匹配，v1 老库升到 v4 只执行一级 —— `expense/checkin` 不建表、
   `expense.activity_id` 不加列（此后记账必报 no such column）。改为 `oldVersion < N` 累积式，
