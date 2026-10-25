@@ -35,6 +35,18 @@
 
 ### Fixed
 
+- 深色档分段栏选中面读不出（2026-10-25，深色档逐屏走查查出，真机 69/69）：
+  契约 `segmented-control.selectedItemSurface` 早点名了 `glass-selection-surface`
+  （浅 `rgba(239,239,242,0.6)` / 深 `rgba(46,46,50,0.2)`），但这两档色值从没进过
+  `color.json`，选中面就落回官方 tab 默认——深色下是一块浅灰药丸（实测 `#FFE5E5E5`）
+  配官方白字，对比约 1.4:1，「Day 1」几乎读不出。现补 `glass_selection_surface`
+  两档并只传官方 `SegmentButtonOptions.selectedBackgroundColor`（不自绘表面层）。
+  真机复测：深色下选中段亮白 + 细边、未选段灰（与帧 `.segment.active` 同口径），
+  浅色档逐点未变（药丸 238 / 轨道 214）。色值核对 49 件 0 偏差。
+  走查方法记一笔：12 条路由逐屏 dump，按 **AARRGGBB** 解析 `backgroundColor`
+  并叠到深色 canvas 上算有效亮度——第一版按 RGBA 解析，把官方 10% 白叠加
+  （`#19FFFFFF`）误报成 6 处"近白背景"。
+
 - 屏7 两条「可行修法」换成官方 Button（2026-10-25，真机验收）：原来是裸 `Column + onClick`
   ——没有按压态、不是可聚焦控件，读屏与外接键盘都跳不过去（和当初 dock 同一类毛病）。
   现用 `Button({ type: Normal, stateEffect: true })` + `ButtonStyleMode.TEXTUAL`，

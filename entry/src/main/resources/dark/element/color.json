@@ -27,6 +27,7 @@
     { "name": "like", "value": "#FFFF453A" },
     { "name": "bookmark", "value": "#FFFFD60A" },
     { "name": "hairline", "value": "#FF3A3A3F" },
+    { "name": "glass_selection_surface", "value": "#332E2E32" },
     { "name": "border_subtle", "value": "#5245454B" },
     { "name": "hairline_strong", "value": "#FF3A3A3F" },
     { "name": "separator", "value": "#4D545458" },

@@ -38,6 +38,13 @@ export struct ImmersiveSegmentBar {
   @Prop @Watch('rebuildOptions') lightContent: boolean = false;
   @Prop @Watch('rebuildOptions') overrideTrackMaterial: boolean = false;
   /**
+   * 深色档：契约 segmented-control.selectedItemSurface 是 dark-glass-selection-surface
+   * `rgba(46,46,50,0.2)`，但这一档色值此前没进 color.json，选中面就落回官方 tab 默认——
+   * 真机实测是一块浅灰药丸（#E5E5E5）配官方白字，几乎读不出（深色档逐屏走查查出）。
+   * 这里只传官方 SegmentButtonOptions 的 selectedBackgroundColor 字段，不自绘表面层。
+   */
+  @StorageProp('isDarkMode') @Watch('rebuildOptions') isDark: boolean = false;
+  /**
    * 无障碍组标签（帧的 aria-label 口径，如屏11「支出维度切换」）。
    * 非空时整条栏合成一个朗读元素，并把当前选中项一起念出来——
    * 官方 SegmentButton 的条目是 options 里的纯文本，没有逐条 accessibilityText 入口。
@@ -91,6 +98,9 @@ export struct ImmersiveSegmentBar {
     if (this.lightContent) {
       opts.fontColor = $r('app.color.on_dark_degraded');
       opts.selectedFontColor = $r('app.color.on_dark');
+    }
+    if (this.isDark && !this.lightContent) {
+      opts.selectedBackgroundColor = $r('app.color.glass_selection_surface');
     }
     if (this.overrideTrackMaterial) {
       const material: uiMaterial.Material | undefined = getSegmentImmersiveMaterial();
