@@ -183,7 +183,9 @@ export struct PreferenceQAPage {
           Blank()
           YoujingButton({
             variant: YoujingButtonVariant.PRIMARY,
-            label: this.qIndex === this.questions.length - 1 ? '生成行程' : '下一题',
+            // 末题这枚按钮做的是"去选景点"，不是"生成"（生成在屏4 之后的屏6）——
+            // 底稿写「生成行程」会让用户以为点完就出行程，按实际行为改口
+            label: this.qIndex === this.questions.length - 1 ? '选景点' : '下一题',
             buttonWidth: 150,
             onAction: (): void => {
               this.advance();

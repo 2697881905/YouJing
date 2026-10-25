@@ -20,6 +20,7 @@ import { PlanDraft } from '../data/PlanDraft';
 import { SelectedSpot, SpotPriority, TripBasicInput } from '../model/PlanParams';
 import { DateUtils } from '../utils/DateUtils';
 import { Logger } from '../common/logger/Logger';
+import { getMenuImmersiveMaterial } from '../utils/immersiveMaterial';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { common } from '@kit.AbilityKit';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
@@ -87,36 +88,46 @@ export struct SpotPickPage {
     return hit === undefined ? undefined : hit.priority;
   }
 
-  /** 无障碍动作名：底稿给的是「设为必去 / 标为普通」，这里按下一档如实描述 */
-  private priorityActionLabel(id: string): string {
-    const p: SpotPriority | undefined = this.priorityOf(id);
-    if (p === SpotPriority.MUST) {
-      return '改为想去';
-    }
-    if (p === SpotPriority.WANT) {
-      return '改为可去';
-    }
-    if (p === SpotPriority.OPTIONAL) {
-      return '标为普通';
-    }
-    return '设为必去';
+  private priorityMenu(id: string): MenuElement[] {
+    const mk = (label: string, p: SpotPriority | undefined): MenuElement => ({
+      value: label,
+      action: (): void => {
+        this.setPriority(id, p);
+      }
+    });
+    return [
+      mk('必去', SpotPriority.MUST),
+      mk('想去', SpotPriority.WANT),
+      mk('可去', SpotPriority.OPTIONAL),
+      mk('取消标记', undefined)
+    ];
   }
 
-  private cycle(id: string): void {
+  private priorityName(id: string): string {
+    const p: SpotPriority | undefined = this.priorityOf(id);
+    if (p === SpotPriority.MUST) {
+      return '必去';
+    }
+    if (p === SpotPriority.WANT) {
+      return '想去';
+    }
+    if (p === SpotPriority.OPTIONAL) {
+      return '可去';
+    }
+    return '未标记';
+  }
+
+  private setPriority(id: string, want: SpotPriority | undefined): void {
     const next: SelectedSpot[] = this.priorities.slice();
-    const idx: number = next.findIndex((p: SelectedSpot): boolean => p.spotId === id);
-    const order: SpotPriority[] = [SpotPriority.MUST, SpotPriority.WANT, SpotPriority.OPTIONAL];
-    if (idx < 0) {
-      const sel: SelectedSpot = { spotId: id, priority: SpotPriority.MUST };
-      next.push(sel);
-    } else {
-      const at: number = order.indexOf(next[idx].priority);
-      if (at >= order.length - 1) {
+    const idx: number = next.findIndex((row: SelectedSpot): boolean => row.spotId === id);
+    if (want === undefined) {
+      if (idx >= 0) {
         next.splice(idx, 1);
-      } else {
-        const updated: SelectedSpot = { spotId: id, priority: order[at + 1] };
-        next.splice(idx, 1, updated);
       }
+    } else if (idx < 0) {
+      next.push({ spotId: id, priority: want });
+    } else {
+      next.splice(idx, 1, { spotId: id, priority: want } as SelectedSpot);
     }
     this.priorities = next;
   }
@@ -219,8 +230,8 @@ export struct SpotPickPage {
       .layoutWeight(1)
 
       // 底稿这格是 `<button class="priority-action" aria-label="设为必去">`：
-      // 一个带无障碍动作名的按钮，不是「整行可点」。整行可点会误触（点名字就改了优先级），
-      // 所以热区收回到指示器本身，并交给官方 Button（TEXTUAL 档不出额外表面）。
+      // 一个带无障碍动作名的按钮，不是「整行可点」（整行可点会误触，点名字就改了优先级）。
+      // 热区收在指示器本身，点开官方 bindMenu 选档。
       Button() {
         Column() {
           if (this.priorityOf(sp.id) === SpotPriority.MUST) {
@@ -248,10 +259,13 @@ export struct SpotPickPage {
       .padding(0)
       .width(LayoutTokens.minTouchTarget)
       .height(LayoutTokens.minTouchTarget)
-      .accessibilityText(this.priorityActionLabel(sp.id))
-      .onClick(() => {
-        this.cycle(sp.id);
-      })
+      .accessibilityText(`选择优先级，当前${this.priorityName(sp.id)}`)
+      // 官方下拉菜单：四档一次摊开（原来是"点一下循环一档"，看不见其余选项）。
+      // 材质走 MenuOptions.systemMaterial——挂在菜单内容组件上属生效范围外。
+      .bindMenu(this.priorityMenu(sp.id), {
+        placement: Placement.BottomRight,
+        systemMaterial: getMenuImmersiveMaterial()
+      } as MenuOptions)
     }
     .width('100%')
     .constraintSize({ minHeight: LayoutTokens.itineraryRowMinHeight })
