@@ -95,6 +95,7 @@ export class TripSchema {
     const mealProps: Obj = {};
     mealProps['type'] = TripSchema.enumOf(TripSchema.MEAL_TYPE);
     mealProps['name'] = TripSchema.str(true);
+    mealProps['time'] = TripSchema.str(false);
     mealProps['location'] = TripSchema.str(true);
     mealProps['note'] = TripSchema.str(false);
     mealProps['estimatedCost'] = TripSchema.typed('integer');

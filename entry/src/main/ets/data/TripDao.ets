@@ -71,7 +71,7 @@ export class TripDao {
           const mealRow: relationalStore.ValuesBucket = {
             trip_id: trip.id, day_index: day.dayIndex, type: meal.type, name: meal.name,
             location: meal.location, note: meal.note === undefined ? null : meal.note,
-            estimated_cost: meal.estimatedCost
+            estimated_cost: meal.estimatedCost, time: meal.time === undefined ? '' : meal.time
           };
           store.insertSync('meal', mealRow);
         }
@@ -159,13 +159,14 @@ export class TripDao {
       });
     const meals: MealRowWrap[] = await TripDao.query(context,
       'SELECT * FROM meal WHERE trip_id = ? ORDER BY day_index, type', [tripId],
-      (rs: relationalStore.ResultSet): MealRowWrap => {const note: string = rs.getString(rs.getColumnIndex('note'));
+      (rs: relationalStore.ResultSet): MealRowWrap => {const note: string = rs.getString(rs.getColumnIndex('note')); const tm: string = rs.getString(rs.getColumnIndex('time'));
         const wrap: MealRowWrap = {
           dayIndex: rs.getLong(rs.getColumnIndex('day_index')),
           meal: {
             type: rs.getString(rs.getColumnIndex('type')) as MealType,
             name: rs.getString(rs.getColumnIndex('name')),
             location: rs.getString(rs.getColumnIndex('location')),
+            time: tm.length > 0 ? tm : undefined,
             note: note.length > 0 ? note : undefined,
             estimatedCost: rs.getLong(rs.getColumnIndex('estimated_cost'))
           }

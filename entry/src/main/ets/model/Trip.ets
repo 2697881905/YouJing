@@ -75,6 +75,8 @@ export interface Activity {
 /** 餐饮 */
 export interface Meal {
   type: MealType;
+  /** 用餐时刻 HH:mm。AI 可省略（旧数据也没有），省略时列表按餐次档位排位、不显示假时间 */
+  time?: string;
   name: string;
   location: string;
   note?: string;

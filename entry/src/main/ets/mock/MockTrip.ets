@@ -45,7 +45,7 @@ export class MockTrip {
         ActivityStatus.NO_NEED, undefined)
     ];
     const meals: Meal[] = [
-      { type: MealType.LUNCH, name: '键善良房 本店', location: '祇园', estimatedCost: 1800 }
+      { type: MealType.LUNCH, time: '12:45', name: '键善良房 本店', location: '祇园', estimatedCost: 1800 }
     ];
     const day1: TripDay = {
       dayIndex: 1, date: '2026-06-10', theme: '东山 · 清水',

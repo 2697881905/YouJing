@@ -131,6 +131,7 @@ export class TripParser {
     return {
       type: TripParser.reqEnum(o['type'], TripSchema.MEAL_TYPE, `${p}.type`) as MealType,
       name: TripParser.reqStr(o['name'], `${p}.name`),
+      time: TripParser.optStr(o['time'], `${p}.time`),
       location: TripParser.reqStr(o['location'], `${p}.location`),
       note: TripParser.optStr(o['note'], `${p}.note`),
       estimatedCost: TripParser.reqInt(o['estimatedCost'], `${p}.estimatedCost`)
