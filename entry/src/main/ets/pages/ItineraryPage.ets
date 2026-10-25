@@ -6,7 +6,7 @@
  * 精修批次换 EXQUISITE）；深色零阴影经 isDarkMode 门控。
  */
 
-import { APP_NAV, EditTarget } from '../common/constants/AppNav';
+import { ACTIVE_TRIP_KEY, APP_NAV, EditTarget } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
@@ -27,7 +27,6 @@ import { common } from '@kit.AbilityKit';
 import { ImmersiveSegmentBar, SegmentedItem } from '../components/ImmersiveSegmentBar';
 import { getSheetImmersiveMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
-import { FloatingDock } from '../components/FloatingDock';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
 import { DateUtils } from '../utils/DateUtils';
@@ -67,6 +66,7 @@ export struct ItineraryPage {
       TripDao.loadTrip(ctx, this.tripId).then((trip: Trip | null) => {
         if (trip !== null) {
           this.trip = trip;
+          AppStorage.setOrCreate(ACTIVE_TRIP_KEY, trip.id);
           this.days = trip.days;
           this.syncDayStops();
           this.bookingCount = CalendarSync.bookingCount(trip);
@@ -1198,7 +1198,6 @@ export struct ItineraryPage {
         // 浮动 dock（玻璃点位③，共享组件；屏14 触达面板挂在这层壳上，
         // 因为一个节点只能挂一个 bindSheet，Stack 自己已经绑了屏10 详情面板）
         Column() {
-          FloatingDock({ activeIndex: 0, tripId: this.tripId })
         }
         .bindSheet($$this.showSystemAccess, this.systemAccessSheet(), {
           height: SheetSize.FIT_CONTENT,

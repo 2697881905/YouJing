@@ -5,7 +5,7 @@
  * §7 必改已落：booking-badge padding 2→0、card-footer gap 6→4、dock padding 10→8。
  */
 
-import { APP_NAV } from '../common/constants/AppNav';
+import { MINE_NAV } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
@@ -13,7 +13,6 @@ import { SpaceTokens } from '../design/SpaceTokens';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
-import { FloatingDock } from '../components/FloatingDock';
 import { TripDao, TripSummary } from '../data/TripDao';
 import { PlanDraft } from '../data/PlanDraft';
 import { DateUtils } from '../utils/DateUtils';
@@ -40,7 +39,8 @@ interface TripCardData {
 
 @Component
 export struct TripsPage {
-  private pathStack: NavPathStack = APP_NAV;
+  /** 本页是 MINE_NAV 这条 tab 栈的宿主，push 必须落在自己的栈上 */
+  private pathStack: NavPathStack = MINE_NAV;
   @StorageProp('isDarkMode') isDark: boolean = false;
   @State private trips: TripCardData[] = [];
   /** 官方 Search 的关键词：目的地或日期串命中即保留 */
@@ -362,7 +362,6 @@ export struct TripsPage {
       .height('100%')
       .layoutWeight(1)
       .backgroundColor(ColorTokens.canvas)
-      FloatingDock({ activeIndex: 3, tripId: '' })
     }
     .width('100%')
     .height('100%')

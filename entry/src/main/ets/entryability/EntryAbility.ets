@@ -1,7 +1,8 @@
 import { AbilityConstant, Configuration, ConfigurationConstant, skillManager, UIAbility, Want } from '@kit.AbilityKit';
 import { window } from '@kit.ArkUI';
 import { Logger } from '../common/logger/Logger';
-import { APP_NAV } from '../common/constants/AppNav';
+import { stackOfRoute, tabOfRoute, TAB_INDEX_KEY, TAB_ITINERARY, ACTIVE_TRIP_KEY,
+  PENDING_ROUTE_KEY, PENDING_PARAM_KEY } from '../common/constants/AppNav';
 import { DataSeeder } from '../data/DataSeeder';
 import { AccountStore } from '../data/AccountStore';
 import { PlanDraft } from '../data/PlanDraft';
@@ -32,7 +33,7 @@ export default class EntryAbility extends UIAbility {
   onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     const touched: boolean = this.applyWant(want);
     if (this.pendingRoute.length > 0) {
-      APP_NAV.pushPath({ name: this.pendingRoute, param: this.pendingParam });
+      this.routeTo(this.pendingRoute, this.pendingParam);
       this.pendingRoute = '';
       this.pendingParam = '';
     }
@@ -199,6 +200,25 @@ export default class EntryAbility extends UIAbility {
    * 统一出口：want 通道优先，其次小艺 Skill 落盘的预填。
    * 预填只在「页面已挂载 + 用户真的看得见」时消费；后台被 Skill 绑起时留着，进程被杀也不丢。
    */
+  /**
+   * 四栈骨架下的深链落点：先定页签（Index 拿它当 HdsTabs 的初始 index）。
+   * 行程 tab 的栈启动时就存在，直接推；其余 tab 的栈要等 TabContent 首次可见才绑上
+   * Navigation，改写成待路由由该 tab 的宿主消费。
+   */
+  private routeTo(name: string, param: string): void {
+    const tab: number = tabOfRoute(name);
+    AppStorage.setOrCreate(TAB_INDEX_KEY, tab);
+    if (param.length > 0) {
+      AppStorage.setOrCreate(ACTIVE_TRIP_KEY, param);
+    }
+    if (tab === TAB_ITINERARY) {
+      stackOfRoute(name).pushPath({ name: name, param: param });
+      return;
+    }
+    AppStorage.setOrCreate(PENDING_ROUTE_KEY, name);
+    AppStorage.setOrCreate(PENDING_PARAM_KEY, param);
+  }
+
   private routePending(): void {
     if (this.pendingRoute.length === 0 && this.contentReady && this.visible) {
       const prefill: SkillPrefillRecord | null = SkillPrefill.take(this.context);
@@ -209,7 +229,7 @@ export default class EntryAbility extends UIAbility {
       }
     }
     if (this.pendingRoute.length > 0) {
-      APP_NAV.pushPath({ name: this.pendingRoute, param: this.pendingParam });
+      this.routeTo(this.pendingRoute, this.pendingParam);
     }
     this.pendingRoute = '';
     this.pendingParam = '';

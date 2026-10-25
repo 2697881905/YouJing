@@ -6,12 +6,11 @@
  * 底图铺满、浮层透明穿透（hitTestBehavior Transparent），不遮地图手势。
  */
 
-import { APP_NAV } from '../common/constants/AppNav';
+import { MAP_NAV } from '../common/constants/AppNav';
 import { TripDao } from '../data/TripDao';
 import { Trip, TripDay } from '../model/Trip';
 import { MapStop, MapStops } from '../utils/MapStops';
 import { TripMapView } from '../components/TripMapView';
-import { FloatingDock } from '../components/FloatingDock';
 import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
 import { ColorTokens } from '../design/ColorTokens';
@@ -34,7 +33,8 @@ const FIT_BOTTOM_PX: number = 600;
 
 @Component
 export struct MapPage {
-  private pathStack: NavPathStack = APP_NAV;
+  /** 本页是 MAP_NAV 这条 tab 栈的宿主，push 必须落在自己的栈上 */
+  private pathStack: NavPathStack = MAP_NAV;
   @Prop tripId: string = '';
   @StorageProp('isDarkMode') isDark: boolean = false;
   @State private days: TripDay[] = [];
@@ -230,7 +230,6 @@ export struct MapPage {
           }
 
           Row() {
-            FloatingDock({ activeIndex: 1, tripId: this.tripId })
           }
           .width('100%')
           .justifyContent(FlexAlign.Center)

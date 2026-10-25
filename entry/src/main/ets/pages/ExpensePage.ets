@@ -10,7 +10,7 @@
  *   各分类占预算总额、实际视角按占最大分类，不编造分档预算。
  */
 
-import { APP_NAV } from '../common/constants/AppNav';
+import { ACTIVE_TRIP_KEY, EXPENSE_NAV } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
@@ -18,7 +18,6 @@ import { SpaceTokens } from '../design/SpaceTokens';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { ImmersiveSegmentBar, SegmentedItem } from '../components/ImmersiveSegmentBar';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
-import { FloatingDock } from '../components/FloatingDock';
 import { ExpenseDao } from '../data/ExpenseDao';
 import { TripDao, TripSummary } from '../data/TripDao';
 import { CategoryTotal, Expense, ExpenseCategory } from '../model/Expense';
@@ -98,7 +97,8 @@ function yuan(amount: number): string {
 
 @Component
 export struct ExpensePage {
-  private pathStack: NavPathStack = APP_NAV;
+  /** 本页是 EXPENSE_NAV 这条 tab 栈的宿主，push 必须落在自己的栈上 */
+  private pathStack: NavPathStack = EXPENSE_NAV;
   @Prop tripId: string = '';
   @State private seg: number = 0;
   @State private budgetTotal: number = 0;
@@ -148,6 +148,7 @@ export struct ExpensePage {
         return Promise.resolve<CategoryTotal[]>([]);
       }
       this.trip = trip;
+      AppStorage.setOrCreate(ACTIVE_TRIP_KEY, trip.id);
       this.tripLabel = `${trip.destination} · ${trip.startDate} – ${trip.endDate}`;
       this.budgetTotal = trip.budget * trip.people;
       let sumDays: number = 0;
@@ -613,7 +614,6 @@ export struct ExpensePage {
         showClose: true,
         systemMaterial: getSheetImmersiveMaterial()
       })
-      FloatingDock({ activeIndex: 2, tripId: this.tripId })
     }
     .width('100%')
     .height('100%')

@@ -8,14 +8,13 @@
  * 底稿里「周一人少，10:00 后团队到达」「打车 ¥1,900」这类无来源文案不保留。
  */
 
-import { APP_NAV } from '../common/constants/AppNav';
+import { ACTIVE_TRIP_KEY, APP_NAV } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
-import { FloatingDock } from '../components/FloatingDock';
 import { ImmersiveSurface } from '../components/ImmersiveSurface';
 import { Activity, ActivityStatus, MealType, Trip, TripDay } from '../model/Trip';
 import { TripDao } from '../data/TripDao';
@@ -118,6 +117,7 @@ export struct OnTripPage {
         return Promise.resolve<Record<string, number>>({});
       }
       this.trip = trip;
+      AppStorage.setOrCreate(ACTIVE_TRIP_KEY, trip.id);
       const day: TripDay | null = this.pickDay(trip);
       if (day === null || day.activities.length === 0) {
         this.dayLabel = '旅行中';
@@ -542,7 +542,6 @@ export struct OnTripPage {
       .width('100%')
       .height('100%')
       .backgroundColor(ColorTokens.canvas)
-      FloatingDock({ activeIndex: 0, tripId: this.tripId })
     }
     .width('100%')
     .height('100%')
