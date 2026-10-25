@@ -41,6 +41,8 @@ interface DayStop {
   /** 排位用的分钟数（无时刻的餐次按早/午/晚档位给槽位） */
   sortMin: number;
   title: string;
+  /** 餐次标签（早餐/午餐/晚餐）；活动为空串。无时刻的餐次拿它占时间槽，名字列留给店名 */
+  kind: string;
   endTime: string;
   note: string;
   place: string;
@@ -189,7 +191,7 @@ export struct OnTripPage {
       stops.push({
         key: a.id, time: a.time, sortMin: minutesOf(a.time), title: a.title,
         endTime: a.endTime, note: a.note === undefined ? '' : a.note,
-        place: a.address.length > 0 ? a.address : a.location, isMeal: false, cost: 0,
+        place: a.address.length > 0 ? a.address : a.location, isMeal: false, kind: '', cost: 0,
         status: a.status, transportMode: t === undefined ? '' : t.mode,
         transportMin: t === undefined ? 0 : t.duration,
         transportDetail: t === undefined ? '' : t.detail, hasTransport: t !== undefined
@@ -200,7 +202,8 @@ export struct OnTripPage {
       stops.push({
         key: this.mealKey(day.dayIndex, m.type), time: shown,
         sortMin: shown.length > 0 ? minutesOf(shown) : this.mealSlot(m.type),
-        title: this.mealLabel(m.type), endTime: '', note: '',
+        title: m.name.length > 0 ? m.name : this.mealLabel(m.type),
+        kind: this.mealLabel(m.type), endTime: '', note: '',
         place: m.location, isMeal: true, cost: m.estimatedCost,
         status: null, transportMode: '', transportMin: 0, transportDetail: '',
         hasTransport: false
@@ -242,9 +245,9 @@ export struct OnTripPage {
             const paid: number | undefined = sums[st.key];
             const shown: number | undefined = paid === undefined ? (st.isMeal && st.cost > 0 ? st.cost : undefined) : paid;
             const row: CheckedRow = {
-              // 无时刻的餐次拿餐次名占住时间槽，不编 08:00 这种假时刻
-              time: st.time.length > 0 ? st.time : st.title,
-              name: st.isMeal && st.time.length > 0 ? st.title : st.title,
+              // 无时刻的餐次拿餐次标签占住时间槽（不编 08:00 假时刻），名字列留给店名
+              time: st.time.length > 0 ? st.time : st.kind,
+              name: st.title,
               amount: shown === undefined ? '' : `¥${shown}`,
               ongoing: false
             };
@@ -284,8 +287,8 @@ export struct OnTripPage {
       return '今日暂无安排';
     }
     if (cur.isMeal) {
-      return cur.cost > 0 ? `${cur.time.length > 0 ? `${cur.time} · ` : ''}预估 ¥${cur.cost}`
-        : (cur.time.length > 0 ? cur.time : '用餐');
+      const head: string = cur.time.length > 0 ? `${cur.time} · ${cur.kind}` : cur.kind;
+      return cur.cost > 0 ? `${head} · 预估 ¥${cur.cost}` : head;
     }
     return `${cur.time} 开始 · 建议 ${hoursText(cur.time, cur.endTime)}小时 · 已过 ${this.elapsedMin}分钟`;
   }
@@ -395,10 +398,14 @@ export struct OnTripPage {
                 .fontWeight(450)
                 .fontColor(ColorTokens.body)
                 .fontFeature("'tnum' on")
-              Progress({ value: this.progressPct(), total: 100, type: ProgressType.Linear })
-                .color(ColorTokens.primary)
-                .width('100%')
-                .margin({ top: SpaceTokens.md })
+              // 进度条只在"这一站有结束时刻"时画。一餐没有 endTime，
+              // 而 progressPct() 有 Math.max(1, …) 的下限——不关掉它会被夹成满格（真机实测 1.000000）。
+              if (this.totalMin > 0) {
+                Progress({ value: this.progressPct(), total: 100, type: ProgressType.Linear })
+                  .color(ColorTokens.primary)
+                  .width('100%')
+                  .margin({ top: SpaceTokens.md })
+              }
               if (this.current !== null && this.current.note !== undefined && this.current.note.length > 0) {
                 Text(this.current.note)
                   .fontSize(TypeTokens.caption.size)
