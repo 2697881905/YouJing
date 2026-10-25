@@ -348,7 +348,10 @@ export struct TripInputPage {
                   .width('100%')
                   .selectedColor(ColorTokens.primary)
                   .trackColor(ColorTokens.hairline)
-                  .blockColor(ColorTokens.surfaceElevated)
+                  // 把手此前取 surfaceElevated：深色档 #1E1E1E 压在底轨/卡面上几乎看不见，
+                  // 整条就退化成了进度条（§5 实拍结论）。帧里只画了 4px 底轨、没给把手规则，
+                  // 所以这是「帧未规定」而不是「帧规定不可见」——官方 Slider 没有可见把手就没法拖。
+                  .blockColor(ColorTokens.primary)
                   .onChange((v: number) => {
                     this.budget = Math.round(v);
                   })
