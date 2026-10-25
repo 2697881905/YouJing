@@ -199,7 +199,8 @@ export struct PreferenceQAPage {
           })
         }
         .width('100%')
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md, bottom: SpaceTokens.md })
+        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md,
+          bottom: LayoutTokens.floatingDockClearance })
       }
       .width('100%')
       .height('100%')

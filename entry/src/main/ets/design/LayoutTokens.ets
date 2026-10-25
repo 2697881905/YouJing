@@ -44,6 +44,13 @@ export interface LayoutTokensType {
   floatingDockWidth: number;
   /** 浮动 dock 距底（系统安全区由窗口 avoidSafeArea 兜底，不另设叠加 token） */
   floatingDockBottomMargin: number;
+  /**
+   * 钉底按钮条必须给悬浮 dock 让出的净空（vp）。
+   * 真机实测 dock 板 bounds [55,2340][1080,2515]，屏高 2690px ÷ 密度 3.125 →
+   * 屏底到 dock 顶边 = (2690-2340)/3.125 = 112vp。此前屏2 的「开始规划」钉底条
+   * 只留 md=16，被 dock 直接压住（实拍可见蓝条叠在按钮上）。
+   */
+  floatingDockClearance: number;
   /** 浮动 dock 左右距边 */
   floatingDockSideMargin: number;
   /** 通用底部滚动预留 */
@@ -115,6 +122,7 @@ export const LayoutTokens: LayoutTokensType = {
   tabBarHeight: 64,
   floatingDockWidth: 300,
   floatingDockBottomMargin: 28,
+  floatingDockClearance: 112,
   floatingDockSideMargin: 16,
   bottomScrollReserve: 94,
   hairlineWidth: 0.5,
