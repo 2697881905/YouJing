@@ -12,6 +12,7 @@
  */
 
 import { ActivityStatus, MealType } from '../model/Trip';
+import { CategoryStyle } from './CategoryStyle';
 import type { Activity, Trip, TripDay } from '../model/Trip';
 
 const LINE_MAX_BYTES: number = 74;
@@ -157,9 +158,25 @@ export class IcsBuilder {
   static plainSummary(trip: Trip): string {
     const out: string[] = [`${trip.destination} ${trip.startDate} ~ ${trip.endDate} · ` +
       `${trip.days.length}天${trip.days.length - 1}晚 · ${trip.people} 人`];
+    // #29：overview.summary 与 overview.highlights 是 AI 产出却没有任何落点。
+    // 分享文本是既有的输出面——行程"为什么这么排"本来就该跟着行程一起发出去
+    if (trip.overview.summary.length > 0) {
+      out.push(trip.overview.summary);
+    }
+    if (trip.overview.highlights.length > 0) {
+      out.push(`亮点：${trip.overview.highlights.join(' · ')}`);
+    }
     for (const day of trip.days) {
       out.push('');
-      out.push(`Day ${day.dayIndex} ${day.date} ${day.theme}`);
+      const pace: string = CategoryStyle.pace(day.intensity);
+      const cost: string = day.dailyCost > 0 ? `预估 ¥${day.dailyCost}` : '';
+      const tail: string = [pace, cost].filter((x: string): boolean => x.length > 0).join(' · ');
+      out.push(`Day ${day.dayIndex} ${day.date} ${day.theme}` +
+        (tail.length > 0 ? ` · ${tail}` : ''));
+      const risk: string = day.risk === undefined ? '' : day.risk;
+      if (risk.length > 0) {
+        out.push(`  ⚠ ${risk}`);
+      }
       for (const act of day.activities) {
         const mark: string = IcsBuilder.bookingNode(act) ? '（需预约）' : '';
         out.push(`  ${act.time} ${act.title}${mark}`);

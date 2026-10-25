@@ -102,6 +102,24 @@ export default function icsBuilderTest(): void {
       expect(IcsBuilder.plainSummary(noStay).includes('当晚住')).assertFalse();
     });
 
+    it('plain_summary_carries_ai_overview_fields', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+      // #29：summary / highlights / intensity / dailyCost 四项 AI 产出的落点
+      const t: Trip = fixture();
+      t.overview.summary = '先近后远，省两段打车。';
+      t.overview.highlights = ['清晨人少', '古街光影'];
+      t.days[0].dailyCost = 3000;
+      const txt: string = IcsBuilder.plainSummary(t);
+      expect(txt.includes('先近后远，省两段打车。')).assertTrue();
+      expect(txt.includes('亮点：清晨人少 · 古街光影')).assertTrue();
+      expect(txt.includes('Day 1 2026-07-01 东城 · 轻松 · 预估 ¥3000')).assertTrue();
+      expect(txt.includes('Day 2 2026-07-02 海淀 · 标准')).assertTrue();
+      t.days[0].risk = '周一故宫闭馆';
+      expect(IcsBuilder.plainSummary(t).includes('⚠ 周一故宫闭馆')).assertTrue();
+      const bare: Trip = fixture();
+      expect(bare.overview.summary.length === 0 &&
+        IcsBuilder.plainSummary(bare).includes('亮点：')).assertFalse();
+    });
+
     it('node_summary_is_one_node_only', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
       const t: Trip = fixture();
       const s: string = IcsBuilder.nodeSummary(t.days[0], t.days[0].activities[0]);

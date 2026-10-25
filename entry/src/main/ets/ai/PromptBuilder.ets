@@ -39,6 +39,7 @@ export class PromptBuilder {
     days.push('7. 金额一律整数人民币元；overview.totalCost 约等于各天 dailyCost 之和。');
     days.push('8. 每餐 meals[].time 给 HH:mm 用餐时刻（早餐 07:00–09:00、午餐 11:30–13:30、晚餐 17:30–20:30 之间取整），屏15 会把餐次与节点按时间并排。');
     days.push('9. 活动的 location 填「到访点位/入口别称」（如「山脚入口」「北门」「正殿前」），不得与 title 或 address 重复；没有明确入口信息时留空串。');
+    days.push('10. 某天确有明确风险才写 days[i].risk（闭馆日、雨季、需提前抢票等一句话）；没有风险就省略该字段，不要为凑字段编造风险。');
     days.push('JSON Schema:');
     days.push(TripSchema.TRIP_JSON_SCHEMA);
     return days.join('\n');

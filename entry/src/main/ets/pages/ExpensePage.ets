@@ -102,6 +102,8 @@ export struct ExpensePage {
   @Prop tripId: string = '';
   @State private seg: number = 0;
   @State private budgetTotal: number = 0;
+  /** AI 规划的整程预估（overview.totalCost，为 0 时按各天 dailyCost 累加） */
+  @State private plannedTotal: number = 0;
   /** 顶栏副标题：这页可能从「最近行程」兜底进来，必须写明看的是哪一趟 */
   @State private tripLabel: string = '';
   @State private spent: number = 0;
@@ -148,6 +150,11 @@ export struct ExpensePage {
       this.trip = trip;
       this.tripLabel = `${trip.destination} · ${trip.startDate} – ${trip.endDate}`;
       this.budgetTotal = trip.budget * trip.people;
+      let sumDays: number = 0;
+      for (const d of trip.days) {
+        sumDays += d.dailyCost;
+      }
+      this.plannedTotal = trip.overview.totalCost > 0 ? trip.overview.totalCost : sumDays;
       const span: number = DateUtils.spanDays(trip.startDate, trip.endDate);
       const passed: number = DateUtils.spanDays(trip.startDate, DateUtils.todayIso());
       this.daysLeft = Math.max(0, span - passed);
@@ -473,7 +480,11 @@ export struct ExpensePage {
                   .margin({ bottom: SpaceTokens.xs })
               }
               Text(this.seg === 0 ?
-                `预算 ${yuan(this.budgetTotal)} · ${this.trip === null ? 0 : this.trip.people} 人 · ` +
+                // 两个数量的是不同的东西：预算=人均×人数（用户给的），
+                // 后者=AI 各天 dailyCost 合计（真机核过 total_cost 540+540+460=1540）。
+                // 叫"规划预估"会让人以为整程只花这些，按口径直说
+                `预算 ${yuan(this.budgetTotal)} · 各天预估合计 ${yuan(this.plannedTotal)} · ` +
+                `${this.trip === null ? 0 : this.trip.people} 人 · ` +
                 `${this.trip === null ? 0 : this.trip.days.length} 天` :
                 `实际 ${yuan(this.spent)} · ${this.trip === null ? 0 : this.trip.people} 人 · ` +
                 `${this.trip === null ? 0 : this.trip.days.length} 天`)

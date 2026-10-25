@@ -17,6 +17,21 @@ export class CategoryStyle {
   static readonly ICON: string = 'icon';
   static readonly FAINT: string = 'faint';
 
+  /**
+   * 节奏档的中文标签（#29：`TripDay.intensity` 是 AI 产出，此前界面一处不显示）。
+   * 与屏3b 用户选项同一套词（QuestionFlowConfig：轻松/标准/紧凑），
+   * 认不出的值返空串而不是猜一个——宁缺不假。
+   */
+  static pace(level: string): string {
+    if (level === 'low') {
+      return '轻松';
+    }
+    if (level === 'medium') {
+      return '标准';
+    }
+    return level === 'high' ? '紧凑' : '';
+  }
+
   /** 认不出的类别一律按景点蓝，与屏8 时间线同一条兜底 */
   static colorName(cat: ActivityCategory): string {
     if (cat === ActivityCategory.FOOD) {

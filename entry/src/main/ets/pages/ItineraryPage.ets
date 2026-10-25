@@ -638,6 +638,16 @@ export struct ItineraryPage {
     .width('100%')
   }
 
+  /** 日标题右侧：主题 · 节奏（任一为空就只显另一个，不留悬空分隔符） */
+  private dayMetaLine(): string {
+    const day: TripDay = this.curDay();
+    const pace: string = CategoryStyle.pace(day.intensity);
+    const risk: string = day.risk === undefined ? '' : day.risk;
+    const parts: string[] = [day.theme, pace, risk].filter((x: string): boolean => x.length > 0);
+    return parts.join(' · ');
+  }
+
+
   /**
    * 日标题的日期后缀：空数据占位（date='————'）时不渲染日期段，
    * 避免出现「Day 1 · 日」这种切空串的残句
@@ -663,7 +673,7 @@ export struct ItineraryPage {
         .fontColor(ColorTokens.ink)
         .fontFeature("'tnum' on")
       Blank()
-      Text(this.curDay().theme)
+      Text(this.dayMetaLine())
         .fontSize(TypeTokens.caption.size)
         .fontWeight(450)
         .fontColor(ColorTokens.muted)
