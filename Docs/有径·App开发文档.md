@@ -430,6 +430,25 @@ WCAG 对比度。它只能从像素量：`uitest dumpLayout` 的节点里没有 
 平均进来（「分类支出」算成 2.88:1，真值 5.46:1）；被悬浮 dock 盖住的节点框内采不到笔画，
 会被当成 1:1 低对比，所以框内两向都无笔画时判「不可判」而不是报缺陷。
 深色档需要临时把 `EntryAbility` 的 `setColorMode` 钉成 DARK（验毕还原）。
+帧之外的另一条实测边界：本机 `snapshot_display` 只收 `.jpeg`（写 `.png` 直接
+`error: filename invalid`），而 jpeg 的色度噪声会把细笔画小字号的比值往下压——
+屏8 分段栏未选中的「Day 2 / Day 3」像素量到 4.46 / 4.50，而 `muted #69696E` 对
+`canvas #FFFFFF` 按官方色值精算明明是 **5.46:1**。所以 4.5 线附近的像素结论，
+一律要拿 color.json 的精确算法复核一遍再定性。
+
+`python3 tools/audit_material.py` 是第五把尺，管的不是"画出来对不对"而是**深度装置在不在它该在的地方**：
+契约 §1055 写死"这个 App 真正的深度设备只有 blur，且只有四处"（顶栏 / 浮动 dock / 吸顶日标题 / sheet·菜单），
+§1149 禁止把玻璃画进行程行、选项胶囊、理由块、卡片，§1150 要求材质接管时把自绘背景/描边/投影一起归零，
+§1161 禁止桌面卡片透明或模糊。四条都能机判，脚本因此分五查：
+① 四个点位是否各有实现站点（缺位且没写 `// 材质豁免：<理由>` 就报）；
+② 带材质的属性链上是否又叠了未门控的 `backgroundColor` / `border` / `shadow`；
+③ `widget/` 目录里出现任何模糊或材质即报；
+④ `new uiMaterial.ImmersiveMaterial(` 与 `deviceInfo.apiAvailable(` 只准住在
+`utils/immersiveMaterial.ets`（门禁外溢=低版本设备加载即崩的那条老路）；
+⑤ 顶栏磨砂半径对表契约 `glass-blur`。
+它一跑就抓到两处真漏做：屏8 的吸顶日标题和屏15 的「今日已打卡」吸顶行都还是实色。
+尺子本身也用种子验过——把已门控的底色改回实色、往 `widget/` 塞一处材质构造，
+四条规则分别报出 `[自绘叠加]` `[卡片禁玻璃]` `[门禁外溢]`，去掉种子后回到 0 偏差。
 当前状态：12 条路由两档全跑过——浅色 0 项；深色 1 项——dock 未选标签 3.59:1，而 `#97979E` 正是深色帧
 `.dock-label` 自己写的色，属契约层面的 AA 缺口，交用户定（任务 #28 第 ⑩ 条）。
 
@@ -537,6 +556,9 @@ WCAG 对比度。它只能从像素量：`uitest dumpLayout` 的节点里没有 
 | bindSheet 内容不随父组件 @State 重绘 | 面板显示过期真值（真机实测：时间线已换槽，屏10 仍停在打开那一刻的时间） | 改完数据即收起面板，重开读真值；不在面板里留一个不生效的刷新口子 |
 | 面板内做不出「实时置灰」 | 屏14 试过 `Toggle.enabled(this.syncCalendar)`：关掉日历同步后，提醒开关的置灰与文案都不变（@Builder 入参是值快照，面板内容又不随父 @State 重绘，两条叠在一起） | 依赖写进文案本身（"随日历同步写入"），落库时兜底 `remind = calendar ? remind : false` 并 toast 说明；不留一个只会骗人的禁用态 |
 | `uitest dumpLayout` 不导出 `accessibilityText` | 无障碍标签写了什么，dump 里查不到（整棵树只有 `accessibilityId`，`accessibilityText` 字段根本不出现），所以"标签是否被朗读"不能用 dump 验收 | 分组是否生效可以看旁证：`accessibilityGroup(true)` 后容器会多出一个 text 为子项合并（`预算, 实际`）的节点，改动前的同一组件没有这个节点；标签本身要真读屏（小艺朗读）验收 |
+| `systemMaterial` 挂在 `ListItemGroup` 的 sticky 组头上不出图 | 屏8 玻璃点位③第一次尝试走的是 dock 同款 `attributeModifier(barMaterial(ULTRA_THIN))`：`dumpLayout` 显示组头 Row 的 `backgroundColor` 已翻成 `#00000000`（分支确实生效），但带内被压住的内容字最暗像素仍是 **0**、和带外一模一样——材质层没画，只剩一个全透的栏，结果字压字 | 点位③落回官方组件级磨砂 `backgroundBlurStyle(BlurStyle.COMPONENT_THICK)`：同一滚动位置复量，带内内容字 min 从 0 升到 237、中间调占比 0.0%，栏体本身 244 对画布 255（一道轻烟，不是灰缝）。它同样是系统绘制的模糊层，不是自绘玻璃；第五把尺的载体白名单已认这条轨 |
+| 磨砂吸顶层会让"正在被压住的那一行"判成低对比 | 屏8 滚动态下 `13:15` 量到 1.04:1——它整行正从栏下滑过，字形被模糊掉了，这是吸顶栏应有的行为，不是配色失败 | 看这一行的**完整实例**再定性（同名节点取最优实例的逻辑已在尺内）；验收截图要么停在没被压住的位置，要么把该节点标注为遮挡 |
+| 本机 `snapshot_display` 只收 `.jpeg` | 写 `-f x.png` 直接 `error: filename invalid`，对比度尺的用法行却写着 `<screenshot.png>` | 采图一律 `.jpeg`；jpeg 色度噪声会压低细笔画小字号的比值（分段栏未选中档像素 4.46 vs 官方色值精算 5.46），4.5 线附近必须用 color.json 精算复核 |
 
 
 ## 九、命名决策记录

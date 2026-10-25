@@ -230,12 +230,16 @@ export struct OnTripPage {
 
   @Builder
   groupHeader() {
+    // 材质豁免：这条吸顶行住在卡片内（父 List 已 canvas 实色 + 圆角 clip），不是契约 §1024
+    // 指的那条满宽"日分隔"玻璃栏；给它上材质等于在卡片里开玻璃，违 §1149。
+    // 但它确实会压在滚动行上（sticky 无底板=文字叠文字），所以补一张与卡片同色的实底板。
     Text('今日已打卡')
       .fontSize(TypeTokens.overline.size)
       .fontWeight(600)
       .fontColor(ColorTokens.muted)
       .width('100%')
       .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.xs })
+      .backgroundColor(ColorTokens.canvas)
   }
 
   @Builder

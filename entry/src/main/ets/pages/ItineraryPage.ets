@@ -657,7 +657,12 @@ export struct ItineraryPage {
     .width('100%')
     .height(LayoutTokens.dayDividerHeight)
     .padding({ top: SpaceTokens.md })
-    .backgroundColor(ColorTokens.canvas)
+    // 玻璃点位③（契约 §1024 sticky 变体）：真机实测 systemMaterial 挂在 ListItemGroup
+    // 的 sticky 组头上不出图（带内内容字 min=0，与带外无差别），落回官方组件级磨砂
+    // backgroundBlurStyle(COMPONENT_THICK)——同样是系统绘制的模糊层，不是自绘玻璃。
+    // 顶部悬浮档不投影：栏下就是滚动内容，投影会画在行上。深色档沿用 dock 取舍，落回实色。
+    .backgroundBlurStyle(this.glassOn && !this.isDark ? BlurStyle.COMPONENT_THICK : BlurStyle.NONE)
+    .backgroundColor(this.glassOn && !this.isDark ? Color.Transparent : ColorTokens.canvas)
   }
 
   @Builder

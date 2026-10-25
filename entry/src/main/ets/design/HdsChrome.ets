@@ -33,8 +33,8 @@ import type {
 } from '@kit.UIDesignKit';
 import { ColorTokens } from './ColorTokens';
 
-/** 滚动后栏体磨砂半径（vp）；与有据「我的」页同档 */
-const BAR_BLUR_RADIUS: number = 18;
+/** 滚动后栏体磨砂半径（vp）：契约 layout.glass-blur = 24，四点位同一把尺 */
+const BAR_BLUR_RADIUS: number = 24;
 /** 模糊渐变终点：从 0 推到这段距离内完成"不糊→糊" */
 const DEFAULT_BLUR_END_VP: number = 32;
 

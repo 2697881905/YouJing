@@ -22,6 +22,25 @@
 所以界面没有承诺过"显示打卡时刻"。
 
 
+## 4e. 显示完整性复核（2026-10-25，真机 DB 取证，非脚本推断）
+
+§4d 问的是"字段有没有被 UI 读过"，本轮把问题反过来问一次：**屏8 时间线行与屏10 节点详情这两张表面，
+有没有哪个字段在真数据里明明有值、却因为渲染路径到不了而永远不上屏**。
+取证方式：`hdc file recv` 把设备上的 `youjing.db` + `-wal` + `-shm` 一起拉下来（只 attach .db 会漏掉 WAL
+里的新行），对 19 个测试行程的 **96 条 activity / 55 条 trip_day / 110 条 meal** 逐列统计填充率。
+
+| 结论 | 证据 | 处理 |
+|---|---|---|
+| 原假设「悬空分隔符」不成立，不改代码 | `TripParser.reqStr()` 对空串直接抛 `TYPE_GUARD_FAILED`，而 DB 里 59 条有通勤的 activity 中 `transport_mode`/`transport_detail` 空值 **0 条**，`address`/`location` 空值 **0 条** | 不给到不了的场景加兜底；`transitLeg()` 那行未门控的 `· ${detail}` 保持原样 |
+| `Activity.location` 是**零信息量字段**：96/96 行里它要么等于 `address`（82 行）要么等于 `title`（14 行），没有一行带独立信息 | `select sum(location=address), sum(location=title), count(*) from activity` → `82 \| 14 \| 96`；`where location<>address and location<>title` 返回 **0 行** | 帧 屏10 的地址槽写的是「京都市伏見区深芝藪町 68 · 山脚入口」＝ `address · 入口别称` 两段。现契约填不出第二段：提示词从没定义过 `location` 的语义，模型就照抄。要填只能扩 prompt（`location` 改指入口/点位别称），属阶段 1 契约改动，**等用户定**，不在显示层硬凑 |
+| `TripDay.accommodation` 55/55 全有值，但**全 App 没有一个消费方** | 填充率 55/55；`grep accommodation` 在 `ets/` 里只命中 `LlmClient.ets:138`（写入处）与数据层，界面/日历/卡片都不读 | 屏15 选的住宿区域在 App 内不显示，而 13 帧里"住宿"只作为**费用分类名**出现（屏11/屏13），没有任何一帧声明「今晚住 X」这一行 → 加行属新设计，进 §4b 待确认清单，不自作主张 |
+| `Meal` 有名字有价格（110/110 `estimated_cost>0`），屏15 帧却声明了一行 `07:40 早餐 ¥900 已打卡` | 帧文本抽出来是「07:40 / 早餐 / ¥900 / 已打卡」；`Meal` 只有 `type/name/location/note/estimatedCost`，**没有 `time`、没有 `id`** | 无 `time` 就没法和 activity 同列排序，无 `id` 就进不了 `checkin(trip_id, activity_id)` 那张表。要落实这行得同时扩两处契约 → 与 #29 同族，等用户定；本轮不拿 `type` 猜时刻、也不造合成主键 |
+| `TripDay.risk` 0/55、`Meal.note` 0/110 填充 → 界面不显示它们是**对的** | 同上两条 SQL | 不动。提示词没要求模型产这两项，显示层挂了也只会永远空 |
+
+一句话口径：这两张表面**没有"有值却没上屏"的渲染缺陷**；真正的缺口全在契约侧——
+`location` 语义未定义、`accommodation` 无落点、`Meal` 缺 `time`/`id`。三条都要动阶段 1 冻结契约，等用户拍。
+
+
 ## 1. 完成清单
 
 **目录骨架**（P1，`entry/src/main/ets/`）：pages / components / model / data / ai / mock / utils / design / common/{config, constants, error, logger}，职责与依赖方向见 `Docs/ARCHITECTURE.md`。
