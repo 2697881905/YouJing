@@ -23,6 +23,12 @@ export default class EntryAbility extends UIAbility {
 
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     Logger.info('EntryAbility', 'Ability onCreate');
+    // 深色档必须冷启就播种。isDarkMode 此前只在 onConfigurationUpdate 里写，
+    // 而那个回调只在配置**变化**时才来：直接以深色档冷启时它不来，
+    // 于是全仓 7 处 @StorageProp('isDarkMode') 一律按浅色走——
+    // 深色零阴影门控失效、底图不换暗色主题、分段栏选中底色与文字色分支整段跳过。
+    AppStorage.setOrCreate('isDarkMode',
+      this.context.config.colorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK);
     this.applyWant(want);
   }
 
