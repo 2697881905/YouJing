@@ -22,6 +22,22 @@
 所以界面没有承诺过"显示打卡时刻"。
 
 
+## 4f. 近四个提交的回归状态（2026-10-25，含一条被设备挡住的验证）
+
+`2cacbd5`（材质尺+吸顶）之后又落了 4 个提交：`47e695e` 字族尺与三处 serif 槽、
+`3517ed9` tnum 尺与三处数字表面、`85218cb` 卡片衬线的编译器原文、`ff0d5b8` 尺子白名单更正。
+**真机 hypium 回归（79 例）目前只跑到 `2cacbd5` 那一次**，这 4 个提交没有设备级用例证据：
+
+| 已验 | 未验（及原因） |
+|---|---|
+| 每个提交都过 pre-commit 构建闸（hvigor assembleHap debug）；六把静态尺在 HEAD 全部 exit 0；`47e695e` 的三处衬线改动有真机截图目视证据（屏15「颐和园」、屏10「故宫博物院」裁图已是宋体）；`85218cb` 有编译器报错原文 | `3517ed9` 之后的 4 个提交**未重跑 79 例**：设备处于锁屏，`aa test` 直接失败——`10106102 The device screen is locked during the application launch, unlock screen failed`，且"developer mode 下不能自动解锁"。这不是代码问题，需要真人解锁屏幕；不做绕开（不代输密码、不改开发者模式设置） |
+
+解锁后一条命令即可补验：
+`hdc shell "aa test -b com.youjing.app -m entry_test -s unittest OpenHarmonyTestRunner"`
+（本轮这 4 个提交只碰 UI 属性与 tools/文档，未动 `utils/`、`model/`、`data/` 里被用例覆盖的纯逻辑，
+所以用例预期仍绿——但**预期不等于证据**，跑过之前这条就挂着。）
+
+
 ## 4e. 显示完整性复核（2026-10-25，真机 DB 取证，非脚本推断）
 
 §4d 问的是"字段有没有被 UI 读过"，本轮把问题反过来问一次：**屏8 时间线行与屏10 节点详情这两张表面，
