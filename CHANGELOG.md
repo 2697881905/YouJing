@@ -6,8 +6,21 @@
 
 ### Added
 
+- 屏13 Widget B（2×4）终于与 Widget A 有差别（2026-10-25，真机 69/69 + 宽档探针截图）：
+  此前两种档位共用三行、只有内缩不同，2×4 多出来的高度是空的。帧 7fc1cb85 给 Widget B 另配了
+  四行 + `widget-route-strip`（编号站点条：24 圆格、11/600 数字、`route-line` 2vp 主线、
+  当前站实心蓝、待预约那格套 1px `#9A6206` 金环），实现里整块没有。现已落地：
+  `TodayPlan` 多给三个真值（`stopTotal` / `stopCurrent` / `stopBooking`，按**整日序号**算，
+  不是按卡片行号），`toCardData` 宽档用满四行、窄档截到三行并把站点条三个键显式写空串
+  （不写空会让切档后的卡片留着上一档的旧值），卡片侧用官方 `Circle`/`Column` 形状件画，
+  色档全部走既有 token（`surface_subtle`/`primary`/`bookmark`/`body`/`on_primary`），零自绘位图。
+  帧 footer 写的「步行 5.2km · 还剩 2 站」只落了后半句——模型里没有步行里程，不编。
+  验证分两层：数据通路进 hypium（新增 3 例，真机 69/69）；渲染用**临时**把宽档判定改真、
+  在已放置的 2×2 卡上截图（两格编号 + 蓝线正确，节点全走过时无实心格），看完立刻还原复装。
+  仍未做的一项：桌面上没有真的 2×4 卡位，宽档的**实际占位排版**还没在 2×4 槽里看过（需要用户手动添加）。
 - 三组回归用例 + 测试基线升到 66/66（2026-10-25）：`MapStops`（落点装配/usable 门禁/bounds/runs/signature）、
-  `TodayCard`（卡片 14 个键与 13+1 个 @LocalStorageProp 对齐、空槽不占行）、
+  `TodayCard`（卡片键集与 @LocalStorageProp 严格对齐、空槽不占行；键数随形态变，
+  2×4 加进第四行与站点条后为 20 个，见上一条）、
   `StyleConfig`（活动类型五对封闭映射 + 四题选项与模型枚举同源 + 默认值合法）；
   `DataSeeder` 扩到 8 组（坏 JSON/缺 id/缺 bk/陌生标签/脏枚举/可信度落库）。
   模板 `Ability.test` 删除。模拟器实测 `Tests run: 66, Failure: 0`。

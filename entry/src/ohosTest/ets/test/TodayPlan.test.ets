@@ -58,13 +58,33 @@ export default function todayPlanTest(): void {
       expect(p === null ? '' : p.meta).assertEqual('还剩 2 站 · 共 3 站');
     });
 
-    it('rows_prefer_upcoming_max_three', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+    it('rows_prefer_upcoming_max_four', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+      // 2×4 用满四行（帧 Widget B 的站点条是四格）；2×2 由卡片层截到三行
       const p: TodayPlanData | null = planOf([
         act('a0', '09:00', 'A', ActivityStatus.NO_NEED), act('a1', '11:00', 'B', ActivityStatus.NO_NEED),
         act('a2', '13:00', 'C', ActivityStatus.NO_NEED), act('a3', '15:00', 'D', ActivityStatus.NO_NEED),
         act('a4', '17:00', 'E', ActivityStatus.NO_NEED)], '08:30');
-      expect(p === null ? 0 : p.rows.length).assertEqual(3);
+      expect(p === null ? 0 : p.rows.length).assertEqual(4);
       expect(p === null ? '' : p.rows[2].time).assertEqual('13:00');
+      expect(p === null ? '' : p.rows[3].time).assertEqual('15:00');
+    });
+
+    it('strip_indices_follow_day_order', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+      // 站点条要按「整日第几站」定位，不是按卡片行号：09:00 已走过，下一站是第 2 格
+      const p: TodayPlanData | null = planOf([
+        act('a', '09:00', 'A', ActivityStatus.NO_NEED),
+        act('b', '11:00', 'B', ActivityStatus.NOT_BOOKED),
+        act('c', '13:00', 'C', ActivityStatus.NO_NEED),
+        act('d', '15:00', 'D', ActivityStatus.PENDING),
+        act('e', '17:00', 'E', ActivityStatus.NO_NEED)], '10:00');
+      expect(p === null ? 0 : p.stopTotal).assertEqual(5);
+      expect(p === null ? 0 : p.stopCurrent).assertEqual(2);
+      expect(p === null ? 0 : p.stopBooking).assertEqual(2);
+      const done: TodayPlanData | null = planOf([
+        act('a', '09:00', 'A', ActivityStatus.NO_NEED),
+        act('b', '11:00', 'B', ActivityStatus.NOT_BOOKED)], '13:00');
+      expect(done === null ? 0 : done.stopCurrent).assertEqual(0);
+      expect(done === null ? 0 : done.stopBooking).assertEqual(0);
     });
 
     it('row_dot_follows_category_not_position', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
@@ -88,7 +108,7 @@ export default function todayPlanTest(): void {
       const p: TodayPlanData | null = planOf([
         act('a0', '09:00', 'A', ActivityStatus.NO_NEED), act('a1', '18:00', 'B', ActivityStatus.NO_NEED),
         act('a2', '19:00', 'C', ActivityStatus.NO_NEED), act('a3', '20:00', 'D', ActivityStatus.NO_NEED)], '18:30');
-      expect(p === null ? 0 : p.rows.length).assertEqual(3);
+      expect(p === null ? 0 : p.rows.length).assertEqual(4);
       expect(p === null ? '' : p.rows[0].name).assertEqual('A');
     });
 

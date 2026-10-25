@@ -5,7 +5,9 @@
  * 口径全部取行程真值，没有的字段不编：
  * - dayTitle：Day N · M月D日
  * - meta：还剩 N 站 · 共 M 站（按当前时刻与活动开始时间比较）
- * - rows：优先未开始的节点，最多 3 条
+ * - rows：优先未开始的节点，最多 4 条（2×2 由卡片层截到 3 条，2×4 用满 4 条）
+ * - stopTotal / stopCurrent：当日节点总数与「下一站」在整日序列里的 1-based 序号，
+ *   供 2×4 的编号站点条使用；全部已开始时 stopCurrent 记 0
  * - footer：剩余需预约节点数 + 最晚一个节点的开始时刻；无则「今日无需预约节点」
  */
 
@@ -26,9 +28,16 @@ export interface TodayPlanData {
   meta: string;
   footer: string;
   rows: CardRowData[];
+  /** 当日节点总数（2×4 编号站点条的格数） */
+  stopTotal: number;
+  /** 下一站在整日序列里的 1-based 序号；全部已开始时为 0 */
+  stopCurrent: number;
+  /** 最近一个「还需预约」节点的 1-based 序号（帧 Widget B 上那圈金色描边）；没有则 0 */
+  stopBooking: number;
 }
 
-const MAX_ROWS: number = 3;
+/** 2×4 用满 4 行；2×2 由卡片层截到 3 行（帧 Widget A 只有三行） */
+const MAX_ROWS: number = 4;
 
 function cnDate(iso: string): string {
   const parts: string[] = iso.split('-');
@@ -86,9 +95,22 @@ export class TodayPlan {
       dayTitle: `Day ${day.dayIndex} · ${cnDate(day.date)}`,
       meta: `还剩 ${upcoming.length} 站 · 共 ${day.activities.length} 站`,
       footer: footer,
-      rows: rows
+      rows: rows,
+      stopTotal: day.activities.length,
+      stopCurrent: TodayPlan.currentIndexOf(day, (a: Activity): boolean => a.time >= nowHHmm),
+      stopBooking: TodayPlan.currentIndexOf(day, (a: Activity): boolean => a.time >= nowHHmm && pendingBooking(a))
     };
     return plan;
+  }
+
+  /** 命中条件的首个节点在当日序列里的 1-based 序号；没有命中则返回 0 */
+  static currentIndexOf(day: TripDay, hit: (a: Activity) => boolean): number {
+    for (let i = 0; i < day.activities.length; i++) {
+      if (hit(day.activities[i])) {
+        return i + 1;
+      }
+    }
+    return 0;
   }
 
   static nowHHmm(): string {

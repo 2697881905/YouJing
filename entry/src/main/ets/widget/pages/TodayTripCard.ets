@@ -19,6 +19,13 @@ interface CardRow {
   color: string;
 }
 
+/** 2×4 编号站点条的一格（帧 .route-node / .current / .gold-ring） */
+interface StripNode {
+  label: string;
+  current: boolean;
+  booking: boolean;
+}
+
 @Entry(cardStorage)
 @Component
 struct TodayTripCard {
@@ -36,7 +43,41 @@ struct TodayTripCard {
   @LocalStorageProp('r3t') r3t: string = '';
   @LocalStorageProp('r3n') r3n: string = '';
   @LocalStorageProp('r3c') r3c: string = '';
+  @LocalStorageProp('r4t') r4t: string = '';
+  @LocalStorageProp('r4n') r4n: string = '';
+  @LocalStorageProp('r4c') r4c: string = '';
+  // 2×4 的编号站点条（2×2 这三个键恒为空串 → 不渲染）
+  @LocalStorageProp('stopTotal') stopTotal: string = '';
+  @LocalStorageProp('stopCurrent') stopCurrent: string = '';
+  @LocalStorageProp('stopBooking') stopBooking: string = '';
   @LocalStorageProp('tripId') tripId: string = '';
+
+  private num(v: string): number {
+    const n: number = Number(v);
+    return Number.isNaN(n) ? 0 : n;
+  }
+
+  /** 帧 Widget B 的站点条最多四格；当日节点更多时末格记 …（不假装是第四站） */
+  private stripNodes(): StripNode[] {
+    const total: number = this.num(this.stopTotal);
+    const nodes: StripNode[] = [];
+    if (total <= 0) {
+      return nodes;
+    }
+    const shown: number = Math.min(total, 4);
+    const cur: number = this.num(this.stopCurrent);
+    const book: number = this.num(this.stopBooking);
+    for (let i = 0; i < shown; i++) {
+      const idx: number = i + 1;
+      const node: StripNode = {
+        label: idx === shown && total > shown ? '…' : `${idx}`,
+        current: idx === cur,
+        booking: idx === book
+      };
+      nodes.push(node);
+    }
+    return nodes;
+  }
 
   /**
    * 色名 → 资源。名字由 CategoryStyle 按活动类别给（与屏8 时间线同一口径），
@@ -62,9 +103,9 @@ struct TodayTripCard {
 
   /** 逐格标量回灌（卡片数组 @LocalStorageProp 不刷新），空槽不占行 */
   private cardRows(): CardRow[] {
-    const times: string[] = [this.r1t, this.r2t, this.r3t];
-    const names: string[] = [this.r1n, this.r2n, this.r3n];
-    const colors: string[] = [this.r1c, this.r2c, this.r3c];
+    const times: string[] = [this.r1t, this.r2t, this.r3t, this.r4t];
+    const names: string[] = [this.r1n, this.r2n, this.r3n, this.r4n];
+    const colors: string[] = [this.r1c, this.r2c, this.r3c, this.r4c];
     const rows: CardRow[] = [];
     for (let i = 0; i < times.length; i++) {
       if (names[i].length > 0) {
@@ -130,6 +171,39 @@ struct TodayTripCard {
       }
       .width('100%')
       .margin({ top: SpaceTokens.xs })
+
+      // 帧 Widget B 独有：编号站点条（当前站实心蓝、最近一个待预约节点套金环）
+      if (this.stripNodes().length > 0) {
+        Stack() {
+          Column()
+            .width('100%')
+            .height(LayoutTokens.routeLineWidth)
+            .backgroundColor($r('app.color.primary'))
+            .margin({ left: SpaceTokens.md, right: SpaceTokens.md })
+          Row() {
+            ForEach(this.stripNodes(), (n: StripNode) => {
+              Stack() {
+                Circle()
+                  .width(LayoutTokens.itineraryNodeSize)
+                  .height(LayoutTokens.itineraryNodeSize)
+                  .fill(n.current ? $r('app.color.primary') : $r('app.color.surface_subtle'))
+                  .stroke(n.booking ? $r('app.color.bookmark') : Color.Transparent)
+                  .strokeWidth(1)
+                Text(n.label)
+                  .fontSize(TypeTokens.overline.size)
+                  .fontWeight(TypeTokens.overline.weight)
+                  .fontColor(n.current ? $r('app.color.on_primary') : $r('app.color.body'))
+                  .fontFeature("'tnum' on")
+              }
+            }, (n: StripNode): string => `s-${n.label}-${n.current}-${n.booking}`)
+          }
+          .width('100%')
+          .justifyContent(FlexAlign.SpaceBetween)
+        }
+        .width('100%')
+        .alignContent(Alignment.Center)
+        .margin({ top: SpaceTokens.xs })
+      }
 
       Text(this.footer)
         .fontSize(TypeTokens.widgetMeta.size)

@@ -10,38 +10,56 @@ import { formBindingData, formProvider } from '@kit.FormKit';
 import { Logger } from '../common/logger/Logger';
 import { TripDao } from '../data/TripDao';
 import { CalendarSync } from '../data/CalendarSync';
-import { TodayPlanData } from '../data/TodayPlan';
+import { CardRowData, TodayPlanData } from '../data/TodayPlan';
 
 const TAG: string = 'Widget.TodayCard';
 export const WIDGET_DIM_PREFS: string = 'widget_form_dims';
 export const DIM_KEY_2X2: string = '2*2';
 export const DIM_KEY_2X4: string = '2*4';
 
+/**
+ * 卡片键集 = 帧屏13 的两块形态所需：抬头/标题/meta/三行（2×2）或四行 + 编号站点条（2×4）/footer。
+ * 2×2 时 r4* 与站点条两个键一律给空串，卡片按空串不渲染——不是留白，是这条形态帧里就没有。
+ */
 export function emptyCardData(dimension: string): Record<string, string> {
   const data: Record<string, string> = {
     'dayTitle': '今天没有行程安排', 'meta': '', 'footer': '生成行程后自动出现在这里',
     'r1t': '', 'r1n': '', 'r1c': '', 'r2t': '', 'r2n': '', 'r2c': '', 'r3t': '', 'r3n': '', 'r3c': '',
+    'r4t': '', 'r4n': '', 'r4c': '',
+    'stopTotal': '', 'stopCurrent': '', 'stopBooking': '',
     'tripId': '',
     'dimension': dimension
   };
   return data;
 }
 
+/** 2×2 只放得下三行（帧 Widget A 就是三行），2×4 用满四行并带编号站点条 */
+const SMALL_ROWS: number = 3;
+
+function rowKeys(rows: CardRowData[], data: Record<string, string>): void {
+  for (let i = 0; i < 4; i++) {
+    const n: string = `${i + 1}`;
+    const has: boolean = i < rows.length;
+    data[`r${n}t`] = has ? rows[i].time : '';
+    data[`r${n}n`] = has ? rows[i].name : '';
+    data[`r${n}c`] = has ? rows[i].dot : '';
+  }
+}
+
 export function toCardData(plan: TodayPlanData, dimension: string): Record<string, string> {
+  const wide: boolean = dimension === DIM_KEY_2X4;
+  const rows: CardRowData[] = wide ? plan.rows : plan.rows.slice(0, SMALL_ROWS);
   const data: Record<string, string> = {
     'dayTitle': plan.dayTitle, 'meta': plan.meta, 'footer': plan.footer,
-    'r1t': plan.rows.length > 0 ? plan.rows[0].time : '',
-    'r1n': plan.rows.length > 0 ? plan.rows[0].name : '',
-    'r1c': plan.rows.length > 0 ? plan.rows[0].dot : '',
-    'r2t': plan.rows.length > 1 ? plan.rows[1].time : '',
-    'r2n': plan.rows.length > 1 ? plan.rows[1].name : '',
-    'r2c': plan.rows.length > 1 ? plan.rows[1].dot : '',
-    'r3t': plan.rows.length > 2 ? plan.rows[2].time : '',
-    'r3n': plan.rows.length > 2 ? plan.rows[2].name : '',
-    'r3c': plan.rows.length > 2 ? plan.rows[2].dot : '',
+    'r1t': '', 'r1n': '', 'r1c': '', 'r2t': '', 'r2n': '', 'r2c': '', 'r3t': '', 'r3n': '', 'r3c': '',
+    'r4t': '', 'r4n': '', 'r4c': '',
+    'stopTotal': wide ? `${plan.stopTotal}` : '',
+    'stopCurrent': wide ? `${plan.stopCurrent}` : '',
+    'stopBooking': wide ? `${plan.stopBooking}` : '',
     'tripId': plan.tripId,
     'dimension': dimension
   };
+  rowKeys(rows, data);
   return data;
 }
 
