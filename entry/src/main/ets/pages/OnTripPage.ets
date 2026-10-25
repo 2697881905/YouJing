@@ -17,7 +17,7 @@ import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { FloatingDock } from '../components/FloatingDock';
 import { ImmersiveSurface } from '../components/ImmersiveSurface';
-import { Activity, ActivityStatus, Trip, TripDay } from '../model/Trip';
+import { Activity, ActivityStatus, MealType, Trip, TripDay } from '../model/Trip';
 import { TripDao } from '../data/TripDao';
 import { CheckinDao } from '../data/CheckinDao';
 import { ExpenseDao } from '../data/ExpenseDao';
@@ -27,6 +27,31 @@ import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
+
+/**
+ * 当日站点：活动 ∪ 餐次（屏15 帧把「07:40 早餐 ¥900 已打卡」和节点排在同一列里）。
+ * 餐次可能没有时刻（AI 可省略、存量行程也没有），那种情况排序按餐次档位、
+ * 显示留空——不拿 08:00 这类假时刻填进界面。
+ */
+interface DayStop {
+  /** 打卡主键：活动用 Activity.id，餐次用派生 key `meal-{dayIndex}-{type}` */
+  key: string;
+  /** 界面上显示的时刻；无时刻的餐次为 '' */
+  time: string;
+  /** 排位用的分钟数（无时刻的餐次按早/午/晚档位给槽位） */
+  sortMin: number;
+  title: string;
+  endTime: string;
+  note: string;
+  place: string;
+  isMeal: boolean;
+  cost: number;
+  status: ActivityStatus | null;
+  transportMode: string;
+  transportMin: number;
+  transportDetail: string;
+  hasTransport: boolean;
+}
 
 interface CheckedRow {
   time: string;
@@ -60,8 +85,8 @@ export struct OnTripPage {
   private pathStack: NavPathStack = APP_NAV;
   @Prop tripId: string = '';
   @State private rows: CheckedRow[] = [];
-  @State private current: Activity | null = null;
-  @State private next: Activity | null = null;
+  @State private current: DayStop | null = null;
+  @State private next: DayStop | null = null;
   @State private checkedIn: boolean = false;
   @State private elapsedMin: number = 0;
   @State private totalMin: number = 0;
@@ -99,36 +124,90 @@ export struct OnTripPage {
         return CheckinDao.listForTrip(context, trip.id);
       }
       this.dayLabel = `进行中 · Day ${day.dayIndex}`;
-      const acts: Activity[] = day.activities;
+      const stops: DayStop[] = this.buildStops(day);
       let cur: number = -1;
-      for (let i = 0; i < acts.length; i++) {
-        if (minutesOf(acts[i].time) <= minutesOf(now)) {
+      for (let i = 0; i < stops.length; i++) {
+        if (stops[i].sortMin <= minutesOf(now)) {
           cur = i;
         }
       }
       if (cur < 0) {
         cur = 0;
       }
-      this.current = acts[cur];
-      this.next = cur + 1 < acts.length ? acts[cur + 1] : null;
-      const start: number = minutesOf(acts[cur].time);
-      const end: number = Math.max(start + 1, minutesOf(acts[cur].endTime));
-      this.totalMin = end - start;
-      this.elapsedMin = Math.max(0, Math.min(this.totalMin, minutesOf(now) - start));
-      if (this.next !== null && this.next.transport !== undefined) {
-        const t = this.next.transport;
-        this.nextLeg = `${t.mode} ${t.duration}分钟${t.detail.length > 0 ? ` · ${t.detail}` : ''}`;
+      this.current = stops[cur];
+      this.next = cur + 1 < stops.length ? stops[cur + 1] : null;
+      // 进度条只在"这一站有结束时刻"时给：餐次没有 endTime，不拿一小时假装它的窗口
+      const curStop: DayStop = stops[cur];
+      if (!curStop.isMeal && curStop.endTime.length > 0) {
+        const start: number = curStop.sortMin;
+        const end: number = Math.max(start + 1, minutesOf(curStop.endTime));
+        this.totalMin = end - start;
+        this.elapsedMin = Math.max(0, Math.min(this.totalMin, minutesOf(now) - start));
       } else {
-        this.nextLeg = '';
+        this.totalMin = 0;
+        this.elapsedMin = 0;
       }
+      const nx: DayStop | null = this.next;
+      this.nextLeg = nx !== null && nx.hasTransport
+        ? `${nx.transportMode} ${nx.transportMin}分钟${nx.transportDetail.length > 0 ? ` · ${nx.transportDetail}` : ''}`
+        : '';
       return CheckinDao.listForTrip(context, trip.id);
     }).then((marks: Record<string, number>): Promise<Record<string, number>> => {
-      const cur: Activity | null = this.current;
-      this.checkedIn = cur !== null && marks[cur.id] !== undefined;
+      const cur: DayStop | null = this.current;
+      this.checkedIn = cur !== null && marks[cur.key] !== undefined;
       return this.buildRows(marks);
     }).catch((err: Error) => {
       Logger.error('Ui.OnTrip', `加载失败: ${err.message}`);
     });
+  }
+
+  /** 一餐的稳定身份：一天一餐次唯一，打卡与 ForEach key 都用它，不新增数据库列 */
+  private mealKey(dayIndex: number, type: MealType): string {
+    return `meal-${dayIndex}-${type}`;
+  }
+
+  /** 无时刻餐次的排位档位（只用于排序，不进界面） */
+  private mealSlot(type: MealType): number {
+    if (type === MealType.BREAKFAST) {
+      return 8 * 60;
+    }
+    return type === MealType.LUNCH ? 12 * 60 : 18 * 60;
+  }
+
+  private mealLabel(type: MealType): string {
+    if (type === MealType.BREAKFAST) {
+      return '早餐';
+    }
+    return type === MealType.LUNCH ? '午餐' : '晚餐';
+  }
+
+  /** 活动 ∪ 餐次，按时间并排 */
+  private buildStops(day: TripDay): DayStop[] {
+    const stops: DayStop[] = [];
+    for (const a of day.activities) {
+      const t = a.transport;
+      stops.push({
+        key: a.id, time: a.time, sortMin: minutesOf(a.time), title: a.title,
+        endTime: a.endTime, note: a.note === undefined ? '' : a.note,
+        place: a.address.length > 0 ? a.address : a.location, isMeal: false, cost: 0,
+        status: a.status, transportMode: t === undefined ? '' : t.mode,
+        transportMin: t === undefined ? 0 : t.duration,
+        transportDetail: t === undefined ? '' : t.detail, hasTransport: t !== undefined
+      });
+    }
+    for (const m of day.meals) {
+      const shown: string = m.time === undefined ? '' : m.time;
+      stops.push({
+        key: this.mealKey(day.dayIndex, m.type), time: shown,
+        sortMin: shown.length > 0 ? minutesOf(shown) : this.mealSlot(m.type),
+        title: this.mealLabel(m.type), endTime: '', note: '',
+        place: m.location, isMeal: true, cost: m.estimatedCost,
+        status: null, transportMode: '', transportMin: 0, transportDetail: '',
+        hasTransport: false
+      });
+    }
+    stops.sort((x: DayStop, y: DayStop): number => x.sortMin - y.sortMin);
+    return stops;
   }
 
   /** 今天落在行程区间内就取那天；不在区间（提前查看/回放）取第一天 */
@@ -156,14 +235,17 @@ export struct OnTripPage {
       .then((sums: Record<string, number>): Record<string, number> => {
         const list: CheckedRow[] = [];
         if (day !== null) {
-          for (const a of day.activities) {
-            if (marks[a.id] === undefined) {
+          for (const st of this.buildStops(day)) {
+            if (marks[st.key] === undefined) {
               continue;
             }
-            const paid: number | undefined = sums[a.id];
+            const paid: number | undefined = sums[st.key];
+            const shown: number | undefined = paid === undefined ? (st.isMeal && st.cost > 0 ? st.cost : undefined) : paid;
             const row: CheckedRow = {
-              time: a.time, name: a.title,
-              amount: paid === undefined ? '' : `¥${paid}`,
+              // 无时刻的餐次拿餐次名占住时间槽，不编 08:00 这种假时刻
+              time: st.time.length > 0 ? st.time : st.title,
+              name: st.isMeal && st.time.length > 0 ? st.title : st.title,
+              amount: shown === undefined ? '' : `¥${shown}`,
               ongoing: false
             };
             list.push(row);
@@ -175,14 +257,14 @@ export struct OnTripPage {
   }
 
   private toggleCheckin(): void {
-    const cur: Activity | null = this.current;
+    const cur: DayStop | null = this.current;
     const trip: Trip | null = this.trip;
     if (cur === null || trip === null) {
       this.toast('当前无节点');
       return;
     }
     const target: boolean = !this.checkedIn;
-    CheckinDao.set(this.ctx(), trip.id, cur.id, target).then((): void => {
+    CheckinDao.set(this.ctx(), trip.id, cur.key, target).then((): void => {
       this.checkedIn = target;
       this.reload();
       this.toast(target ? `已打卡 ${cur.title}` : '已取消打卡');
@@ -197,9 +279,13 @@ export struct OnTripPage {
   }
 
   private heroMeta(): string {
-    const cur: Activity | null = this.current;
+    const cur: DayStop | null = this.current;
     if (cur === null) {
       return '今日暂无安排';
+    }
+    if (cur.isMeal) {
+      return cur.cost > 0 ? `${cur.time.length > 0 ? `${cur.time} · ` : ''}预估 ¥${cur.cost}`
+        : (cur.time.length > 0 ? cur.time : '用餐');
     }
     return `${cur.time} 开始 · 建议 ${hoursText(cur.time, cur.endTime)}小时 · 已过 ${this.elapsedMin}分钟`;
   }
@@ -209,23 +295,27 @@ export struct OnTripPage {
   }
 
   private nextTitle(): string {
-    const next: Activity | null = this.next;
+    const next: DayStop | null = this.next;
     return next === null ? '' : next.title;
   }
 
   private nextNeedsBooking(): boolean {
-    const next: Activity | null = this.next;
-    return next !== null && (next.status === ActivityStatus.NOT_BOOKED ||
+    const next: DayStop | null = this.next;
+    return next !== null && next.status !== null && (next.status === ActivityStatus.NOT_BOOKED ||
       next.status === ActivityStatus.PENDING || next.status === ActivityStatus.FULL);
   }
 
   private nextMeta(): string {
-    const next: Activity | null = this.next;
+    const next: DayStop | null = this.next;
     if (next === null) {
       return '';
     }
-    const place: string = next.address.length > 0 ? next.address : next.location;
-    return `建议停留 ${hoursText(next.time, next.endTime)}小时 · ${place}`;
+    if (next.isMeal) {
+      // 一餐没有"停留建议"（模型不给 endTime），只报地点与预估，不编时长
+      const cost: string = next.cost > 0 ? ` ¥${next.cost}` : '';
+      return `${next.place.length > 0 ? `${next.place}${cost}` : `预估${cost}`}`;
+    }
+    return `建议停留 ${hoursText(next.time, next.endTime)}小时 · ${next.place}`;
   }
 
   @Builder
@@ -361,7 +451,7 @@ export struct OnTripPage {
                   .border({ width: { left: LayoutTokens.routeLineWidth }, color: ColorTokens.separator, style: BorderStyle.Dashed })
                 Row({ space: SpaceTokens.xs }) {
                   // 按下一段的真实模式取图标（原来是写死的汽车，地铁/公交段会显示错图标）
-                  SymbolGlyph(TransitSymbol.of(this.next.transport === undefined ? '' : this.next.transport.mode))
+                  SymbolGlyph(TransitSymbol.of(this.next.transportMode))
                     .fontSize(IconSizes.control)
                     .fontColor([ColorTokens.icon])
                   Text(this.nextLeg)
