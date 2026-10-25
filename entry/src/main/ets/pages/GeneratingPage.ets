@@ -152,7 +152,7 @@ export struct GeneratingPage {
             .fontWeight(700)
             .fontFamily(TypeTokens.title.family)
             .fontColor(ColorTokens.ink)
-          Text(`已选好 ${PlanDraft.get().selectedSpots.length} 个景点 · 1 个住宿区域`)
+          Text(`已选好 ${PlanDraft.get().selectedSpots.length} 个景点 · ${this.areaCount()} 个住宿区域`)
             .fontSize(TypeTokens.caption.size)
             .fontWeight(450)
             .fontColor(ColorTokens.muted)
@@ -243,5 +243,14 @@ export struct GeneratingPage {
   private daysCount(): number {
     const b: TripBasicInput = PlanDraft.get().basic;
     return DateUtils.spanDays(b.startDate, b.endDate);
+  }
+
+  /**
+   * 住宿区域个数取草稿真值。原来这里写死「1 个住宿区域」（帧的 mock 是 2 个），
+   * 深链直启或用户没走完屏5 时会报出一个不存在的已选区域。
+   * 模型里 selectedArea 是单个（不是多选），所以这个数最多是 1。
+   */
+  private areaCount(): number {
+    return PlanDraft.get().selectedArea.areaId.length > 0 ? 1 : 0;
   }
 }
