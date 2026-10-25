@@ -4,7 +4,13 @@
  * 深色 #1E1E1E）；字阶走 TypeTokens（帧的 widget 字阶 11/600、12/600、14/400、11/400
  * 分别落在 overline / time / small / widgetMeta 四档上）；
  * 2×2 内缩 12 / 2×4 内缩 16（LayoutTokens）。
- * serif 在卡片 UIContext 无法注册应用字体，标题暂走 sans 600（精修批次验证卡片字体通道）。
+ *
+ * 衬线通道（屏13 帧的日标签是 .serif-title 21/700）：**卡片进程注册自定义字体这条路
+ * 被编译器封死**——实测 11706006 三连报错：'getUIContext' / 'getFont' / 'registerFont'
+ * 全部 can't support form application（TodayTripCard.ets 里写 aboutToAppear 注册即编译失败）。
+ * 所以应用字体这条通道在卡片里是**关的**（旧注释写"无法注册"是猜的，现在有编译器原文为证）。
+ * 唯一未试的通道是通用字族 `.fontFamily('serif')`（不需要注册），但它落到哪个字面
+ * 没实拍验证过，就先不写进代码——宁缺不假。
  */
 
 import { TypeTokens } from '../../design/TypeTokens';
@@ -128,9 +134,9 @@ struct TodayTripCard {
       .width('100%')
 
       Text(this.dayTitle)
-        // 帧 7fc1cb85 的卡片日标签是 .serif-title 21/700；字族暂留 sans——
-        // Noto Serif SC 是 EntryAbility 里 registerFont 的，FormExtension 卡片进程不共享那次注册，
-        // 要真上衬线得在卡片进程里再注册一遍并回桌面实拍验证（见任务 #37）。
+        // 帧 7fc1cb85 的卡片日标签是 .serif-title 21/700。档位已对齐；
+        // 衬线在卡片里拿不到：注册通道被编译器封死（见文件头），通用字族 'serif' 是否
+        // 落到系统宋体未实拍验证过，不写没验过的属性。
         .fontSize(TypeTokens.title.size)
         .fontWeight(TypeTokens.title.weight)
         .fontColor($r('app.color.ink'))

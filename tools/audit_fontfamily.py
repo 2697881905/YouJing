@@ -37,10 +37,7 @@ TOKEN_TIER = {'display': 'display', 'title': 'title'}
 
 # display/title 档挂在链上却没带 fontFamily 的白名单（必须写理由）
 FAMILY_SKIP = {
-    ('entry/src/main/ets/widget/pages/TodayTripCard.ets', 'title'):
-        '帧 7fc1cb85 的卡片日标签是 .serif-title 21/700，档位已对齐；衬线暂不带——'
-        'Noto Serif SC 由 EntryAbility registerFont，FormExtension 卡片进程不共享该注册，'
-        '需重注册并回桌面实拍验证（任务 #37）',
+
     ('entry/src/main/ets/pages/ExpensePage.ets', 'display'):
         '契约 §typography 备注：金额 hero 与 display 同档但 family 换 sans（DESIGN hierarchy '
         '另有 display-sans 一档），此处是 ¥ 金额，不是编辑体标题',
@@ -68,8 +65,9 @@ SERIF_SLOTS = [
 # 帧声明但工程上暂缺的槽：报告不卡构建，理由写死在这里
 SLOT_PENDING = {
     ('屏13', 'Day 2 · 6月11日（卡片日标签 21/700 serif）'):
-        '档位已对齐 21/700；衬线未上——Noto Serif SC 在 EntryAbility 里 registerFont，'
-        'FormExtension 卡片进程不共享那次注册，需在卡片进程重注册并回桌面实拍验证（任务 #37）',
+        '档位已对齐 21/700；衬线拿不到：卡片里 getUIContext/getFont/registerFont '
+        "被编译器 11706006 判 can't support form application（实测三连报错），"
+        '应用字体通道在卡片里是关的；通用字族 serif 未实拍，不写没验过的属性（任务 #37）',
 }
 
 

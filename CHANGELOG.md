@@ -6,6 +6,16 @@
 
 ### Changed
 
+- 屏13 卡片衬线：把一条**未证的断言换成实测结论**（2026-10-25，任务 #37 收口一半）。
+  卡片头注释原先写「serif 在卡片 UIContext 无法注册应用字体」——那是当初没做实验下的结论。
+  本轮真去写 `this.getUIContext().getFont().registerFont(...)`，编译直接失败并给出原文：
+  `11706006 can't support form application` 三连（`getUIContext` / `getFont` / `registerFont`，
+  TodayTripCard.ets:39）。结论方向对，但从此有编译器背书，注释已换成引用报错原文。
+  唯一没试的通道是通用字族 `.fontFamily('serif')`（不需要注册）；本轮试过一版，
+  但桌面实拍没拿到（回桌面时整屏黑、卡片不在当前页，`hdc install` 还把守护进程卡住了一次，
+  重连恢复），**没验过的属性不留在代码里**，已撤回，档位 21/700 保留。
+  第六把尺 `SLOT_PENDING` 的理由同步改成这条实测口径。
+
 - 第七把尺上线（tnum 等宽数字轴），补齐三处数字表面（2026-10-25）：契约 §typography 明写
   「tnum for every numeral: times, durations, distances, step counts」，而 ArkUI 要逐条属性链显式写
   `.fontFeature("'tnum' on")`，漏一处只会让同一列数字错开半格，不报错、不改字号。
