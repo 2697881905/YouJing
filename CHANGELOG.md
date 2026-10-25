@@ -6,6 +6,17 @@
 
 ### Changed
 
+- #36 第①条落地（2026-10-25，用户「都要做」授权）：`Activity.location` 从"零信息量字段"变成有定义的字段。
+  提示词新增第 8 条规则：`location` 填「到访点位/入口别称」（如「山脚入口」「北门」），
+  不得与 title 或 address 重复，没有入口信息时留空串；屏10 地址槽按帧 471fcea9 组成
+  「address · 别称」两段，并对旧数据做去重降级（`spot === addr || spot === title || addr.includes(spot)`
+  时只显示地址）——真机 DB 实测旧行程 96/96 行的 location 就是 address 或 title 的副本，
+  不判重复就会渲染成「北京 东城区 · 故宫博物院」。
+  规则插入位置修过一次：第一版按"最后一条 push"定位，把第 8 条放到了 JSON Schema 之后，
+  现回到第 7 条之后（1..8 → JSON Schema → schema 正文）。
+  验证：构建闸过、真机 **79/79**（ohosTest 包现构建现装机现跑）。
+  剩余：#36 第②条（accommodation 落点，帧未声明该槽，需新界面决定）、第③条（Meal 补 time/id 做屏15 餐食行）。
+
 - §4f 的回归边界**已补验闭合**（2026-10-25 20:11）：设备解锁后在当前 HEAD `11d9dc6` 重新构建
   ohosTest 包（产物时间 20:11:45，与构建时刻同分同秒，排除 hvigor 复用旧产物那条坑）、装机、跑
   `aa test`，结果 **`Tests run: 79, Failure: 0, Error: 0, Pass: 79, Ignore: 0`**；

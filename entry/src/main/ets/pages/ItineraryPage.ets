@@ -318,12 +318,25 @@ export struct ItineraryPage {
     return i < 0 ? 1 : i + 1;
   }
 
+  /**
+   * 屏10 帧 471fcea9 的地址槽是两段：「京都市伏見区深芝藪町 68 · 山脚入口」= address · 点位别称。
+   * 真机 DB 实测旧数据里 location 96/96 行等于 address 或 title（提示词此前没定义它的语义），
+   * 所以第二段先判"是不是同一个东西"再拼，否则会显示成「北京 东城区 · 故宫博物院」这种重复。
+   */
   private detailAddressLine(): string {
     const act: Activity | undefined = this.detailAct;
     if (act === undefined) {
       return '';
     }
-    return act.address.length > 0 ? act.address : act.location;
+    const addr: string = act.address;
+    const spot: string = act.location;
+    if (addr.length === 0) {
+      return spot;
+    }
+    if (spot.length === 0 || spot === addr || spot === act.title || addr.includes(spot)) {
+      return addr;
+    }
+    return `${addr} · ${spot}`;
   }
 
   private statusChip(): string {
