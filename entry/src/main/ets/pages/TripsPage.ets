@@ -280,18 +280,26 @@ export struct TripsPage {
           .margin({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.sm })
 
         if (this.trips.length === 0) {
-          Column({ space: SpaceTokens.md }) {
+          // 帧 7991fe5b 的空状态间距是逐段的（图标 16 / 标题 8 / 说明 24），
+          // 不是一条均等 gap；说明限宽 240 才能落回稿件的标准双行折行。
+          Column() {
             SymbolGlyph($r('sys.symbol.map'))
               .fontSize(IconSizes.display)
               .fontColor([ColorTokens.muted])
+              .margin({ bottom: SpaceTokens.lg })
             Text('还没有行程')
               .fontSize(TypeTokens.title.size)
               .fontWeight(700)
               .fontFamily(TypeTokens.title.family)
               .fontColor(ColorTokens.ink)
+              .textAlign(TextAlign.Center)
+              .margin({ bottom: SpaceTokens.xs })
             Text('从一座城市开始，让有径替你排好每天的路')
               .fontSize(TypeTokens.small.size)
               .fontColor(ColorTokens.body)
+              .textAlign(TextAlign.Center)
+              .constraintSize({ maxWidth: 240 })
+              .margin({ bottom: SpaceTokens.xl })
             YoujingButton({
               variant: YoujingButtonVariant.PRIMARY,
               label: '创建新行程',
