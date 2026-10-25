@@ -20,6 +20,7 @@ import { common } from '@kit.AbilityKit';
 import { HdsNavigation, HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { routerMap } from './AppRouter';
 import { HdsChrome } from '../design/HdsChrome';
+import { AccountStore } from '../data/AccountStore';
 import { Logger } from '../common/logger/Logger';
 import { WidgetSync } from '../widget/TodayCard';
 
@@ -118,6 +119,26 @@ export struct TripsPage {
     .width(84)
     .height('100%')
     .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+  }
+
+  /** 登出（对齐有据 SettingsPage 的二次确认通路；不清隐私同意） */
+  private confirmLogout(): void {
+    this.getUIContext().showAlertDialog({
+      title: '退出登录',
+      message: '退出后回到本机游客空间；该账号下的行程仍留在本机。',
+      primaryButton: { value: '取消', action: (): void => {} },
+      secondaryButton: {
+        value: '退出登录',
+        fontColor: ColorTokens.danger,
+        action: (): void => {
+          AccountStore.logout().then((): void => {
+            this.getUIContext().getPromptAction().showToast({ message: '已退出，回到登录页' });
+          }).catch((err: Error): void => {
+            Logger.warn('TripsPage', '登出失败: ' + err.message);
+          });
+        }
+      }
+    });
   }
 
   private confirmDelete(t: TripCardData): void {
@@ -376,7 +397,13 @@ export struct TripsPage {
       HdsNavigation(this.pathStack) {
         this.rootShell()
       }
-      .titleBar(HdsChrome.bar({ mainTitle: '我的行程', subTitle: this.trips.length > 0 ? `${this.trips.length} 条` : '' }))
+      .titleBar(HdsChrome.bar({
+        mainTitle: '我的行程',
+        subTitle: this.trips.length > 0 ? `${this.trips.length} 条` : '',
+        menu: [HdsChrome.item($r('sys.symbol.person_crop_circle_fill_1'), '退出登录', (): void => {
+          this.confirmLogout();
+        })]
+      }))
       .navDestination(routerMap)
       .mode(NavigationMode.Stack)
       .width('100%')
@@ -385,7 +412,13 @@ export struct TripsPage {
       HdsNavDestination() {
         this.rootShell()
       }
-      .titleBar(HdsChrome.bar({ mainTitle: '我的行程', subTitle: this.trips.length > 0 ? `${this.trips.length} 条` : '' }))
+      .titleBar(HdsChrome.bar({
+        mainTitle: '我的行程',
+        subTitle: this.trips.length > 0 ? `${this.trips.length} 条` : '',
+        menu: [HdsChrome.item($r('sys.symbol.person_crop_circle_fill_1'), '退出登录', (): void => {
+          this.confirmLogout();
+        })]
+      }))
       .titleMode(HdsNavDestinationTitleMode.MINI)
     }
   }

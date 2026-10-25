@@ -29,6 +29,8 @@ export struct YoujingButton {
   @Prop buttonWidth: Length = 150;
   @Prop leadingSymbol: Resource | undefined = undefined;
   @Prop trailingSymbol: Resource | undefined = undefined;
+  /** 未同意协议 / 请求进行中时禁用整颗按钮（官方 Button.enabled，不是只吞点击） */
+  @Prop disabled: boolean = false;
   onAction?: () => void = undefined;
 
   private labelColor(): Resource {
@@ -62,6 +64,8 @@ export struct YoujingButton {
       : (this.variant === YoujingButtonVariant.SECONDARY ? ButtonStyleMode.NORMAL : ButtonStyleMode.TEXTUAL))
     .height(LayoutTokens.minTouchTarget)
     .width(this.fullWidth ? '100%' : this.buttonWidth)
+    .enabled(!this.disabled)
+    .opacity(this.disabled ? 0.4 : 1)
     .onClick(() => {
       if (this.onAction !== undefined) {
         this.onAction();

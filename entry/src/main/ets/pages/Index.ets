@@ -15,6 +15,11 @@
 import { APP_NAV, ACTIVE_TRIP_KEY, TAB_INDEX_KEY, TAB_ITINERARY, TAB_MAP, TAB_EXPENSE, TAB_MINE } from '../common/constants/AppNav';
 import { routerMap } from './AppRouter';
 import { TripDao, TripSummary } from '../data/TripDao';
+import { AUTH_STATE_KEY } from '../data/AccountStore';
+import { ConsentStore, CONSENT_AGREED_KEY } from '../utils/ConsentStore';
+import { PrivacyConsentDialog, toastDocPending } from '../components/PrivacyConsentDialog';
+import { LoginView } from './LoginView';
+import { Logger } from '../common/logger/Logger';
 import { AccountStore } from '../data/AccountStore';
 import { common } from '@kit.AbilityKit';
 import { YoujingStartPage } from './YoujingStartPage';
@@ -27,6 +32,8 @@ import { TypeTokens } from '../design/TypeTokens';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { HDS_MATERIAL_LEVEL_EXQUISITE, HDS_MATERIAL_TYPE_IMMERSIVE } from '../utils/immersiveMaterial';
+
+const TAG: string = 'Index';
 
 interface DockTab {
   label: string;
@@ -50,6 +57,19 @@ struct Index {
 
   aboutToAppear(): void {
     this.currentTab = this.wantTab;
+    // 明示同意闸门：自己把同意态读出来再决定开不开弹窗。
+    // 不在 EntryAbility 里预读——preferences 是异步的，aboutToAppear 可能抢跑，
+    // 那样每次冷启都会给已同意的用户重问一遍。
+    const ctx: common.Context = this.getUIContext().getHostContext() as common.Context;
+    ConsentStore.init(ctx)
+      .then((agreed: boolean): void => {
+        if (!agreed) {
+          this.consentDialog.open();
+        }
+      })
+      .catch((): void => {
+        this.consentDialog.open();
+      });
     // 全新进程里 AppStorage 是空的：不种一条活跃行程，地图/费用 tab 只能对着占位发呆。
     // 但必须先等登录态恢复——DAO 一律按 AccountStore.uid() 收口分区，
     // 而 aboutToAppear 跑在 EntryAbility.bootstrap 的 await init 之前，
@@ -84,7 +104,31 @@ struct Index {
     .accessibilityText(`${DOCK_TABS[idx].label}页签`)
   }
 
-  build() {
+  /** 登录态：'' 水合中 / guest / huawei（AccountStore 推的 AppStorage 键） */
+  @StorageProp(AUTH_STATE_KEY) authState: string = '';
+  @StorageProp(CONSENT_AGREED_KEY) consentAgreed: string = '0';
+  /** 本次会话内主动选了游客空间——冷启仍然先看登录页，不做静默跳过 */
+  @State private guestChosen: boolean = false;
+  private consentDialog: CustomDialogController = new CustomDialogController({
+    builder: PrivacyConsentDialog({
+      onAgree: (): void => {
+        ConsentStore.agree().catch((): void => {});
+      },
+      onDecline: (): void => {
+        ConsentStore.decline();
+        (this.getUIContext().getHostContext() as common.UIAbilityContext).terminateSelf();
+      },
+      onOpenDoc: (kind: string): void => {
+        Logger.info(TAG, `打开协议原文 kind=${kind}`);
+        toastDocPending();
+      }
+    }),
+    autoCancel: false,
+    alignment: DialogAlignment.Center
+  });
+
+  @Builder
+  mainTabs() {
     HdsTabs({ controller: this.hdsController, index: this.wantTab }) {
       TabContent() {
         HdsNavigation(APP_NAV) {
@@ -132,5 +176,33 @@ struct Index {
     })
     .width('100%')
     .height('100%')
+  }
+
+  build() {
+    Column() {
+      if (this.authState === '') {
+        // 登录态还没水合完：什么都不画。画了就会让已登录用户每次冷启闪一下登录页
+        Blank()
+      } else if (this.authState !== 'huawei' && !this.guestChosen) {
+        LoginView({
+          onSignedIn: (): void => {
+            Logger.info(TAG, '登录完成，进入主界面');
+          },
+          onGuest: (): void => {
+            this.guestChosen = true;
+            Logger.info(TAG, '用户主动选择本机游客空间');
+          },
+          onOpenDoc: (kind: string): void => {
+            Logger.info(TAG, `登录页打开协议原文 kind=${kind}`);
+            toastDocPending();
+          }
+        })
+      } else {
+        this.mainTabs()
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('app.color.canvas'))
   }
 }

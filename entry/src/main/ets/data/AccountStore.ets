@@ -20,6 +20,13 @@ import { ErrorCode } from '../common/error/ErrorCode';
 
 const TAG: string = 'Data.AccountStore';
 
+/**
+ * AppStorage 键：登录态三值 '' 未知 / 'guest' 游客 / 'huawei' 已登录。
+ * 为什么要有「未知」这一档：Index 的根闸门要在状态水合完成前什么都不画，
+ * 否则已登录用户每次冷启都会闪一下登录页。
+ */
+export const AUTH_STATE_KEY: string = 'authState';
+
 function guestState(): AccountState {
   const state: AccountState = {
     uid: AccountConfig.GUEST_UID,
@@ -32,6 +39,14 @@ function guestState(): AccountState {
 export class AccountStore {
   private static current: AccountState = guestState();
   private static prefs: preferences.Preferences | null = null;
+
+  /** 把登录态推给 UI（闸门靠它，不靠轮询） */
+  private static publish(): void {
+    const kind: string = AccountStore.current.kind === AccountKind.HUAWEI ? 'huawei' : 'guest';
+    AppStorage.setOrCreate(AUTH_STATE_KEY, AccountStore.initialized ? kind : '');
+  }
+
+  private static initialized: boolean = false;
 
   /** 当前登录态快照（未 init 时为游客态，绝不会是空 uid） */
   static state(): AccountState {
@@ -64,6 +79,8 @@ export class AccountStore {
         };
         AccountStore.current = state;
       }
+      AccountStore.initialized = true;
+      AccountStore.publish();
       Logger.info(TAG, `恢复登录态 kind=${AccountStore.current.kind} uid=${AccountStore.masked()}`);
       return AccountStore.current;
     } catch (err) {
@@ -101,6 +118,27 @@ export class AccountStore {
     return AccountStore.current;
   }
 
+  /**
+   * 登出：清登录态回到游客分区（对齐有据 SettingsPage 的登出通路）。
+   * 注意不清 privacyAgreed——登出不等于撤销隐私同意（有据同一口径）。
+   */
+  static async logout(): Promise<void> {
+    AccountStore.current = guestState();
+    AccountStore.publish();
+    const prefs: preferences.Preferences | null = AccountStore.prefs;
+    if (prefs === null) {
+      return;
+    }
+    try {
+      prefs.deleteSync(AccountConfig.KEY_UNION_ID);
+      prefs.deleteSync(AccountConfig.KEY_LOGIN_AT);
+      await prefs.flush();
+      Logger.info(TAG, '已登出，回到本机游客分区');
+    } catch (err) {
+      Logger.warn(TAG, `登出清态失败: ${(err as Error).message}`);
+    }
+  }
+
   /** 日志用：UnionID 只留前 6 位，避免完整标识落 hilog */
   static masked(): string {
     const uid: string = AccountStore.current.uid;
@@ -114,6 +152,7 @@ export class AccountStore {
       loginAt: Date.now()
     };
     AccountStore.current = state;
+    AccountStore.publish();
     const prefs: preferences.Preferences | null = AccountStore.prefs;
     if (prefs === null) {
       throw new AppError(ErrorCode.ACCOUNT_PREFERENCES_FAILED, '登录态持久化前未 init');
