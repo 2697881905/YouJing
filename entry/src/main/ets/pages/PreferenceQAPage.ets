@@ -115,6 +115,7 @@ export struct PreferenceQAPage {
             .fontSize(TypeTokens.overline.size)
             .fontWeight(600)
             .fontColor(ColorTokens.muted)
+            .fontFeature("'tnum' on")
             .margin({ left: SpaceTokens.sm })
         }
         .width('100%')

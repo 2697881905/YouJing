@@ -6,6 +6,22 @@
 
 ### Changed
 
+- 第七把尺上线（tnum 等宽数字轴），补齐三处数字表面（2026-10-25）：契约 §typography 明写
+  「tnum for every numeral: times, durations, distances, step counts」，而 ArkUI 要逐条属性链显式写
+  `.fontFeature("'tnum' on")`，漏一处只会让同一列数字错开半格，不报错、不改字号。
+  `tools/audit_tnum.py` 两条规则并走：内联带数字单位的 ``Text(`…`)``，以及**数字 helper 的调用点**
+  ——先自动收集"返回模板含数字单位"的 `private xxx(): string`，再查 `Text(this.xxx())` 的链。
+  第二条是被逼出来的：数字串在 helper 里拼好时，只看 Text 参数会放过全部 3 处真漏。
+  补齐的三处：屏8 行内「建议停留 4小时 · 北京 东城区」、屏15「建议停留 1.5小时 · 嵯峨野」
+  （同屏 heroMeta 早就带、nextMeta 没带，一屏之内不一致）、屏3「第 2/5 步」（契约点名的 step counts）。
+  两处按理由放行：屏16 hero 的单位标签「站」本身无数字、屏1 散文里的"站点"是词不是计数。
+  尺子自己修掉两个假信号：① `Text\(` 没加负向断言，把 `accessibilityText(...)` 当可见文本，
+  凭空造出两处"漏写"；② fontFeature 字面量漂移检查把两侧空格归一做漏了，一次报出 57 条噪声。
+  两颗种子（删 heroMeta / 删 nextMeta 的 tnum 行）分别响，还原后 0 偏差。
+  验证：构建闸过、真机装机后屏8 该行渲染完好（有墨列 365、跨度 488px 无裁切）；
+  **等宽效果本身没做前后对拍**——同一行的改前截图已不在手里（早前那张是滚动态、同坐标是别的内容），
+  要量化得回退一次改动重拍，本轮没占这个预算。
+
 - 第六把尺上线（字族轴），并补三处帧声明却没上衬线的槽位（2026-10-25）：契约描述段把
   「中文衬线做编辑体标题、可操作的一律 HarmonyOS Sans」当设计语言本体，而 ArkUI 的
   `fontFamily` **不随字号档位自动带上**——只写 `.fontSize(TypeTokens.title.size).fontWeight(700)`

@@ -588,6 +588,7 @@ export struct ItineraryPage {
             .fontSize(TypeTokens.caption.size)
             .fontWeight(450)
             .fontColor(ColorTokens.muted)
+            .fontFeature("'tnum' on")
             .margin({ top: SpaceTokens.xs })
           if (act.reason !== undefined) {
             Column() {

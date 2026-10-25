@@ -407,6 +407,7 @@ export struct OnTripPage {
                 .fontSize(TypeTokens.caption.size)
                 .fontWeight(450)
                 .fontColor(ColorTokens.muted)
+                .fontFeature("'tnum' on")
                 .margin({ left: LayoutTokens.itineraryTimeGutter + SpaceTokens.sm })
                 .alignSelf(ItemAlign.Start)
             }
