@@ -4,8 +4,8 @@
  * 传输抽象：
  * - MockLlmTransport：离线闭环（当前默认，用户拍板）。按请求参数确定性地合成
  *   合法 Trip JSON，走完整「响应→守卫→Trip」链路，等价验证真实管线；
- * - HttpLlmTransport：直连备选。端点取 ApiConfig 单点；Key 走 HUKS（阶段 9 前
- *   端点为空即抛 LLM_UNAVAILABLE，禁止硬编码）。小艺 Skill 通道在阶段 9 接入。
+ * - HttpLlmTransport：直连备选。端点与超时取 ApiConfig 单点；Key 开发期走 ApiConfig
+ *   （skip-worktree 防误提交，禁止硬编码进逻辑），上架前迁系统凭据存储。小艺 Skill 通道在阶段 9 接入。
  *
  * 失败策略（§4.1-5）：解析失败重试一次，再失败抛 TRIP_GENERATE_RETRY_EXHAUSTED，
  * 由调用方进屏7降级。
@@ -13,6 +13,7 @@
 
 import { http } from '@kit.NetworkKit';
 import { buffer } from '@kit.ArkTS';
+import { BusinessError } from '@kit.BasicServicesKit';
 import { LlmRequest, PromptBuilder } from './PromptBuilder';
 import { TripParser } from './TripParser';
 import { TripSchema } from './TripSchema';
@@ -189,7 +190,11 @@ export class MockLlmTransport implements LlmTransport {
   }
 }
 
-/** 直连备选传输：端点/Key 未就绪即抛 LLM_UNAVAILABLE（禁止硬编码，配置单点） */
+/**
+ * 直连备选传输：端点未就绪即抛 LLM_UNAVAILABLE（禁止硬编码，配置单点）。
+ * 鉴权与超时同走 ApiConfig：Key 为空时请求不带 Authorization 头（只告警），
+ * 超时参数显式下发，真超时报 NETWORK_TIMEOUT、其余报 NETWORK_REQUEST_FAILED。
+ */
 export class HttpLlmTransport implements LlmTransport {
   async complete(req: LlmRequest): Promise<string> {
     if (ApiConfig.BASE_URL.length === 0 || ApiConfig.LLM_CHAT_ENDPOINT.length === 0) {
@@ -220,12 +225,23 @@ export class HttpLlmTransport implements LlmTransport {
     }
     const reqHandle = http.createHttp();
     try {
+      // 鉴权注入点：Key 走 ApiConfig 单点（上架前迁系统凭据存储，见接入方案 §三-2）。
+      // Key 为空只告警不阻断——留出免鉴权本地网关的调试通路，误配会以 HTTP 401 露出。
+      const headers: Record<string, string> = {};
+      headers['Content-Type'] = 'application/json';
+      if (ApiConfig.API_KEY.length > 0) {
+        headers['Authorization'] = `Bearer ${ApiConfig.API_KEY}`;
+      } else {
+        Logger.warn(TAG, 'LLM Key 未配置（ApiConfig.API_KEY 为空），本次请求不带鉴权头');
+      }
       const resp: http.HttpResponse = await reqHandle.request(
         `${ApiConfig.BASE_URL}${ApiConfig.LLM_CHAT_ENDPOINT}`, {
         method: http.RequestMethod.POST,
-        header: { 'Content-Type': 'application/json' } as Record<string, string>,
+        header: headers,
         extraData: JSON.stringify(body),
-        expectDataType: http.HttpDataType.STRING
+        expectDataType: http.HttpDataType.STRING,
+        connectTimeout: ApiConfig.CONNECT_TIMEOUT_MS,
+        readTimeout: ApiConfig.READ_TIMEOUT_MS
       });
       if (resp.responseCode < 200 || resp.responseCode >= 300) {
         throw new AppError(ErrorCode.NETWORK_REQUEST_FAILED, `LLM HTTP ${resp.responseCode}`);
@@ -235,7 +251,15 @@ export class HttpLlmTransport implements LlmTransport {
       if (err instanceof AppError) {
         throw err;
       }
-      // 无细分信息时按「请求失败」报，不默认成超时——连接失败/DNS 错误都曾被谎报成超时
+      // 真超时只在平台明确给出 2300025（libcurl 28 OPERATION_TIMEDOUT）时报，
+      // 不按 message 猜——连接失败/DNS 错误都曾被谎报成超时
+      const be: BusinessError = err as BusinessError;
+      const platformCode: number = typeof be.code === 'number' ? be.code : 0;
+      if (platformCode === 2300025) {
+        throw new AppError(ErrorCode.NETWORK_TIMEOUT,
+          `LLM 请求超时（readTimeout=${ApiConfig.READ_TIMEOUT_MS}ms）`);
+      }
+      // 其余无细分信息时按「请求失败」报
       throw new AppError(ErrorCode.NETWORK_REQUEST_FAILED, `LLM 请求失败: ${(err as Error).message}`);
     } finally {
       reqHandle.destroy();
