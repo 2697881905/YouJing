@@ -169,6 +169,12 @@ export class IcsBuilder {
         const where: string = m.location.length > 0 ? ` · ${m.location}` : '';
         out.push(`  ${IcsBuilder.mealLabel(m.type)} · ${m.name}${where}`);
       }
+      // 住宿区域是用户屏5 亲手选的，真机 DB 实测 55/55 天都有值却全 App 零消费方（§4e）；
+      // 帧没声明过「今晚住 X」这一行，所以先进分享文本这个既有输出面，界面位置留给用户定
+      const stay: string = day.accommodation === undefined ? '' : day.accommodation;
+      if (stay.length > 0) {
+        out.push(`  当晚住 · ${stay}`);
+      }
     }
     return out.join('\n');
   }

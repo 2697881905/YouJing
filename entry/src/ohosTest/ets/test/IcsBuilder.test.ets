@@ -93,6 +93,15 @@ export default function icsBuilderTest(): void {
       expect(IcsBuilder.mealLabel(MealType.BREAKFAST)).assertEqual('早餐');
     });
 
+    it('plain_summary_carries_accommodation_when_set', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+      const withStay: Trip = fixture();
+      withStay.days[0].accommodation = '前门-大栅栏';
+      expect(IcsBuilder.plainSummary(withStay).includes('  当晚住 · 前门-大栅栏')).assertTrue();
+      const noStay: Trip = fixture();
+      noStay.days[0].accommodation = undefined;
+      expect(IcsBuilder.plainSummary(noStay).includes('当晚住')).assertFalse();
+    });
+
     it('node_summary_is_one_node_only', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
       const t: Trip = fixture();
       const s: string = IcsBuilder.nodeSummary(t.days[0], t.days[0].activities[0]);
