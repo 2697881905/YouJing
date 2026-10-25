@@ -22,6 +22,32 @@
 所以界面没有承诺过"显示打卡时刻"。
 
 
+## 4j. #21 分支静态审查：修掉三处，留一条结构性缺口（2026-10-26，无设备）
+
+真机被占，先跑不依赖设备的一遍。`assembleHap` BUILD SUCCESSFUL，七把静态尺
+（色 / 字 / 几何 / 材质 / 字族 / tnum / 投影）在 `wip/hds-tabs-initial-index` 上全部 0 偏差；
+产物按 `UP-TO-DATE` 那条老坑核过——`ets/modules.abc` 里查到新符号
+`routeOwnTab` / `onPendingChange` / `onActiveTripChange`，确认这次 4.9s 的增量构建真编进去了。
+
+审查四栈骨架本身，翻出三处代码可见的缺陷，都已改在 `pages/Index.ets`：
+
+| # | 症状 | 根因 | 改法 |
+|---|---|---|---|
+| 1 | 同一个 tab 的第二次深链静默丢失，只有该 tab 首次被建出来时生效 | 待路由只在 `TabRootHost.aboutToAppear` 里读一次，而 `TabContent` 建完后一直活着，不再有第二次 `aboutToAppear` | `PENDING_ROUTE_KEY` 挂 `@StorageProp` + `@Watch`，消费逻辑收进 `routeOwnTab()`，首帧与后续变更走同一条路 |
+| 2 | 「还没有可选行程」占位会永久钉在屏上 | `build()` 里直读 `AppStorage.get(...)` 不建依赖；活跃行程是异步种下的，首帧读到空值后再没人重算 | `ACTIVE_TRIP_KEY` 同样挂成 `@StorageProp` + `@Watch`，行程一落定就补推根页 |
+| 3 | 冷启种下的活跃行程可能取错分区 | `Index.aboutToAppear` 跑在 `EntryAbility.bootstrap` 的 `await AccountStore.init()` **之前**，而 `TripDao` 一律按 `AccountStore.uid()` 收口（`AccountStore` 头注释第 7 行就是这条铁律）→ 拿游客键种出的行程 id，到真账号分区里查不到 | 种子改成 `AccountStore.init(ctx).then(() => TripDao.listSummaries(ctx))` |
+
+**没改、留给真机判的一条（结构性）**：地图 / 费用 / 我的三个 tab 的根页是 `pushPath` 上去的
+`HdsNavDestination`，不是 `Navigation` 的内容区。后果是根页顶栏带官方返回钮、返回手势也成立，
+而弹掉栈底那一条就露出 `TabRootHost` 的空占位——一个空白 tab。
+有据的口径是「路线 B」：四个主 tab 的根页都作为内容区直接写在 `TabContent` 里
+（`HarmonyProject1/pages/Index.ets:1335-1395`，`HomeTab` / `CircleTab` / `MessagePage` /
+`HdsNavigation() { ProfilePage(...) }`），没有一个走栈。
+有径要一致，得让 `MapPage` / `ExpensePage` / `TripsPage` 支持「根页模式」——
+它们同时也被别的页 push，不能直接改成裸内容。这条既不在原五项验收里、
+也必须真机看弹栈行为才判得准，先记不做。
+
+
 ## 4i. #28-⑩ 深色 dock 标签复测（2026-10-25，临时钉色档后还原）
 
 上一轮我按对比度尺写下「深色未选标签 3.59:1，低于 AA」，并据此列了三个改色方案。

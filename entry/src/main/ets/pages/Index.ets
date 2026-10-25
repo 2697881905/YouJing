@@ -17,6 +17,7 @@ import { MAP_NAV, EXPENSE_NAV, MINE_NAV, ACTIVE_TRIP_KEY, PENDING_ROUTE_KEY,
   PENDING_PARAM_KEY, TAB_INDEX_KEY, TAB_ITINERARY, TAB_MAP, TAB_EXPENSE, TAB_MINE,
   tabOfRoute } from '../common/constants/AppNav';
 import { TripDao, TripSummary } from '../data/TripDao';
+import { AccountStore } from '../data/AccountStore';
 import { common } from '@kit.AbilityKit';
 import { YoujingStartPage } from './YoujingStartPage';
 import { TripInputPage } from './TripInputPage';
@@ -92,9 +93,12 @@ function routerMap(name: string, param: object) {
 }
 
 /**
- * tab 根页宿主。TabContent 首次可见才建、它的 Navigation 也那时才绑上栈，
- * 所以"进这个 tab 该看到的页面"不能由外部 push（会早于绑定、丢路由）：
- * 改由宿主在 aboutToAppear 里自推——冷启跨 tab 的深链也由这里消费。
+ * tab 根页宿主。TabContent 首次可见才建，所以"进这个 tab 该看到的页面"不能由外部 push
+ * （会早于绑定、丢路由）：改由宿主自己推。
+ *
+ * 待路由和活跃行程都挂成响应式，不能只在 aboutToAppear 读一次：TabContent 建完后一直活着，
+ * 同一个 tab 的第二次深链再没有 aboutToAppear 来消费，路由就静默丢了；
+ * 而活跃行程是异步种下的，首帧读到的空值会把占位文案永久钉在屏幕上。
  */
 @Component
 struct TabRootHost {
@@ -103,30 +107,43 @@ struct TabRootHost {
   /** 成员名不能叫 tabIndex：与 CustomComponent 的内置成员冲突（编译器实测报错） */
   ownerTab: number = TAB_ITINERARY;
   tripScoped: boolean = false;
+  @StorageProp(PENDING_ROUTE_KEY) @Watch('onPendingChange') pendingRoute: string = '';
+  @StorageProp(ACTIVE_TRIP_KEY) @Watch('onActiveTripChange') activeTripId: string = '';
 
-  aboutToAppear(): void {
-    const pending: string | undefined = AppStorage.get<string>(PENDING_ROUTE_KEY);
-    if (pending !== undefined && pending.length > 0 && tabOfRoute(pending) === this.ownerTab) {
+  onPendingChange(): void {
+    this.routeOwnTab();
+  }
+
+  onActiveTripChange(): void {
+    this.routeOwnTab();
+  }
+
+  /** 深链指向本 tab 就消费掉；否则确保本 tab 的根页在栈上（没有活跃行程时留在占位） */
+  routeOwnTab(): void {
+    if (this.pendingRoute.length > 0 && tabOfRoute(this.pendingRoute) === this.ownerTab) {
       const param: string = AppStorage.get<string>(PENDING_PARAM_KEY) ?? '';
       AppStorage.setOrCreate(PENDING_ROUTE_KEY, '');
       AppStorage.setOrCreate(PENDING_PARAM_KEY, '');
-      this.stack.pushPath({ name: pending, param: param });
+      this.stack.pushPath({ name: this.pendingRoute, param: param });
       return;
     }
     if (this.route.length === 0 || this.stack.size() > 0) {
       return;
     }
-    const tripId: string = AppStorage.get<string>(ACTIVE_TRIP_KEY) ?? '';
-    if (this.tripScoped && tripId.length === 0) {
+    if (this.tripScoped && this.activeTripId.length === 0) {
       // 地图/费用没有活跃行程就没有内容可画，留在占位上，不给一张空底图
       return;
     }
-    this.stack.pushPath({ name: this.route, param: tripId });
+    this.stack.pushPath({ name: this.route, param: this.activeTripId });
+  }
+
+  aboutToAppear(): void {
+    this.routeOwnTab();
   }
 
   build() {
     Column() {
-      if (this.tripScoped && (AppStorage.get<string>(ACTIVE_TRIP_KEY) ?? '').length === 0) {
+      if (this.tripScoped && this.activeTripId.length === 0) {
         Text('还没有可选行程')
           .fontSize(TypeTokens.caption.size)
           .fontColor(ColorTokens.muted)
@@ -161,9 +178,14 @@ struct Index {
 
   aboutToAppear(): void {
     this.currentTab = this.wantTab;
-    // 全新进程里 AppStorage 是空的：不种一条活跃行程，地图/费用 tab 只能对着占位发呆
+    // 全新进程里 AppStorage 是空的：不种一条活跃行程，地图/费用 tab 只能对着占位发呆。
+    // 但必须先等登录态恢复——DAO 一律按 AccountStore.uid() 收口分区，
+    // 而 aboutToAppear 跑在 EntryAbility.bootstrap 的 await init 之前，
+    // 直接用游客键种出来的行程 id 到真账号分区里查不到，地图 tab 会对着空底图。
     if ((AppStorage.get<string>(ACTIVE_TRIP_KEY) ?? '').length === 0) {
-      TripDao.listSummaries(this.getUIContext().getHostContext() as common.Context)
+      const ctx: common.Context = this.getUIContext().getHostContext() as common.Context;
+      AccountStore.init(ctx)
+        .then((): Promise<TripSummary[]> => TripDao.listSummaries(ctx))
         .then((rows: TripSummary[]): void => {
           if (rows.length > 0) {
             AppStorage.setOrCreate(ACTIVE_TRIP_KEY, rows[0].id);
