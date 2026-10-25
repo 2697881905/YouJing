@@ -28,7 +28,7 @@ import { Logger } from '../common/logger/Logger';
 import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
 import { listLanesForBreakpoint } from '../utils/responsive';
 import { common } from '@kit.AbilityKit';
-import { HdsNavigation, HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsNavigation, HdsNavigationTitleMode, HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { routerMap } from './AppRouter';
 import { HdsChrome } from '../design/HdsChrome';
 
@@ -634,6 +634,8 @@ export struct ExpensePage {
       HdsNavigation(this.pathStack) {
         this.rootShell()
       }
+      .titleMode(HdsNavigationTitleMode.MINI)
+      .hideBackButton(true)
       .titleBar(HdsChrome.bar({ mainTitle: '费用' }))
       .navDestination(routerMap)
       .mode(NavigationMode.Stack)

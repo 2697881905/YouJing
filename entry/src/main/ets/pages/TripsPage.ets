@@ -17,7 +17,7 @@ import { TripDao, TripSummary } from '../data/TripDao';
 import { PlanDraft } from '../data/PlanDraft';
 import { DateUtils } from '../utils/DateUtils';
 import { common } from '@kit.AbilityKit';
-import { HdsNavigation, HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsNavigation, HdsNavigationTitleMode, HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { routerMap } from './AppRouter';
 import { HdsChrome } from '../design/HdsChrome';
 import { AccountStore } from '../data/AccountStore';
@@ -403,6 +403,8 @@ export struct TripsPage {
       HdsNavigation(this.pathStack) {
         this.rootShell()
       }
+      .titleMode(HdsNavigationTitleMode.MINI)
+      .hideBackButton(true)
       .titleBar(HdsChrome.bar({
         mainTitle: '我的行程',
         subTitle: this.trips.length > 0 ? `${this.trips.length} 条` : '',

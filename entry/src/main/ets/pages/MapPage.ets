@@ -19,7 +19,7 @@ import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
-import { HdsNavigation, HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsNavigation, HdsNavigationTitleMode, HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { routerMap } from './AppRouter';
 import type { HdsNavigationMenuItemOptions, HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
@@ -279,6 +279,8 @@ export struct MapPage {
       HdsNavigation(this.pathStack) {
         this.rootShell()
       }
+      .titleMode(HdsNavigationTitleMode.MINI)
+      .hideBackButton(true)
       .titleBar(this.titleBarOptions())
       .navDestination(routerMap)
       .mode(NavigationMode.Stack)
