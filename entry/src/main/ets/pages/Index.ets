@@ -12,91 +12,20 @@
  * 首帧就在目标 tab；运行期（App 已存活时的 onNewWant）才用 changeIndex。
  */
 
-import { APP_NAV, EditTarget, FailInfo } from '../common/constants/AppNav';
-import { MAP_NAV, EXPENSE_NAV, MINE_NAV, ACTIVE_TRIP_KEY, PENDING_ROUTE_KEY,
+import { APP_NAV, MAP_NAV, EXPENSE_NAV, MINE_NAV, ACTIVE_TRIP_KEY, PENDING_ROUTE_KEY,
   PENDING_PARAM_KEY, TAB_INDEX_KEY, TAB_ITINERARY, TAB_MAP, TAB_EXPENSE, TAB_MINE,
   tabOfRoute } from '../common/constants/AppNav';
+import { routerMap } from './AppRouter';
 import { TripDao, TripSummary } from '../data/TripDao';
-import { BuildConfig } from '../common/constants/BuildConfig';
 import { AccountStore } from '../data/AccountStore';
 import { common } from '@kit.AbilityKit';
 import { YoujingStartPage } from './YoujingStartPage';
-import { TripInputPage } from './TripInputPage';
-import { PreferenceQAPage } from './PreferenceQAPage';
-import { SpotPickPage } from './SpotPickPage';
-import { StayPickPage } from './StayPickPage';
-import { GeneratingPage } from './GeneratingPage';
-import { ItineraryPage } from './ItineraryPage';
-import { GenerateFailedPage } from './GenerateFailedPage';
-import { EditItineraryPage } from './EditItineraryPage';
-import { ExpensePage } from './ExpensePage';
-import { TripsPage } from './TripsPage';
-import { OnTripPage } from './OnTripPage';
-import { SharePage } from './SharePage';
-import { MapPage } from './MapPage';
-import { AreaMorePage } from './AreaMorePage';
-import { ComingSoonPage } from './ComingSoonPage';
 import { HdsNavigation, HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { HDS_MATERIAL_LEVEL_EXQUISITE, HDS_MATERIAL_TYPE_IMMERSIVE } from '../utils/immersiveMaterial';
-
-/**
- * 路由参数窄化（@Builder 内不允许局部 const，故放普通函数）：
- * typeof null === 'object'，必须先排掉 null 再断言，
- * 否则深链不带参数直达会抛 TypeError。
- */
-function asFailInfo(param: object): FailInfo {
-  const fallback: FailInfo = { code: 0, detail: '' };
-  return (typeof param === 'object' && param !== null) ? param as FailInfo : fallback;
-}
-
-function asEditTarget(param: object): EditTarget {
-  const fallback: EditTarget = { tripId: '', dayIndex: 0 };
-  return (typeof param === 'object' && param !== null) ? param as EditTarget : fallback;
-}
-
-@Builder
-function routerMap(name: string, param: object) {
-  if (name === 'TripInput') {
-    TripInputPage()
-  } else if (name === 'PreferenceQA') {
-    PreferenceQAPage()
-  } else if (name === 'SpotPick') {
-    SpotPickPage()
-  } else if (name === 'StayPick') {
-    StayPickPage()
-  } else if (name === 'Generating') {
-    GeneratingPage()
-  } else if (name === 'Itinerary') {
-    ItineraryPage({ tripId: typeof param === 'string' ? param as string : '' })
-  } else if (name === 'GenerateFailed') {
-    GenerateFailedPage({ code: asFailInfo(param).code, detail: asFailInfo(param).detail })
-  } else if (name === 'EditItinerary') {
-    EditItineraryPage({ tripId: asEditTarget(param).tripId, dayIndex: asEditTarget(param).dayIndex })
-  } else if (name === 'Expense') {
-    ExpensePage({ tripId: typeof param === 'string' ? param as string : '' })
-  } else if (name === 'Trips') {
-    TripsPage()
-  } else if (name === 'OnTrip') {
-    OnTripPage({ tripId: typeof param === 'string' ? param as string : '' })
-  } else if (name === 'Share') {
-    SharePage({ tripId: typeof param === 'string' ? param as string : '' })
-  } else if (name === 'AreaMore') {
-    AreaMorePage({ city: typeof param === 'string' ? param as string : '' })
-  } else if (name === 'Map') {
-    MapPage({ tripId: typeof param === 'string' ? param as string : '' })
-  } else {
-    // 未识别的路由名。发布包保持用户看得懂的话；debug 包把名字画进标题，
-    // 真机验收时 dumpLayout 直接能读到是谁推了个不存在的落点
-    // （@Builder 体内不许写普通语句，日志式探针编译不过 10905204，只能走 UI）。
-    ComingSoonPage({
-      title: BuildConfig.IS_DEBUG ? `未识别路由 [${name}]` : '这个页面'
-    })
-  }
-}
 
 /**
  * tab 根页宿主。TabContent 首次可见才建，所以"进这个 tab 该看到的页面"不能由外部 push
