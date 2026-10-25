@@ -17,7 +17,8 @@ import { TripDao, TripSummary } from '../data/TripDao';
 import { PlanDraft } from '../data/PlanDraft';
 import { DateUtils } from '../utils/DateUtils';
 import { common } from '@kit.AbilityKit';
-import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsNavigation, HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { routerMap } from './AppRouter';
 import { HdsChrome } from '../design/HdsChrome';
 import { Logger } from '../common/logger/Logger';
 import { WidgetSync } from '../widget/TodayCard';
@@ -277,8 +278,11 @@ export struct TripsPage {
     })
   }
 
-  build() {
-    HdsNavDestination() {
+  /** 根页模式：作为 tab 的内容区内联在 TabContent 里（有据路线 B），此时本页自带 HdsNavigation */
+  rootMode: boolean = false;
+
+  @Builder
+  rootShell() {
       Stack({ alignContent: Alignment.Bottom }) {
       Column() {
         // 官方 Search：目的地或日期关键词过滤（此前右上角放大镜是个没有动作的死控件）
@@ -365,8 +369,24 @@ export struct TripsPage {
     }
     .width('100%')
     .height('100%')
+  }
+
+  build() {
+    if (this.rootMode) {
+      HdsNavigation(this.pathStack) {
+        this.rootShell()
+      }
+      .titleBar(HdsChrome.bar({ mainTitle: '我的行程', subTitle: this.trips.length > 0 ? `${this.trips.length} 条` : '' }))
+      .navDestination(routerMap)
+      .mode(NavigationMode.Stack)
+      .width('100%')
+      .height('100%')
+    } else {
+      HdsNavDestination() {
+        this.rootShell()
+      }
+      .titleBar(HdsChrome.bar({ mainTitle: '我的行程', subTitle: this.trips.length > 0 ? `${this.trips.length} 条` : '' }))
+      .titleMode(HdsNavDestinationTitleMode.MINI)
     }
-    .titleBar(HdsChrome.bar({ mainTitle: '我的行程', subTitle: this.trips.length > 0 ? `${this.trips.length} 条` : '' }))
-    .titleMode(HdsNavDestinationTitleMode.MINI)
   }
 }

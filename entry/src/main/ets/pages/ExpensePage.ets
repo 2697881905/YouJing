@@ -26,7 +26,8 @@ import { DateUtils } from '../utils/DateUtils';
 import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
 import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
-import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsNavigation, HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { routerMap } from './AppRouter';
 import { HdsChrome } from '../design/HdsChrome';
 
 interface CategorySpend {
@@ -447,8 +448,11 @@ export struct ExpensePage {
     });
   }
 
-  build() {
-    HdsNavDestination() {
+  /** 根页模式：作为 tab 的内容区内联在 TabContent 里（有据路线 B），此时本页自带 HdsNavigation */
+  rootMode: boolean = false;
+
+  @Builder
+  rootShell() {
       Stack({ alignContent: Alignment.Bottom }) {
       Column() {
 
@@ -617,8 +621,24 @@ export struct ExpensePage {
     }
     .width('100%')
     .height('100%')
+  }
+
+  build() {
+    if (this.rootMode) {
+      HdsNavigation(this.pathStack) {
+        this.rootShell()
+      }
+      .titleBar(HdsChrome.bar({ mainTitle: '费用' }))
+      .navDestination(routerMap)
+      .mode(NavigationMode.Stack)
+      .width('100%')
+      .height('100%')
+    } else {
+      HdsNavDestination() {
+        this.rootShell()
+      }
+      .titleBar(HdsChrome.bar({ mainTitle: '费用' }))
+      .titleMode(HdsNavDestinationTitleMode.MINI)
     }
-    .titleBar(HdsChrome.bar({ mainTitle: '费用' }))
-    .titleMode(HdsNavDestinationTitleMode.MINI)
   }
 }

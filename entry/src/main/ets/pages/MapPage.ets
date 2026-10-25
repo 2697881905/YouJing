@@ -19,7 +19,8 @@ import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
-import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsNavigation, HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { routerMap } from './AppRouter';
 import type { HdsNavigationMenuItemOptions, HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
 
@@ -160,8 +161,11 @@ export struct MapPage {
     })
   }
 
-  build() {
-    HdsNavDestination() {
+  /** 根页模式：作为 tab 的内容区内联在 TabContent 里（有据路线 B），此时本页自带 HdsNavigation */
+  rootMode: boolean = false;
+
+  @Builder
+  rootShell() {
       Stack({ alignContent: Alignment.Bottom }) {
         if (this.stops.length > 0) {
           TripMapView({
@@ -241,11 +245,27 @@ export struct MapPage {
       .width('100%')
       .height('100%')
       .backgroundColor(this.stops.length > 0 ? Color.Transparent : ColorTokens.canvas)
+  }
+
+  build() {
+    if (this.rootMode) {
+      HdsNavigation(this.pathStack) {
+        this.rootShell()
+      }
+      .titleBar(this.titleBarOptions())
+      .navDestination(routerMap)
+      .mode(NavigationMode.Stack)
+      .width('100%')
+      .height('100%')
+    } else {
+      HdsNavDestination() {
+        this.rootShell()
+      }
+      .titleBar(this.titleBarOptions())
+      .titleMode(HdsNavDestinationTitleMode.MINI)
+      .onShown((): void => {
+        this.reload();
+      })
     }
-    .titleBar(this.titleBarOptions())
-    .titleMode(HdsNavDestinationTitleMode.MINI)
-    .onShown((): void => {
-      this.reload();
-    })
   }
 }

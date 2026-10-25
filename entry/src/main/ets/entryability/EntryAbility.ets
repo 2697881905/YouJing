@@ -1,8 +1,7 @@
 import { AbilityConstant, Configuration, ConfigurationConstant, skillManager, UIAbility, Want } from '@kit.AbilityKit';
 import { window } from '@kit.ArkUI';
 import { Logger } from '../common/logger/Logger';
-import { stackOfRoute, tabOfRoute, TAB_INDEX_KEY, TAB_ITINERARY, ACTIVE_TRIP_KEY,
-  PENDING_ROUTE_KEY, PENDING_PARAM_KEY } from '../common/constants/AppNav';
+import { stackOfRoute, tabOfRoute, TAB_INDEX_KEY, TAB_ITINERARY, ACTIVE_TRIP_KEY } from '../common/constants/AppNav';
 import { DataSeeder } from '../data/DataSeeder';
 import { AccountStore } from '../data/AccountStore';
 import { PlanDraft } from '../data/PlanDraft';
@@ -213,10 +212,11 @@ export default class EntryAbility extends UIAbility {
     }
     if (tab === TAB_ITINERARY) {
       stackOfRoute(name).pushPath({ name: name, param: param });
-      return;
     }
-    AppStorage.setOrCreate(PENDING_ROUTE_KEY, name);
-    AppStorage.setOrCreate(PENDING_PARAM_KEY, param);
+    // 地图/费用/我的三个 tab 的根页现在内联在各自 TabContent 里（有据路线 B）：
+    // 切过去就是它，不再 push。原先那条「写待路由 → 宿主 push」的路，
+    // 宿主是在自己的 Navigation 绑上栈之前推的，落点解析不出来
+    // （真机探针实测 routerMap 收到的是空名，§4k ④）。
   }
 
   private routePending(): void {
