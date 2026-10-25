@@ -22,6 +22,49 @@
 所以界面没有承诺过"显示打卡时刻"。
 
 
+## 4l. #21 收口：⑥ 根页内联落地、④ 随之消失、⑤ 两档 dock 量完（2026-10-26，真机）
+
+分支 `wip/hds-tabs-initial-index` @ `45923da`。
+
+**⑥ 已修（结构）**：`MapPage`/`ExpensePage`/`TripsPage` 各加 `rootMode`，根页模式下本页自带
+`HdsNavigation(this.pathStack){ rootShell() }.titleBar(同一份 spec).navDestination(routerMap)`，
+正文抽成 `@Builder rootShell()` 两支共用；被别的页 push 时仍走原 `HdsNavDestination` 分支。
+`Index` 的三个 `TabContent` 直接放页面件，`TabRootHost` 与 `PENDING_ROUTE_KEY/PENDING_PARAM_KEY` 整套删除。
+
+改之前先把 ⑥ 的代价估错了两处，都纠正在这里：
+1. 以为要把三页的标题栏状态提到 `Index` 用 `@Link` 共享——其实
+   `HdsNavigationAttribute.titleBar` 与 `HdsNavDestinationAttribute.titleBar` 收同一个
+   `HdsNavigationTitleBarOptions`，`HdsChrome.bar()` 本来就返回它，原地换挂载点即可。
+2. 以为 `routerMap` 留在 `Index` 会成环——`AppRouter ↔ 页面` 的循环 import **实测能编过**
+   （`routerMap` 是提升的函数声明）。
+另外排除过一条"小修法"：SDK 里 `hideBackButton`/`backButtonIcon` 只有栏级、NavDestination 没有
+逐页返回件开关，`hideBackButton(true)` 会把「我的」栈里 Itinerary/OnTrip 的返回件一起削掉，不能用。
+
+**④ 已修（随 ⑥ 消失）**：上一轮装的 debug 探针真机读出标题是「未识别路由 **[]**」——
+`routerMap` 收到的是**空名**，不是 'Expense'。根因就是宿主在自己的 `Navigation` 绑上栈之前 push。
+那条 pending-push 路整条删掉之后，冷启 `--ps route Expense` 直接落到费用页
+（`/tmp/docktabs-run4.log`，同轮 hypium **81/81**，四页签点切与各 tab 正文照旧真数据）。
+`Back` 在根页也不再弹成空白 tab——根页不在栈上，实测退到后台的有据，是根页应有的行为。
+
+**⑤ 两档 dock 视觉量完**（按 dump 里 bar 容器真实 bounds `Stack[55,2340][1080,2515]` 取样，
+不再用固定扫描行——那会打到页面内容）：
+
+| 档 | 板体实测（10112 点众数） | 未选标签 `muted` | 选中标签 `primary` |
+|---|---|---|---|
+| 深色 | `#202022` | 5.60:1 过 | **4.46:1 差 AA 0.04** |
+| 浅色 | `#FAFBFD`（近白微冷，官方板**有画**） | 5.10:1 过 | 5.20:1 过 |
+
+浅色档是靠临时 `setColorMode(LIGHT)` 钉出来的（只钉本 App，不动系统设置），量完已还原：
+`grep TEMP` = 0，工作树与 `45923da` 无差异，产物重装过。
+
+**深色那一格要单独说**：按 token 底 `surface_elevated #1E1E1E` 算是 4.57:1（§4i 就是这个数），
+但官方 `HdsTabs` 的板实测比 token 亮 2 级，落到 `#202022` 就只剩 4.46:1。
+也就是说**换官方 dock 之后，选中态蓝的余量被板的实际色吃掉了**。
+这正是 §4i 留给用户的那条决定（`#2E96FF` 5.50:1 / `#4DA6FF` 6.52:1），
+现在多了一条实测依据：不是"要不要加余量"，而是"官方板比 token 板亮，选中蓝贴线"。
+代拍不改色——深色选中蓝是深色帧自己写的 `#0A84FF`，改它属动设计定稿。
+
+
 ## 4k. #21 真机六项验收：四项过、一项失败未归因、一项把推断升成实测（2026-10-26，中途设备被真人取走）
 
 一轮 `tools/verify_dock_tabs.sh` 跑完，证据在 `/tmp/docktabs-run2.log` 与 `/tmp/docktabs-run2/`。
