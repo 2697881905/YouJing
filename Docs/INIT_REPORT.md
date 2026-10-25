@@ -106,7 +106,15 @@
    理论差 2.46 倍亮度）。
 2. `EntryAbility.onCreate` 播种 `isDarkMode`（`e206e77`）——此前它只在 `onConfigurationUpdate` 里写。
 
-结果：费用页实拍两格仍同色。三种可能还没分开：
+结果：费用页实拍两格仍同色。**三种可能已分开两种**——
+`b985c30` 的日志给出 `config.colorMode=0`（NOT_SET），假设 (a) 坐实：旧的 `=== COLOR_MODE_DARK`
+在冷启恒 false，所以深色档下那段分支从来没走过。改用资源法（解 canvas/ink 比亮度）后日志
+报 `isDarkMode=true`，**但两格读数依旧相同（最亮都是 64）**，所以剩下的解释是 (b)/(c)：
+官方 `SegmentButton` 在设了 `backgroundSystemMaterial` 时忽略 `fontColor/selectedFontColor`，
+或被材质轨道统一底色吃掉。（注：这次采样行没按 dump bounds 校准，读数待复测。）
+同一次改动还带出一条新的窄缺陷：**isDarkMode=true 之后底图仍是亮色路网主题**（#1D6F6E），
+说明 `TripMapView.applyTheme` 并没有真的把底图切暗——这条比「深色档判定」更具体，也还没修。
+
 - (a) `onCreate` 时 `context.config.colorMode` 不是 DARK（随后 `setColorMode(NOT_SET)` 才定档），播种仍是 false；
 - (b) 官方 `SegmentButton` 在设了 `backgroundSystemMaterial`（本页 `overrideTrackMaterial: true`）时忽略
   `fontColor/selectedFontColor`；
