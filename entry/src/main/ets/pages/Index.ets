@@ -17,6 +17,7 @@ import { MAP_NAV, EXPENSE_NAV, MINE_NAV, ACTIVE_TRIP_KEY, PENDING_ROUTE_KEY,
   PENDING_PARAM_KEY, TAB_INDEX_KEY, TAB_ITINERARY, TAB_MAP, TAB_EXPENSE, TAB_MINE,
   tabOfRoute } from '../common/constants/AppNav';
 import { TripDao, TripSummary } from '../data/TripDao';
+import { BuildConfig } from '../common/constants/BuildConfig';
 import { AccountStore } from '../data/AccountStore';
 import { common } from '@kit.AbilityKit';
 import { YoujingStartPage } from './YoujingStartPage';
@@ -88,7 +89,12 @@ function routerMap(name: string, param: object) {
   } else if (name === 'Map') {
     MapPage({ tripId: typeof param === 'string' ? param as string : '' })
   } else {
-    ComingSoonPage()
+    // 未识别的路由名。发布包保持用户看得懂的话；debug 包把名字画进标题，
+    // 真机验收时 dumpLayout 直接能读到是谁推了个不存在的落点
+    // （@Builder 体内不许写普通语句，日志式探针编译不过 10905204，只能走 UI）。
+    ComingSoonPage({
+      title: BuildConfig.IS_DEBUG ? `未识别路由 [${name}]` : '这个页面'
+    })
   }
 }
 
