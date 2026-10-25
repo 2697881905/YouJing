@@ -126,6 +126,24 @@
 
 旁证支持 (a)：本轮改前改后的行程详情页截图里整屏是深色档、底图却是绿色浅色路网配色，与「isDark 为 false」一致。
 
+### 地图 tab 修好之后又翻掉我自己的两条判读（`/tmp/m4.png`、`/tmp/lg2.png`）
+
+- **「底图仍亮色路网」是我看错了**：`isDarkMode=true` 之后底图已经是夜间主题（深色路网），
+  我拿一个区域均值 `#1D6F6E` 就下结论，没看图。`TripMapView.applyTheme` 走的是
+  `controller.setDayNightMode(NIGHT)`，代码本来就没问题。
+- **「地图收敛没给 dock 让位」也是我编的**：`MapPage` 传的是 `FIT_BOTTOM_PX = 600`，
+  而 dock 只占屏底 350px（2690−2340），早就盖过了。截图右下角被裁的「颐和园」是**底图自带路网标注**，
+  不是我们的 marker 或文案，改不了也不该改。
+- 真正修好的是取数：地图 tab 现在标题「北京 · 3天2晚 / 8 站」、8 个编号 marker、连线都在（`b985c30`）。
+
+**新发现一条真缺陷（rootMode 标题栏）**：`我的行程` 页的标题栏里，
+菜单圆钮渲染在**右上角独立一行**，大标题「我的行程 / 19 条」掉到它下面左对齐——
+钮和标题不在同一行。而 destination 模式（被别的页 push）下是同一行。
+这是 rootMode 把 `.titleBar()` 从 `HdsNavDestination` 挪到 `HdsNavigation` 之后才出现的，
+得单独查 `HdsChrome.bar()` 在 Navigation 档下的标题样式（`MINI`/大标题）怎么给。
+顺带纠正一次探针失误：我按 `y<230` 过滤可点节点找不到登出钮，其实是它在 `y≈325`，
+**过滤条件写错，不是控件没渲染**——别把探针的漏判当成 App 的缺陷。
+
 ### 结构性根因（本轮开始补）
 
 有此前**零屏幕适配层**：全仓 grep 无 `breakpoint / isWidePane / foldStatus / windowSizeChange /
