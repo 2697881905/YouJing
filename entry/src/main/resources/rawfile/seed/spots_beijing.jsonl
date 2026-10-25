@@ -23,10 +23,10 @@
 {"id":"bj-023","n":"香山公园","d":"海淀区","t":["niche"],"dur":240,"pop":78,"bk":{"req":false,"m":"","adv":0,"rel":"","closed":"","diff":""},"la":39.99069,"lo":116.18754}
 {"id":"bj-024","n":"潭柘寺","d":"门头沟区","t":["niche"],"dur":150,"pop":70,"bk":{"req":false,"m":"","adv":0,"rel":"","closed":"","diff":""},"la":39.90412,"lo":116.03068}
 {"id":"bj-025","n":"卢沟桥-宛平城","d":"丰台区","t":["classic"],"dur":120,"pop":73,"bk":{"req":false,"m":"","adv":0,"rel":"","closed":"","diff":""},"la":39.85027,"lo":116.21896}
-{"id":"bj-026","n":"古北水镇","d":"怀柔区","t":["niche","family"],"dur":420,"pop":81,"bk":{"req":false,"m":"","adv":0,"rel":"","closed":"","diff":""},"la":40.65035,"lo":117.27348}
+{"id":"bj-026","n":"古北水镇","d":"密云区","t":["niche","family"],"dur":420,"pop":81,"bk":{"req":false,"m":"","adv":0,"rel":"","closed":"","diff":""},"la":40.65035,"lo":117.27348}
 {"id":"bj-027","n":"国家博物馆","d":"东城区","t":["must_see","classic"],"dur":180,"pop":92,"bk":{"req":true,"m":"官网预约","adv":7,"rel":"17:00","closed":"周一","diff":"难"},"la":39.90515,"lo":116.40163}
 {"id":"bj-028","n":"首都博物馆","d":"西城区","t":["classic","family"],"dur":150,"pop":80,"bk":{"req":true,"m":"官网预约","adv":3,"rel":"00:00","closed":"周一","diff":"中"},"la":39.90635,"lo":116.34202}
 {"id":"bj-029","n":"亮马河国际风情水岸","d":"朝阳区","t":["niche"],"dur":90,"pop":75,"bk":{"req":false,"m":"","adv":0,"rel":"","closed":"","diff":""},"la":39.95732,"lo":116.48797}
 {"id":"bj-030","n":"朝阳公园","d":"朝阳区","t":["family"],"dur":120,"pop":74,"bk":{"req":false,"m":"","adv":0,"rel":"","closed":"","diff":""},"la":39.94571,"lo":116.48205}
-{"id":"bj-031","n":"五道营-钟鼓楼","d":"东城区","t":["niche"],"dur":90,"pop":72,"bk":{"req":false,"m":"","adv":0,"rel":"","closed":"","diff":""},"la":40.37291,"lo":116.57827}
+{"id":"bj-031","n":"五道营-钟鼓楼","d":"东城区","t":["niche"],"dur":90,"pop":72,"bk":{"req":false,"m":"","adv":0,"rel":"","closed":"","diff":""},"la":39.9484,"lo":116.41261}
 {"id":"bj-032","n":"世界公园","d":"丰台区","t":["family"],"dur":180,"pop":66,"bk":{"req":false,"m":"","adv":0,"rel":"","closed":"","diff":""},"la":39.80979,"lo":116.28701}

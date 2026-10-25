@@ -27,7 +27,7 @@ type Obj = Record<string, Object>;
 const TAG: string = 'Data.Seeder';
 const SEED_DATE: string = '2026-10-23';
 /** 种子结构版本：jsonl 字段或坐标数据一变就 bump，触发已装机 upsert 回填 */
-const SEED_VERSION: string = 'v2-geo-3';
+const SEED_VERSION: string = 'v2-geo-4';
 const SEED_PREFS: string = 'youjing_seed';
 const KEY_SEED_VERSION: string = 'version';
 /** 坐标缺失时片区不落点（0 会被 MapStops.usable 滤掉），比按城市质心插错地方诚实 */
@@ -61,6 +61,7 @@ export class DistrictCoords {
     ['北京:怀柔区', [40.316, 116.637]], ['北京:延庆区', [40.457, 115.975]],
     ['北京:门头沟区', [39.941, 116.102]], ['北京:房山区', [39.742, 116.143]],
     ['北京:顺义区', [40.129, 116.654]], ['北京:大兴区', [39.726, 116.341]],
+    ['北京:密云区', [40.376, 116.843]],
     ['上海:黄浦区', [31.232, 121.484]], ['上海:徐汇区', [31.188, 121.437]],
     ['上海:长宁区', [31.220, 121.425]], ['上海:静安区', [31.229, 121.458]],
     ['上海:普陀区', [31.250, 121.396]], ['上海:虹口区', [31.265, 121.487]],
