@@ -102,8 +102,8 @@ function routerMap(name: string, param: object) {
  * tab 根页宿主。TabContent 首次可见才建，所以"进这个 tab 该看到的页面"不能由外部 push
  * （会早于绑定、丢路由）：改由宿主自己推。
  *
- * 待路由和活跃行程都挂成响应式，不能只在 aboutToAppear 读一次：TabContent 建完后一直活着，
- * 同一个 tab 的第二次深链再没有 aboutToAppear 来消费，路由就静默丢了；
+ * 待路由和活跃行程都挂成响应式，不能只在创建时读一次：TabContent 建完后一直活着，
+ * 同一个 tab 的第二次深链再没有创建期回调来消费，路由就静默丢了；
  * 而活跃行程是异步种下的，首帧读到的空值会把占位文案永久钉在屏幕上。
  */
 @Component
@@ -143,10 +143,6 @@ struct TabRootHost {
     this.stack.pushPath({ name: this.route, param: this.activeTripId });
   }
 
-  aboutToAppear(): void {
-    this.routeOwnTab();
-  }
-
   build() {
     Column() {
       if (this.tripScoped && this.activeTripId.length === 0) {
@@ -159,6 +155,12 @@ struct TabRootHost {
     .height('100%')
     .justifyContent(FlexAlign.Center)
     .backgroundColor($r('app.color.canvas'))
+    // 首帧路由挂在内容的 onAppear，而不是 aboutToAppear：后者跑在宿主自己的 Navigation
+    // 把栈绑上之前，那时 push 出来的落点解析不出来（真机证据：冷启 route=Expense
+    // 落 ComingSoonPage，§4k ④）。routeOwnTab 幂等，页签反复出现再走一次也无害。
+    .onAppear((): void => {
+      this.routeOwnTab();
+    })
   }
 }
 
