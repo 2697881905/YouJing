@@ -128,8 +128,11 @@ struct TodayTripCard {
       .width('100%')
 
       Text(this.dayTitle)
-        .fontSize(TypeTokens.headline.size)
-        .fontWeight(TypeTokens.headline.weight)
+        // 帧 7fc1cb85 的卡片日标签是 .serif-title 21/700；字族暂留 sans——
+        // Noto Serif SC 是 EntryAbility 里 registerFont 的，FormExtension 卡片进程不共享那次注册，
+        // 要真上衬线得在卡片进程里再注册一遍并回桌面实拍验证（见任务 #37）。
+        .fontSize(TypeTokens.title.size)
+        .fontWeight(TypeTokens.title.weight)
         .fontColor($r('app.color.ink'))
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })

@@ -461,6 +461,19 @@ WCAG 对比度。它只能从像素量：`uitest dumpLayout` 的节点里没有 
 按 3.0 折算会把每一处都算大 4%，之前几轮量出来"差一点点"就是这个原因。
 
 
+`python3 tools/audit_fontfamily.py` 是第六把尺，管的是这份契约的设计语言本体——
+「中文衬线做编辑体标题，可操作的一律 HarmonyOS Sans」。ArkUI 的 `fontFamily` **不随字号档位自动带上**：
+只写 `.fontSize(TypeTokens.title.size).fontWeight(700)` 编译通过、截图看着也"差不多"，
+实际渲染还是 sans，整条编辑感静悄悄消失。三查：① `TypeTokens` 各档的 family/size/weight 对表
+DESIGN hierarchy（契约 serif 档 = display 32/700、title 21/700、day-label 21/700、body-serif 16/400）；
+② 凡用 serif 档却没在同一属性链里写 `.fontFamily` 即报（链按缩进收口，窗口式往下扫会吃到兄弟组件而漏判——
+这条是种子实测出来的假阴性，已修）；③ 帧声明的 16 个 serif 槽逐条对表到代码文件，缺一处报一处。
+同值不同义走带理由的白名单：屏11 的金额 hero 与 display 同档但契约明写换 sans；
+屏13 桌面卡片日标签档位已对齐 21/700，衬线待补（`Noto Serif SC` 是 EntryAbility 里 `registerFont` 的，
+FormExtension 卡片进程不共享那次注册）。浅色档 13 帧实测 serif 只出现在 21/700 与 32/700 两档，
+16/400 的 `body-serif` 一处没有 → 该档暂无消费方，按报告项处理不卡构建。
+
+
 ## 六、开发路线
 
 ### 阶段 1：数据契约冻结
@@ -559,6 +572,8 @@ WCAG 对比度。它只能从像素量：`uitest dumpLayout` 的节点里没有 
 | `systemMaterial` 挂在 `ListItemGroup` 的 sticky 组头上不出图 | 屏8 玻璃点位③第一次尝试走的是 dock 同款 `attributeModifier(barMaterial(ULTRA_THIN))`：`dumpLayout` 显示组头 Row 的 `backgroundColor` 已翻成 `#00000000`（分支确实生效），但带内被压住的内容字最暗像素仍是 **0**、和带外一模一样——材质层没画，只剩一个全透的栏，结果字压字 | 点位③落回官方组件级磨砂 `backgroundBlurStyle(BlurStyle.COMPONENT_THICK)`：同一滚动位置复量，带内内容字 min 从 0 升到 237、中间调占比 0.0%，栏体本身 244 对画布 255（一道轻烟，不是灰缝）。它同样是系统绘制的模糊层，不是自绘玻璃；第五把尺的载体白名单已认这条轨 |
 | 磨砂吸顶层会让"正在被压住的那一行"判成低对比 | 屏8 滚动态下 `13:15` 量到 1.04:1——它整行正从栏下滑过，字形被模糊掉了，这是吸顶栏应有的行为，不是配色失败 | 看这一行的**完整实例**再定性（同名节点取最优实例的逻辑已在尺内）；验收截图要么停在没被压住的位置，要么把该节点标注为遮挡 |
 | 本机 `snapshot_display` 只收 `.jpeg` | 写 `-f x.png` 直接 `error: filename invalid`，对比度尺的用法行却写着 `<screenshot.png>` | 采图一律 `.jpeg`；jpeg 色度噪声会压低细笔画小字号的比值（分段栏未选中档像素 4.46 vs 官方色值精算 5.46），4.5 线附近必须用 color.json 精算复核 |
+| `fontFamily` 不随字号档位带上 | `TypeTokens.title` 里存着 `family: serif`，但只写 `.fontSize(TypeTokens.title.size).fontWeight(700)` 的 Text 真机渲染是 **sans**——档名带 serif 不等于字族生效 | 第六把尺 `audit_fontfamily.py` 按属性链核这条；改完必须真机截图目视（宋体的横细竖粗与三角衬脚在放大裁图里一眼可辨，屏15「颐和园」/屏10「故宫博物院」两处已这么验过） |
+| 面板打开时 dump 里有**两句一模一样的正文** | 屏10 详情面板压住时间线，同一句 reason 在 dump 里出现两条：面板内那条有字形（暗像素 23%），被压住的时间线那条只剩面板底板（min 237、暗像素 0%） | 对比度尺的"同名取最优实例"在这组上没救回来，报出的 1.08:1 是被压住那条；定性遮挡，不当配色缺陷。看到这类号 1.0x 的项，先量两个实例的暗像素占比再下结论 |
 
 
 ## 九、命名决策记录

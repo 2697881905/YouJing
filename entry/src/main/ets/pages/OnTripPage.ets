@@ -295,6 +295,9 @@ export struct OnTripPage {
               Text(this.current === null ? '今日暂无安排' : this.current.title)
                 .fontSize(TypeTokens.title.size)
                 .fontWeight(700)
+                // 帧 fc4e40cd 的当前节点名是 serif 档；ArkUI 的 fontFamily 不会随档位自动带上，
+                // 只写 size/weight 就还是 sans
+                .fontFamily(TypeTokens.title.family)
                 .fontColor(ColorTokens.ink)
                 .margin({ top: SpaceTokens.xs })
               Text(this.heroMeta())

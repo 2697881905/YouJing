@@ -742,8 +742,10 @@ export struct ItineraryPage {
                 .backgroundColor(ColorTokens.surfaceSunken)
               Column() {
                 Text(this.detailAct.title)
-                  .fontSize(TypeTokens.headline.size)
-                  .fontWeight(600)
+                  // 帧 471fcea9 的节点名是 .serif-title 21/700 serif（不是 headline 18/600）
+                  .fontSize(TypeTokens.title.size)
+                  .fontWeight(TypeTokens.title.weight)
+                  .fontFamily(TypeTokens.title.family)
                   .fontColor(ColorTokens.ink)
                 Text(this.detailAddressLine())
                   .fontSize(TypeTokens.caption.size)
