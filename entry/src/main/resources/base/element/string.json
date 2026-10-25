@@ -2,15 +2,15 @@
   "string": [
     {
       "name": "module_desc",
-      "value": "module description"
+      "value": "有径行程规划模块"
     },
     {
       "name": "EntryAbility_desc",
-      "value": "description"
+      "value": "AI 行程规划与旅行中助手"
     },
     {
       "name": "EntryAbility_label",
-      "value": "label"
+      "value": "有径"
     },
     {
       "name": "widget_display_name",

@@ -117,8 +117,12 @@ export default function todayPlanTest(): void {
     });
 
     it('date_utils_iso_helpers', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
-      expect(DateUtils.isValidIsoDate('2026-02-30')).assertTrue();
+      // 真实日历回检：2026-02-30 不存在（会被 JS Date 规范化成 3 月，放过去会产出撕裂行程）
+      expect(DateUtils.isValidIsoDate('2026-02-30')).assertFalse();
+      expect(DateUtils.isValidIsoDate('2026-02-29')).assertFalse();
+      expect(DateUtils.isValidIsoDate('2028-02-29')).assertTrue();
       expect(DateUtils.isValidIsoDate('2026-2-30')).assertFalse();
+      expect(DateUtils.isValidIsoDate('2026-06-11')).assertTrue();
       expect(DateUtils.addDays('2026-01-30', 3)).assertEqual('2026-02-02');
       expect(DateUtils.addDays('bad', 3)).assertEqual('');
       expect(DateUtils.spanDays('2026-06-11', '2026-06-15')).assertEqual(5);

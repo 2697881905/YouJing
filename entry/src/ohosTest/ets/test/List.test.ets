@@ -1,4 +1,3 @@
-import abilityTest from './Ability.test';
 import tripParserTest from './TripParser.test';
 import dataSeederTest from './DataSeeder.test';
 import llmPipelineTest from './LlmPipeline.test';
@@ -7,9 +6,11 @@ import todayPlanTest from './TodayPlan.test';
 import icsBuilderTest from './IcsBuilder.test';
 import failureCopyTest from './FailureCopy.test';
 import geoTest from './Geo.test';
+import mapStopsTest from './MapStops.test';
+import todayCardTest from './TodayCard.test';
+import styleConfigTest from './StyleConfig.test';
 
 export default function testsuite() {
-  abilityTest();
   tripParserTest();
   dataSeederTest();
   llmPipelineTest();
@@ -18,4 +19,7 @@ export default function testsuite() {
   icsBuilderTest();
   failureCopyTest();
   geoTest();
+  mapStopsTest();
+  todayCardTest();
+  styleConfigTest();
 }

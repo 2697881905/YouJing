@@ -1,5 +1,4 @@
 import { AbilityConstant, Configuration, ConfigurationConstant, skillManager, UIAbility, Want } from '@kit.AbilityKit';
-import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 import { Logger } from '../common/logger/Logger';
 import { APP_NAV } from '../common/constants/AppNav';
@@ -8,13 +7,10 @@ import { AccountStore } from '../data/AccountStore';
 import { PlanDraft } from '../data/PlanDraft';
 import { TripBasicInput } from '../model/PlanParams';
 import { DateUtils } from '../utils/DateUtils';
-import { IntentHandoff } from '../data/IntentHandoff';
 import { SkillPrefill, SkillPrefillRecord } from '../data/SkillPrefill';
 import { BuildConfig } from '../common/constants/BuildConfig';
 import { BudgetConfig } from '../common/constants/BudgetConfig';
 import { WidgetSync } from '../widget/TodayCard';
-
-const DOMAIN = 0x0000;
 
 export default class EntryAbility extends UIAbility {
   private pendingRoute: string = '';
@@ -25,7 +21,7 @@ export default class EntryAbility extends UIAbility {
   private visible: boolean = false;
 
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
-    hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onCreate');
+    Logger.info('EntryAbility', 'Ability onCreate');
     this.applyWant(want);
   }
 
@@ -125,19 +121,19 @@ export default class EntryAbility extends UIAbility {
   }
 
   onDestroy(): void {
-    hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onDestroy');
+    Logger.info('EntryAbility', 'Ability onDestroy');
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {
     // Main window is created, set main page for this ability
-    hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onWindowStageCreate');
+    Logger.info('EntryAbility', 'Ability onWindowStageCreate');
 
     windowStage.loadContent('pages/Index', (err) => {
       if (err.code) {
-        hilog.error(DOMAIN, 'testTag', 'Failed to load the content. Cause: %{public}s', JSON.stringify(err));
+        Logger.error('EntryAbility', `Failed to load the content. Cause: ${JSON.stringify(err)}`);
         return;
       }
-      hilog.info(DOMAIN, 'testTag', 'Succeeded in loading the content.');
+      Logger.info('EntryAbility', 'Succeeded in loading the content.');
       this.registerSerifFont(windowStage);
       this.bootstrap();
     });
@@ -145,17 +141,17 @@ export default class EntryAbility extends UIAbility {
     try {
       this.context.getApplicationContext().setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET);
     } catch (err) {
-      hilog.error(DOMAIN, 'testTag', 'Failed to set colorMode. Cause: %{public}s', JSON.stringify(err));
+      Logger.error('EntryAbility', `Failed to set colorMode. Cause: ${JSON.stringify(err)}`);
     }
   }
 
   onWindowStageDestroy(): void {
     // Main window is destroyed, release UI related resources
-    hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onWindowStageDestroy');
+    Logger.info('EntryAbility', 'Ability onWindowStageDestroy');
   }
 
   onForeground(): void {
-    // 意图执行器可能早于页面挂载写路由，这里与 bootstrap 双路消费同一交接位
+    // 页面可见后才消费预填，与 bootstrap 双路覆盖冷/热启动
     this.visible = true;
     this.routePending();
   }
@@ -163,7 +159,7 @@ export default class EntryAbility extends UIAbility {
   onBackground(): void {
     // Ability has back to background
     this.visible = false;
-    hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onBackground');
+    Logger.info('EntryAbility', 'Ability onBackground');
   }
 
   /** 登录态必须先于任何行程读写恢复：DAO 取分区键是同步的（阶段 8） */
@@ -200,15 +196,10 @@ export default class EntryAbility extends UIAbility {
   }
 
   /**
-   * 统一出口：want 通道优先，其次意图执行器交接位，最后小艺 Skill 落盘的预填。
+   * 统一出口：want 通道优先，其次小艺 Skill 落盘的预填。
    * 预填只在「页面已挂载 + 用户真的看得见」时消费；后台被 Skill 绑起时留着，进程被杀也不丢。
    */
   private routePending(): void {
-    if (this.pendingRoute.length === 0 && IntentHandoff.hasPending()) {
-      this.pendingRoute = IntentHandoff.pendingRoute;
-      this.pendingParam = IntentHandoff.pendingParam;
-      IntentHandoff.take();
-    }
     if (this.pendingRoute.length === 0 && this.contentReady && this.visible) {
       const prefill: SkillPrefillRecord | null = SkillPrefill.take(this.context);
       if (prefill !== null) {
