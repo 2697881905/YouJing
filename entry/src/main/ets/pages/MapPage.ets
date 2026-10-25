@@ -48,6 +48,17 @@ export struct MapPage {
   @State private loaded: boolean = false;
   private seq: number = 0;
 
+  /**
+   * 首帧取数必须挂在这里，不能只靠 onShown：
+   * onShown 是 HdsNavDestination 的属性，而本页作为 dock「地图」tab 的根页时走的是
+   * rootMode 分支（自带内嵌 HdsNavigation），那条属性根本不参与渲染——
+   * 真机实拍就是整块空白、标题只剩「地图」（titleText 没被行程名覆盖）。
+   * onShown 保留给「从编辑页/屏8 返回要吃到回写数据」这一路。
+   */
+  aboutToAppear(): void {
+    this.reload();
+  }
+
   /** 编辑页/屏8 返回后要吃到回写的库数据，统一挂 onShown（首帧也会触发） */
   /** 官方标题栏：行程名 + 副标题步数，「全览」走 content.menu 圆钮 */
   private titleBarOptions(): HdsNavigationTitleBarOptions {

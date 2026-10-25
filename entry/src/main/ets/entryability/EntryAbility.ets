@@ -1,5 +1,6 @@
 import { AbilityConstant, Configuration, ConfigurationConstant, skillManager, UIAbility, Want } from '@kit.AbilityKit';
 import { window } from '@kit.ArkUI';
+import { resourceManager } from '@kit.LocalizationKit';
 import { initBreakpointCenter } from '../utils/breakpointCenter';
 import { Logger } from '../common/logger/Logger';
 import { stackOfRoute, tabOfRoute, TAB_INDEX_KEY, TAB_ITINERARY, ACTIVE_TRIP_KEY } from '../common/constants/AppNav';
@@ -27,8 +28,7 @@ export default class EntryAbility extends UIAbility {
     // 而那个回调只在配置**变化**时才来：直接以深色档冷启时它不来，
     // 于是全仓 7 处 @StorageProp('isDarkMode') 一律按浅色走——
     // 深色零阴影门控失效、底图不换暗色主题、分段栏选中底色与文字色分支整段跳过。
-    AppStorage.setOrCreate('isDarkMode',
-      this.context.config.colorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK);
+    this.seedDarkMode();
     this.applyWant(want);
   }
 
@@ -121,10 +121,44 @@ export default class EntryAbility extends UIAbility {
     return 0;
   }
 
+  /** ARGB 亮度（够用即可，不追求 sRGB 精确） */
+  private static luma(argb: number): number {
+    return 0.2126 * ((argb >> 16) & 0xFF) + 0.7152 * ((argb >> 8) & 0xFF) + 0.0722 * (argb & 0xFF);
+  }
+
+  /**
+   * 深色档判定。不能只读 `config.colorMode`：那个字段是**可选的**，
+   * 冷启时实测拿不到值（undefined / NOT_SET），于是 `=== COLOR_MODE_DARK` 恒 false，
+   * 全仓 7 处 @StorageProp('isDarkMode') 在深色档下全按浅色走
+   * ——真机证据：深色档里地图 tab 渲染的是亮色路网主题。
+   * 兜底改用资源管线自己说真话：把 canvas 与 ink 按「当前生效配置」解出来比亮度，
+   * 深色档 ink(#F2F2F4) 比 canvas(#121212) 亮，浅色档反过来——不依赖任何硬编码色值。
+   */
+  private seedDarkMode(): void {
+    const cm: ConfigurationConstant.ColorMode | undefined = this.context.config.colorMode;
+    let dark: boolean;
+    if (cm === ConfigurationConstant.ColorMode.COLOR_MODE_DARK) {
+      dark = true;
+    } else if (cm === ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT) {
+      dark = false;
+    } else {
+      dark = false;
+      try {
+        const rm: resourceManager.ResourceManager = this.context.resourceManager;
+        const canvas: number = rm.getColorSync($r('app.color.canvas').id);
+        const ink: number = rm.getColorSync($r('app.color.ink').id);
+        dark = EntryAbility.luma(ink) > EntryAbility.luma(canvas);
+      } catch (err) {
+        Logger.warn('EntryAbility', `资源法判深色档失败，按浅色处理: ${(err as Error).message}`);
+      }
+    }
+    AppStorage.setOrCreate('isDarkMode', dark);
+    Logger.info('EntryAbility', `isDarkMode=${dark}（config.colorMode=${cm}）`);
+  }
+
   onConfigurationUpdate(newConfig: Configuration): void {
     // 深色零阴影门控（契约 §4）：页面用 @StorageProp('isDarkMode') 决定是否挂 elevation
-    AppStorage.setOrCreate('isDarkMode',
-      newConfig.colorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK);
+    this.seedDarkMode();
   }
 
   onDestroy(): void {
