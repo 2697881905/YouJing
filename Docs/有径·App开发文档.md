@@ -379,7 +379,8 @@ YouJing/
 │           ├── MapStops.ets                  # 底图落点与视野盒
 │           ├── NumberedPin.ets               # 编号图钉
 │           ├── immersiveMaterial.ets         # 系统材质档位与能力门控
-│           └── DateUtils.ets                 # 日期工具
+│           ├── TransitSymbol.ets             # 通勤方式 → 系统图标（屏8/屏15 共用）
+│           └── DateUtils.ets                 # 日期工具（ISO 校验含真实日历回检）
 ├── tools/
 │   ├── audit_colors.py                       # 色值 ↔ 设计契约核对（见 §5.5）
 │   ├── audit_type.py                         # 字号/图标档位 ↔ token 核对（见 §5.5）

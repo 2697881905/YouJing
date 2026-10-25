@@ -4,6 +4,80 @@
 
 ## [Unreleased]
 
+### Added
+
+- 三组回归用例 + 测试基线升到 66/66（2026-10-25）：`MapStops`（落点装配/usable 门禁/bounds/runs/signature）、
+  `TodayCard`（卡片 14 个键与 13+1 个 @LocalStorageProp 对齐、空槽不占行）、
+  `StyleConfig`（活动类型五对封闭映射 + 四题选项与模型枚举同源 + 默认值合法）；
+  `DataSeeder` 扩到 8 组（坏 JSON/缺 id/缺 bk/陌生标签/脏枚举/可信度落库）。
+  模板 `Ability.test` 删除。模拟器实测 `Tests run: 66, Failure: 0`。
+- 屏4 空态（2026-10-25）：不支持的城市不再拿京都数据冒充，`PlanRepository` 的 mock 路由只在
+  `city === '京都'` 时生效；空库时屏4 出契约空态（48 展示档图标 + 标题 + 一句说明 + 换城市）。
+- 屏5 候选收敛按 §3.3 落地（2026-10-25）：App 端先按与屏4 所选景点的平均直线距离排序取前 12 片，
+  再展示前 3 片（LLM 精选轮次就绪前按距离取，不谎报是 AI 选的）。日志
+  `候选片区 36 → 距离排序取前 12 → 展示 3`；缺坐标的片区排最后，不当最近。
+- 景点溯源组补「可信度」列（RDB v5，2026-10-25）：`spot.confidence` + `SpotDao` 读写闭环，
+  种子重灌（`v2-geo-3`）回填；`DataSeeder` 同步补 `strOf/numOf/strsOf/objOf/pickEnum` 安全原语，
+  坏行跳过而不是在首启 bootstrap 抛 TypeError。
+
+### Fixed
+
+- RDB 迁移链断裂（2026-10-25，模拟器实测 `迁移完成 4 → 5`）：`onUpgrade` 原先按
+  `oldVersion === N` 精确匹配，v1 老库升到 v4 只执行一级 —— `expense/checkin` 不建表、
+  `expense.activity_id` 不加列（此后记账必报 no such column）。改为 `oldVersion < N` 累积式，
+  新增 v5 `spot.confidence`；新建库同样走一遍迁移，避免「CREATE 已带该列 + ALTER 重复加列」。
+- 种子脏值写进库（2026-10-25，ohosTest 先红后绿）：`whitelist([v], allowed)[0]` 在「键存在但值非法」时
+  取到 undefined；改 `pickEnum(value, allowed, fallback)` 显式回退。
+- 屏7 重试把页面堆叠（2026-10-25）：`popToName('Generating')` 落空（该页已被 replacePath 移出栈），
+  紧跟 push 会把 Generating 堆到失败页上面，生成成功后 Itinerary 底下仍压着失败页。改 `replacePath`；
+  「换一天 / 去掉这个景点」由裸 `pop()`（只会落到屏5）改为 `popToName(TripInput/SpotPick)` + push 兜底。
+- 屏2 默认日期写死在过去（2026-10-25，模拟器实测 `10月25日 – 10月27日`）：`TripInputPage` 与
+  `PlanDraft` 的双重默认值都写死 `2026-07-01`；改为按今天起算，草稿里的过期日期丢弃，
+  日期 picker 起点也改今天。
+- 屏6 取消后仍被拽走（2026-10-25）：取消/返回后 in-flight 生成完成照样 `replacePath`；
+  加 cancelled 标志（含 aboutToDisappear），关键 await 后短路。
+- 深链直达屏7/屏9 抛 TypeError（2026-10-25）：`typeof null === 'object'` 仍断言 null；
+  路由参数窄化抽成普通函数（@Builder 内不允许局部 const）。
+- 屏1 登录/归户失败卡死（2026-10-25）：`enterApp` 裸 await，一处 rejection 停在首启页；包 try/catch，
+  失败按游客分区继续。
+- 分区键漏过滤（2026-10-25）：取消打卡/删除记账不带 `user_id`，同机切账号可删到另一账号的数据。
+- 卡片刷新全表遍历（2026-10-25）：`todayPlan` 先按 `start_date <= today <= end_date` 预筛。
+- 日期合法性只验格式（2026-10-25）：`2026-02-30` 能穿透草稿/深链参数；`isValidIsoDate` 加真实日历回检。
+
+### Changed
+
+- 选项 chip 回摆契约 tint 配方（2026-10-25）：EMPHASIZED 实心蓝 → primary-tint 底 + 1px primary 描边
+  + ink 字 + 对勾（DESIGN §9 实测 tint 底蓝字双端 sub-AA），minHeight 44 → 56（option-chip 契约值）；
+  人数 chip 与费用分类 chip 同处方，消除同屏双实心蓝（禁令 1）。
+- 屏8 三处几何回契约（2026-10-25）：日标题 body 16/600 sans → day-label serif 21/700（空数据不再渲染
+  「Day 1 · 日」）；`List` 补 12px 行距（此前为 0，站点行与交通腿紧贴）；行高由固定 76/76+84 改
+  `constraintSize(minHeight)`（76 是 minimum 不是 cap）。
+- 屏8 详情面板统计卡去材质（2026-10-25）：`bindSheet` builder 内挂系统材质属生效范围外，
+  glassOn 时还把底置透明 → 既无材质也无底色；删材质、恒实色。
+- 语义色与玻璃面收口（2026-10-25）：屏8「待定」由 bookmark（必去金）改 warning；屏12 金额徽章由
+  success 实心改中性底 + body 字；地图页站点条（第五处玻璃面）改实色 + hairline；dock 材质生效时
+  描边一并撤掉（双环）；分段控件两处宿主补 `overrideTrackMaterial`。
+- 桌面卡片回到契约 widget-card（2026-10-25）：背景由 canvas（深色 #121212）改 surface-elevated
+  （#1E1E1E）+ 1px hairline 描边；空态不再响应点击（此前会落到空行程页）。
+- 图标档位收口（2026-10-25）：12/14/18px 共 7 处全部走 `IconSizes.control`；屏1 隐私句的 12px 锁形
+  图标直接去掉；chevron 由 faint（2.67:1，DESIGN §8 明文纠正的旧习惯）改 muted 三处。
+- 数字与文案口径（2026-10-25）：预算/金额/记账三处去千分位（契约「整数 + 单位」）；
+  「京都（演示）」→「京都（示例数据）」、坐标类工程话术改用户语言、屏6「无需等待网络」改为
+  不绑定传输实现的表述、ComingSoon 兜底改用户语言。
+- 应用名与描述（2026-10-25）：`app_name` 由 `YouJing` 改「有径」，entry 三个模板串
+  （label/desc/module_desc）与 `vendor: example` 同步替换；模拟器桌面图标名实测变更。
+- 死代码与死配置清理（2026-10-25）：删 `insight_intent.json` + `PlanTripExecutor.ets` + `IntentHandoff`
+  （无注册入口、唯一写方消失）、`PlanRepository.hasTrips`、`LlmClient.schemaStatuses`、屏4 恒真死分支、
+  屏12 `mustIdx` 死分支；`form_config.json` 删 `scheduledUpdateTime`（与 updateDuration 同配时永不生效）。
+- 日志治理（2026-10-25）：`EntryAbility`/`EntryBackupAbility` 的裸 `hilog('testTag')` 全部改走 Logger，
+  设备端 `YouJing.` 前缀可抓到启动/销毁/意图链路。
+- 屏3 进度改契约形态（2026-10-25）：4px 通栏轨道 → 6px 圆点串 + overline「第 N/M 步」。
+- 屏6 骨架屏镜像真实行程行（2026-10-25）：圆角 6→14，52 时间槽 / 76 最小行高 / 160 默认宽 / 56 高亮行。
+- 屏9 拖动态表达（2026-10-25）：时间字不再压 tint 底变蓝（sub-AA），改左侧 2px primary 竖条。
+- ForEach key 稳定化（2026-10-25）：屏3/4/5/8/9/11/12/19 把选中态/时间等易变字段移出 key，
+  拖动不再整项重建。
+
+
 ### Fixed
 
 - 屏11 分段控件补上帧声明的无障碍标签（2026-10-24，任务 #31 第 1 项）：帧 1ab099b1/70642048 给

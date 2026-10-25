@@ -2,8 +2,9 @@
 
 > 日期：2026-10-23。**应用侧已完成并真机验证；平台侧需要你在小艺开放平台操作。**
 > 本项目走的是 API 26 的「应用内 Skill」（app skill），不是旧的 IntentsKit 意图声明。
-> 旧的 `resources/base/profile/insight_intent.json` 与 `PlanTripExecutor` 仍留在工程里，
-> 但当前小艺入口以本文的 Skill 为准，两者互不依赖。
+> 旧的 `resources/base/profile/insight_intent.json` 与 `PlanTripExecutor` 已于 2026-10-25
+> 删除（死代码：无注册入口，唯一写方消失后 `IntentHandoff` 一并移除），
+> 小艺入口以本文的 Skill 为准。
 >
 > **2026-10-23 真机测试修正**：手机系统禁止后台应用拉起 UIAbility，
 > Skill 里 `startAbility` 必报 `201`（`ohos.permission.START_ABILITIES_FROM_BACKGROUND`
