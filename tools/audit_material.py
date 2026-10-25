@@ -14,7 +14,7 @@
 - 点位是否落实，按"该点位的宿主是否出现材质载体调用"判；有意不做写
   `// 材质豁免：<理由>` 一行，豁免要带理由，否则视同漏做；
 - 顶栏走 HdsNavigation 的 IMMERSIVE_GRADIENT_BLUR（官方栏自己接管材质），
-  dock/吸顶走 attributeModifier(barMaterial(...))，sheet/菜单走 options 里的 systemMaterial。
+  dock 走官方 HdsTabs 的 barFloatingStyle.systemMaterialEffect，吸顶走 barMaterial/背景模糊，sheet/菜单走 options 里的 systemMaterial。
 """
 
 import glob
@@ -67,9 +67,11 @@ def check_points(srcs, fails):
     if 'IMMERSIVE_GRADIENT_BLUR' not in chrome:
         fails.append('[点位①顶栏] HdsChrome 未挂 IMMERSIVE_GRADIENT_BLUR 沉浸渐变模糊')
 
-    dock = srcs.get('entry/src/main/ets/components/FloatingDock.ets', '')
-    if 'barMaterial(' not in dock:
-        fails.append('[点位②dock] FloatingDock 未挂 barMaterial')
+    # 点位②：浮动 dock。2026-10-26 起载体换成官方 HdsTabs（自绘 FloatingDock 已删），
+    # 材质走 barFloatingStyle 的 systemMaterialEffect——载体变了，尺跟着改定义，不是放宽。
+    dock = srcs.get('entry/src/main/ets/pages/Index.ets', '')
+    if 'barFloatingStyle(' not in dock or 'systemMaterialEffect' not in dock:
+        fails.append('[点位②dock] 官方 HdsTabs 的 barFloatingStyle 没挂 systemMaterialEffect')
 
     for rel, text in srcs.items():
         for m in re.finditer(r'\.sticky\(StickyStyle\.Header\)', text):
