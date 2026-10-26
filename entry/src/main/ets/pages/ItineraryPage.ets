@@ -564,12 +564,15 @@ export struct ItineraryPage {
         Stack({ alignContent: Alignment.Top }) {
           Column()
             .width(LayoutTokens.routeLineWidth)
-            .height(isLast ? 12 : '100%')
+            // 原来非末行写 '100%'：这一行没有定高，百分比按**视口高**解析，
+            // 于是竖线从节点一路画进下方的黑里（实拍「时间轴断在半空」的真因）。
+            // 换成与首启预览卡同一档的具名行高
+            .height(isLast ? SpaceTokens.md : LayoutTokens.itineraryRowMinHeight)
             .backgroundColor(ColorTokens.surfaceSunken)
           this.spineNode(act.category)
         }
         .width(LayoutTokens.itineraryNodeSize)
-        .height('100%')
+        .height(isLast ? SpaceTokens.md : LayoutTokens.itineraryRowMinHeight)
         Column() {
           Row({ space: SpaceTokens.sm }) {
             Text(act.title)
@@ -589,11 +592,9 @@ export struct ItineraryPage {
                 .borderRadius(RadiusTokens.pill)
                 .backgroundColor(this.bookingColor(act.status))
             }
-            Column()
-              .width(36)
-              .height(48)
-              .borderRadius(RadiusTokens.media)
-              .backgroundColor(ColorTokens.surfaceSunken)
+            // 原来这里挂着一个 36×48 的 surfaceSunken 方块当景点缩略位，
+            // 但 Activity/AI 契约里根本没有图片字段——它永远填不上，
+            // 实拍读起来就是「需预约」右边一块悬空的深色残留（§5 排版交错）
           }
           .alignItems(VerticalAlign.Center)
 
@@ -663,7 +664,10 @@ export struct ItineraryPage {
   /** 吸顶日标题（玻璃点位④：骨架期实色），挂在 ListItemGroup.header 上由 sticky 吸顶 */
   @Builder
   dayHeader() {
-    Row() {
+    // 原来是一行 Row{日标题, Blank(), meta}：meta「王府井-东城核心 出发 · 第 1 日 · 标准」
+    // 加上 21vp 衬线日标题超出屏宽后，Blank 塌成 0，两段文字直接互撞、
+    // 末尾的「主题·节奏」被裁出屏幕右沿（真机实拍）。拆成两行才装得下
+    Column({ space: SpaceTokens.xs }) {
       // day-label 档：serif 21/700（DESIGN Layout §3 日分隔 = serif day-label；
       // 此处曾是 body 16/600 sans，是 serif 该上而没上的位置）
       Text(`Day ${this.curDay().dayIndex}${this.dayDateSuffix()}`)
@@ -672,14 +676,16 @@ export struct ItineraryPage {
         .fontFamily(TypeTokens.title.family)
         .fontColor(ColorTokens.ink)
         .fontFeature("'tnum' on")
-      Blank()
       Text(this.dayMetaLine())
         .fontSize(TypeTokens.caption.size)
         .fontWeight(450)
         .fontColor(ColorTokens.muted)
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
     }
+    .alignItems(HorizontalAlign.Start)
     .width('100%')
-    .height(LayoutTokens.dayDividerHeight)
+    .constraintSize({ minHeight: LayoutTokens.dayDividerHeight })
     .padding({ top: SpaceTokens.md })
     // 玻璃点位③（契约 §1024 sticky 变体）：真机实测 systemMaterial 挂在 ListItemGroup
     // 的 sticky 组头上不出图（带内内容字 min=0，与带外无差别），落回官方组件级磨砂
@@ -1185,7 +1191,10 @@ export struct ItineraryPage {
                   }
                   .alignItems(HorizontalAlign.Center)
                   .width('100%')
-                  .padding({ top: SpaceTokens.xl, bottom: SpaceTokens.xl })
+                  // 空态占满一屏可视高并居中：原来它贴在 List 顶上，
+                  // 下面五成屏是纯黑，看着像页面没加载完（§5.5「断在半空」同一件事）
+                  .height('100%')
+                  .justifyContent(FlexAlign.Center)
                 }
               }
               ForEach(this.curDay().activities,
