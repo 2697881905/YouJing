@@ -55,4 +55,26 @@ export class DateUtils {
   static todayIso(): string {
     return DateUtils.toIso(new Date());
   }
+
+  /** HH:mm → 当日分钟数；格式/范围非法返回 -1（调用方决定回退口径） */
+  static minutesOf(hhmm: string): number {
+    if (!/^\d{2}:\d{2}$/.test(hhmm)) {
+      return -1;
+    }
+    const parts: string[] = hhmm.split(':');
+    const h: number = Number(parts[0]);
+    const m: number = Number(parts[1]);
+    if (h > 23 || m > 59) {
+      return -1;
+    }
+    return h * 60 + m;
+  }
+
+  /** 当日分钟数 → HH:mm；越界夹到 [00:00, 23:59] */
+  static hhmmOf(minutes: number): string {
+    const clamped: number = Math.max(0, Math.min(1439, Math.round(minutes)));
+    const h: string = `${Math.floor(clamped / 60)}`.padStart(2, '0');
+    const m: string = `${clamped % 60}`.padStart(2, '0');
+    return `${h}:${m}`;
+  }
 }
