@@ -115,6 +115,11 @@ export struct ImmersiveSurface {
     }
     .width(this.explicitWidth > 0 ? this.explicitWidth : this.surfaceWidth)
     .height(this.explicitHeight > 0 ? this.explicitHeight : this.surfaceHeight)
+    // 容器自己也要按表面几何裁切：只 clip 流光层不够，实测屏15 的边光会画到
+    // 卡片上沿之外、悬在页面黑底上（真机 23:18 实拍）。流光层的圆角半径与
+    // 内容卡不一致时（hero 28 vs card 20）偏差就露出来，所以外层再兜一道
+    .borderRadius(this.radius)
+    .clip(true)
     .onAreaChange((oldValue: Area, newValue: Area): void => {
       // Length 可能是 number/string/Resource：只认 number，其余按 0 让流光层不画
       const w: number = typeof newValue.width === 'number' ? newValue.width : 0;

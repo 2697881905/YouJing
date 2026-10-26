@@ -595,11 +595,15 @@ export struct OnTripPage {
                 .fontFamily(TypeTokens.title.family)
                 .fontColor(ColorTokens.ink)
                 .margin({ top: SpaceTokens.xs })
-              Text(this.heroMeta())
-                .fontSize(TypeTokens.caption.size)
-                .fontWeight(450)
-                .fontColor(ColorTokens.body)
-                .fontFeature("'tnum' on")
+              // heroMeta 在空态下返回的就是上面那句「今日暂无安排」——
+              // 同一张卡上下印两遍（实拍确认），空态时不出这一行
+              if (this.current !== null) {
+                Text(this.heroMeta())
+                  .fontSize(TypeTokens.caption.size)
+                  .fontWeight(450)
+                  .fontColor(ColorTokens.body)
+                  .fontFeature("'tnum' on")
+              }
               // 进度条只在"这一站有结束时刻"时画。一餐没有 endTime，
               // 而 progressPct() 有 Math.max(1, …) 的下限——不关掉它会被夹成满格（真机实测 1.000000）。
               if (this.totalMin > 0) {
@@ -616,14 +620,17 @@ export struct OnTripPage {
                   .margin({ top: SpaceTokens.sm })
               }
               Row({ space: SpaceTokens.md }) {
-                YoujingButton({
-                  variant: YoujingButtonVariant.SECONDARY,
-                  label: this.checkedIn ? '已打卡' : '完成打卡',
-                  buttonWidth: 140,
-                  onAction: (): void => {
-                    this.toggleCheckin();
-                  }
-                })
+                // 今天没有节点时「完成打卡」是个没有对象的可点按钮
+                if (this.current !== null) {
+                  YoujingButton({
+                    variant: YoujingButtonVariant.SECONDARY,
+                    label: this.checkedIn ? '已打卡' : '完成打卡',
+                    buttonWidth: 140,
+                    onAction: (): void => {
+                      this.toggleCheckin();
+                    }
+                  })
+                }
                 YoujingButton({
                   variant: YoujingButtonVariant.PRIMARY,
                   label: '记一笔费用',
@@ -730,7 +737,7 @@ export struct OnTripPage {
         ListItemGroup({ header: this.groupHeader() }) {
           if (this.rows.length === 0) {
             ListItem() {
-              Text('还没有打卡节点')
+              Text('今天还没有走过任何节点，打卡后会出现在这里')
                 .fontSize(TypeTokens.caption.size)
                 .fontColor(ColorTokens.muted)
                 .width('100%')
