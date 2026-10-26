@@ -197,13 +197,10 @@ export struct SpotPickPage {
   @Builder
   spotRow(sp: Spot) {
     Row({ space: SpaceTokens.md }) {
-      // 3:4 缩略位（契约 media-aspect-ratio）：无图景点用 surface-sunken 占位，
-      // 尺寸走 LayoutTokens 具名值，不散字面量
-      Column()
-        .width(LayoutTokens.spotThumbWidth)
-        .height(LayoutTokens.spotThumbHeight)
-        .borderRadius(RadiusTokens.media)
-        .backgroundColor(ColorTokens.surfaceSunken)
+      // 原来行首挂着一块 36×48 的 surfaceSunken 缩略位，但这一屏从头到尾
+      // 没有任何 Image() ——`Spot` 契约里没有图片字段，它永远是空的灰块，
+      // 实拍就是每行左边一条对不上内容的深色矩形。
+      // 与屏8 行内、屏10 面板、屏16 行程纸同一判据：装饰件永远没有内容就删
       Column() {
         Row({ space: SpaceTokens.sm }) {
           Text(sp.name)

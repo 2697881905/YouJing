@@ -133,11 +133,16 @@ export struct AreaMorePage {
   build() {
     HdsNavDestination() {
       Column() {
-        Search({ value: this.keyword, placeholder: '搜索区域、站点或地铁线' })
-          .onChange((v: string): void => {
-            this.keyword = v;
-          })
-          .margin({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.sm })
+        // 与屏12b 同一判据：没有可搜内容时不挂搜索框。
+        // 这一屏在 loading 与「还没有这座城市的区域数据」两种状态下都不该摆输入框，
+        // 否则用户会以为搜索框坏了（屏12b 实拍拍到同一形态后回这里查的）
+        if (!this.loading && this.areas.length > 0) {
+          Search({ value: this.keyword, placeholder: '搜索区域、站点或地铁线' })
+            .onChange((v: string): void => {
+              this.keyword = v;
+            })
+            .margin({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.sm })
+        }
 
         if (this.loading) {
           Column({ space: SpaceTokens.md }) {
