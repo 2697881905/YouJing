@@ -1145,7 +1145,10 @@ export struct ItineraryPage {
                   Button('全图')
                     .fontSize(TypeTokens.caption.size)
                     .fontWeight(500)
-                    .height(28)
+                    // 28 → 44：全仓扫「可点节点热区 < 44vp」时唯一的真命中，
+                    // 低于平台最小热区。旁边那枚 28 高的是标签不是控件，
+                    // 两者不再等高是应该的——高度差本身在说"这个能按"
+                    .height(LayoutTokens.minTouchTarget)
                     .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
                     .type(ButtonType.Capsule)
                     .buttonStyle(ButtonStyleMode.EMPHASIZED)

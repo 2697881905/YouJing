@@ -229,7 +229,8 @@ export struct GeneratingPage {
           })
         }
         .width('100%')
-        .padding({ bottom: SpaceTokens.xl })
+        // 与屏7 同一处漏网：钉底的「取消」只留 xl(24)，这一屏也挂在悬浮 dock 上
+        .padding({ bottom: LayoutTokens.floatingDockClearance })
       }
       .width('100%')
       .height('100%')
