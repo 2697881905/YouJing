@@ -1000,7 +1000,7 @@ export struct ItineraryPage {
             this.syncCalendar = v;
           })
         Divider().strokeWidth(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
-        this.accessRow('行程卡片', '桌面常驻今日节点，随系统周期刷新（最小 30 分钟）', this.syncCard,
+        this.accessRow('行程卡片', '常驻桌面，随系统周期刷新（最小 30 分钟）', this.syncCard,
           (v: boolean): void => {
             this.syncCard = v;
           })

@@ -322,12 +322,15 @@ export struct TripsPage {
   rootShell() {
       Stack({ alignContent: Alignment.Bottom }) {
       Column() {
-        // 官方 Search：目的地或日期关键词过滤（此前右上角放大镜是个没有动作的死控件）
-        Search({ value: this.keyword, placeholder: '搜索目的地或日期' })
-          .onChange((v: string): void => {
-            this.keyword = v;
-          })
-          .margin({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.sm })
+        // 官方 Search：目的地或日期关键词过滤（此前右上角放大镜是个没有动作的死控件）。
+        // 一条行程都没有时不挂搜索框——没有可搜的内容，摆一个输入框只会让人以为坏了
+        if (this.trips.length > 0) {
+          Search({ value: this.keyword, placeholder: '搜索目的地或日期' })
+            .onChange((v: string): void => {
+              this.keyword = v;
+            })
+            .margin({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.sm })
+        }
 
         if (this.trips.length === 0) {
           // 帧 7991fe5b 的空状态间距是逐段的（图标 16 / 标题 8 / 说明 24），
