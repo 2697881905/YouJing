@@ -16,11 +16,15 @@ import { SpaceTokens } from '../design/SpaceTokens';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { ImmersiveSurface } from '../components/ImmersiveSurface';
-import { Activity, ActivityStatus, MealType, Trip, TripDay } from '../model/Trip';
+import { Activity, ActivityCategory, ActivityStatus, MealType, Trip, TripDay } from '../model/Trip';
+import { ReplanDecision, ReplanOutcome } from '../model/Replan';
 import { TripDao } from '../data/TripDao';
+import { SkipPlanner } from '../data/SkipPlanner';
 import { CheckinDao } from '../data/CheckinDao';
 import { ExpenseDao } from '../data/ExpenseDao';
+import { ReplanClient } from '../ai/ReplanClient';
 import { DateUtils } from '../utils/DateUtils';
+import { WidgetSync } from '../widget/TodayCard';
 import { TransitSymbol } from '../utils/TransitSymbol';
 import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
@@ -46,6 +50,8 @@ interface DayStop {
   note: string;
   place: string;
   isMeal: boolean;
+  /** 活动分类；餐次为 null——「不去」入口按它和 status 判定 */
+  category: ActivityCategory | null;
   cost: number;
   status: ActivityStatus | null;
   transportMode: string;
@@ -61,14 +67,6 @@ interface CheckedRow {
   ongoing: boolean;
 }
 
-function minutesOf(hhmm: string): number {
-  const parts: string[] = hhmm.split(':');
-  if (parts.length < 2) {
-    return 0;
-  }
-  return Number(parts[0]) * 60 + Number(parts[1]);
-}
-
 function clockNow(): string {
   const d: Date = new Date();
   const h: string = `${d.getHours()}`;
@@ -77,7 +75,7 @@ function clockNow(): string {
 }
 
 function hoursText(start: string, end: string): string {
-  const mins: number = Math.max(0, minutesOf(end) - minutesOf(start));
+  const mins: number = Math.max(0, DateUtils.minutesOf(end) - DateUtils.minutesOf(start));
   return `${Math.round(mins / 6) / 10}`;
 }
 
@@ -95,6 +93,18 @@ export struct OnTripPage {
   @State private clock: string = '';
   @State private nextLeg: string = '';
   private trip: Trip | null = null;
+  @State private replanning: boolean = false;
+  /** 顶部提示：正在重排 / 重排结果 / 失败原因 */
+  @State private notice: string = '';
+  @State private canUndo: boolean = false;
+  /** 「不去」只在今天提供；回看历史日不出现 */
+  @State private isToday: boolean = false;
+  /** 当前展示的整日；跳过/撤销都以它为输入 */
+  private day: TripDay | null = null;
+  /** 跳过前的深拷贝（只在本进程有效，方案 §3.6） */
+  private skipSnapshot: TripDay | null = null;
+  private skipSnapshotTripId: string = '';
+  private skipSnapshotDayIndex: number = 0;
 
   aboutToAppear(): void {
     this.reload();
@@ -104,7 +114,7 @@ export struct OnTripPage {
     return this.getUIContext().getHostContext() as common.Context;
   }
 
-  private reload(): void {
+  private async reload(): Promise<void> {
     if (this.tripId.length === 0) {
       Logger.warn('Ui.OnTrip', '无 tripId，旅行中页保持空态');
       return;
@@ -112,39 +122,65 @@ export struct OnTripPage {
     const context: common.Context = this.ctx();
     const now: string = clockNow();
     this.clock = now;
-    TripDao.loadTrip(context, this.tripId).then((trip: Trip | null): Promise<Record<string, number>> => {
+    try {
+      const trip: Trip | null = await TripDao.loadTrip(context, this.tripId);
       if (trip === null) {
-        return Promise.resolve<Record<string, number>>({});
+        this.trip = null;
+        this.day = null;
+        this.current = null;
+        this.next = null;
+        this.rows = [];
+        this.checkedIn = false;
+        this.isToday = false;
+        this.clearSkipState();
+        this.notice = '';
+        return;
       }
       this.trip = trip;
       AppStorage.setOrCreate(ACTIVE_TRIP_KEY, trip.id);
+      if (this.skipSnapshotTripId.length > 0 && this.skipSnapshotTripId !== trip.id) {
+        this.clearSkipState();
+        this.notice = '';
+      }
       const day: TripDay | null = this.pickDay(trip);
-      if (day === null || day.activities.length === 0) {
+      this.day = day;
+      const stops: DayStop[] = day === null ? [] : this.buildStops(day);
+      if (day === null || day.activities.length === 0 || stops.length === 0) {
         this.dayLabel = '旅行中';
         this.current = null;
         this.next = null;
-        return CheckinDao.listForTrip(context, trip.id);
+        this.totalMin = 0;
+        this.elapsedMin = 0;
+        this.nextLeg = '';
+        this.checkedIn = false;
+        this.isToday = false;
+        this.canUndo = false;
+        const emptyMarks: Record<string, number> = await CheckinDao.listForTrip(context, trip.id);
+        await this.buildRows(emptyMarks);
+        return;
       }
+      this.isToday = day.date === DateUtils.todayIso();
+      this.canUndo = this.skipSnapshot !== null && this.skipSnapshotTripId === trip.id &&
+        this.skipSnapshotDayIndex === day.dayIndex;
       this.dayLabel = `进行中 · Day ${day.dayIndex}`;
-      const stops: DayStop[] = this.buildStops(day);
       let cur: number = -1;
       for (let i = 0; i < stops.length; i++) {
-        if (stops[i].sortMin <= minutesOf(now)) {
+        if (stops[i].sortMin <= DateUtils.minutesOf(now)) {
           cur = i;
         }
       }
       if (cur < 0) {
         cur = 0;
       }
-      this.current = stops[cur];
+      const curStop: DayStop = stops[cur];
+      this.current = curStop;
       this.next = cur + 1 < stops.length ? stops[cur + 1] : null;
       // 进度条只在"这一站有结束时刻"时给：餐次没有 endTime，不拿一小时假装它的窗口
-      const curStop: DayStop = stops[cur];
       if (!curStop.isMeal && curStop.endTime.length > 0) {
         const start: number = curStop.sortMin;
-        const end: number = Math.max(start + 1, minutesOf(curStop.endTime));
+        const end: number = Math.max(start + 1, DateUtils.minutesOf(curStop.endTime));
         this.totalMin = end - start;
-        this.elapsedMin = Math.max(0, Math.min(this.totalMin, minutesOf(now) - start));
+        this.elapsedMin = Math.max(0, Math.min(this.totalMin, DateUtils.minutesOf(now) - start));
       } else {
         this.totalMin = 0;
         this.elapsedMin = 0;
@@ -153,13 +189,143 @@ export struct OnTripPage {
       this.nextLeg = nx !== null && nx.hasTransport
         ? `${nx.transportMode} ${nx.transportMin}分钟${nx.transportDetail.length > 0 ? ` · ${nx.transportDetail}` : ''}`
         : '';
-      return CheckinDao.listForTrip(context, trip.id);
-    }).then((marks: Record<string, number>): Promise<Record<string, number>> => {
-      const cur: DayStop | null = this.current;
-      this.checkedIn = cur !== null && marks[cur.key] !== undefined;
-      return this.buildRows(marks);
-    }).catch((err: Error) => {
-      Logger.error('Ui.OnTrip', `加载失败: ${err.message}`);
+      const marks: Record<string, number> = await CheckinDao.listForTrip(context, trip.id);
+      this.checkedIn = marks[curStop.key] !== undefined;
+      await this.buildRows(marks);
+    } catch (err) {
+      Logger.error('Ui.OnTrip', `加载失败: ${(err as Error).message}`);
+    }
+  }
+
+  /** 「不去」只对「今天 + 可跳过的下一站」显示；餐次/交通/住宿/已预约/空闲一律不给 */
+  private canSkipNext(): boolean {
+    const next: DayStop | null = this.next;
+    return this.isToday && !this.replanning && next !== null && !next.isMeal &&
+      SkipPlanner.isSkippable(next.category, next.status);
+  }
+
+  /**
+   * 跳过下一站：云函数决策 → 端侧排程 → 落库 → 刷新页面。
+   * expectedStopId 来自实况窗按钮，用于拒绝「按钮已陈旧」的点击；页面内入口传 ''。
+   */
+  private async performSkip(expectedStopId: string): Promise<void> {
+    const trip: Trip | null = this.trip;
+    const day: TripDay | null = this.day;
+    const next: DayStop | null = this.next;
+    if (trip === null || day === null || next === null) {
+      this.toast('没有可跳过的下一站');
+      return;
+    }
+    if (this.replanning) {
+      return;
+    }
+    if (!this.isToday) {
+      this.toast('只能跳过今天的站点');
+      return;
+    }
+    if (expectedStopId.length > 0 && expectedStopId !== next.key) {
+      this.toast('下一站已变化，请重试');
+      return;
+    }
+    if (next.isMeal || !SkipPlanner.isSkippable(next.category, next.status)) {
+      this.toast('这一站不能跳过');
+      return;
+    }
+    const skippedId: string = next.key;
+    const nowMin: number = DateUtils.minutesOf(clockNow());
+    const snapshot: TripDay = SkipPlanner.cloneDay(day);
+    this.replanning = true;
+    this.notice = '正在重排今日剩余行程…';
+    let outcome: ReplanOutcome | null = null;
+    try {
+      const decision: ReplanDecision | null =
+        await ReplanClient.requestDecision(day, skippedId, nowMin);
+      outcome = SkipPlanner.plan(day, skippedId, nowMin, decision);
+    } catch (err) {
+      this.replanning = false;
+      this.notice = '重排失败，行程未改动';
+      Logger.error('Ui.OnTrip', `重排失败: ${(err as Error).message}`);
+      return;
+    }
+    if (outcome === null) {
+      this.replanning = false;
+      this.notice = '重排失败，行程未改动';
+      return;
+    }
+    const updated: Trip = this.replaceDay(trip, outcome.day);
+    try {
+      await TripDao.saveTrip(this.ctx(), updated);
+    } catch (err) {
+      this.replanning = false;
+      this.notice = '保存失败，行程未改动';
+      Logger.error('Ui.OnTrip', `保存重排失败: ${(err as Error).message}`);
+      return;
+    }
+    this.skipSnapshot = snapshot;
+    this.skipSnapshotTripId = trip.id;
+    this.skipSnapshotDayIndex = outcome.day.dayIndex;
+    this.trip = updated;
+    this.replanning = false;
+    this.notice = outcome.note;
+    this.canUndo = true;
+    await this.reload();
+    this.refreshWidget();
+  }
+
+  /** 撤销 = 把跳过前快照写回该日并落库；快照只在本进程、只保留一层 */
+  private async undoSkip(): Promise<void> {
+    const trip: Trip | null = this.trip;
+    const snapshot: TripDay | null = this.skipSnapshot;
+    if (trip === null || snapshot === null || this.skipSnapshotTripId !== trip.id) {
+      this.toast('没有可撤销的重排');
+      return;
+    }
+    if (this.replanning) {
+      return;
+    }
+    this.replanning = true;
+    this.notice = '正在撤销…';
+    const updated: Trip = this.replaceDay(trip, SkipPlanner.cloneDay(snapshot));
+    try {
+      await TripDao.saveTrip(this.ctx(), updated);
+    } catch (err) {
+      this.replanning = false;
+      this.notice = '撤销失败，行程未改动';
+      Logger.error('Ui.OnTrip', `撤销失败: ${(err as Error).message}`);
+      return;
+    }
+    this.trip = updated;
+    this.clearSkipState();
+    this.replanning = false;
+    this.notice = '已撤销重排';
+    await this.reload();
+    this.refreshWidget();
+  }
+
+  /** 用改写后的整天替换 trip.days 的同一 dayIndex；其余天原引用不动 */
+  private replaceDay(trip: Trip, day: TripDay): Trip {
+    const days: TripDay[] = [];
+    for (const d of trip.days) {
+      days.push(d.dayIndex === day.dayIndex ? day : d);
+    }
+    const updated: Trip = {
+      id: trip.id, destination: trip.destination, startDate: trip.startDate, endDate: trip.endDate,
+      people: trip.people, budget: trip.budget, style: trip.style, overview: trip.overview,
+      days: days, tips: trip.tips
+    };
+    return updated;
+  }
+
+  private clearSkipState(): void {
+    this.skipSnapshot = null;
+    this.skipSnapshotTripId = '';
+    this.skipSnapshotDayIndex = 0;
+    this.canUndo = false;
+  }
+
+  private refreshWidget(): void {
+    WidgetSync.refreshAll(this.ctx()).catch((err: Error): void => {
+      Logger.warn('Ui.OnTrip', `卡片刷新失败: ${err.message}`);
     });
   }
 
@@ -187,11 +353,16 @@ export struct OnTripPage {
   private buildStops(day: TripDay): DayStop[] {
     const stops: DayStop[] = [];
     for (const a of day.activities) {
+      // 跳过改写出的「空闲」不是可打卡站点；它仍是排程锚点（SkipPlanner 读原 day）
+      if (SkipPlanner.isSkippedMarker(a)) {
+        continue;
+      }
       const t = a.transport;
       stops.push({
-        key: a.id, time: a.time, sortMin: minutesOf(a.time), title: a.title,
+        key: a.id, time: a.time, sortMin: Math.max(0, DateUtils.minutesOf(a.time)), title: a.title,
         endTime: a.endTime, note: a.note === undefined ? '' : a.note,
         place: a.address.length > 0 ? a.address : a.location, isMeal: false, kind: '', cost: 0,
+        category: a.category,
         status: a.status, transportMode: t === undefined ? '' : t.mode,
         transportMin: t === undefined ? 0 : t.duration,
         transportDetail: t === undefined ? '' : t.detail, hasTransport: t !== undefined
@@ -201,10 +372,11 @@ export struct OnTripPage {
       const shown: string = m.time === undefined ? '' : m.time;
       stops.push({
         key: this.mealKey(day.dayIndex, m.type), time: shown,
-        sortMin: shown.length > 0 ? minutesOf(shown) : this.mealSlot(m.type),
+        sortMin: shown.length > 0 ? Math.max(0, DateUtils.minutesOf(shown)) : this.mealSlot(m.type),
         title: m.name.length > 0 ? m.name : this.mealLabel(m.type),
         kind: this.mealLabel(m.type), endTime: '', note: '',
         place: m.location, isMeal: true, cost: m.estimatedCost,
+        category: null,
         status: null, transportMode: '', transportMin: 0, transportDetail: '',
         hasTransport: false
       });
@@ -322,6 +494,31 @@ export struct OnTripPage {
   }
 
   @Builder
+  noticeBar() {
+    Row({ space: SpaceTokens.sm }) {
+      Text(this.notice)
+        .fontSize(TypeTokens.caption.size)
+        .fontWeight(450)
+        .fontColor(ColorTokens.body)
+        .layoutWeight(1)
+      if (this.canUndo && !this.replanning) {
+        YoujingButton({
+          variant: YoujingButtonVariant.TEXT,
+          label: '撤销',
+          buttonWidth: 72,
+          onAction: (): void => {
+            this.undoSkip();
+          }
+        })
+      }
+    }
+    .width('100%')
+    .padding(SpaceTokens.md)
+    .borderRadius(RadiusTokens.card)
+    .backgroundColor(ColorTokens.surfaceElevated)
+  }
+
+  @Builder
   groupHeader() {
     // 材质豁免：这条吸顶行住在卡片内（父 List 已 canvas 实色 + 圆角 clip），不是契约 §1024
     // 指的那条满宽"日分隔"玻璃栏；给它上材质等于在卡片里开玻璃，违 §1149。
@@ -377,6 +574,11 @@ export struct OnTripPage {
       Stack({ alignContent: Alignment.Bottom }) {
       // 官方 List：hero / 下一段 / 打卡分组各占一个 ListItem，分组头吸顶、行间交给 .divider()
       List({ space: SpaceTokens.lg }) {
+        if (this.notice.length > 0) {
+          ListItem() {
+            this.noticeBar()
+          }
+        }
         ListItem() {
           // hero 面板包一层官方 HDS 双边流光（HdsVisualComponent），不支持的设备自动退回实色
           ImmersiveSurface({ radius: RadiusTokens.hero, surfaceWidth: '100%' }) {
@@ -500,13 +702,26 @@ export struct OnTripPage {
               .width('100%')
               .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
 
-              Text(this.nextMeta())
-                .fontSize(TypeTokens.caption.size)
-                .fontWeight(450)
-                .fontColor(ColorTokens.muted)
-                .fontFeature("'tnum' on")
-                .margin({ left: LayoutTokens.itineraryTimeGutter + SpaceTokens.sm })
-                .alignSelf(ItemAlign.Start)
+              Row({ space: SpaceTokens.sm }) {
+                Text(this.nextMeta())
+                  .fontSize(TypeTokens.caption.size)
+                  .fontWeight(450)
+                  .fontColor(ColorTokens.muted)
+                  .fontFeature("'tnum' on")
+                  .layoutWeight(1)
+                if (this.canSkipNext()) {
+                  YoujingButton({
+                    variant: YoujingButtonVariant.TEXT,
+                    label: '不去下一站',
+                    buttonWidth: 108,
+                    onAction: (): void => {
+                      this.performSkip(this.next === null ? '' : this.next.key);
+                    }
+                  })
+                }
+              }
+              .width('100%')
+              .padding({ left: LayoutTokens.itineraryTimeGutter + SpaceTokens.sm })
             }
             .width('100%')
           }
