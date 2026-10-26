@@ -86,6 +86,9 @@ export struct ImmersiveSurface {
     this.getSceneController().setSceneParams({
       backgroundMaskColors: mask,
       firstEdgeFlowLight: { startPos: 0, endPos: 0.5, color: e1 },
+      // 2026-10-26 试过把 endPos 从 -0.5 收进 [0,1]（{0.5,1}），真机屏15 复拍
+      // **边光仍越过卡片上沿**，改动无可见效果，已回退成与有据定稿一致的原值。
+      // 未解缺陷见 Docs/INIT_REPORT.md §5g——别再叠第三次猜测。
       secondEdgeFlowLight: { startPos: 0, endPos: -0.5, color: e2 }
     });
   }

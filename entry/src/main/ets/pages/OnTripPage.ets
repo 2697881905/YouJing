@@ -659,6 +659,9 @@ export struct OnTripPage {
         if (this.next !== null) {
           ListItem() {
             Column() {
+              // 没有通勤数据时整条腿不出：原来虚线段与交通图标照画，
+              // 只把文字留空，实拍就是一个悬空的步行小人配一段虚线，读不出任何信息
+              if (this.nextLeg.length > 0) {
               Row() {
                 Column().width(LayoutTokens.itineraryTimeGutter)
                 Column()
@@ -680,6 +683,7 @@ export struct OnTripPage {
               }
               .height(LayoutTokens.transitLegHeight)
               .alignItems(VerticalAlign.Center)
+              }
 
               Row({ space: SpaceTokens.sm }) {
                 Text(this.next === null ? '' : this.next.time)
