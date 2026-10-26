@@ -10,7 +10,7 @@
  *   各分类占预算总额、实际视角按占最大分类，不编造分档预算。
  */
 
-import { ACTIVE_TRIP_KEY, EXPENSE_NAV, TAB_SHOWN_KEY, isTabShownTick, TAB_EXPENSE } from '../common/constants/AppNav';
+import { ACTIVE_TRIP_KEY, EXPENSE_NAV, TAB_SHOWN_KEY, isTabShownTick, activeTripId, TAB_EXPENSE } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
@@ -109,9 +109,15 @@ export struct ExpensePage {
   @StorageProp(TAB_SHOWN_KEY) @Watch('onDockShown') dockTick: string = '';
 
   private onDockShown(): void {
-    if (isTabShownTick(this.dockTick, TAB_EXPENSE)) {
-      this.reload();
+    if (!isTabShownTick(this.dockTick, TAB_EXPENSE)) {
+      return;
     }
+    // 根页的行程上下文跟着「最后打开的那条」走（见 AppNav.activeTripId）
+    const active: string = activeTripId();
+    if (this.rootMode && active.length > 0 && active !== this.tripId) {
+      this.tripId = active;
+    }
+    this.reload();
   }
   @Prop tripId: string = '';
   @State private seg: number = 0;

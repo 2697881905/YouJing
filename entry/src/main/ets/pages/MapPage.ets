@@ -6,7 +6,7 @@
  * 底图铺满、浮层透明穿透（hitTestBehavior Transparent），不遮地图手势。
  */
 
-import { MAP_NAV, TAB_SHOWN_KEY, isTabShownTick, TAB_MAP } from '../common/constants/AppNav';
+import { MAP_NAV, TAB_SHOWN_KEY, isTabShownTick, activeTripId, TAB_MAP } from '../common/constants/AppNav';
 import { TripDao, TripSummary } from '../data/TripDao';
 import { Trip, TripDay } from '../model/Trip';
 import { MapStop, MapStops } from '../utils/MapStops';
@@ -40,9 +40,15 @@ export struct MapPage {
   @StorageProp(TAB_SHOWN_KEY) @Watch('onDockShown') dockTick: string = '';
 
   private onDockShown(): void {
-    if (isTabShownTick(this.dockTick, TAB_MAP)) {
-      this.reload();
+    if (!isTabShownTick(this.dockTick, TAB_MAP)) {
+      return;
     }
+    // 根页的行程上下文跟着「最后打开的那条」走（见 AppNav.activeTripId）
+    const active: string = activeTripId();
+    if (this.rootMode && active.length > 0 && active !== this.tripId) {
+      this.tripId = active;
+    }
+    this.reload();
   }
   @Prop tripId: string = '';
   @StorageProp('isDarkMode') isDark: boolean = false;

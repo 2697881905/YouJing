@@ -19,7 +19,7 @@ export const TAB_EXPENSE: number = 2;
 export const TAB_MINE: number = 3;
 /** AppStorage 键：外部深链要落到哪个 tab（Index 用它当 HdsTabs 的初始页签） */
 export const TAB_INDEX_KEY: string = 'dockTabIndex';
-/** AppStorage 键：当前活跃行程，地图/费用 tab 的根页靠它选路 */
+/** AppStorage 键：当前活跃行程。2026-10-27 起地图/费用根页真的跟它走（此前只写不读，见 INIT_REPORT §5p） */
 export const ACTIVE_TRIP_KEY: string = 'activeTripId';
 /**
  * AppStorage 键：运行期切页签的请求（冷启那条路只认 HdsTabs 的 index 初值，
@@ -50,6 +50,16 @@ export function announceTabShown(index: number): void {
 /** 根页侧判定：这条广播是不是发给我的页签 */
 export function isTabShownTick(value: string, index: number): boolean {
   return value.startsWith(`${index}:`);
+}
+
+/**
+ * 取「用户最后打开的那条行程」，没有则空串。
+ * 这个键原来写 5 处、读 0 处（只在 Index 判空），注释承诺的"当前活动行程"没有消费方。
+ * 现在地图/费用两个根页切回时跟它走：刚看完行程 B 再切「地图」，该显示 B，
+ * 而不是永远停在第一次进页签时兜底挑中的那条。
+ */
+export function activeTripId(): string {
+  return AppStorage.get<string>(ACTIVE_TRIP_KEY) ?? '';
 }
 
 /**
