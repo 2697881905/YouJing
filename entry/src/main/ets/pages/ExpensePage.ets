@@ -517,10 +517,23 @@ export struct ExpensePage {
               .alignItems(VerticalAlign.Bottom)
               .margin({ top: SpaceTokens.xs })
 
-              Progress({ value: this.spentPct(), total: 100, type: ProgressType.Linear })
-                .color(this.spent > this.budgetTotal ? ColorTokens.danger : ColorTokens.primary)
-                .width('100%')
-                .margin({ top: SpaceTokens.md })
+              // 进度条原来单独一条、无读数：已花 0 时它就是一个灰底空轨，
+              // 实拍读起来是「hero 卡里的一条分隔线」（§5.14 同一类）。
+              // 给它一个同排的百分数读数，轨色也压到 surface-sunken 与卡面分开
+              Row({ space: SpaceTokens.sm }) {
+                Progress({ value: this.spentPct(), total: 100, type: ProgressType.Linear })
+                  .color(this.spent > this.budgetTotal ? ColorTokens.danger : ColorTokens.primary)
+                  .backgroundColor(ColorTokens.surfaceSunken)
+                  .layoutWeight(1)
+                Text(`已用 ${Math.round(this.spentPct())}%`)
+                  .fontSize(TypeTokens.caption.size)
+                  .fontWeight(450)
+                  .fontColor(ColorTokens.muted)
+                  .fontFeature("'tnum' on")
+              }
+              .alignItems(VerticalAlign.Center)
+              .width('100%')
+              .margin({ top: SpaceTokens.md })
 
               Text(this.spent > this.budgetTotal ?
                 `超支 ${yuan(this.spent - this.budgetTotal)}${this.topCategory.length > 0 ? ` · 主要来自${this.topCategory}` : ''}` :

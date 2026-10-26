@@ -296,7 +296,9 @@ export struct SpotPickPage {
             FlowSteps({ step: FLOW_STEP_SPOT_PICK })
           }
           .width('100%')
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md })
+          // 下方留一档：原来步骤指示与「已选…」灰带贴在一起，两段信息挤成一块
+          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
+            top: SpaceTokens.md, bottom: SpaceTokens.md })
 
 
           if (this.loaded && this.all.length === 0) {
@@ -348,8 +350,10 @@ export struct SpotPickPage {
             .justifyContent(FlexAlign.Center)
             .alignItems(HorizontalAlign.Start)
             .width('100%')
-            .height(56)
-            .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+            // 原来钉死 height(56)：内容（16 文字 + 4 间距 + 进度条）居中后
+            // 进度条正好压在灰带下沿上，实拍读起来像这条带被裁了一半
+            .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
+              top: SpaceTokens.md, bottom: SpaceTokens.md })
             .backgroundColor(ColorTokens.surfacePanel)
 
             // 官方 List + ListItemGroup：分组头吸顶，组间靠留白分隔（禁令 12：不画分隔线）
