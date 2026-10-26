@@ -52,6 +52,8 @@ export struct YoujingStartPage {
   @State private recent: RecentRow[] = [];
   /** 行程总条数：最近只展示三条，「查看全部」要说得出还剩多少 */
   @State private tripTotal: number = 0;
+  /** 主 CTA 的进行中状态：游客路径要等账号往返，没有反馈会被当成"按了没反应" */
+  @State private starting: boolean = false;
 
   aboutToAppear(): void {
     const ctx: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
@@ -73,25 +75,41 @@ export struct YoujingStartPage {
     });
   }
 
-  /** 静默取 UnionID（失败即本机游客分区，不阻断），再把游客数据归户到登录账号 */
+  /**
+   * 进主链。游客分区才需要静默登录 + 归户。
+   *
+   * 原来无条件跑 `AccountStore.login()`：`Index` 的登录闸门已经保证走到这里时
+   * 分区状态是确定的，真账号用户点主 CTA 还要再等一次账号接口往返——
+   * 真机实测 8 秒（00:05:19 按下 → 00:05:27「静默登录成功」）期间**界面零反馈**，
+   * 用户只会认为"按了没反应"再按一次；日志里还有该往返报
+   * `Incorrect context parameter type` 后静默退回游客分区的记录。
+   * 所以：已登录直接进，游客才登录并归户，并且给按钮一个进行中的状态。
+   */
   private async enterApp(): Promise<void> {
     // 从首启页进规划 = 明确的新建意图，先丢掉上一段的草稿
     PlanDraft.fresh();
+    if (this.starting) {
+      return;
+    }
+    this.starting = true;
     const ctx: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
     try {
-      const state: AccountState = await AccountStore.login(ctx);
-      if (state.kind === AccountKind.HUAWEI) {
-        await TripDao.adoptGuestData(ctx, state.uid);
-        // 归户会换掉卡片可读的分区键，立刻回灌一次，别让桌面空等 30 分钟
-        WidgetSync.refreshAll(ctx).catch((err: Error) => {
-          Logger.warn('Ui.Start', `卡片刷新失败: ${err.message}`);
-        });
+      if (AccountStore.isGuest()) {
+        const state: AccountState = await AccountStore.login(ctx);
+        if (state.kind === AccountKind.HUAWEI) {
+          await TripDao.adoptGuestData(ctx, state.uid);
+          // 归户会换掉卡片可读的分区键，立刻回灌一次，别让桌面空等 30 分钟
+          WidgetSync.refreshAll(ctx).catch((err: Error) => {
+            Logger.warn('Ui.Start', `卡片刷新失败: ${err.message}`);
+          });
+        }
       }
     } catch (err) {
       // 登录/归户失败不阻断进主链：按本机游客分区继续（EntryAbility.bootstrap 同一口径）。
       // 原来这里裸 await，一处 rejection 就让用户静默卡在首启页
       Logger.error('Ui.Start', `登录或归户失败，按游客分区继续: ${(err as Error).message}`);
     }
+    this.starting = false;
     this.pathStack.pushPath({ name: 'TripInput' });
   }
 
@@ -220,9 +238,10 @@ export struct YoujingStartPage {
       Column() {
         YoujingButton({
           variant: YoujingButtonVariant.PRIMARY,
-          label: '开始规划新行程',
+          label: this.starting ? '正在准备…' : '开始规划新行程',
           fullWidth: true,
           trailingSymbol: $r('sys.symbol.arrow_right'),
+          disabled: this.starting,
           onAction: (): void => {
             this.enterApp();
           }
