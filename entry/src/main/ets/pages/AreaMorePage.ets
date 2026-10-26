@@ -96,17 +96,32 @@ export struct AreaMorePage {
           .fontSize(TypeTokens.body.size)
           .fontWeight(600)
           .fontColor(ColorTokens.ink)
-        Text(`${this.tierLabel(a.priceTier)} · 地铁 ${a.metroLines.join('/')} · 锚定 ${a.anchorStations.join('/')}`)
+        // 原来三件信息挤在一条 `maxLines(2)` 长句里，CJK 会在词中间断行——
+        // 真机拍到「锚定 丽/泽商务区」「到火车站 10 分钟 ·/餐饮中密度」这种断法。
+        // 改成每行只放一件语义完整的事，断行点由我们选，不交给排版引擎。
+        // 三行的分工是**量出来的**（文本列右边界 749px）：
+        //   档位+地铁 = 544~655px；锚定+餐饮密度 = 614~727px；机场+火车站 = 657~678px。
+        // 中间试过把餐饮密度并到第一行，复拍发现那一行四张卡全部顶到 749px
+        // ——也就是整条被省略号截掉，密度信息照样丢。**挪到有富余的锚定行才对。**
+        Text(`${this.tierLabel(a.priceTier)} · 地铁 ${a.metroLines.join('/')}`)
           .fontSize(TypeTokens.caption.size)
           .fontWeight(450)
           .fontColor(ColorTokens.muted)
-          .maxLines(2)
+          .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(`到机场 ${a.airportMinutes} 分钟 · 到火车站 ${a.trainStationMinutes} 分钟 · 餐饮${a.diningDensity}密度`)
+        Text(`锚定 ${a.anchorStations.join('/')} · 餐饮${a.diningDensity}密度`)
+          .fontSize(TypeTokens.caption.size)
+          .fontWeight(450)
+          .fontColor(ColorTokens.muted)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Text(`到机场 ${a.airportMinutes} 分钟 · 到火车站 ${a.trainStationMinutes} 分钟`)
           .fontSize(TypeTokens.caption.size)
           .fontWeight(450)
           .fontColor(ColorTokens.body)
           .fontFeature("'tnum' on")
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
       .alignItems(HorizontalAlign.Start)
       .layoutWeight(1)
@@ -210,7 +225,10 @@ export struct AreaMorePage {
           .edgeEffect(EdgeEffect.Spring)
           .sticky(StickyStyle.Header)
           .cachedCount(6)
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+          // 真机实拍（§5o）：这一屏最后一片区域整行压在浮动 dock 底下，
+          // dock 是覆盖层，滚动容器不给净空就会被盖住——四个 tab 下的页面里只有这屏漏了
+          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
+            bottom: LayoutTokens.floatingDockClearance })
           .layoutWeight(1)
         }
       }
