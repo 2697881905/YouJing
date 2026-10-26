@@ -5,7 +5,7 @@
  * §7 必改已落：booking-badge padding 2→0、card-footer gap 6→4、dock padding 10→8。
  */
 
-import { MINE_NAV } from '../common/constants/AppNav';
+import { MINE_NAV, enterPlanningFlow } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
@@ -34,7 +34,6 @@ interface TripCardData {
   walk: string;
   bookingNum: string;
   bookingBadge: string;
-  badgeColor: Resource;
   statusLine: string;
   progress: number;
   /** 进度条的读法标注（§5.14：没有标注时它看着像一条渲染残留的蓝线） */
@@ -90,10 +89,9 @@ export struct TripsPage {
         }
         const t: TripCardData = {
           id: r.id, place: r.destination,
-          dateMeta: `${r.startDate} – ${r.endDate} · ${r.people} 人`,
+          dateMeta: `${r.startDate} – ${r.endDate} · ${span} 天 · ${r.people} 人`,
           spots: `${r.spotCount}`, walk: `${r.legCount} 段`, bookingNum: `${r.bookingCount}`,
           bookingBadge: r.totalCost > 0 ? `¥${r.totalCost}` : '',
-          badgeColor: ColorTokens.surfaceSubtle,
           statusLine: statusLine, progress: progress, phase: phase, progressLabel: progressLabel,
           onTrip: onTrip, muted: false
         };
@@ -199,58 +197,28 @@ export struct TripsPage {
   }
 
   @Builder
-  miniRoute() {
-    Row() {
-      ForEach([0, 1, 2, 3, 4], (i: number) => {
-        if (i > 0) {
-          Column().width(24).height(2).backgroundColor(ColorTokens.surfaceSunken)
-        }
-        Column() {
-          Text(`${i + 1}`)
-            .fontSize(TypeTokens.overline.size)
-            .fontWeight(600)
-            .fontColor(ColorTokens.body)
-            .fontFeature("'tnum' on")
-        }
-        .width(20)
-        .height(20)
-        .justifyContent(FlexAlign.Center)
-        .borderRadius(RadiusTokens.pill)
-        .backgroundColor(ColorTokens.surfaceSubtle)
-      }, (i: number): string => `node-${i}`)
-    }
-    .margin({ top: SpaceTokens.md, bottom: SpaceTokens.md })
+  phaseChip(phase: string) {
+    // 三态各一档底色：一屏里过去/未出发/在途的卡长得一样，扫读就分不出主次（§5.13）
+    Text(phase === 'onTrip' ? '旅行中' : (phase === 'upcoming' ? '未出发' : '已结束'))
+      .fontSize(TypeTokens.overline.size)
+      .fontWeight(600)
+      .fontColor(phase === 'onTrip' ? ColorTokens.onPrimary :
+        (phase === 'upcoming' ? ColorTokens.body : ColorTokens.muted))
+      .height(20)
+      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+      .borderRadius(RadiusTokens.pill)
+      .backgroundColor(phase === 'onTrip' ? ColorTokens.primary :
+        (phase === 'upcoming' ? ColorTokens.primaryTint : ColorTokens.surfaceSubtle))
   }
 
   @Builder
-  statCol(value: string, label: string, badge: string, badgeColor: Resource, muted: boolean) {
-    Column() {
-      if (badge.length > 0) {
-        Row({ space: SpaceTokens.xs }) {
-          Text(value)
-            .fontSize(TypeTokens.headline.size)
-            .fontWeight(600)
-            .fontColor(muted ? ColorTokens.muted : ColorTokens.ink)
-            .fontFeature("'tnum' on")
-          Text(badge)
-            .fontSize(TypeTokens.overline.size)
-            .fontWeight(600)
-            // 徽章第②式（handoff §6）：中性底 + body 字。
-            // 金额不是「已确认」态，原来恒用 success 实心底是把语义色当装饰
-            .fontColor(ColorTokens.body)
-            .height(18)
-            .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs })
-            .borderRadius(RadiusTokens.pill)
-            .backgroundColor(badgeColor)
-        }
-        .alignItems(VerticalAlign.Center)
-      } else {
-        Text(value)
-          .fontSize(TypeTokens.headline.size)
-          .fontWeight(600)
-          .fontColor(muted ? ColorTokens.muted : ColorTokens.ink)
-          .fontFeature("'tnum' on")
-      }
+  statCol(value: string, label: string, muted: boolean) {
+    Column({ space: SpaceTokens.xs }) {
+      Text(value)
+        .fontSize(TypeTokens.headline.size)
+        .fontWeight(600)
+        .fontColor(muted ? ColorTokens.muted : ColorTokens.ink)
+        .fontFeature("'tnum' on")
       Text(label)
         .fontSize(TypeTokens.overline.size)
         .fontWeight(450)
@@ -266,50 +234,63 @@ export struct TripsPage {
     // 视觉仍由内层 Column 原样承担，Button 只是可点/可聚焦的壳。
     Button({ type: ButtonType.Normal, stateEffect: true }) {
     Column() {
-      Column() {
+      Row() {
         Text(t.place)
           .fontSize(TypeTokens.title.size)
           .fontWeight(700)
           .fontFamily(TypeTokens.title.family)
           .fontColor(ColorTokens.ink)
-        Text(t.dateMeta)
-          .fontSize(TypeTokens.caption.size)
-          .fontWeight(450)
-          .fontColor(ColorTokens.muted)
-          .fontFeature("'tnum' on")
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .layoutWeight(1)
+        this.phaseChip(t.phase)
       }
-      .alignItems(HorizontalAlign.Start)
+      .alignItems(VerticalAlign.Center)
       .width('100%')
 
-      this.miniRoute()
+      Text(t.dateMeta)
+        .fontSize(TypeTokens.caption.size)
+        .fontWeight(450)
+        .fontColor(ColorTokens.muted)
+        .fontFeature("'tnum' on")
+        .margin({ top: SpaceTokens.xs })
 
       Row() {
-        this.statCol(t.spots, '景点', '', ColorTokens.canvas, t.muted)
-        this.statCol(t.walk, '通勤', '', ColorTokens.canvas, t.muted)
-        this.statCol(t.bookingNum, '需预约', t.bookingBadge, t.badgeColor, t.muted)
+        this.statCol(t.spots, '景点', t.muted)
+        this.statCol(t.walk, '通勤', t.muted)
+        this.statCol(t.bookingNum, '需预约', t.muted)
+        // 金额此前贴在「需预约」的数字旁边，实拍读成了「5¥1540 需预约」——
+        // 它不属于这三格统计，挪到末行单独带标签放（§5 排版交错）
+        if (t.bookingBadge.length > 0) {
+          Column({ space: SpaceTokens.xs }) {
+            Text(t.bookingBadge)
+              .fontSize(TypeTokens.headline.size)
+              .fontWeight(600)
+              .fontColor(ColorTokens.ink)
+              .fontFeature("'tnum' on")
+            Text('总花费')
+              .fontSize(TypeTokens.overline.size)
+              .fontWeight(450)
+              .fontColor(ColorTokens.muted)
+          }
+          .alignItems(HorizontalAlign.End)
+          .layoutWeight(1)
+        }
       }
+      .alignItems(VerticalAlign.Top)
       .width('100%')
+      .margin({ top: SpaceTokens.md })
 
       Column({ space: SpaceTokens.xs }) {
-        Text(t.statusLine)
+        // 状态只说一次：此前「已结束」和「已结束 · 100%」上下各印一遍
+        Text(t.progressLabel)
           .fontSize(TypeTokens.caption.size)
           .fontWeight(450)
-          .fontColor(ColorTokens.body)
+          .fontColor(t.phase === 'onTrip' ? ColorTokens.primary : ColorTokens.muted)
           .fontFeature("'tnum' on")
-        Row() {
-          Text(t.progressLabel)
-            .fontSize(TypeTokens.overline.size)
-            .fontWeight(TypeTokens.overline.weight)
-            .fontColor(t.phase === 'onTrip' ? ColorTokens.primary : ColorTokens.muted)
-            .fontFeature("'tnum' on")
-            .margin({ bottom: SpaceTokens.xs })
-        }
-        .width('100%')
-        .justifyContent(FlexAlign.Start)
-
         Progress({ value: t.progress, total: 100, type: ProgressType.Linear })
           // 只有「旅行中」用品牌蓝；未出发/已结束退到分隔色，
-          // 否则一列表全是同一条蓝线，读起来就是渲染残留（§5.13 / §5.14）
+          // 否则一列表全是同一条蓝线，读起来就是渲染残留（§5.14）
           .color(t.phase === 'onTrip' ? ColorTokens.primary : ColorTokens.separator)
           .width('100%')
       }
@@ -319,7 +300,7 @@ export struct TripsPage {
     }
     .alignItems(HorizontalAlign.Start)
     .width('100%')
-    .padding(SpaceTokens.lg)
+    .padding(SpaceTokens.md)
     .borderRadius(RadiusTokens.card)
     .backgroundColor(ColorTokens.canvas)
     .shadow(this.isDark ? { radius: 0 } : ShadowTokens.card)
@@ -375,7 +356,7 @@ export struct TripsPage {
               buttonWidth: 200,
               onAction: (): void => {
                 PlanDraft.fresh();
-                this.pathStack.pushPath({ name: 'TripInput' });
+                enterPlanningFlow('TripInput');
               }
             })
           }
@@ -407,7 +388,8 @@ export struct TripsPage {
             .scrollBar(BarState.Off)
             .edgeEffect(EdgeEffect.Spring)
             .cachedCount(4)
-            .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.bottomScrollReserve })
+            // 同上：这一页的最后一张卡也住在浮动 dock 底下，按实测净空让位
+            .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.floatingDockClearance })
           }
           .onRefreshing((): void => {
             this.reload().then((): void => {
@@ -438,7 +420,10 @@ export struct TripsPage {
       .titleBar(HdsChrome.bar({
         mainTitle: '我的行程',
         subTitle: this.trips.length > 0 ? `${this.trips.length} 条` : '',
-        menu: [HdsChrome.item($r('sys.symbol.person_crop_circle_fill_1'), '退出登录', (): void => {
+        menu: [HdsChrome.item($r('sys.symbol.plus'), '新建行程', (): void => {
+          PlanDraft.fresh();
+          enterPlanningFlow('TripInput');
+        }), HdsChrome.item($r('sys.symbol.person_crop_circle_fill_1'), '退出登录', (): void => {
           this.confirmLogout();
         })]
       }))
@@ -453,7 +438,10 @@ export struct TripsPage {
       .titleBar(HdsChrome.bar({
         mainTitle: '我的行程',
         subTitle: this.trips.length > 0 ? `${this.trips.length} 条` : '',
-        menu: [HdsChrome.item($r('sys.symbol.person_crop_circle_fill_1'), '退出登录', (): void => {
+        menu: [HdsChrome.item($r('sys.symbol.plus'), '新建行程', (): void => {
+          PlanDraft.fresh();
+          enterPlanningFlow('TripInput');
+        }), HdsChrome.item($r('sys.symbol.person_crop_circle_fill_1'), '退出登录', (): void => {
           this.confirmLogout();
         })]
       }))

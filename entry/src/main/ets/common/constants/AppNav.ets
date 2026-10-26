@@ -27,6 +27,28 @@ export const ACTIVE_TRIP_KEY: string = 'activeTripId';
  */
 export const PENDING_ROUTE_KEY: string = 'pendingTabRoute';
 export const PENDING_PARAM_KEY: string = 'pendingTabParam';
+/**
+ * AppStorage 键：运行期切页签的请求（冷启那条路只认 HdsTabs 的 index 初值，
+ * 见 Index 头注释；这里管的是 App 已存活时、从别的页签发起的跳转）。
+ * 值带时间戳，同一个目标连发两次也能触发 @Watch。
+ */
+export const TAB_SWITCH_KEY: string = 'dockTabSwitchRequest';
+
+/** 请求把 dock 切到某个页签，由 Index 的 @Watch 调 changeIndex 落地 */
+export function requestTab(index: number): void {
+  AppStorage.setOrCreate(TAB_SWITCH_KEY, `${index}:${Date.now()}`);
+}
+
+/**
+ * 建行程主链的唯一入口。
+ * 主链 16 个页面全往 APP_NAV push；从「我的」页签把它 push 到 MINE_NAV 上，
+ * 下一跳就会落到看不见的 tab-0 栈里——真机表现为「点开始规划没反应」。
+ * 所以入口一律：先切回行程 tab，再把第一页推进 APP_NAV。
+ */
+export function enterPlanningFlow(name: string): void {
+  requestTab(TAB_ITINERARY);
+  APP_NAV.pushPath({ name: name });
+}
 
 /** 路由名 → 归属栈 */
 export function stackOfRoute(name: string): NavPathStack {

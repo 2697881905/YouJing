@@ -18,6 +18,7 @@ import { BudgetConfig } from '../common/constants/BudgetConfig';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
 import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
+import { FlowSteps, FLOW_STEP_TRIP_INPUT } from '../components/FlowSteps';
 
 // 京都为 mock 演示城（底稿帧同源），标注「示例数据」不谎报是正式内置库；
 // 北上广深为种子库正式四城（开发文档 §7 城市范围）
@@ -207,20 +208,20 @@ export struct TripInputPage {
       Column() {
         Scroll() {
           Column() {
-            Column() {
+            // §5.7 的重复只发生在第二行：帧声明的衬线大标题是「开启一次有迹可循的旅程」，
+            // 而它下面那句「设定出行基础参数，AI 将基于…」与顶栏副标题一字不差，
+            // 所以删掉重复的那一行、保留帧的衬线槽，再用步骤进度占住腾出的高度
+            Column({ space: SpaceTokens.sm }) {
               Text('开启一次有迹可循的旅程')
                 .fontSize(TypeTokens.title.size)
                 .fontWeight(700)
                 .fontFamily(TypeTokens.title.family)
                 .fontColor(ColorTokens.ink)
-              Text('设定出行基础参数，AI 将基于本地精选数据库构建动线')
-                .fontSize(TypeTokens.small.size)
-                .fontColor(ColorTokens.body)
-                .margin({ top: SpaceTokens.xs })
+              FlowSteps({ step: FLOW_STEP_TRIP_INPUT })
             }
             .alignItems(HorizontalAlign.Start)
             .width('100%')
-            .margin({ top: SpaceTokens.lg, bottom: SpaceTokens.xl })
+            .margin({ top: SpaceTokens.lg, bottom: SpaceTokens.lg })
 
             Column({ space: SpaceTokens.md }) {
               // 目的地
@@ -240,7 +241,7 @@ export struct TripInputPage {
                   this.chevron()
                 }
                 .width('100%')
-                .padding(SpaceTokens.lg)
+                .padding(SpaceTokens.md)
                 .borderRadius(RadiusTokens.card)
                 .backgroundColor(ColorTokens.surfaceSubtle)
               }
@@ -278,7 +279,7 @@ export struct TripInputPage {
                   this.chevron()
                 }
                 .width('100%')
-                .padding(SpaceTokens.lg)
+                .padding(SpaceTokens.md)
                 .borderRadius(RadiusTokens.card)
                 .backgroundColor(ColorTokens.surfaceSubtle)
               }
@@ -313,7 +314,7 @@ export struct TripInputPage {
                 }
               }
               .width('100%')
-              .padding(SpaceTokens.lg)
+              .padding(SpaceTokens.md)
               .borderRadius(RadiusTokens.card)
               .backgroundColor(ColorTokens.surfaceSubtle)
 
@@ -333,7 +334,9 @@ export struct TripInputPage {
                   .alignItems(HorizontalAlign.Start)
                   .layoutWeight(1)
 
-                  this.chevron()
+                  // 这张卡的可控件只有下面那条 Slider。原来值行右侧还挂着一枚
+                  // chevron（读起来是「点这里选择」）但没有任何动作，
+                  // 两个互相竞争的控件挤在一张卡里
                 }
                 .width('100%')
 
@@ -370,7 +373,7 @@ export struct TripInputPage {
                 .justifyContent(FlexAlign.SpaceBetween)
               }
               .width('100%')
-              .padding(SpaceTokens.lg)
+              .padding(SpaceTokens.md)
               .borderRadius(RadiusTokens.card)
               .backgroundColor(ColorTokens.surfaceSubtle)
             }

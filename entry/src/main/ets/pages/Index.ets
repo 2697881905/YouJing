@@ -12,7 +12,7 @@
  * 首帧就在目标 tab；运行期（App 已存活时的 onNewWant）才用 changeIndex。
  */
 
-import { APP_NAV, ACTIVE_TRIP_KEY, TAB_INDEX_KEY, TAB_ITINERARY, TAB_MAP, TAB_EXPENSE, TAB_MINE } from '../common/constants/AppNav';
+import { APP_NAV, ACTIVE_TRIP_KEY, TAB_INDEX_KEY, TAB_SWITCH_KEY, TAB_ITINERARY, TAB_MAP, TAB_EXPENSE, TAB_MINE } from '../common/constants/AppNav';
 import { routerMap } from './AppRouter';
 import { TripDao, TripSummary } from '../data/TripDao';
 import { AUTH_STATE_KEY } from '../data/AccountStore';
@@ -53,7 +53,20 @@ struct Index {
   /** 外部深链（小艺 / 卡片 / aa start）写这个键；作为 HdsTabs 的**初始页签**消费 */
   @StorageLink(TAB_INDEX_KEY) wantTab: number = TAB_ITINERARY;
   @State private currentTab: number = TAB_ITINERARY;
+  /** 运行期切页签的请求（AppNav.enterPlanningFlow 写）；冷启不走这条路 */
+  @StorageProp(TAB_SWITCH_KEY) @Watch('applyTabSwitch') tabSwitch: string = '';
   private hdsController: HdsTabsController = new HdsTabsController();
+
+  /** 解析 'index:timestamp' 并切到该页签；同页签或解析不出就什么都不做 */
+  private applyTabSwitch(): void {
+    const head: string = this.tabSwitch.split(':')[0];
+    const target: number = Number(head);
+    if (Number.isNaN(target) || target < 0 || target >= DOCK_TABS.length || target === this.currentTab) {
+      return;
+    }
+    this.hdsController.changeIndex(target);
+    this.currentTab = target;
+  }
 
   aboutToAppear(): void {
     this.currentTab = this.wantTab;

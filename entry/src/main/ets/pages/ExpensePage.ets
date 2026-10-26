@@ -612,7 +612,9 @@ export struct ExpensePage {
         .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.Spring)
         .cachedCount(6)
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.bottomScrollReserve })
+        // 「+ 记一笔」是这条 List 的最后一行，而 dock 是浮在内容上的：
+        // 通用 94 比 dock 实占的 112 少 18vp，滚到底按钮下沿仍藏在 dock 底下
+        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.floatingDockClearance })
         .layoutWeight(1)
       }
       .width('100%')
