@@ -26,6 +26,8 @@ import { SpaceTokens } from '../design/SpaceTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
 import { IconSizes } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
+import { LegalDocReader } from '../components/LegalDocReader';
+import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
 
 @Component
 export struct LoginView {
@@ -33,12 +35,30 @@ export struct LoginView {
   onSignedIn: () => void = (): void => {};
   /** 主动选择本机游客空间 */
   onGuest: () => void = (): void => {};
-  /** 打开协议原文（复用隐私弹窗的两个出口） */
+  /** 打开协议原文（正文由本组件的半模态承载，这里只上报） */
   onOpenDoc: (kind: string) => void = (kind: string): void => {};
 
   @State private agreed: boolean = false;
   @State private working: boolean = false;
   @State private hint: string = '';
+  @State private showDoc: boolean = false;
+  @State private docKind: string = 'privacy';
+
+  private openDoc(kind: string): void {
+    this.docKind = kind;
+    this.showDoc = true;
+    this.onOpenDoc(kind);
+  }
+
+  @Builder
+  docSheet() {
+    LegalDocReader({
+      kind: this.docKind,
+      onBack: (): void => {
+        this.showDoc = false;
+      }
+    })
+  }
 
   private doLogin(): void {
     if (!this.agreed || this.working) {
@@ -114,13 +134,13 @@ export struct LoginView {
           Span('《隐私政策》')
             .fontColor(ColorTokens.primary)
             .onClick((): void => {
-              this.onOpenDoc('privacy');
+              this.openDoc('privacy');
             })
           Span('与')
           Span('《用户协议》')
             .fontColor(ColorTokens.primary)
             .onClick((): void => {
-              this.onOpenDoc('agreement');
+              this.openDoc('agreement');
             })
         }
         .fontSize(TypeTokens.caption.size)
@@ -172,5 +192,12 @@ export struct LoginView {
     })
     .backgroundColor(ColorTokens.canvas)
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    // 协议正文：静态文本，不涉及"面板内容不随父 @State 重绘"那条坑
+    .bindSheet($$this.showDoc, this.docSheet(), {
+      height: '78%',
+      backgroundColor: ColorTokens.canvas,
+      showClose: true,
+      systemMaterial: getSheetImmersiveMaterial()
+    })
   }
 }

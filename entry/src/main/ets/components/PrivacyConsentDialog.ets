@@ -7,13 +7,13 @@
  * 官方件收口：容器用 @CustomDialog + AlertDialog 级别的系统排版，不自绘遮罩层。
  */
 
-import { promptAction } from '@kit.ArkUI';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from './YoujingButton';
+import { LegalDocReader } from './LegalDocReader';
 
 @CustomDialog
 export struct PrivacyConsentDialog {
@@ -22,8 +22,11 @@ export struct PrivacyConsentDialog {
   onAgree: () => void = (): void => {};
   /** 不同意：调用方 terminateSelf */
   onDecline: () => void = (): void => {};
-  /** 看原文（kind: 'privacy' | 'agreement'） */
+  /** 看原文（kind: 'privacy' | 'agreement'）；仅用于上报，正文由本组件就地展开 */
   onOpenDoc: (kind: string) => void = (kind: string): void => {};
+  /** 非空 = 正在读哪一份。就地展开而不是 push 路由：CustomDialog 里推 NavDestination
+   会留下「返回后弹窗还在不在、要不要重问」的竞态 */
+  @State private reading: string = '';
 
   @Builder
   docLink(label: string, kind: string) {
@@ -32,12 +35,21 @@ export struct PrivacyConsentDialog {
       .fontColor(ColorTokens.primary)
       .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
       .onClick((): void => {
+        this.reading = kind;
         this.onOpenDoc(kind);
       })
   }
 
   build() {
     Column({ space: SpaceTokens.md }) {
+      if (this.reading.length > 0) {
+        LegalDocReader({
+          kind: this.reading,
+          onBack: (): void => {
+            this.reading = '';
+          }
+        })
+      } else {
       Text('使用前请先阅读并同意')
         .fontSize(TypeTokens.title.size)
         .fontWeight(TypeTokens.title.weight)
@@ -75,6 +87,7 @@ export struct PrivacyConsentDialog {
         })
       }
       .margin({ top: SpaceTokens.xs })
+      }
     }
     .width('100%')
     .padding(LayoutTokens.sheetPanelPadding)
@@ -82,9 +95,4 @@ export struct PrivacyConsentDialog {
     .borderRadius(RadiusTokens.card)
     .alignItems(HorizontalAlign.Start)
   }
-}
-
-/** 看原文时如果对应页面还没落地，用这条统一兜底文案（不静默失败） */
-export function toastDocPending(): void {
-  promptAction.showToast({ message: '协议原文页面整理中，稍后可在本页查看', duration: 1800 });
 }

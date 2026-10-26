@@ -17,7 +17,7 @@ import { routerMap } from './AppRouter';
 import { TripDao, TripSummary } from '../data/TripDao';
 import { AUTH_STATE_KEY } from '../data/AccountStore';
 import { ConsentStore, CONSENT_AGREED_KEY } from '../utils/ConsentStore';
-import { PrivacyConsentDialog, toastDocPending } from '../components/PrivacyConsentDialog';
+import { PrivacyConsentDialog } from '../components/PrivacyConsentDialog';
 import { LoginView } from './LoginView';
 import { Logger } from '../common/logger/Logger';
 import { AccountStore } from '../data/AccountStore';
@@ -132,8 +132,8 @@ struct Index {
         (this.getUIContext().getHostContext() as common.UIAbilityContext).terminateSelf();
       },
       onOpenDoc: (kind: string): void => {
-        Logger.info(TAG, `打开协议原文 kind=${kind}`);
-        toastDocPending();
+        // 正文已在弹窗内就地展开，这里只留一条埋点
+        Logger.info(TAG, `查看协议原文 kind=${kind}`);
       }
     }),
     autoCancel: false,
@@ -206,8 +206,8 @@ struct Index {
             Logger.info(TAG, '用户主动选择本机游客空间');
           },
           onOpenDoc: (kind: string): void => {
-            Logger.info(TAG, `登录页打开协议原文 kind=${kind}`);
-            toastDocPending();
+            // 正文由登录页自己的半模态承载，这里只留一条埋点
+            Logger.info(TAG, `登录页查看协议原文 kind=${kind}`);
           }
         })
       } else {
