@@ -87,8 +87,24 @@ export function stackOfRoute(name: string): NavPathStack {
   return APP_NAV;
 }
 
-export function tabOfRoute(name: string): number {
-  if (name === 'Map') {
+/**
+ * dock 页签序号 → 这条页签自己的栈。
+ * 重点当前页签时要把它收回根页（系统惯例），所以按序号取，不按路由名。
+ */
+export function stackOfTab(index: number): NavPathStack {
+  if (index === TAB_MAP) {
+    return MAP_NAV;
+  }
+  if (index === TAB_EXPENSE) {
+    return EXPENSE_NAV;
+  }
+  if (index === TAB_MINE) {
+    return MINE_NAV;
+  }
+  return APP_NAV;
+}
+
+export function tabOfRoute(name: string): number {  if (name === 'Map') {
     return TAB_MAP;
   }
   if (name === 'Expense') {

@@ -12,7 +12,7 @@
  * 首帧就在目标 tab；运行期（App 已存活时的 onNewWant）才用 changeIndex。
  */
 
-import { APP_NAV, ACTIVE_TRIP_KEY, TAB_INDEX_KEY, TAB_SWITCH_KEY, announceTabShown, TAB_ITINERARY, TAB_MAP, TAB_EXPENSE, TAB_MINE } from '../common/constants/AppNav';
+import { APP_NAV, ACTIVE_TRIP_KEY, TAB_INDEX_KEY, TAB_SWITCH_KEY, announceTabShown, stackOfTab, TAB_ITINERARY, TAB_MAP, TAB_EXPENSE, TAB_MINE } from '../common/constants/AppNav';
 import { routerMap } from './AppRouter';
 import { TripDao, TripSummary } from '../data/TripDao';
 import { AUTH_STATE_KEY } from '../data/AccountStore';
@@ -189,6 +189,18 @@ struct Index {
       // 四个 tab 根页只在 aboutToAppear 取一次数：在别处新建/编辑完行程、记完费用
       // 再切回页签，看到的还是第一次进入那份。广播一条，根页序号对上才重取
       announceTabShown(index);
+    })
+    // 重点**当前**页签时 onChange 不触发（同值），系统惯例是"再点一次 = 回到这一页签的根"。
+    // 原来这条路径上什么都不发生：从「我的」点开行程后再点「我的」，界面纹丝不动，
+    // 用户读到的就是"dock 坏了"（§5m 记的 P2）。Tabs 继承来的 onTabBarClick 每次都触发。
+    .onTabBarClick((index: number): void => {
+      if (index !== this.currentTab) {
+        return;
+      }
+      const stack: NavPathStack = stackOfTab(index);
+      if (stack.size() > 0) {
+        stack.clear();
+      }
     })
     .width('100%')
     .height('100%')

@@ -1546,3 +1546,33 @@ dock 是覆盖层，`AreaMorePage` 的 `List` 只给了左右 padding，没给�
 | 我的 → 打开 07-01 那条 → 返回 → 切「费用」 | 跟到 07-01 | `北京 · 2026-07-01 – 2026-07-03` ✓ |
 两条都是**判别性**的：列表按 `updated_at DESC` 排，`rows[0]` 恒为 07-01 那条，
 所以第一行（10-27）只有"跟随最后打开的行程"才可能出得来。
+
+## 5q. 重点当前页签 = 收回该页签根页（§5m 那条 P2 已修，实测通过）
+
+`HdsTabs` 的 `onChange` 在**同值**时不触发，所以"再点一次当前页签"原来什么都不会发生
+（从「我的」点开行程后再点「我的」，界面纹丝不动，用户读到的是"dock 坏了"）。
+SDK 声明文件 `components/hds_tabs.json` 里翻出继承自 `Tabs` 的 **`onTabBarClick`**，
+它每次点击都触发 → 用它实现系统惯例。
+
+```ts
+.onTabBarClick((index: number): void => {
+  if (index !== this.currentTab) { return; }
+  const stack: NavPathStack = stackOfTab(index);
+  if (stack.size() > 0) { stack.clear(); }
+})
+```
+`AppNav.stackOfTab(index)` 按页签序号取栈（`stackOfRoute` 是按路由名，这里用不上）。
+用 `clear()` 而不是 `popToIndex(0)`：根页不是 NavDestination，
+`popToIndex(0)` 只会停在第一条被 push 的子页上，收不回根。
+
+真机实测（冷启后）：
+`我的`根 → 点开行程（屏8 压在 MINE_NAV 上）→ **再点「我的」→ 回到「我的行程」根** ✓；
+`行程`/`我的` 正常切页签不受影响 ✓。
+
+### 顺带挖出一条更大的流程缺口（**未修，需要产品决定**）
+主链**没有"继续未完成的规划"这条路**：`YoujingStartPage.enterApp()` 一进来就
+`PlanDraft.fresh()`，所以只要回到首页点「开始规划新行程」，之前走到屏3/屏4/屏5 的草稿必然作废。
+配合这条新加的"重点页签收回根页"，用户中途误触 dock 就会看到进度没了。
+两条走法，得用户拍：
+① 首页在草稿非空时把主 CTA 换成「继续未完成的规划」，走 `enterPlanningFlow` 直接落到当时那一屏；
+② 保持"每次都是新规划"，但把 dock 收回根页对主链页签（行程）豁免。
