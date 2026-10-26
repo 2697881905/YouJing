@@ -1593,3 +1593,49 @@ SDK 声明文件 `components/hds_tabs.json` 里翻出继承自 `Tabs` 的 **`onT
 要复现"零行程"只能删掉用户数据，而清不清归用户、agent 不代删。
 已验的是**没有回归**：有行程时费用页正常（文案仍是"还没有记账…"、
 「记一笔」点开记账面板出现「金额与名称只存本机行程」+「保存」✓）。
+
+## 5s. 第一次拍到宽屏真机帧（Mate X7 展开 2210×2416 ≈ 707vp → `md` 档）
+
+之前所有轮次的界面证据都是 1136×2690 的手机帧，**宽屏/折叠屏零帧**。
+这轮把本机已有的模拟器启起来补上了第一帧。
+
+**可复现的启法**（下次别再重新摸索）：
+```sh
+cd ~/.Huawei/Emulator/deployed && nohup \
+  /Applications/DevEco-Studio.app/Contents/tools/emulator/Emulator -hvd "Mate X7" &
+# 约 90s 后 hdc list targets 出现 127.0.0.1:5555
+hdc -t 127.0.0.1:5555 install -r entry/build/default/outputs/default/entry-default-signed.hap
+hdc -t 127.0.0.1:5555 shell "aa start -b com.youjing.app -a EntryAbility"
+```
+（`Emulator` 会自己补 `-bootmode restart_coldboot<uuid>`；日志里那句
+`GLib: g_hash_table_remove_all` 是无害告警，不影响启动。）
+
+### 拍到的一条宽屏缺陷：屏1 登录页**完全没有宽度上限**
+帧：`~/Pictures/有径/走查帧-2026-10-27/{w1,o1,p1}_*_x7.jpeg`。
+`LoginView` 的根 `Column` 是 `.width('100%') + padding(pagePaddingWide)`，
+在 707vp 宽下：主按钮「华为账号一键登录」拉成一条横贯整屏的巨型胶囊，
+说明文字一路排到右边缘。工程里别的长表单都走了
+`longFormMaxWidth(bp, contentMaxWidth)` 上限（屏2、协议正文），**这屏漏了**。
+
+修法已想清楚但**这轮没动手**，因为改完验不了（下一条）：
+不能给根 `Column` 加 `constraintSize`——根要铺满整屏当 `canvas` 底色，
+一收窄两侧就出现色带。正确做法是在 `Blank()` 之后套一层
+`Column(){ … }.width('100%').constraintSize({ maxWidth: longFormMaxWidth(this.bp, LayoutTokens.contentMaxWidth })`
+并把根的 `alignItems` 改成 `Center`（手机档 `longFormMaxWidth` 返回 `'100%'`，行为不变）。
+
+### 一条**没有定论**的观测，别当缺陷记账
+模拟器上想进主界面看宽屏的 首页/我的/屏8/屏4，卡在屏1 的同意闸门：
+按 `dumpLayout` 读到的 Checkbox 真实 bounds `[76,1815][151,1890]`、
+点它的中心 `(113,1852)`，**回读 `checked` 仍是 `false`**，
+于是「暂不登录，使用本机游客空间」按 `!agreed` 保持禁用（`LoginView:64`）——
+**这个禁用本身是对的**（明示同意、不默认勾选）。
+没定论的是点不动：可能是 `uitest uiInput click` 在这台模拟器上的注入问题
+（同一台机器上「同意并继续」这颗大按钮点是有效的），也可能是
+`Checkbox` 只有 24vp 命中区在宽屏档下的真实缺陷。
+**两种解释都还没排除，所以不改代码、不写"已修"**；下一步该做的是
+在真机上做同一个动作做对照（真机 density 3.125、同一份代码）。
+
+### 宽屏还欠的帧
+首页 / 我的（`List.lanes` 在 md 档该出两栏）/ 屏8 时间轴 / 屏4 行 / 费用页零行程态
+——都堵在上面那道同意闸门后面。`noTrip` 分支本来在这台零数据的模拟器上可以顺手验掉，
+同样没进去。**这是下一轮的第一优先级**：先进得去，再谈宽屏收口。
