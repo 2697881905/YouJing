@@ -9,7 +9,6 @@
  */
 
 import { EditTarget, FailInfo } from '../common/constants/AppNav';
-import { YoujingStartPage } from './YoujingStartPage';
 import { TripInputPage } from './TripInputPage';
 import { PreferenceQAPage } from './PreferenceQAPage';
 import { SpotPickPage } from './SpotPickPage';

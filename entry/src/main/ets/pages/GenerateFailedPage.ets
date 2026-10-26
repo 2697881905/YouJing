@@ -68,6 +68,18 @@ export struct GenerateFailedPage {
     .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
   }
 
+  /**
+   * 「两条可行修法」每一行的落点。
+   * 原来这里是 pushPath——把屏4/屏3 堆到失败页**上面**，而底部三颗钮又用
+   * popToName 去同两个页面：同一个目的地两条路、栈结果不一样，失败页还会
+   * 被压在下面继续留在栈里。统一成"能回到该页就回、回不去再 push"。
+   */
+  private goFix(route: string): void {
+    if (this.pathStack.popToName(route) < 0) {
+      this.pathStack.pushPath({ name: route });
+    }
+  }
+
   build() {
     HdsNavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
@@ -113,7 +125,7 @@ export struct GenerateFailedPage {
                   .borderRadius(RadiusTokens.capsule)
                   .accessibilityText(`${fix.title}，${fix.desc}`)
                   .onClick((): void => {
-                    this.pathStack.pushPath({ name: fix.route });
+                    this.goFix(fix.route);
                   })
                   if (idx < this.fixes.length - 1) {
                     Divider()
@@ -151,7 +163,7 @@ export struct GenerateFailedPage {
           })
           YoujingButton({
             variant: YoujingButtonVariant.SECONDARY,
-            label: '换一天',
+            label: '改出行日期',
             fullWidth: true,
             buttonWidth: '100%',
             onAction: (): void => {

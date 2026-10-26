@@ -22,12 +22,6 @@ export const TAB_INDEX_KEY: string = 'dockTabIndex';
 /** AppStorage 键：当前活跃行程，地图/费用 tab 的根页靠它选路 */
 export const ACTIVE_TRIP_KEY: string = 'activeTripId';
 /**
- * 待路由：深链指向非首屏 tab 时不能直接 push——那个 TabContent 还没建、
- * 它的 Navigation 也还没绑上栈，push 会丢。写这两个键，由该 tab 的宿主消费。
- */
-export const PENDING_ROUTE_KEY: string = 'pendingTabRoute';
-export const PENDING_PARAM_KEY: string = 'pendingTabParam';
-/**
  * AppStorage 键：运行期切页签的请求（冷启那条路只认 HdsTabs 的 index 初值，
  * 见 Index 头注释；这里管的是 App 已存活时、从别的页签发起的跳转）。
  * 值带时间戳，同一个目标连发两次也能触发 @Watch。
