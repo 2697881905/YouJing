@@ -32,6 +32,23 @@ export struct PreferenceQAPage {
   @State private paceAnswers: string[] = [];
   private questions: FlowQuestion[] = QuestionFlowConfig.QUESTIONS;
 
+  /**
+   * 起答从草稿读，不从字面量读。
+   * 原来是 `['leisure','comfort','public','']` 硬编码初值，`syncDraft()` 只往
+   * `PlanDraft` 写、这里不读回来——用户走到屏4 想改偏好、回退一进这屏，
+   * 前面四道题全回到默认档（主链复审 P1）。
+   * 新行程仍从默认档起：首页进链时 `PlanDraft.fresh()` 已把实例置空。
+   */
+  aboutToAppear(): void {
+    const d: PlanDraft = PlanDraft.get();
+    const seeded: string[] = ['', '', '', ''];
+    seeded[0] = d.style as string;
+    seeded[1] = d.stayTier;
+    seeded[2] = d.transit as string;
+    this.singleAnswers = seeded;
+    this.paceAnswers = d.paces.map((p: PaceOption): string => p as string);
+  }
+
   private isMulti(q: FlowQuestion): boolean {
     return q.multiSelect;
   }

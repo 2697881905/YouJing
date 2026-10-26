@@ -1395,18 +1395,34 @@ hero 是空的）。用脚本从屏12 精确点中「旅行中」徽章所在卡
 - 反证阳性样本不能喂 `MapPage.ets`（它在 R2 白名单里，等于自问自答）；
   改喂 `ComingSoonPage.ets` 后 R2 抓得到、还原后归 0。**尺子报 0 前先确认它抓得到东西。**
 
-### P1：查出来了、这一轮**还没动**的（留作下一步，别当已修）
-1. **规划链回看会重置前面的步骤**——`PreferenceQAPage.ets:31` 的答案数组是字面量初值
-   `['leisure','comfort','public','']`，`syncDraft()`(`:79`) 只往 `PlanDraft` 写、`aboutToAppear` 不从草稿读；
-   `SpotPickPage` 同理（`:181` 写 `selectedSpots`，回来不还原 `priorities`）。
-   影响：用户走到屏4 想改偏好，前面答的题全回默认。
-2. **费用页无行程时的空态文案仍在引导一个不可达的操作**——`ExpensePage.ets:136-147`
+### P1 之一（已修）：规划链回退会把前面几步的答案清掉
+- `PreferenceQAPage.ets:31` 的答案数组是字面量初值 `['leisure','comfort','public','']`，
+  `syncDraft()`(`:79`) 只往 `PlanDraft` 写、`aboutToAppear` 从不读回来 →
+  用户走到屏4 想改偏好、回退进这屏，四道题全回默认档。
+  改为 `aboutToAppear` 从草稿起答（`PlanDraft.fresh()` 在首页进链时置空实例，
+  所以**新行程仍从默认档起**，两条要求不冲突）。
+- `SpotPickPage` 同病：`:181` 把标记写进 `selectedSpots`，回来不还原 `priorities` →
+  圆环全空、底部「已选 N」归 0。改为载完景点按草稿回填，并用 `some(s.id===...)`
+  滤掉本次景点集里已不存在的 id（换目的地后不会带出幽灵计数）。
+- `StayPickPage` 原来是**无条件** `selectedId = list[0].area.id`——从后一步回来换住宿，
+  选中态跳回第一个候选。改为优先还原 `PlanDraft.selectedArea.areaId`（命中候选列表才用）。
+- 屏2 `TripInputPage` 查过：`:43-48` 本来就从 `PlanDraft.basic` 起值，**这屏没问题**。
+
+### P0 补充（同一类错，复审时漏了两页）
+`EditItineraryPage.ets:34` 也写死 `APP_NAV`，而它在 `:219`/`:243` 用 `this.pathStack.pop()`——
+屏8 迁到任意 tab 栈之后，从「我的」进来的编辑页**返回按钮弹在看不见的栈上**。
+同法补 `onReady`。`SharePage.ets:37` 的 `pathStack` 字段全页零使用（死字段），删。
+
+### P1：查出来了、**这一轮还没动**的
+1. **费用页无行程时的空态文案仍在引导一个不可达的操作**——`ExpensePage.ets:136-147`
    从 dock 进来没有行程上下文时会退到最近一条行程（这个处理是对的），
    但本机一条行程都没有时只 `Logger.info(...)` 保持空态，页面文案（`:557`）仍是
    「还没有记账，下面记一笔后这里会出现分类」——**没有行程时"记一笔"落不了地**，
    该引导的是「先规划一条行程」。（这条只读了码，没真机验过记账失败路径。）
-3. `ACTIVE_TRIP_KEY` 写 5 处（`ItineraryPage:80`/`OnTripPage:147`/`Index:96`/`ExpensePage:157`/`EntryAbility:259`）、
+2. `ACTIVE_TRIP_KEY` 写 5 处（`ItineraryPage:80`/`OnTripPage:147`/`Index:96`/`ExpensePage:157`/`EntryAbility:259`）、
    真读取 0 处（`Index:90` 只判空），与 `AppNav.ets:23` 注释承诺的「当前活动行程」不符——**没有消费方，不算落实**。
+3. 三个 tab 根页（`MapPage:58`/`ExpensePage:127`/`YoujingStartPage:58`）只在 `aboutToAppear` 取一次数：
+   在别处新建/编辑完行程再切到这些页签，看到的还是进入时那份数据。
 
 ### 未验（设备未复拍，不写「已修」）
 上面两个 P0 只做了**读码级**验证；真机要点：从「我的」页签点开一条行程 → 依次点

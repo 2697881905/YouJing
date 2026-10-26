@@ -76,7 +76,12 @@ export struct StayPickPage {
         list.push(this.makePick(top[i], i));
       }
       this.picks = list;
-      this.selectedId = list.length > 0 ? list[0].area.id : '';
+      // 回退到这一屏时保住上次选的那一片：原来无条件重置成 list[0]，
+      // 用户从后面几步回来换住宿，选中态会跳回第一个候选
+      const remembered: string = PlanDraft.get().selectedArea.areaId;
+      const keep: AreaPick | undefined =
+        list.find((p: AreaPick): boolean => p.area.id === remembered);
+      this.selectedId = keep !== undefined ? keep.area.id : (list.length > 0 ? list[0].area.id : '');
       this.applyStops(top);
       Logger.info('Ui.StayPick',
         `候选片区 ${areas.length} → 距离排序取前 ${AREA_CANDIDATES} → 展示 ${list.length}`);

@@ -62,6 +62,11 @@ export struct SpotPickPage {
     this.days = DateUtils.spanDays(b.startDate, b.endDate);
     PlanRepository.loadSpots(ctx, b.destination).then((spots: Spot[]) => {
       this.all = spots;
+      // 回退到这一屏时保住已标的景点：`confirm()`(:181) 把选择写进了草稿，
+      // 但这里原来不读回来——去屏5 再退回来，圆环全空、底部计数归 0
+      const kept: SelectedSpot[] = PlanDraft.get().selectedSpots.filter((p: SelectedSpot): boolean =>
+        spots.some((s: Spot): boolean => s.id === p.spotId));
+      this.priorities = kept;
       this.rebuildGroups(spots);
       this.loaded = true;
     }).catch((err: Error) => {

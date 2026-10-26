@@ -511,6 +511,11 @@ export struct EditItineraryPage {
       })
     }
     .titleBar(this.titleBarOptions())
+    .onReady((ctx: NavDestinationContext): void => {
+      // 屏8 现在可能住在四条 tab 栈的任意一条上（从「我的」点开行程再进编辑），
+      // 写死 APP_NAV 会让 :219 / :243 两处 pop 弹在看不见的栈上——返回按钮点了没反应
+      this.pathStack = ctx.pathStack;
+    })
     .titleMode(HdsNavDestinationTitleMode.MINI)
   }
 }

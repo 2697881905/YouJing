@@ -7,7 +7,6 @@
  * 该格改显「需预约」节点数（真数，且与 .ics 的提醒条数同源）。
  */
 
-import { APP_NAV } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
@@ -34,7 +33,6 @@ const ICS_ADVANCE_DAYS: number = 1;
 
 @Component
 export struct SharePage {
-  private pathStack: NavPathStack = APP_NAV;
   @Prop tripId: string = '';
   @State private subtitle: string = '';
   @State private dayCount: number = 0;
