@@ -338,6 +338,15 @@ export struct SpotPickPage {
                 .fontWeight(450)
                 .fontColor(ColorTokens.body)
                 .fontFeature("'tnum' on")
+              // 这一屏的核心动作只有一个入口：行右侧那枚 24vp 的空圆环。
+              // 整行刻意不可点（源码写明「点名字就改了优先级」会误触），
+              // 于是新用户站在这屏不知道该怎么"选"——给一条只在没选过时出现的引导
+              if (this.priorities.length === 0) {
+                Text('点每行右侧的圆环，标记必去 / 想去 / 可去')
+                  .fontSize(TypeTokens.overline.size)
+                  .fontWeight(450)
+                  .fontColor(ColorTokens.muted)
+              }
               Progress({
                 value: Math.round(this.priorities.length * 100 / Math.max(1, this.days * 4)),
                 total: 100,
