@@ -872,8 +872,13 @@ hypium 40/40（2026-10-25 基线已升到 66/66，见 §7.3）；RDB/账号/日�
 | 屏 | 钉底层原净空 | 改后 | 真机复拍 |
 |---|---|---|---|
 | 屏7 生成受阻 | `xl` 24 → 第三颗「去掉这个景点」整颗压在 dock 背后 | `floatingDockClearance` | 三颗钮完整浮在 dock 之上 |
-| 屏4 选景点 | `lg` 16 | `floatingDockClearance`，滚动预留 `stickyBarScrollReserve + floatingDockClearance` | 未单独复拍（同机制） |
-| 屏5 住哪一片 | `lg` 16 | 同上 | 未单独复拍（同机制） |
+| 屏4 选景点 | `lg` 16 | `floatingDockClearance`，滚动预留 `stickyBarScrollReserve + floatingDockClearance` | **已复拍**：「跳过选择 / 确认选择」两颗钮完整浮在 dock 之上 |
+| 屏5 住哪一片 | `lg` 16 | 同上 | 已复拍（`/tmp/sStayPick.jpeg`），钉底条不再进 dock |
+
+补拍之后**又在屏4 看到两条新的**（本轮未修，按严重度排）：
+- 【中】吸顶的「已选 0 / 可用 1 天 · 建议上限 4 个」这条灰带**下沿被裁**，它下面那根选择进度线只露一半；
+  紧接着的分组头「必去 · 7」上沿又被灰带压住——两条头贴在一起，读起来像渲染错位。
+- 【低】主链步骤指示（`第 3 / 5 步`）与这条「已选…」灰带之间没有间距，两段信息挤成一块。
 | 地图页 站点条 | 只 `sm` 8，整条坐进 dock 里（实拍「:30-」「和园」各露半截） | 加 `margin bottom: floatingDockClearance` | 站点条三张卡完整可读 |
 
 **没改的两处及理由**：
@@ -883,3 +888,8 @@ hypium 40/40（2026-10-25 基线已升到 66/66，见 §7.3）；RDB/账号/日�
 
 **这一类的通用规矩（写在这里免得再撞）**：凡是 `Stack({alignContent: Bottom})` 里钉底的
 动作条 / 信息条，一律给 `LayoutTokens.floatingDockClearance`；放在 `bindSheet` 里的不算。
+
+### §5b 回归闸门
+
+钉底清扫之后的产物上重跑真机 hypium：**`Tests run: 81, Failure: 0, Error: 0, Pass: 81`**。
+七把静态尺在每一次构建后都跑，本轮全程 exit 0。
