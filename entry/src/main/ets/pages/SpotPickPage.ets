@@ -391,7 +391,9 @@ export struct SpotPickPage {
             .edgeEffect(EdgeEffect.Spring)
             .sticky(StickyStyle.Header)
             .cachedCount(6)
-            .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.stickyBarScrollReserve })
+            // 滚动预留跟着钉底条抬高的一档补回来
+            .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
+              bottom: LayoutTokens.stickyBarScrollReserve + LayoutTokens.floatingDockClearance })
             .layoutWeight(1)
           }
         }
@@ -420,7 +422,9 @@ export struct SpotPickPage {
             }
           }
           .width('100%')
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md, bottom: SpaceTokens.lg })
+          // 吸底 CTA 条让位实测 dock 净空（原来只有 lg=16，按钮下沿藏在 dock 底下）
+          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md,
+            bottom: LayoutTokens.floatingDockClearance })
           .backgroundColor(ColorTokens.canvas)
         }
       }

@@ -447,7 +447,9 @@ export struct StayPickPage {
           .edgeEffect(EdgeEffect.Spring)
           .cachedCount(4)
           .alignListItem(ListItemAlign.Start)
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.stickyBarScrollReserve })
+          // 滚动预留跟着钉底条抬高的一档补回来
+          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
+            bottom: LayoutTokens.stickyBarScrollReserve + LayoutTokens.floatingDockClearance })
         }
         .width('100%')
         .height('100%')
@@ -474,7 +476,9 @@ export struct StayPickPage {
           }
         }
         .width('100%')
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md, bottom: SpaceTokens.lg })
+        // 吸底 CTA 条让位实测 dock 净空（原来只有 lg=16）
+        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md,
+          bottom: LayoutTokens.floatingDockClearance })
         .backgroundColor(ColorTokens.canvas)
       }
     }

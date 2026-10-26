@@ -176,7 +176,8 @@ export struct GenerateFailedPage {
           })
         }
         .width('100%')
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: SpaceTokens.xl })
+        // 钉底动作条原来只留 xl(24)：这一屏也在悬浮 dock 上，实拍第三颗钮整颗被压住
+        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.floatingDockClearance })
       }
       .width('100%')
       .height('100%')

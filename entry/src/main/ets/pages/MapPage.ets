@@ -243,6 +243,9 @@ export struct MapPage {
             }
             .width('100%')
             .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+            // 站点条钉在底部 Stack 上，原来直接坐进 dock 里（实拍「:30-」「和园」被压在
+            // dock 背后只露半截）；让它整条浮在 dock 之上
+            .margin({ bottom: LayoutTokens.floatingDockClearance })
             .borderRadius({ topLeft: RadiusTokens.hero, topRight: RadiusTokens.hero })
             // 站点条不是契约四处玻璃面之一（顶栏/分段/dock/吸顶日标题，禁令 9）：
             // 原挂 THIN 材质属第五处玻璃。改实色 surface-elevated + hairline 描边，

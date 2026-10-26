@@ -861,3 +861,25 @@ hypium 40/40（2026-10-25 基线已升到 66/66，见 §7.3）；RDB/账号/日�
 **代拍一条（可否决）**：那块「行程纸」是底稿声明的装饰块，但它从不装内容。
 我按「装饰件要么有活干、要么删」的原则删了；要保留就得往里放真信息（目的地题头 / 逐日点条），
 那是新设计，没替用户做。
+
+### §5b 续 5：钉底层没让位 dock 是**系统性**的，一次扫完
+
+前两屏（屏16、屏7）拍出来之后不再一屏一屏撞，改成全仓扫
+`Stack({ alignContent: Alignment.Bottom })` 的钉底层，逐处看它给 dock 留了多少：
+**只有屏2/屏3 当年补过 `floatingDockClearance`，其余全是 `lg`(16) 或 `xl`(24)**——
+而悬浮 dock 实测占屏底 112vp。
+
+| 屏 | 钉底层原净空 | 改后 | 真机复拍 |
+|---|---|---|---|
+| 屏7 生成受阻 | `xl` 24 → 第三颗「去掉这个景点」整颗压在 dock 背后 | `floatingDockClearance` | 三颗钮完整浮在 dock 之上 |
+| 屏4 选景点 | `lg` 16 | `floatingDockClearance`，滚动预留 `stickyBarScrollReserve + floatingDockClearance` | 未单独复拍（同机制） |
+| 屏5 住哪一片 | `lg` 16 | 同上 | 未单独复拍（同机制） |
+| 地图页 站点条 | 只 `sm` 8，整条坐进 dock 里（实拍「:30-」「和园」各露半截） | 加 `margin bottom: floatingDockClearance` | 站点条三张卡完整可读 |
+
+**没改的两处及理由**：
+- 屏8 `ItineraryPage:1075` 那个 `xl` 住在 `bindSheet` 的面板内容里，半模态面板不在 dock 之下，不该让位；
+- 地图页顶部「全程 / Day 1 / Day 2 / Day 3」看着像右侧裁切，读代码是
+  `Scroll(ScrollDirection.Horizontal)` + 两侧 `lg` 内缩，**本来就是横向可滚的胶囊轨道**，不是缺陷。
+
+**这一类的通用规矩（写在这里免得再撞）**：凡是 `Stack({alignContent: Bottom})` 里钉底的
+动作条 / 信息条，一律给 `LayoutTokens.floatingDockClearance`；放在 `bindSheet` 里的不算。
