@@ -449,11 +449,22 @@ export struct EditItineraryPage {
       Column() {
 
         if (this.acts.length === 0) {
-          Column() {
-            Text(this.tripId.length === 0 ? '未指定行程' : '当日暂无安排')
+          // 「未指定行程」是说给开发者听的话：用户站在这屏只知道一片黑，
+          // 而顶栏三颗钮（完成/添加/撤销）看着全都能点。改成说清缺什么、去哪儿补
+          Column({ space: SpaceTokens.sm }) {
+            Text(this.tripId.length === 0 ? '没有带进行程' : '这一天还没有节点')
+              .fontSize(TypeTokens.title.size)
+              .fontWeight(700)
+              .fontFamily(TypeTokens.title.family)
+              .fontColor(ColorTokens.ink)
+              .textAlign(TextAlign.Center)
+            Text(this.tripId.length === 0 ? '从「我的行程」里选一条行程再进来' : '点右上角 ⊕ 可以补选景点')
               .fontSize(TypeTokens.small.size)
-              .fontColor(ColorTokens.muted)
+              .fontColor(ColorTokens.body)
+              .textAlign(TextAlign.Center)
+              .constraintSize({ maxWidth: 240 })
           }
+          .alignItems(HorizontalAlign.Center)
           .width('100%')
           .layoutWeight(1)
           .justifyContent(FlexAlign.Center)

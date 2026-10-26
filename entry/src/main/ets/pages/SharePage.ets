@@ -171,17 +171,9 @@ export struct SharePage {
                   .margin({ top: SpaceTokens.xs, bottom: SpaceTokens.xl })
 
                 Column() {
-                  // 「行程纸」：浅色档是白→#F1F2F5，压在浅灰卡上边界会消失（真机浅色拍到过），
-                  // 补一条 hairline 描边，两档都读得出这是一块纸而不是空槽
-                  Column()
-                    .width('100%')
-                    .height(140)
-                    .borderRadius(RadiusTokens.media)
-                    .border({ width: LayoutTokens.hairlineWidth, color: ColorTokens.borderSubtle })
-                    .linearGradient({
-                      angle: 180,
-                      colors: [[ColorTokens.routeBgTop, 0], [ColorTokens.routeBgBottom, 1]]
-                    })
+                  // 帧里这块 140vp 的「行程纸」是纯装饰：任何状态下里面都是空的，
+                  // 实拍读起来就是一张没加载出来的占位图（和屏8 那块空地图卡同一类）。
+                  // 抬头已经有目的地与日期区间，三统计紧跟其下，删掉不丢任何信息
                   Row() {
                     // 三个数在 build 内直读状态变量：@Builder 形参是值快照，行程异步到达后不会刷新
                     Column() {
@@ -259,7 +251,10 @@ export struct SharePage {
           .edgeEffect(EdgeEffect.Spring)
           .cachedCount(4)
           .alignListItem(ListItemAlign.Start)
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.shareBarScrollReserve })
+          // 动作条抬高了一档（让位 dock），滚动预留要跟着加一档，
+          // 否则行程纸的末行会藏在这条钉底栏下面
+          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
+            bottom: LayoutTokens.shareBarScrollReserve + LayoutTokens.floatingDockClearance })
         }
         .width('100%')
         .height('100%')
@@ -291,7 +286,10 @@ export struct SharePage {
             .fontColor(ColorTokens.muted)
         }
         .width('100%')
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: SpaceTokens.xl })
+        // 钉底动作条原来只留 xl(24)：这一屏也挂在悬浮 dock 上，
+        // 结果「导出 .ics / 分享行程文本」整条被 dock 压住、说明文字裁掉半行
+        // （与屏2、首页同一类缺陷）。改成让出实测 dock 净空
+        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.floatingDockClearance })
       }
       .width('100%')
       .height('100%')
