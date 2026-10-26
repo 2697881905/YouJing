@@ -1276,3 +1276,29 @@ hero 是空的）。用脚本从屏12 精确点中「旅行中」徽章所在卡
 **尺的计数口径变了**：静态尺从七把变**八把**（新增 layout_patterns），
 加设备侧对比度尺共**九把**。`hooks/pre-commit` 仍只跑构建闸（hook 不随仓库分发），
 **改过版式后手动跑这一把**。
+
+## 5j. 本轮新加配色的离线精算对比度（不依赖设备）
+
+这几轮我新增了若干前景/底色配对，**都没算过对比度**——设备侧的 `audit_contrast.py`
+要 dump + 截图，设备被真人占用时跑不了。改用纯离线精算：
+读 `resources/{base,dark}/element/color.json`，**带 alpha 的先按 canvas 合成**再算 WCAG 比值
+（与既有教训一致：像素读数要先按 color.json 精算复核）。
+注意资源名是 snake_case，`ColorTokens.primaryTint` 要映射成 `primary_tint` 才查得到。
+
+| 配对 | 浅色 | 深色 | 判定 |
+|---|---|---|---|
+| 屏12 徽章「旅行中」`onPrimary` on `primary` | 5.57 | 5.14 | AA 正文 ✓ |
+| 屏12 徽章「未出发」`body` on `primaryTint` | 5.89 | 6.27 | AA 正文 ✓ |
+| 屏12 徽章「已结束」`muted` on `surfaceSubtle` | 4.88 | 5.40 | AA 正文 ✓ |
+| 屏12 卡「总花费」`ink` on `canvas` | 17.89 | 16.76 | AA 正文 ✓ |
+| 费用页「已用 N%」`muted` on `surfaceElevated` | 5.10 | 5.74 | AA 正文 ✓ |
+| **屏4 引导小字** `muted` on `surfacePanel` | **4.76** | 5.06 | AA 正文 ✓（**最紧的一组**） |
+| 首页 最近行标题 `ink` on `surfaceElevated` | 16.71 | 14.91 | AA 正文 ✓ |
+| 屏2 未选人数钮字色 `body` on `surfaceElevated` | 6.40 | 7.05 | AA 正文 ✓ |
+
+**结论：八组全部过 AA 正文级（≥4.5），无需改色。**
+最紧的是屏4 引导小字 4.76——它是 `overline`(11vp) 档的最小字，
+离阈值只有 0.26 余量；**以后若调 `muted` 或 `surfacePanel`，这一组要第一个复算。**
+
+**方法记下来**：`audit_contrast.py` 需要设备，但**配对对比度可以离线精算**，
+设备被占用时不必停下这条验证。
