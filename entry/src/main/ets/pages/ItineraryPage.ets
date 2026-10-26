@@ -765,11 +765,9 @@ export struct ItineraryPage {
         Scroll() {
           Column() {
             Row({ space: SpaceTokens.md }) {
-              Column()
-                .width(LayoutTokens.mediaThumbWidth)
-                .height(LayoutTokens.mediaThumbHeight)
-                .borderRadius(RadiusTokens.media)
-                .backgroundColor(ColorTokens.surfaceSunken)
+              // 原来这里是一个 96×128 的 mediaThumb 占位块，但 Activity/AI 契约里
+              // 没有图片字段，它永远是纯黑——还把站名挤成窄列、
+              // 实拍折成「北京环球度 / 假区」两行（与屏8 行内那块同一判据）
               Column() {
                 Text(this.detailAct.title)
                   // 帧 471fcea9 的节点名是 .serif-title 21/700 serif（不是 headline 18/600）
