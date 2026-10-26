@@ -1745,3 +1745,30 @@ bounds `[76,1798][151,1873]` → **24×24vp**，低于契约 `minTouchTarget` 44
 
 留一条给尺子：R3 应该把 `Checkbox`/`Toggle` 这类可控件也纳入 44vp 检查，
 不然这类缺陷会一直"全绿"。
+
+## 5w. 「继续未完成的规划」试做了一次，**已回退**（记录为什么没成，别再走同一条）
+
+§5q 那条最大缺口的第一次尝试：`PlanDraft.dirty()` + 首页在主按钮下面加一颗次级
+「继续未完成的规划」（不 `fresh()`，直接 `enterPlanningFlow('TripInput')`；
+屏2/3/4/5 现在都从草稿起值，所以从屏2 重进等于接着走）。
+编译过、八把尺过，**真机跑出来是坏的**：
+
+```
+1 干净草稿，续规划入口应无: False      ← 对
+3 回首页，续规划入口应出现: False      ← 错，按钮没出现
+```
+
+根因：`draftDirty` 只在 `reloadRecent()` 里赋值，而 `reloadRecent()` 挂在
+`aboutToAppear` 和「dock 切回广播」两条路上。**从屏2 返回首页两条都不触发**
+（首页实例一直活着，dock 也没动）——所以那颗按钮永远不出现。
+一个"看起来该有却没有"的入口，比没有更糟，正是用户抱怨的半成品样。已 `git restore` 回退。
+
+**能成立的接法**（下轮直接照这个做，不用再推一遍）：
+脏标记要**由写草稿的那一方广播**，而不是由看它的那一方轮询——
+`TripInputPage` 写 `PlanDraft.basic` 的那处（`:401` 附近）与
+`SpotPickPage.confirm()`(`:181`)、`StayPickPage`(`:471`) 各调一次
+`AppStorage.setOrCreate(DRAFT_DIRTY_KEY, '1:' + Date.now())`，
+`enterApp()` 里 `PlanDraft.fresh()` 之后置 `'0:' + Date.now()`；
+首页用 `@StorageProp(DRAFT_DIRTY_KEY) @Watch` 取值。
+这条通路就是 `TAB_SWITCH_KEY`/`TAB_SHOWN_KEY` 已经验过两次的同一套机制，
+不引入任何未验 API。
