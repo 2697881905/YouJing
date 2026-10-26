@@ -102,9 +102,13 @@ export struct SpotPickPage {
       }
     });
     return [
-      mk('必去', SpotPriority.MUST),
-      mk('想去', SpotPriority.WANT),
-      mk('可去', SpotPriority.OPTIONAL),
+      // 菜单项一律带动词前缀：分组头的「必去 · 7」是**景点库的 SpotTag 分类**
+      // （库里 7 个标了必去），而这里是**用户要做的标记动作**——
+      // 同一个词在一屏里指两件事，实拍读起来就是「必去·7 却已选 0」的矛盾。
+      // 底稿帧本来写的就是 aria-label="设为必去"，实现时把「设为」丢了，补回来
+      mk('设为必去', SpotPriority.MUST),
+      mk('设为想去', SpotPriority.WANT),
+      mk('设为可去', SpotPriority.OPTIONAL),
       mk('取消标记', undefined)
     ];
   }
