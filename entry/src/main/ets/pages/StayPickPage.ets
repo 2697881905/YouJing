@@ -231,13 +231,20 @@ export struct StayPickPage {
     return group === AreaGroup.COMMERCIAL ? '商圈便利' : '交通枢纽';
   }
 
-  private areaMeta(area: Area): string {
+  /**
+   * 元信息拆成两行，每行只讲一件事。
+   * 原来是一条 `maxLines(2)` 长句，CJK 会在词中间换行——真机屏5 实拍到
+   * 「锚定 南锣鼓/巷」这种把站名劈成两半的断法（屏11 同一族缺陷，见 INIT_REPORT §5o）。
+   */
+  private areaMetaTop(area: Area): string {
     const tier: string = area.priceTier === AreaPriceTier.ECONOMY ? '经济档'
       : (area.priceTier === AreaPriceTier.LUXURY ? '豪华档' : '舒适档');
     const lines: string = area.metroLines.length > 0 ? `地铁 ${area.metroLines.slice(0, 2).join('/')}` : '无直达地铁';
-    // 锚定站只放第一个：两个站名会把这行顶到 maxLines(1) 的截断线
-    const stations: string = area.anchorStations.length > 0 ? `锚定 ${area.anchorStations[0]}` : '';
-    return stations.length > 0 ? `${tier} · ${lines} · ${stations}` : `${tier} · ${lines}`;
+    return `${tier} · ${lines}`;
+  }
+
+  private areaMetaAnchor(area: Area): string {
+    return area.anchorStations.length > 0 ? `锚定 ${area.anchorStations[0]}` : '';
   }
 
   @Builder
@@ -275,15 +282,23 @@ export struct StayPickPage {
             .fontWeight(600)
             .fontColor(ColorTokens.ink)
           // 档位/线路/通勤都是区域库真字段（价位段数据未采集，故不显示价格）
-          Text(this.areaMeta(pick.area))
+          Text(this.areaMetaTop(pick.area))
             .fontSize(TypeTokens.caption.size)
             .fontWeight(450)
             .fontColor(ColorTokens.muted)
             .fontFeature("'tnum' on")
-            // 全量种子这行最长 30 字（深圳 大鹏-较场尾「舒适档 · 地铁 E11接驳 · 锚定 大鹏中心(公交接驳)」），
-            // 单行必截，故给两行
-            .maxLines(2)
+            .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
+          // 站名单独一行：最长的一条是「锚定 大鹏中心(公交接驳)」，一行放得下
+          if (this.areaMetaAnchor(pick.area).length > 0) {
+            Text(this.areaMetaAnchor(pick.area))
+              .fontSize(TypeTokens.caption.size)
+              .fontWeight(450)
+              .fontColor(ColorTokens.muted)
+              .fontFeature("'tnum' on")
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+          }
         }
         .alignItems(HorizontalAlign.Start)
         .layoutWeight(1)

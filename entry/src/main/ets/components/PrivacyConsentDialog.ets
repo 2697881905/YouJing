@@ -28,12 +28,20 @@ export struct PrivacyConsentDialog {
    会留下「返回后弹窗还在不在、要不要重问」的竞态 */
   @State private reading: string = '';
 
+  /**
+   * 官方 TEXTUAL 档 Button，不是裸 Text 挂 onClick。
+   * 原来那写法过不了 R4（布局尺），而且没有按压反馈、命中区只有字面行高；
+   * TEXTUAL 档保留"链接"观感，把热区与 stateEffect 交回官方。
+   */
   @Builder
   docLink(label: string, kind: string) {
-    Text(label)
+    Button(label)
       .fontSize(TypeTokens.caption.size)
       .fontColor(ColorTokens.primary)
-      .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
+      .backgroundColor(Color.Transparent)
+      .padding({ left: 0, right: 0 })
+      .type(ButtonType.Capsule)
+      .buttonStyle(ButtonStyleMode.TEXTUAL)
       .onClick((): void => {
         this.reading = kind;
         this.onOpenDoc(kind);

@@ -45,7 +45,7 @@ R2_WHITELIST = [
     ('EditItineraryPage.ets', '拖动手把手'),
 ]
 # R4：句内联文本链接是 ArkUI 唯一写法（Span 包不进 Button）
-R4_WHITELIST = {('PrivacyConsentDialog.ets', 33), ('LoginView.ets', 132)}
+R4_WHITELIST = {}  # 句内联 Span 链接已由 _own_attr_chain 精确豁免，不再按行号压
 MIN_TOUCH = 44
 DOCK_CLEARANCE = 112
 
@@ -190,18 +190,42 @@ def r3():
 
 
 # ---------- R4 ----------
+def _own_attr_chain(L, i):
+    """只取节点**自己的** .属性 链，不吃子树。
+
+    原来用 chain_at() 把整棵子树一起吃进来，于是
+    `Text() { Span('《隐私政策》').onClick(...) }` 这种**句内联链接**（ArkUI 唯一写法，
+    Span 包不进 Button）也被判成"裸文本当按钮"，只能靠**写死行号**的白名单压住——
+    上游一加行，白名单就失效、尺子开始报假阳性（LoginView 就这么破过一次）。
+    自闭式：往下收 .开头 的行；带子块：跳到配对的 } 之后再收 .开头 的行。
+    """
+    out = [L[i]]
+    if re.search(r'\{\s*$', L[i]):
+        base = len(L[i]) - len(L[i].lstrip())
+        depth = 0
+        j = i
+        while j < len(L):
+            depth += L[j].count('{') - L[j].count('}')
+            if depth <= 0 and j > i:
+                break
+            j += 1
+        k = j + 1
+    else:
+        k = i + 1
+    while k < len(L) and L[k].strip().startswith('.'):
+        out.append(L[k])
+        k += 1
+    return '\n'.join(out)
+
+
 def r4():
     out = []
     for p in ets_files():
-        f = os.path.basename(p)
         L = lines(p)
         for i, l in enumerate(L):
             if not re.match(r'^\s*(Text|SymbolGlyph)\(', l):
                 continue
-            if (f, i + 1) in R4_WHITELIST:
-                continue
-            body = chain_at(L, i)
-            if '.onClick(' in body:
+            if '.onClick(' in _own_attr_chain(L, i):
                 out.append((p, i + 1, '裸 %s 挂 onClick，应换官方 Button' % l.strip().split('(')[0]))
     return out
 
