@@ -17,7 +17,7 @@
 | `ai/` | Prompt 构造、JSON Schema 常量、类型守卫解析、LLM 调用（PromptBuilder/TripSchema/TripParser/LlmClient） | model、common | pages、components、data、mock、design |
 | `mock/` | Mock 数据（MockTrip），供开发期数据路由 | model、common | pages、components、data、ai、design |
 | `utils/` | 纯函数工具（GeoUtils 距离计算、DateUtils 日期） | common | pages、components、model、data、ai、mock、design |
-| `design/` | 设计 tokens（ColorTokens/SpaceTokens/FontTokens/MotionTokens），视觉常量单一事实源 | common | 其余全部业务目录 |
+| `design/` | 设计 tokens（ColorTokens/TypeTokens/SpaceTokens/RadiusTokens/LayoutTokens/ShadowTokens/MotionTokens + HdsChrome），视觉常量单一事实源 | common | 其余全部业务目录 |
 | `common/config/` | 网络与环境配置单点（ApiConfig、MockConfig） | 无 | 其余全部目录 |
 | `common/constants/` | 构建开关与全局常量（BuildConfig） | 无 | 其余全部目录 |
 | `common/error/` | AppError、ErrorCode 错误码区段表 | common/constants | 其余全部目录 |
@@ -55,7 +55,7 @@ pages → components → model / data / ai / utils → common
 
 ## 5. UI 约定（P5 增补）
 
-- **禁止裸样式值**：pages/、components/ 中禁止裸写色值（#RRGGBB）、字号、间距数值，一律引用 `design/` 下对应 token（ColorTokens / SpaceTokens / FontTokens / MotionTokens）。
+- **禁止裸样式值**：pages/、components/ 中禁止裸写色值（#RRGGBB）、字号、间距数值，一律引用 `design/` 下对应 token（ColorTokens / TypeTokens / SpaceTokens / RadiusTokens / LayoutTokens）。字号字重走 `TypeTokens` 的**角色档**（display/title/headline/body/small/caption/overline/navLabel/time），不按「sizeXxx + weightXxx」的自由组合。
 - **token 先行**：新增视觉常量必须先进 token 文件（语义化命名）再使用，禁止页面内先写死再"回头收口"。
 - **豁免类**：布局百分比（'100%'）、动画 spring 参数、边框宽度等结构性数值不强制走 token，但同类数值出现第二处时必须收口。
 - **组件标识**：testKey / id 按第 4 节「模块前缀-语义 id」规范执行（如 `spot-card-{spotId}`），禁止裸数字 id。

@@ -1313,3 +1313,38 @@ hero 是空的）。用脚本从屏12 精确点中「旅行中」徽章所在卡
 那是用对比度换来的**排版倒退**，而 4.76/4.88 本身已过 AA 正文级（≥4.5）。
 **若以后 `muted` 或 `surfacePanel`/`surfaceSubtle` 任一处被调暗，这两组要第一个复算**，
 届时优先降底色的明度、而不是升字色。
+
+## 5k. 零消费方 token 全量清点（44 项，逐条给理由，防止下次重复调查）
+
+`design/` 七个 token 文件里 **44 个键没有任何消费方**。逐条分三类，**只有第三类需要动**：
+
+### ① 契约镜像——必须存在，几何尺逐条比对 DESIGN.md（28 项，不动）
+`LayoutTokens`：`gridBaseline` `itemGap` `blockGap` `sectionGap` `titleBarHeight` `tabBarHeight`
+`floatingDockWidth` `floatingDockSideMargin` `itinerarySpineWidth` `postCardPadding`
+`composeGenreCardHeight` `composeBodyHeight` `profileStatWidth` `tabItemWidth` `tabSideMargin`
+`tabBottomGap` `safeAreaFallback`；`SpaceTokens`：`lgLoose` `twoXl` `threeXl` `fourXl` `bottomReserve`；
+`RadiusTokens.none`（0 圆角=默认）；`ShadowTokens.contact` `popover`（理由见 §4f 投影那一节）。
+**删它们会让 `audit_geometry.py` 报「契约缺 token 字段（必须补）」**——尺要求契约的每一项都在表里。
+
+### ② 被官方组件接管——不是死代码，是"官方替我们做了"（9 项，不动）
+`MotionTokens` 全部 7 键：契约要「主按钮按下 scale(0.97)+140ms」，
+`YoujingButton` 头注释写明 2026-10-24 去自绘时**刻意删掉手抄实现**，
+改由官方 `Button` + `stateEffect` 提供（手抄那份在深色档偏色）。
+`LayoutTokens.mediaThumbWidth/Height` `spotThumbWidth/Height` 4 键：
+本轮删掉三处永不填充的缩略位后归零，但它们是契约 `media-aspect-ratio` 那一族的镜像值，
+**留着当镜像，不是留着当待接线的坑**。
+
+### ③ 真该删——已删（1 个文件）
+**`design/FontTokens.ets`**：8 键全零引用、无任何尺读取，而且头注释写着
+「pages/components 中 fontSize/fontWeight 一律引用本文件，禁止裸数值」——
+**与实际约定（`TypeTokens` 角色档）直接冲突**，值还对不上（12/14/16/20/24 vs 12/14/16/18/21/32）。
+一个谎称自己是唯一字阶来源的死文件，是下一位开发者（或下一次的我）最容易踩的坑。
+已 `git rm`，并同步改 `Docs/ARCHITECTURE.md` 两处指向它的句子
+（分层表 `design/` 行 + §禁止裸样式值，改成列全七个真在用的 token 文件、
+并写明字号字重走 `TypeTokens` 角色档、不许自由组合）。
+删后 `assembleHap` 通过、七把尺照旧 exit 0。
+
+### 顺带记下的一条误判
+我一度以为"`MotionTokens` 零消费 = 契约要求的按压反馈没实现"，
+差点去 `YoujingButton` 上加回 `scale(0.97)`。读了文件头注释才发现是**官方组件接管**、
+且手抄版有深色偏色的实测理由。**查过才没把一处正确的实现改错。**
