@@ -31,6 +31,17 @@ export interface ApiConfigType {
    * 超时按 NETWORK_TIMEOUT 报（屏7 文案「网络不通或超时」），不再谎报成普通请求失败。
    */
   READ_TIMEOUT_MS: number;
+  /** 重排云函数地址。空串 = 不请求，直接走本地兜底（仓库默认值）。 */
+  REPLAN_URL: string;
+  /**
+   * 云函数鉴权头 x-youjing-token 的值，必须等于云函数环境变量 YOUJING_REPLAN_TOKEN。
+   * 开发期真值只写本机（skip-worktree 防误提交）；为空时不带该头，云函数回 401 → 本地兜底。
+   */
+  REPLAN_TOKEN: string;
+  /** 重排客户端超时预算：连接 2 秒（方案 §3.5）。 */
+  REPLAN_CONNECT_TIMEOUT_MS: number;
+  /** 重排客户端超时预算：读取 6 秒（方案 §3.5）。 */
+  REPLAN_READ_TIMEOUT_MS: number;
 }
 
 export const ApiConfig: ApiConfigType = {
@@ -38,5 +49,9 @@ export const ApiConfig: ApiConfigType = {
   LLM_CHAT_ENDPOINT: '',
   API_KEY: '',
   CONNECT_TIMEOUT_MS: 10000,
-  READ_TIMEOUT_MS: 120000
+  READ_TIMEOUT_MS: 120000,
+  REPLAN_URL: '',
+  REPLAN_TOKEN: '',
+  REPLAN_CONNECT_TIMEOUT_MS: 2000,
+  REPLAN_READ_TIMEOUT_MS: 6000
 };
