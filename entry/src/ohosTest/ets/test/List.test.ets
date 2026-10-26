@@ -12,6 +12,8 @@ import styleConfigTest from './StyleConfig.test';
 import transitSymbolTest from './TransitSymbol.test';
 import planDraftTest from './PlanDraft.test';
 import promptContractTest from './PromptContract.test';
+import skipPlannerTest from './SkipPlanner.test';
+import replanParserTest from './ReplanParser.test';
 
 export default function testsuite() {
   tripParserTest();
@@ -28,4 +30,6 @@ export default function testsuite() {
   transitSymbolTest();
   planDraftTest();
   promptContractTest();
+  skipPlannerTest();
+  replanParserTest();
 }
