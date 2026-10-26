@@ -23,6 +23,8 @@ import { AccountState } from '../model/Account';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
+import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
+import { longFormMaxWidth } from '../utils/responsive';
 import { LayoutTokens } from '../design/LayoutTokens';
 import { IconSizes } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
@@ -38,6 +40,8 @@ export struct LoginView {
   /** 打开协议原文（正文由本组件的半模态承载，这里只上报） */
   onOpenDoc: (kind: string) => void = (kind: string): void => {};
 
+  /** 断点（唯一来源 utils/breakpointCenter.ets）：宽屏给整页一条可读上限 */
+  @StorageProp(KEY_CURRENT_BREAKPOINT) bp: string = 'sm';
   @State private agreed: boolean = false;
   @State private working: boolean = false;
   @State private hint: string = '';
@@ -87,6 +91,9 @@ export struct LoginView {
     Column() {
       Blank()
 
+      // 根 Column 必须铺满整屏当底色，不能自己收窄（两侧会出色带）；
+      // 上限加在这一层内容容器上，根改成居中
+      Column() {
       Column({ space: SpaceTokens.sm }) {
         Text('有径')
           .fontSize(TypeTokens.display.size)
@@ -179,11 +186,15 @@ export struct LoginView {
         }
       })
         .margin({ top: SpaceTokens.sm })
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Start)
+      .constraintSize({ maxWidth: longFormMaxWidth(this.bp, LayoutTokens.contentMaxWidth) })
     }
     .width('100%')
     .height('100%')
     .justifyContent(FlexAlign.Center)
-    .alignItems(HorizontalAlign.Start)
+    .alignItems(HorizontalAlign.Center)
     .padding({
       left: LayoutTokens.pagePaddingWide,
       right: LayoutTokens.pagePaddingWide,

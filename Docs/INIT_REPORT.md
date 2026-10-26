@@ -1639,3 +1639,20 @@ hdc -t 127.0.0.1:5555 shell "aa start -b com.youjing.app -a EntryAbility"
 首页 / 我的（`List.lanes` 在 md 档该出两栏）/ 屏8 时间轴 / 屏4 行 / 费用页零行程态
 ——都堵在上面那道同意闸门后面。`noTrip` 分支本来在这台零数据的模拟器上可以顺手验掉，
 同样没进去。**这是下一轮的第一优先级**：先进得去，再谈宽屏收口。
+
+### §5s 补：屏1 宽屏上限**已接并拍到帧，但效果不够**（要用户拍一个数）
+`LoginView` 加了断点上限：根 `Column` 保持铺满整屏当底色，
+在 `Blank()` 之后套一层内容 `Column`，给它
+`.constraintSize({ maxWidth: longFormMaxWidth(this.bp, LayoutTokens.contentMaxWidth) })`
+并把根 `alignItems` 改成 `Center`。手机档 `longFormMaxWidth` 返回 `'100%'`，**行为不变**。
+
+Mate X7 展开实测（帧 `q1_login_x7.jpeg`）：内容列从"整屏宽"收到 `contentMaxWidth`
+（bounds 量到正文行 190…2148 ≈ 626vp，整屏 707vp）并居中 ✓，
+但**目视仍然太宽**——说明文字一路排到右边缘、主按钮还是一颗横贯的巨型胶囊。
+原因不在实现：`contentMaxWidth` 这个契约值本身就有 626vp，
+而 707vp 的 md 档只比它宽 80vp，"套上限"能省的就这么点。
+
+**要更窄只有两条路，都归用户定**：
+① 登录/协议这类**单列表单**另用一个更小的上限（工程里现在没有这个档）；
+② 沿用 `contentMaxWidth`，接受宽屏就是"一行能放更多字"的观感。
+我不会为了让截图好看去改 `~/Pictures` 里那份契约值。
