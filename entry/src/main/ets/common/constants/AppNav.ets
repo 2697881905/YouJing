@@ -28,9 +28,28 @@ export const ACTIVE_TRIP_KEY: string = 'activeTripId';
  */
 export const TAB_SWITCH_KEY: string = 'dockTabSwitchRequest';
 
+/**
+ * AppStorage 键：dock 刚切到某个页签的通知（由 Index 的 HdsTabs.onChange 发）。
+ *
+ * 四个 tab 根页原来只在 `aboutToAppear` 取一次数：在别处新建/编辑完行程、
+ * 或记了一笔费用之后切回页签，看到的还是第一次进入时那份数据（主链复审 P1）。
+ * 根页 `@StorageProp` + `@Watch` 这个键，序号对上才重取。
+ */
+export const TAB_SHOWN_KEY: string = 'dockTabShownTick';
+
 /** 请求把 dock 切到某个页签，由 Index 的 @Watch 调 changeIndex 落地 */
 export function requestTab(index: number): void {
   AppStorage.setOrCreate(TAB_SWITCH_KEY, `${index}:${Date.now()}`);
+}
+
+/** dock 切完页签后广播一次，值带时间戳，同一页签连切两次也能触发 @Watch */
+export function announceTabShown(index: number): void {
+  AppStorage.setOrCreate(TAB_SHOWN_KEY, `${index}:${Date.now()}`);
+}
+
+/** 根页侧判定：这条广播是不是发给我的页签 */
+export function isTabShownTick(value: string, index: number): boolean {
+  return value.startsWith(`${index}:`);
 }
 
 /**

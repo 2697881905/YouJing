@@ -12,7 +12,7 @@
  * 首帧就在目标 tab；运行期（App 已存活时的 onNewWant）才用 changeIndex。
  */
 
-import { APP_NAV, ACTIVE_TRIP_KEY, TAB_INDEX_KEY, TAB_SWITCH_KEY, TAB_ITINERARY, TAB_MAP, TAB_EXPENSE, TAB_MINE } from '../common/constants/AppNav';
+import { APP_NAV, ACTIVE_TRIP_KEY, TAB_INDEX_KEY, TAB_SWITCH_KEY, announceTabShown, TAB_ITINERARY, TAB_MAP, TAB_EXPENSE, TAB_MINE } from '../common/constants/AppNav';
 import { routerMap } from './AppRouter';
 import { TripDao, TripSummary } from '../data/TripDao';
 import { AUTH_STATE_KEY } from '../data/AccountStore';
@@ -186,6 +186,9 @@ struct Index {
     .onChange((index: number): void => {
       this.currentTab = index;
       AppStorage.setOrCreate(TAB_INDEX_KEY, index);
+      // 四个 tab 根页只在 aboutToAppear 取一次数：在别处新建/编辑完行程、记完费用
+      // 再切回页签，看到的还是第一次进入那份。广播一条，根页序号对上才重取
+      announceTabShown(index);
     })
     .width('100%')
     .height('100%')

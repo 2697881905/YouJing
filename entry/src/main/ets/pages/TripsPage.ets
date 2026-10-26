@@ -5,7 +5,7 @@
  * §7 必改已落：booking-badge padding 2→0、card-footer gap 6→4、dock padding 10→8。
  */
 
-import { MINE_NAV, enterPlanningFlow } from '../common/constants/AppNav';
+import { MINE_NAV, enterPlanningFlow, TAB_SHOWN_KEY, isTabShownTick, TAB_MINE } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
@@ -51,6 +51,16 @@ export struct TripsPage {
 
   /** 本页是 MINE_NAV 这条 tab 栈的宿主，push 必须落在自己的栈上 */
   private pathStack: NavPathStack = MINE_NAV;
+  /** dock 切回这一页时重取列表：新建/删除行程后切回来不再看到旧那份 */
+  @StorageProp(TAB_SHOWN_KEY) @Watch('onDockShown') dockTick: string = '';
+
+  private onDockShown(): void {
+    if (isTabShownTick(this.dockTick, TAB_MINE)) {
+      this.reload().catch((err: Error) => {
+        Logger.warn('Ui.Trips', `切回刷新失败: ${err.message}`);
+      });
+    }
+  }
   @StorageProp('isDarkMode') isDark: boolean = false;
   @State private trips: TripCardData[] = [];
   /** 官方 Search 的关键词：目的地或日期串命中即保留 */

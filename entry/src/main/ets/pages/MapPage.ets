@@ -6,7 +6,7 @@
  * 底图铺满、浮层透明穿透（hitTestBehavior Transparent），不遮地图手势。
  */
 
-import { MAP_NAV } from '../common/constants/AppNav';
+import { MAP_NAV, TAB_SHOWN_KEY, isTabShownTick, TAB_MAP } from '../common/constants/AppNav';
 import { TripDao, TripSummary } from '../data/TripDao';
 import { Trip, TripDay } from '../model/Trip';
 import { MapStop, MapStops } from '../utils/MapStops';
@@ -36,6 +36,14 @@ const FIT_BOTTOM_PX: number = 600;
 export struct MapPage {
   /** 本页是 MAP_NAV 这条 tab 栈的宿主，push 必须落在自己的栈上 */
   private pathStack: NavPathStack = MAP_NAV;
+  /** dock 切回这一页时重取底图数据（广播见 AppNav.TAB_SHOWN_KEY，主链复审 P1） */
+  @StorageProp(TAB_SHOWN_KEY) @Watch('onDockShown') dockTick: string = '';
+
+  private onDockShown(): void {
+    if (isTabShownTick(this.dockTick, TAB_MAP)) {
+      this.reload();
+    }
+  }
   @Prop tripId: string = '';
   @StorageProp('isDarkMode') isDark: boolean = false;
   @State private days: TripDay[] = [];

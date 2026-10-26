@@ -6,7 +6,7 @@
  * 状态栏 mock 为设备 chrome，不实现。
  */
 
-import { APP_NAV, requestTab, TAB_MINE } from '../common/constants/AppNav';
+import { APP_NAV, requestTab, TAB_SHOWN_KEY, isTabShownTick, TAB_ITINERARY, TAB_MINE } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
@@ -48,6 +48,15 @@ const ROW_HEIGHT: number = LayoutTokens.itineraryRowMinHeight;
 @Component
 export struct YoujingStartPage {
   private pathStack: NavPathStack = APP_NAV;
+  /** dock 切回这一页时重取最近行程（广播见 AppNav.TAB_SHOWN_KEY，主链复审 P1） */
+  @StorageProp(TAB_SHOWN_KEY) @Watch('onDockShown') dockTick: string = '';
+
+  private onDockShown(): void {
+    if (isTabShownTick(this.dockTick, TAB_ITINERARY)) {
+      this.reloadRecent();
+    }
+  }
+
   /** 最近三条真行程：这一屏此前只有营销预览，行程 tab 却看不到任何一条自己的行程 */
   @State private recent: RecentRow[] = [];
   /** 行程总条数：最近只展示三条，「查看全部」要说得出还剩多少 */
@@ -56,6 +65,10 @@ export struct YoujingStartPage {
   @State private starting: boolean = false;
 
   aboutToAppear(): void {
+    this.reloadRecent();
+  }
+
+  private reloadRecent(): void {
     const ctx: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
     TripDao.listSummaries(ctx).then((rows: TripSummary[]): void => {
       const today: string = DateUtils.todayIso();

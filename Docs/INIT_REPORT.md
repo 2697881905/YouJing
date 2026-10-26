@@ -1466,3 +1466,24 @@ hero 是空的）。用脚本从屏12 精确点中「旅行中」徽章所在卡
 01:24 系统自动切了深色，屏15/费用页/编辑页的深色帧是**这轮第一次拍到**：
 卡片、进度条、图标、dock 都跟着翻，未见"深色下隐身"的元素。
 （`hdc file recv` 才是收文件的写法，裸 `hdc recv` 静默不落地，害我第一次读图失败。）
+
+## 5n. tab 根页切回不重取数据（P1 之一，已接线，**真机未验**）
+
+主链复审 P1 第 3 条：四个 dock 根页只在 `aboutToAppear` 取一次数。
+在别处新建/编辑完行程、或记完一笔费用，切回对应页签看到的还是第一次进入那份。
+
+接线走的是**这工程里已经验通的那条反应式通路**（`TAB_SWITCH_KEY` → `Index` 的
+`@StorageProp + @Watch`），没有引入 `onVisibleAreaChange` 之类本页未验过的 API：
+
+- `AppNav.ets`：新增 `TAB_SHOWN_KEY` + `announceTabShown(index)` + `isTabShownTick(value, index)`；
+  值带时间戳，所以同一页签连切两次也能触发 `@Watch`。
+- `Index.ets:186` `HdsTabs.onChange` 里广播一条（`onChange` 只在**真的换页签**时触发，
+  重点当前页签不触发——那条是 §5m 记的另一个 P2，没混在这里修）。
+- 四个根页各加 `@StorageProp(TAB_SHOWN_KEY) @Watch('onDockShown')`，
+  **序号对上才重取**：首页 `reloadRecent()`（把原来写在 `aboutToAppear` 里的取数抽成方法）、
+  地图/费用 `reload()`、我的 `reload().catch(...)`。
+
+`BUILD SUCCESSFUL`、八把尺 exit 0。**真机行为未验**——设备这一时段疑似有人在用
+（Back 退出后落在别的 App 界面上），不抢设备。待验三件事：
+① 切页签不闪、不重复取数；② 新建一条行程后切回「我的」和「行程」能看到它；
+③ 深色档下切页签无额外白帧。
