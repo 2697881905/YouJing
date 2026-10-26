@@ -17,6 +17,7 @@
 const http = require('node:http');
 
 const PORT = Number(process.env.PORT || 8787);
+const HOST = '127.0.0.1';
 
 function isTime(value) {
   return typeof value === 'string' && /^\d{2}:\d{2}$/.test(value);
@@ -75,6 +76,6 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`replan stub listening on http://127.0.0.1:${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`replan stub listening on http://${HOST}:${PORT}`);
 });
