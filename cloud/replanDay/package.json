@@ -1,0 +1,13 @@
+{
+  "name": "replan-day",
+  "version": "0.1.0",
+  "private": true,
+  "description": "有径 · 当日行程重排云函数（AGC Node 运行时）",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
