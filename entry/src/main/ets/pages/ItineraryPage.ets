@@ -1103,26 +1103,19 @@ export struct ItineraryPage {
           // 日标题走 ListItemGroup 的 header —— 底稿写的「吸顶日标题」由 sticky 真正兑现。
           // 行距 12px（itinerary-block-gap）：不传 space 时 List 默认 0，站点行与交通腿会紧贴
           List({ space: LayoutTokens.itineraryBlockGap }) {
+            // 当天没有落点时**整块地图卡不出**：原来它照样撑满 mapHeightCompact，
+            // 只剩一个深蓝渐变空盒加角落一枚「当日暂无安排」——主屏三分之一的面积
+            // 既没信息也不可点（实拍确认）
+            if (this.dayStops.length > 0) {
             ListItem() {
-              // 地图面板：有可用坐标就上真实底图（当天落点 + 分段动线），
-              // 没坐标时保留 route-paper 底 + 摘要，不画假位置
+              // 地图面板：有可用坐标就上真实底图（当天落点 + 分段动线）
               Stack({ alignContent: Alignment.BottomStart }) {
-                if (this.dayStops.length > 0) {
-                  TripMapView({
-                    stops: this.dayStops,
-                    signature: this.daySig
-                  })
-                    .width('100%')
-                    .height('100%')
-                } else {
-                  Column()
-                    .width('100%')
-                    .height('100%')
-                    .linearGradient({
-                      angle: 180,
-                      colors: [[ColorTokens.routeBgTop, 0], [ColorTokens.routeBgBottom, 1]]
-                    })
-                }
+                TripMapView({
+                  stops: this.dayStops,
+                  signature: this.daySig
+                })
+                  .width('100%')
+                  .height('100%')
                 Row() {
                   Text(this.dayRouteSummary())
                     .fontSize(TypeTokens.caption.size)
@@ -1134,22 +1127,20 @@ export struct ItineraryPage {
                     .borderRadius(RadiusTokens.pill)
                     .backgroundColor(ColorTokens.canvas)
                   Blank()
-                  if (this.dayStops.length > 0) {
-                    // 与地图页 chip 同档的官方 Button（原来是裸 Text + onClick）。
-                    // 走过 NORMAL 档：真机上胶囊表面在底图上完全不出色（量到与瓦片同色），
-                    // 显式 backgroundColor 也被样式吃掉，所以用 EMPHASIZED 档——
-                    // 实底胶囊压在瓦片上反而读得清，配色与地图页选中档一致
-                    Button('全图')
-                      .fontSize(TypeTokens.caption.size)
-                      .fontWeight(500)
-                      .height(28)
-                      .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-                      .type(ButtonType.Capsule)
-                      .buttonStyle(ButtonStyleMode.EMPHASIZED)
-                      .onClick(() => {
-                        this.pathStack.pushPath({ name: 'Map', param: this.tripId });
-                      })
-                  }
+                  // 与地图页 chip 同档的官方 Button（原来是裸 Text + onClick）。
+                  // 走过 NORMAL 档：真机上胶囊表面在底图上完全不出色（量到与瓦片同色），
+                  // 显式 backgroundColor 也被样式吃掉，所以用 EMPHASIZED 档——
+                  // 实底胶囊压在瓦片上反而读得清，配色与地图页选中档一致
+                  Button('全图')
+                    .fontSize(TypeTokens.caption.size)
+                    .fontWeight(500)
+                    .height(28)
+                    .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+                    .type(ButtonType.Capsule)
+                    .buttonStyle(ButtonStyleMode.EMPHASIZED)
+                    .onClick(() => {
+                      this.pathStack.pushPath({ name: 'Map', param: this.tripId });
+                    })
                 }
                 .width('100%')
                 .margin(LayoutTokens.mapOverlayInset - 8)
@@ -1160,15 +1151,41 @@ export struct ItineraryPage {
               .clip(true)
               .margin({ top: SpaceTokens.md })
             }
+            }
 
             ListItemGroup({ header: this.dayHeader() }) {
               if (this.curDay().activities.length === 0) {
                 ListItem() {
-                  Text('这一天还没有安排节点')
-                    .fontSize(TypeTokens.caption.size)
-                    .fontColor(ColorTokens.muted)
-                    .width('100%')
-                    .padding({ top: SpaceTokens.lg, bottom: SpaceTokens.sm })
+                  // 空白天原来只有一行 12vp 灰字，下面五成屏是纯黑，且**没有任何前进通路**
+                  // ——用户站在这屏既加不了节点也退不出去。按契约 empty-state 规格补齐
+                  Column({ space: SpaceTokens.md }) {
+                    SymbolGlyph($r('sys.symbol.map'))
+                      .fontSize(IconSizes.display)
+                      .fontColor([ColorTokens.muted])
+                    Text('这一天还没有安排节点')
+                      .fontSize(TypeTokens.title.size)
+                      .fontWeight(700)
+                      .fontFamily(TypeTokens.title.family)
+                      .fontColor(ColorTokens.ink)
+                      .textAlign(TextAlign.Center)
+                    Text('AI 排好的动线里这一天是空的，去编辑页可以补选景点')
+                      .fontSize(TypeTokens.small.size)
+                      .fontColor(ColorTokens.body)
+                      .textAlign(TextAlign.Center)
+                      .constraintSize({ maxWidth: 240 })
+                    YoujingButton({
+                      variant: YoujingButtonVariant.PRIMARY,
+                      label: '去添加景点',
+                      buttonWidth: 200,
+                      onAction: (): void => {
+                        const target: EditTarget = { tripId: this.tripId, dayIndex: this.dayIndex };
+                        this.pathStack.pushPath({ name: 'EditItinerary', param: target });
+                      }
+                    })
+                  }
+                  .alignItems(HorizontalAlign.Center)
+                  .width('100%')
+                  .padding({ top: SpaceTokens.xl, bottom: SpaceTokens.xl })
                 }
               }
               ForEach(this.curDay().activities,
