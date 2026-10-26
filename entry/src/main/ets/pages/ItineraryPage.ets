@@ -36,6 +36,13 @@ import { longFormMaxWidth } from '../utils/responsive';
 
 @Component
 export struct ItineraryPage {
+  /**
+   * 这一屏可能被 push 在四条 tab 栈的任意一条上——从「我的行程」点开就走 MINE_NAV。
+   * 原来硬用 APP_NAV：从「我的」页签进来时，分享/编辑/全图/记一笔全部推到
+   * 看不见的 tab-0 栈上，点了没反应（独立复审查出的 P0，与 enterPlanningFlow 同一类，
+   * 当时只修了入口没修这两页）。改由 NavDestination.onReady 拿**自己所属**的栈，
+   * 与 ComingSoonPage 同法；保留 APP_NAV 作默认值，深链直启时行为不变。
+   */
   private pathStack: NavPathStack = APP_NAV;
   @StorageProp('isDarkMode') isDark: boolean = false;
   /** 断点（唯一来源 utils/breakpointCenter.ets）：宽屏给时间轴一条可读上限 */
@@ -839,7 +846,9 @@ export struct ItineraryPage {
               this.statCol(this.durationText(this.detailAct), '停留建议')
               this.statCol(this.detailAct.time, '计划到达')
               this.statCol(this.commuteText(), '到达耗时')
-              this.statCol('—', '门票费用')
+              // 原来还有第四格「门票费用」，值恒为「—」——`Activity` 模型里根本没有票价字段，
+              // 它永远填不上，实拍就是面板里一个假数据位。删。
+              // （三格也比四格稳：把断点钉成 lg 复拍时，四格在窄列里会整个竖排）
             }
             .width('100%')
             .padding(SpaceTokens.md)
@@ -1273,6 +1282,9 @@ export struct ItineraryPage {
       // 直出两枚、第三枚收进官方「更多」——屏11 帧在顶栏右侧画的就是 ellipsis
       menuMaxCount: 2
     }))
+    .onReady((ctx: NavDestinationContext): void => {
+      this.pathStack = ctx.pathStack;
+    })
     .titleMode(HdsNavDestinationTitleMode.MINI)
     .onShown((): void => {
       this.reload();

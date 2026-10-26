@@ -31,18 +31,19 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'entry', '
 # R1：这些页的钉底块住在 bindSheet/半模态里，不在 dock 之下，不该让位
 R1_EXEMPT = {'ItineraryPage.ets': 'bindSheet 面板内容'}
 # R2：真在干活的线/底/骨架，不是死块
-R2_WHITELIST = {
-    ('FlowSteps.ets', '进度段'): '五段进度轨本体',
-    ('TripMapView.ets', ''): '底图宿主背景',
-    ('GeneratingPage.ets', ''): '骨架屏，会被真数据替换',
-    ('TodayTripCard.ets', ''): '卡片内 2vp 主色分隔条',
-    ('YoujingStartPage.ets', ''): '首启预览的时间轴竖线',
-    ('OnTripPage.ets', ''): '时间轴竖线与节点圆',
-    ('ItineraryPage.ets', ''): '时间轴竖线与节点圆',
-    ('SpotPickPage.ets', ''): '分组间无底色块',
-    ('MapPage.ets', ''): '浮层底',
-    ('EditItineraryPage.ets', ''): '拖动手把手',
-}
+# 白名单：这些文件里的"只有尺寸+底色"块是真在干活的线/底/骨架
+R2_WHITELIST = [
+    ('FlowSteps.ets', '五段进度轨本体'),
+    ('TripMapView.ets', '底图宿主背景'),
+    ('GeneratingPage.ets', '骨架屏，会被真数据替换'),
+    ('TodayTripCard.ets', '卡片内 2vp 主色分隔条'),
+    ('YoujingStartPage.ets', '首启预览的时间轴竖线'),
+    ('OnTripPage.ets', '时间轴竖线与节点圆'),
+    ('ItineraryPage.ets', '时间轴竖线与节点圆'),
+    ('SpotPickPage.ets', '分组间无底色块'),
+    ('MapPage.ets', '浮层底'),
+    ('EditItineraryPage.ets', '拖动手把手'),
+]
 # R4：句内联文本链接是 ArkUI 唯一写法（Span 包不进 Button）
 R4_WHITELIST = {('PrivacyConsentDialog.ets', 33), ('LoginView.ets', 132)}
 MIN_TOUCH = 44
@@ -133,18 +134,40 @@ def r1():
 
 
 # ---------- R2 ----------
+def _next_nonblank(L, j):
+    while j < len(L):
+        if L[j].strip():
+            return L[j]
+        j += 1
+    return ''
+
+
 def r2():
+    """两种"永不填充"的形态，判定方式不同，不能共用一条正则：
+      a) 自闭式 `Column()` / `Row()`（行尾没有 {）——后面全是 .属性 链，
+         若只有尺寸+底色就是死占位；
+      b) 容器式 `Column() {` 且**紧跟同行的 } 就是它的唯一内容**——字面空节点。
+    第一版把 b 也丢进 chain_at 里判，结果连子树一起吃进来，报出 17 处假阳性。"""
     out = []
     for p in ets_files():
         f = os.path.basename(p)
+        if any(f == w for w, _ in R2_WHITELIST):
+            continue
         L = lines(p)
         for i, l in enumerate(L):
+            # a) 自闭式占位
             if re.match(r'^\s*(Column|Row)\(\)\s*$', l):
                 body = chain_at(L, i)
                 if 'backgroundColor' in body and len(re.findall(r'\.(width|height)\(', body)) >= 1:
-                    if any(f == w for w, _ in [(k[0], k[1]) for k in R2_WHITELIST]):
-                        continue
-                    out.append((p, i + 1, '只有尺寸+底色的空块: %s' % body[:80]))
+                    out.append((p, i + 1, '只有尺寸+底色的空占位: %s' % body[:80]))
+                continue
+            # b) 字面空容器
+            m = re.match(r'^\s*(Column|Row)\(\)\s*\{\s*$', l)
+            if m:
+                base = len(l) - len(l.lstrip())
+                nxt = _next_nonblank(L, i + 1)
+                if nxt.strip() == '}' and (len(nxt) - len(nxt.lstrip())) == base:
+                    out.append((p, i + 1, '字面空容器（{}() 里什么都没有）'.format(m.group(1))))
     return out
 
 
@@ -225,7 +248,6 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--rule', choices=list(RULES))
     ap.add_argument('--self-test', action='store_true')
-    ap.add_argument('--allow-r5', action='store_true', help='R5 是提示级，默认不卡退出码')
     a = ap.parse_args()
 
     if a.self_test:
@@ -238,8 +260,9 @@ def main():
         if a.rule and key != a.rule:
             continue
         hits = fn()
-        # R5 是人工核对提示，不当偏差卡构建
-        hard = 0 if (key == 'R5' and a.allow_r5) else len(hits)
+        # R5 永远是人工核对提示，**一律不卡退出码**：
+        # 一个标签在顶栏和正文各出现一次是正常写法，机判不出真假
+        hard = 0 if key == 'R5' else len(hits)
         total += hard
         print('== %s %s：%d 处%s' % (key, desc, len(hits), '（提示级，不卡退出码）' if key == 'R5' else ''))
         for p, ln, msg in hits[:20]:

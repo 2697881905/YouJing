@@ -1348,3 +1348,66 @@ hero 是空的）。用脚本从屏12 精确点中「旅行中」徽章所在卡
 我一度以为"`MotionTokens` 零消费 = 契约要求的按压反馈没实现"，
 差点去 `YoujingButton` 上加回 `scale(0.97)`。读了文件头注释才发现是**官方组件接管**、
 且手抄版有深色偏色的实测理由。**查过才没把一处正确的实现改错。**
+
+## 5l. 主链流程复审（不截图，纯读跨页跳转）——查出 1 个 P0 并修
+
+前面各轮都在**逐屏看一屏之内**的问题。这一轮换了个口径：**顺着用户的动线读代码**，
+从首页 → 屏2 → … → 屏8 → 屏10/15/16，只问一件事「这一步点下去，用户到底到哪了」。
+这类缺陷单屏实拍是看不出来的——按钮本身画得没问题，**点了没反应**要跨页才现形。
+
+### P0（已修）：从「我的」页签点开行程后，这一屏的操作按钮全部失效
+
+证据链（逐条 `grep`/读码核对，不是推测）：
+- `pages/TripsPage.ets:314` 用的是 `this.pathStack`（= `MINE_NAV`）push `OnTrip` / `Itinerary`；
+- `pages/ItineraryPage.ets:46`、`pages/OnTripPage.ets:91` 却都写死
+  `private pathStack: NavPathStack = APP_NAV;`；
+- 于是 `ItineraryPage.ets:1154`(全图) `:1205`/`:1274`(编辑) `:1270`(分享) 与
+  `OnTripPage.ets:646`(记一笔费用) **把路径推到了当前根本不可见的 tab-0 栈上**
+  ——屏照常渲染在「我的」栈里，点这些按钮界面一点动静都没有。
+
+这和之前 `enterPlanningFlow` 修的是同一类错，**当时只修了入口，没修这两页**。
+修法与 `ComingSoonPage` 同法：让页面从自己的 `NavDestination` 拿栈——
+
+```ts
+.onReady((ctx: NavDestinationContext): void => {
+  this.pathStack = ctx.pathStack;
+})
+```
+
+保留 `APP_NAV` 作字段默认值，深链直启（`--ps route Itinerary`）行为不变。
+
+### P0-2（已修）：App 已存活时，深链只改页签索引、不切页签
+
+`EntryAbility.routeTo()` 原来只 `AppStorage.setOrCreate(TAB_INDEX_KEY, tab)`。
+`TAB_INDEX_KEY` 是 `HdsTabs` 的**初始**页签（`Index` 头注释记过实测：冷启只能靠 `index` 初值），
+运行期改它不切页签 → 卡片/快捷入口点进去停在首页。补 `requestTab(tab)` 走
+`Index` 的 `@Watch` → `changeIndex`；冷启时 `@Watch` 不为初值触发，两条路不打架。
+
+### P2（顺手清掉的两处死块）
+- `ItineraryPage.ets:849` 屏10 数据面板的第四格「门票费用」值**恒为「—」**——
+  `Activity` 模型里没有票价字段，永远填不上，实拍就是面板中一个假数据位。删（三格比四格稳）。
+- `MapPage.ets`（改动前 :266）一个字面 `Row() {}` 空容器，什么都不装。删。
+
+### 尺子自己的三个修正（`tools/audit_layout_patterns.py`）
+- **R2 第一版扩展报了 17 处假阳性**：`Column() {` 花括号式容器被 `chain_at` 连子树一起吃进来。
+  拆成两条精确判定——(a) 自闭式 `Column()` 只带尺寸+底色；(b) `Column() {` 且同缩进的下一非空行就是 `}`。
+- R5（重复字面量）**只是信息，不该卡退出码**——改为无条件不门控，删掉 `--allow-r5` 开关。
+- 反证阳性样本不能喂 `MapPage.ets`（它在 R2 白名单里，等于自问自答）；
+  改喂 `ComingSoonPage.ets` 后 R2 抓得到、还原后归 0。**尺子报 0 前先确认它抓得到东西。**
+
+### P1：查出来了、这一轮**还没动**的（留作下一步，别当已修）
+1. **规划链回看会重置前面的步骤**——`PreferenceQAPage.ets:31` 的答案数组是字面量初值
+   `['leisure','comfort','public','']`，`syncDraft()`(`:79`) 只往 `PlanDraft` 写、`aboutToAppear` 不从草稿读；
+   `SpotPickPage` 同理（`:181` 写 `selectedSpots`，回来不还原 `priorities`）。
+   影响：用户走到屏4 想改偏好，前面答的题全回默认。
+2. **费用页无行程时的空态文案仍在引导一个不可达的操作**——`ExpensePage.ets:136-147`
+   从 dock 进来没有行程上下文时会退到最近一条行程（这个处理是对的），
+   但本机一条行程都没有时只 `Logger.info(...)` 保持空态，页面文案（`:557`）仍是
+   「还没有记账，下面记一笔后这里会出现分类」——**没有行程时"记一笔"落不了地**，
+   该引导的是「先规划一条行程」。（这条只读了码，没真机验过记账失败路径。）
+3. `ACTIVE_TRIP_KEY` 写 5 处（`ItineraryPage:80`/`OnTripPage:147`/`Index:96`/`ExpensePage:157`/`EntryAbility:259`）、
+   真读取 0 处（`Index:90` 只判空），与 `AppNav.ets:23` 注释承诺的「当前活动行程」不符——**没有消费方，不算落实**。
+
+### 未验（设备未复拍，不写「已修」）
+上面两个 P0 只做了**读码级**验证；真机要点：从「我的」页签点开一条行程 → 依次点
+分享 / 编辑 / 全图 / 记一笔，确认都真的跳转。`BUILD SUCCESSFUL` + 八把尺 exit 0 只证明能编译。

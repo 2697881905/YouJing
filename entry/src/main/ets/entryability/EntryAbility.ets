@@ -3,7 +3,7 @@ import { window } from '@kit.ArkUI';
 import { resourceManager } from '@kit.LocalizationKit';
 import { initBreakpointCenter } from '../utils/breakpointCenter';
 import { Logger } from '../common/logger/Logger';
-import { stackOfRoute, tabOfRoute, TAB_INDEX_KEY, TAB_ITINERARY, ACTIVE_TRIP_KEY } from '../common/constants/AppNav';
+import { stackOfRoute, tabOfRoute, requestTab, TAB_INDEX_KEY, TAB_ITINERARY, ACTIVE_TRIP_KEY } from '../common/constants/AppNav';
 import { DataSeeder } from '../data/DataSeeder';
 import { AccountStore } from '../data/AccountStore';
 import { PlanDraft } from '../data/PlanDraft';
@@ -251,6 +251,10 @@ export default class EntryAbility extends UIAbility {
   private routeTo(name: string, param: string): void {
     const tab: number = tabOfRoute(name);
     AppStorage.setOrCreate(TAB_INDEX_KEY, tab);
+    // TAB_INDEX_KEY 只是 HdsTabs 的**初始**页签，App 已存活时改它不切页签
+    // （Index 头注释记过实测：冷启只能靠 index 初值）。运行期这条另走 requestTab →
+    // Index 的 @Watch → changeIndex。冷启时 @Watch 不会为初值触发，两条路不冲突。
+    requestTab(tab);
     if (param.length > 0) {
       AppStorage.setOrCreate(ACTIVE_TRIP_KEY, param);
     }

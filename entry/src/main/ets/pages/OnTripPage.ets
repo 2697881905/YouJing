@@ -81,6 +81,13 @@ function hoursText(start: string, end: string): string {
 
 @Component
 export struct OnTripPage {
+  /**
+   * 这一屏可能被 push 在四条 tab 栈的任意一条上——从「我的行程」点开就走 MINE_NAV。
+   * 原来硬用 APP_NAV：从「我的」页签进来时，分享/编辑/全图/记一笔全部推到
+   * 看不见的 tab-0 栈上，点了没反应（独立复审查出的 P0，与 enterPlanningFlow 同一类，
+   * 当时只修了入口没修这两页）。改由 NavDestination.onReady 拿**自己所属**的栈，
+   * 与 ComingSoonPage 同法；保留 APP_NAV 作默认值，深链直启时行为不变。
+   */
   private pathStack: NavPathStack = APP_NAV;
   @Prop tripId: string = '';
   @State private rows: CheckedRow[] = [];
@@ -775,6 +782,9 @@ export struct OnTripPage {
     }
     .titleBar(HdsChrome.bar({ mainTitle: this.dayLabel.length > 0 ? this.dayLabel : '旅行中', subTitle: this.clock }))
     .titleMode(HdsNavDestinationTitleMode.MINI)
+    .onReady((ctx: NavDestinationContext): void => {
+      this.pathStack = ctx.pathStack;
+    })
     .onShown((): void => {
       this.reload();
     })
