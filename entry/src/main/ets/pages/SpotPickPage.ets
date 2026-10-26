@@ -8,7 +8,7 @@
  * §10 必改保持：底栏实色悬浮、CTA 距底 ≥16、状态栏无玻璃。
  */
 
-import { APP_NAV } from '../common/constants/AppNav';
+import { APP_NAV, markDraftDirty } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
@@ -184,6 +184,7 @@ export struct SpotPickPage {
       });
     }
     PlanDraft.get().selectedSpots = final;
+    markDraftDirty(true);
     this.pathStack.pushPath({ name: 'StayPick' });
   }
 

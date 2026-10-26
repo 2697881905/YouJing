@@ -4,7 +4,7 @@
  * 目的地/日期选择器与预算滑杆交互在批次 4 接入，本批为静态展示态 + 可选人数。
  */
 
-import { APP_NAV } from '../common/constants/AppNav';
+import { APP_NAV, markDraftDirty } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
@@ -404,6 +404,7 @@ export struct TripInputPage {
                 endDate: this.endDate, people: this.party, budget: this.budget
               };
               d.basic = basic;
+              markDraftDirty(true);
               this.pathStack.pushPath({ name: 'PreferenceQA' });
             }
           })

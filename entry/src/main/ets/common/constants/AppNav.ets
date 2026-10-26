@@ -53,6 +53,23 @@ export function isTabShownTick(value: string, index: number): boolean {
 }
 
 /**
+ * AppStorage 键：规划草稿是否已被用户动过（`1:<ts>` / `0:<ts>`）。
+ * 由**写草稿的那一方**广播，首页 `@Watch` 取值——
+ * 首页只在 `aboutToAppear` 和 dock 广播时刷新，从屏2 返回时两条都不触发，
+ * 让读的一方自己判断就会出"按钮该出现却没出现"（§5w 那次回退的根因）。
+ */
+export const DRAFT_DIRTY_KEY: string = 'planDraftDirty';
+
+/** 写草稿的一方调用：true = 有可续的规划；false = 已作废/已交付 */
+export function markDraftDirty(dirty: boolean): void {
+  AppStorage.setOrCreate(DRAFT_DIRTY_KEY, `${dirty ? 1 : 0}:${Date.now()}`);
+}
+
+export function isDraftDirty(value: string): boolean {
+  return value.startsWith('1:');
+}
+
+/**
  * 取「用户最后打开的那条行程」，没有则空串。
  * 这个键原来写 5 处、读 0 处（只在 Index 判空），注释承诺的"当前活动行程"没有消费方。
  * 现在地图/费用两个根页切回时跟它走：刚看完行程 B 再切「地图」，该显示 B，

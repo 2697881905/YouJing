@@ -10,7 +10,7 @@
  * 直线距离（utils/Geo），按钮按这个口径写成「离景点最近」，不谎报成导航里程。
  */
 
-import { APP_NAV } from '../common/constants/AppNav';
+import { APP_NAV, markDraftDirty } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
@@ -489,6 +489,7 @@ export struct StayPickPage {
               label: '就住这里',
               onAction: (): void => {
                 PlanDraft.get().selectedArea = { areaId: this.selectedId };
+                markDraftDirty(true);
                 this.pathStack.pushPath({ name: 'Generating' });
               }
             })

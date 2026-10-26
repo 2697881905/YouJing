@@ -5,7 +5,7 @@
  * 全部答完（或直接推进到底）触发 SpotPick（批次 4 落地，暂进占位页）。
  */
 
-import { APP_NAV } from '../common/constants/AppNav';
+import { APP_NAV, markDraftDirty } from '../common/constants/AppNav';
 import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
 import { listLanesForBreakpoint } from '../utils/responsive';
 import { ColorTokens } from '../design/ColorTokens';
@@ -94,6 +94,7 @@ export struct PreferenceQAPage {
   }
 
   private syncDraft(): void {
+    markDraftDirty(true);
     const d: PlanDraft = PlanDraft.get();
     d.style = this.singleAnswers[0] as TravelStyle;
     d.stayTier = this.singleAnswers[1];

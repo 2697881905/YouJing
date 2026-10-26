@@ -6,7 +6,7 @@
  * 状态栏 mock 为设备 chrome，不实现。
  */
 
-import { APP_NAV, requestTab, TAB_SHOWN_KEY, isTabShownTick, TAB_ITINERARY, TAB_MINE } from '../common/constants/AppNav';
+import { APP_NAV, requestTab, enterPlanningFlow, markDraftDirty, DRAFT_DIRTY_KEY, isDraftDirty, TAB_SHOWN_KEY, isTabShownTick, TAB_ITINERARY, TAB_MINE } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
@@ -63,8 +63,16 @@ export struct YoujingStartPage {
   @State private tripTotal: number = 0;
   /** 主 CTA 的进行中状态：游客路径要等账号往返，没有反馈会被当成"按了没反应" */
   @State private starting: boolean = false;
+  /** 有可续的规划？由写草稿的一方广播（`DRAFT_DIRTY_KEY`），不是这一屏自己轮询 */
+  @StorageProp(DRAFT_DIRTY_KEY) @Watch('onDraftTick') draftTick: string = '0:0';
+  @State private draftDirty: boolean = false;
+
+  private onDraftTick(): void {
+    this.draftDirty = isDraftDirty(this.draftTick);
+  }
 
   aboutToAppear(): void {
+    this.draftDirty = isDraftDirty(this.draftTick);
     this.reloadRecent();
   }
 
@@ -101,6 +109,7 @@ export struct YoujingStartPage {
   private async enterApp(): Promise<void> {
     // 从首启页进规划 = 明确的新建意图，先丢掉上一段的草稿
     PlanDraft.fresh();
+    markDraftDirty(false);
     if (this.starting) {
       return;
     }
@@ -259,6 +268,21 @@ export struct YoujingStartPage {
             this.enterApp();
           }
         })
+
+      // 次级档（禁令 1：一屏只许一颗实心主按钮）。草稿被动过时才出现。
+      // 点它**不 fresh()**：屏2/屏3/屏4/屏5 都从 `PlanDraft` 起值，
+      // 所以从屏2 重进就是接着上次的进度走（§5q/§5w 那条主链缺口的收口）
+      if (this.draftDirty) {
+        YoujingButton({
+          variant: YoujingButtonVariant.SECONDARY,
+          label: '继续未完成的规划',
+          fullWidth: true,
+          onAction: (): void => {
+            enterPlanningFlow('TripInput');
+          }
+        })
+          .margin({ top: SpaceTokens.sm })
+      }
       }
       .width('100%')
       .margin({ bottom: SpaceTokens.lg })

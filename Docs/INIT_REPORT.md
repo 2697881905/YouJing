@@ -1772,3 +1772,33 @@ bounds `[76,1798][151,1873]` → **24×24vp**，低于契约 `minTouchTarget` 44
 首页用 `@StorageProp(DRAFT_DIRTY_KEY) @Watch` 取值。
 这条通路就是 `TAB_SWITCH_KEY`/`TAB_SHOWN_KEY` 已经验过两次的同一套机制，
 不引入任何未验 API。
+
+## 5x. 「继续未完成的规划」按 §5w 那套广播写法做完并真机验通
+
+写侧广播、读侧 `@Watch`：
+- `AppNav`：`DRAFT_DIRTY_KEY` + `markDraftDirty(boolean)` + `isDraftDirty(value)`（值带时间戳）。
+- 四个写草稿的地方各广播一次 `true`：`TripInputPage`（写 `basic` 之后）、
+  `PreferenceQAPage.syncDraft()`、`SpotPickPage.confirm()`、`StayPickPage`（选片确认）。
+- `YoujingStartPage.enterApp()` 里 `PlanDraft.fresh()` 之后广播 `false`。
+- 首页 `@StorageProp(DRAFT_DIRTY_KEY) @Watch('onDraftTick')` → `draftDirty`，
+  `aboutToAppear` 再取一次初值（冷启时 `@Watch` 不为初值触发）。
+- 按钮是 `SECONDARY` 档（禁令 1：一屏只许一颗实心主按钮），点它**不 `fresh()`**，
+  走 `enterPlanningFlow('TripInput')`；因为屏2/3/4/5 现在都从 `PlanDraft` 起值，
+  从屏2 重进等于接着上次的进度走。
+
+真机验收（`aa start` 冷启后）：
+```
+1 干净草稿 应无按钮: False   ← 对
+2 到屏3: 偏好追问 · 第 2 / 5 步 · 出行偏好
+3 回首页 应出现按钮: True    ← §5w 那次就是死在这一步
+4 续进落在: 第 1 / 5 步 · 基础信息（目的地字段还在）
+5 再到屏3: 偏好追问 · 第 2 / 5 步
+```
+`BUILD SUCCESSFUL`、八把尺 exit 0。
+
+### 主链现在的样子（业务流程收口状态）
+首页 →〔基础信息〕→〔出行偏好〕→〔选景点〕→〔选住宿〕→〔看行程〕，
+每屏顶部有 `FlowSteps` 五段进度轨 + 「第 N / 5 步」；
+中途回退或回首页都不丢选择（§5l/§5m 的草稿还原 + 这一条的续规划入口）；
+从「我的」页签进入任一页，按钮都推在自己那条栈上（§5l 的 P0）；
+误触 dock 会收回该页签根页而不是"点了没反应"（§5q）。
