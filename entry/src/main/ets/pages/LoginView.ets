@@ -126,7 +126,11 @@ export struct LoginView {
       .alignItems(HorizontalAlign.Start)
       .margin({ bottom: SpaceTokens.xl })
 
-      // 官方 Checkbox + 文本行：未勾选即禁用登录入口（明示同意，不做默认勾选）
+      // 官方 Checkbox + 文本行：未勾选即禁用登录入口（明示同意，不做默认勾选）。
+      // 整行可点：`Checkbox` 实测只有 24×24vp（模拟器 dumpLayout bounds
+      // [76,1815][151,1890] ÷ 3.125），低于契约 44vp 最小热区，
+      // 只点那 24vp 在模拟器上甚至点不动（§5u）。行内《隐私政策》/《用户协议》
+      // 是 Span 自己的 onClick，子级先命中，不与整行开关冲突。
       Row({ space: SpaceTokens.sm }) {
         Checkbox()
           .select(this.agreed)
@@ -155,8 +159,12 @@ export struct LoginView {
         .layoutWeight(1)
       }
       .width('100%')
+      .height(LayoutTokens.minTouchTarget)
       .alignItems(VerticalAlign.Center)
       .margin({ bottom: SpaceTokens.lg })
+      .onClick((): void => {
+        this.agreed = !this.agreed;
+      })
 
       YoujingButton({
         variant: YoujingButtonVariant.PRIMARY,
