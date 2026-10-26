@@ -10,7 +10,7 @@
  *   各分类占预算总额、实际视角按占最大分类，不编造分档预算。
  */
 
-import { ACTIVE_TRIP_KEY, EXPENSE_NAV, TAB_SHOWN_KEY, isTabShownTick, activeTripId, TAB_EXPENSE } from '../common/constants/AppNav';
+import { ACTIVE_TRIP_KEY, EXPENSE_NAV, TAB_SHOWN_KEY, isTabShownTick, activeTripId, enterPlanningFlow, TAB_EXPENSE } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
@@ -120,6 +120,12 @@ export struct ExpensePage {
     this.reload();
   }
   @Prop tripId: string = '';
+  /**
+   * 本机一条行程都没有。原来这种状态只 `Logger.info` 后保持空态，
+   * 页面照样写着「还没有记账，下面记一笔后这里会出现分类」+ 一颗「记一笔」按钮——
+   * 而 `saveExpense()`(:230) 在 `trip === null` 时直接 return，点了没有任何反馈。
+   */
+  @State private noTrip: boolean = false;
   @State private seg: number = 0;
   @State private budgetTotal: number = 0;
   /** AI 规划的整程预估（overview.totalCost，为 0 时按各天 dailyCost 累加） */
@@ -152,9 +158,11 @@ export struct ExpensePage {
       // 而不是给出一页 ¥0 的死数据
       TripDao.listSummaries(this.ctx()).then((rows: TripSummary[]): void => {
         if (rows.length === 0) {
-          Logger.info('Ui.Expense', '本机还没有行程，费用页保持空态');
+          Logger.info('Ui.Expense', '本机还没有行程，费用页给规划入口而不是死空态');
+          this.noTrip = true;
           return;
         }
+        this.noTrip = false;
         this.tripId = rows[0].id;
         this.reload();
       }).catch((err: Error) => {
@@ -568,7 +576,7 @@ export struct ExpensePage {
           ListItemGroup({ header: this.sectionHeader('分类支出') }) {
             if (this.totals.length === 0) {
               ListItem() {
-                Text('还没有记账，下面记一笔后这里会出现分类')
+                Text(this.noTrip ? '还没有行程，先规划一条才能记账' : '还没有记账，下面记一笔后这里会出现分类')
                   .fontSize(TypeTokens.caption.size)
                   .fontColor(ColorTokens.muted)
                   .width('100%')
@@ -613,6 +621,21 @@ export struct ExpensePage {
           .margin({ top: SpaceTokens.sm })
 
           ListItem() {
+            // 没有行程时这颗按钮是"点了没反应"的死控件（记账要有行程上下文才能落库），
+            // 所以整颗换成主链入口：切回「行程」页签并把屏2 推上去
+            if (this.noTrip) {
+              Button('开始规划新行程')
+                .width('100%')
+                .height(LayoutTokens.minTouchTarget)
+                .type(ButtonType.Capsule)
+                .fontColor(ColorTokens.onPrimary)
+                .fontSize(TypeTokens.body.size)
+                .fontWeight(600)
+                .buttonStyle(ButtonStyleMode.EMPHASIZED)
+                .onClick((): void => {
+                  enterPlanningFlow('TripInput');
+                })
+            } else {
             // 记一笔：官方胶囊 Button（原来是 44 高 + 1px 描边的自绘 Pill）
             Button() {
               Row({ space: SpaceTokens.xs }) {
@@ -632,6 +655,7 @@ export struct ExpensePage {
             .onClick(() => {
               this.showRecord = true;
             })
+            }
           }
           .margin({ top: SpaceTokens.xl })
         }
