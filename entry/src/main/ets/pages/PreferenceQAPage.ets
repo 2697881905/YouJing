@@ -19,6 +19,7 @@ import { OptionCard } from '../components/OptionCard';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
+import { FlowSteps, FLOW_STEP_PREFERENCE_QA } from '../components/FlowSteps';
 
 @Component
 export struct PreferenceQAPage {
@@ -106,9 +107,16 @@ export struct PreferenceQAPage {
   build() {
     HdsNavDestination() {
       Column() {
+        // 主链进度（第 2/5 步）。原来这一屏只有「第 N/4 步」，说的是**本屏四道题**，
+        // 但用户读到的意思是"整条流程只有四步"——两套进度同名不同义，先各改各的名字
+        Column() {
+          FlowSteps({ step: FLOW_STEP_PREFERENCE_QA })
+        }
+        .width('100%')
+        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md })
 
         // 契约 question-card 进度形态：6px 圆点串（active primary / 其余 surface-sunken）
-        // + overline「第 N/M 步」——原来是一条 4px 通栏轨道，与组件规格对不上
+        // + overline「问题 N/M」——原来是一条 4px 通栏轨道，与组件规格对不上
         Row({ space: SpaceTokens.xs }) {
           ForEach(this.questions, (q: FlowQuestion, i: number) => {
             Circle()
@@ -116,7 +124,7 @@ export struct PreferenceQAPage {
               .height(LayoutTokens.questionProgressDot)
               .fill(i <= this.qIndex ? ColorTokens.primary : ColorTokens.surfaceSunken)
           }, (q: FlowQuestion): string => `qdot-${q.id}`)
-          Text(`第 ${this.qIndex + 1}/${this.questions.length} 步`)
+          Text(`问题 ${this.qIndex + 1}/${this.questions.length}`)
             .fontSize(TypeTokens.overline.size)
             .fontWeight(600)
             .fontColor(ColorTokens.muted)
@@ -206,7 +214,7 @@ export struct PreferenceQAPage {
       .height('100%')
       .backgroundColor(ColorTokens.canvas)
     }
-    .titleBar(HdsChrome.bar({ mainTitle: '偏好追问', subTitle: `第 ${this.qIndex + 1}/${this.questions.length} 步` }))
+    .titleBar(HdsChrome.bar({ mainTitle: '偏好追问', subTitle: `问题 ${this.qIndex + 1}/${this.questions.length}` }))
     .titleMode(HdsNavDestinationTitleMode.MINI)
   }
 }

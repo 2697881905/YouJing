@@ -14,6 +14,7 @@ import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
+import { FlowSteps, FLOW_STEP_SPOT_PICK } from '../components/FlowSteps';
 import { Spot, SpotTag } from '../model/Spot';
 import { PlanRepository } from '../data/PlanRepository';
 import { PlanDraft } from '../data/PlanDraft';
@@ -290,6 +291,13 @@ export struct SpotPickPage {
     HdsNavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
         Column() {
+          // 主链进度：这一屏此前完全不知道自己在这条流程的第几步
+          Column() {
+            FlowSteps({ step: FLOW_STEP_SPOT_PICK })
+          }
+          .width('100%')
+          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md })
+
 
           if (this.loaded && this.all.length === 0) {
             // 空态（契约 empty-state 规格：48px 展示档图标 + title + callout + 一个主按钮）

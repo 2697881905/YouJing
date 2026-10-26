@@ -16,6 +16,7 @@ import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
+import { FlowSteps, FLOW_STEP_STAY_PICK } from '../components/FlowSteps';
 import { ShadowTokens } from '../design/ShadowTokens';
 import { AreaPick } from '../model/PlanParams';
 import { Area, AreaGroup, AreaPriceTier } from '../model/Area';
@@ -366,6 +367,12 @@ export struct StayPickPage {
     HdsNavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
         Column() {
+          // 主链进度
+          Column() {
+            FlowSteps({ step: FLOW_STEP_STAY_PICK })
+          }
+          .width('100%')
+          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md })
 
           // 官方 List：地图面板一个 ListItem，三张候选卡各成一个 ListItem（卡间距在卡片自己身上）
           List() {
