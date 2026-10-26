@@ -479,7 +479,8 @@ export struct EditItineraryPage {
           }
           .layoutWeight(1)
           .scrollBar(BarState.Off)
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.bottomScrollReserve })
+          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
+            bottom: LayoutTokens.floatingDockClearance })
           .onItemDragStart((event: ItemDragInfo, itemIndex: number): CustomBuilder => {
             // 官方 API 限制：onItemDragStart 挂在 List 级（整行长按触发），
             // 与「把手只挂把手」的视觉约定有差距——拖影由本函数自定义，

@@ -630,6 +630,9 @@ export struct ItineraryPage {
         }
         .alignItems(HorizontalAlign.Start)
         .layoutWeight(1)
+        // 节点槽宽 24、圆占 22，原来这一列没有任何左内缩，
+        // 站名首字几乎贴着主轴圆（真机屏8 复拍可见）；补一档间距
+        .padding({ left: SpaceTokens.sm })
       }
       .alignItems(VerticalAlign.Top)
       .width('100%')
@@ -1218,7 +1221,8 @@ export struct ItineraryPage {
           .edgeEffect(EdgeEffect.Spring)
           .sticky(StickyStyle.Header)
           .cachedCount(6)
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.bottomScrollReserve })
+          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
+            bottom: LayoutTokens.floatingDockClearance })
           // 时间轴是单列长内容，不能按断点分栏（会打断主轴竖线），
           // 所以宽屏走"收窄 + 居中"这条路
           .constraintSize({ maxWidth: longFormMaxWidth(this.bp, LayoutTokens.contentMaxWidth) })

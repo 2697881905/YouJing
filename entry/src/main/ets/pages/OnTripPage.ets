@@ -764,7 +764,8 @@ export struct OnTripPage {
       .edgeEffect(EdgeEffect.Spring)
       .sticky(StickyStyle.Header)
       .cachedCount(6)
-      .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.bottomScrollReserve })
+      .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
+            bottom: LayoutTokens.floatingDockClearance })
       .width('100%')
       .height('100%')
       .backgroundColor(ColorTokens.canvas)
