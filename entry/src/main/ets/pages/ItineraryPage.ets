@@ -31,11 +31,15 @@ import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit'
 import { HdsChrome } from '../design/HdsChrome';
 import { DateUtils } from '../utils/DateUtils';
 import { TransitSymbol } from '../utils/TransitSymbol';
+import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
+import { longFormMaxWidth } from '../utils/responsive';
 
 @Component
 export struct ItineraryPage {
   private pathStack: NavPathStack = APP_NAV;
   @StorageProp('isDarkMode') isDark: boolean = false;
+  /** 断点（唯一来源 utils/breakpointCenter.ets）：宽屏给时间轴一条可读上限 */
+  @StorageProp(KEY_CURRENT_BREAKPOINT) bp: string = 'sm';
   /** 玻璃点位①③是否由系统材质接管（接管处撤自绘背景与阴影）；仅浅色模式下实验 */
   private glassOn: boolean = isSystemMaterialActive();
   @Prop tripId: string = '';
@@ -1215,6 +1219,9 @@ export struct ItineraryPage {
           .sticky(StickyStyle.Header)
           .cachedCount(6)
           .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.bottomScrollReserve })
+          // 时间轴是单列长内容，不能按断点分栏（会打断主轴竖线），
+          // 所以宽屏走"收窄 + 居中"这条路
+          .constraintSize({ maxWidth: longFormMaxWidth(this.bp, LayoutTokens.contentMaxWidth) })
         }
         .width('100%')
         .height('100%')

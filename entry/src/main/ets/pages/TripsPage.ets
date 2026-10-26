@@ -259,35 +259,35 @@ export struct TripsPage {
         this.statCol(t.spots, '景点', t.muted)
         this.statCol(t.walk, '通勤', t.muted)
         this.statCol(t.bookingNum, '需预约', t.muted)
-        // 金额此前贴在「需预约」的数字旁边，实拍读成了「5¥1540 需预约」——
-        // 它不属于这三格统计，挪到末行单独带标签放（§5 排版交错）
-        if (t.bookingBadge.length > 0) {
-          Column({ space: SpaceTokens.xs }) {
-            Text(t.bookingBadge)
-              .fontSize(TypeTokens.headline.size)
-              .fontWeight(600)
-              .fontColor(ColorTokens.ink)
-              .fontFeature("'tnum' on")
-            Text('总花费')
-              .fontSize(TypeTokens.overline.size)
-              .fontWeight(450)
-              .fontColor(ColorTokens.muted)
-          }
-          .alignItems(HorizontalAlign.End)
-          .layoutWeight(1)
-        }
       }
       .alignItems(VerticalAlign.Top)
       .width('100%')
       .margin({ top: SpaceTokens.md })
 
       Column({ space: SpaceTokens.xs }) {
-        // 状态只说一次：此前「已结束」和「已结束 · 100%」上下各印一遍
-        Text(t.progressLabel)
-          .fontSize(TypeTokens.caption.size)
-          .fontWeight(450)
-          .fontColor(t.phase === 'onTrip' ? ColorTokens.primary : ColorTokens.muted)
-          .fontFeature("'tnum' on")
+        Row() {
+          // 状态只说一次：此前「已结束」和「已结束 · 100%」上下各印一遍
+          Text(t.progressLabel)
+            .fontSize(TypeTokens.caption.size)
+            .fontWeight(450)
+            .fontColor(t.phase === 'onTrip' ? ColorTokens.primary : ColorTokens.muted)
+            .fontFeature("'tnum' on")
+            .layoutWeight(1)
+          // 金额此前贴在「需预约」的数字旁边，实拍读成了「5¥1540 需预约」；
+          // 上一版把它做成第四格统计，钉宽屏断点复拍时四格在窄列里整个竖排、
+          // ¥1540 拆成三行——四格太脆，改成末行右端一个带标签的稳定落点
+          if (t.bookingBadge.length > 0) {
+            Text(`总花费 ${t.bookingBadge}`)
+              .fontSize(TypeTokens.caption.size)
+              .fontWeight(600)
+              .fontColor(ColorTokens.ink)
+              .fontFeature("'tnum' on")
+              .margin({ left: SpaceTokens.sm })
+          }
+        }
+        .alignItems(VerticalAlign.Center)
+        .width('100%')
+
         Progress({ value: t.progress, total: 100, type: ProgressType.Linear })
           // 只有「旅行中」用品牌蓝；未出发/已结束退到分隔色，
           // 否则一列表全是同一条蓝线，读起来就是渲染残留（§5.14）

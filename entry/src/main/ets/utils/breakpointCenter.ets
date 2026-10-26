@@ -28,6 +28,11 @@ export const KEY_FOLD_STATUS: string = 'foldStatus';
 
 const TAG: string = 'Breakpoint';
 
+/** md/lg 的窗口宽下限（vp）。命名而不是散在第 40 行的三元里，
+ *  是为了让「每列至少多宽」这件事能被测试钉住（Responsive.test.ets） */
+export const BP_MD_MIN_VP: number = 600;
+export const BP_LG_MIN_VP: number = 840;
+
 let started: boolean = false;
 let density: number = 0;
 
@@ -37,7 +42,7 @@ export function isWideBreakpoint(bp: string): boolean {
 
 function applyWindowWidth(widthPx: number): void {
   const wVp: number = widthPx / (density > 0 ? density : 3.3);
-  const bp: string = wVp >= 840 ? 'lg' : (wVp >= 600 ? 'md' : 'sm');
+  const bp: string = wVp >= BP_LG_MIN_VP ? 'lg' : (wVp >= BP_MD_MIN_VP ? 'md' : 'sm');
   AppStorage.setOrCreate<string>(KEY_CURRENT_BREAKPOINT, bp);
   AppStorage.setOrCreate<boolean>(KEY_IS_WIDE_PANE, isWideBreakpoint(bp));
   Logger.info(TAG, `窗口宽 ${wVp.toFixed(1)}vp → 断点 ${bp}`);

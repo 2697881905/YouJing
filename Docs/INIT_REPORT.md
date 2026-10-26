@@ -980,3 +980,48 @@ hypium 40/40（2026-10-25 基线已升到 66/66，见 §7.3）；RDB/账号/日�
 **查过、确认不是缺陷的一条**：屏6 「取消」原来我怀疑它只 pop、生成还在后台跑。
 读代码：`aboutToDisappear` 置 `cancelled = true`，`run()` 在**每一段**都查它并提前返回——
 取消确实中止。所以没加二次确认（那只会给一个本来就安全的动作添摩擦）。
+
+## 5e. 屏幕适配：第一次拿到「断点确实驱动布局」的证据（任务 #39）
+
+此前状态是**双向的空**：`LayoutTokens.contentMaxWidth = 720` 零消费方，
+`responsive.contentMaxWidthForBreakpoint()` 也零消费方——适配地基铺了，没有一处用。
+而宽屏/折叠展开**一帧实拍都没拿到过**（设备是 1136×2690 的直板机）。
+
+**这一轮第一次把机制验通**：临时在 `Index.aboutToAppear` 把
+`AppStorage('currentBreakpoint')` 钉成 `'lg'`（`PROBE-TEMP`，验毕已还原、grep 零残留），
+装到真机后 `我的行程` 列表**真的从 1 列变 3 列**——
+dump 里「景点」标签的 x 起点是 `87 / 432 / 778` 三个值。
+所以 `breakpointCenter → AppStorage → @StorageProp → List.lanes` 这条链是活的，不是死代码。
+
+**同一帧还拍到一件重要的事**：卡片在 ~101vp 的列宽下整个崩版——
+站名「北京」被压成「···」、三格统计竖排、「已结束 · 100%」逐字换行。
+这是**物理上到不了**的宽度（`lg` 意味着窗口 ≥840vp，三列时每列约 270vp），
+但它说明卡片自身没有最小列宽保护，一旦有人调阈值就会真崩。
+
+于是补了 `entry/src/ohosTest/ets/test/Responsive.test.ets`（5 例）把这件事钉住：
+
+| 用例 | 钉的是什么 |
+|---|---|
+| `lanes_follow_breakpoint_ladder` | sm/md/lg → 1/2/3 列；未识别串一律退回单列（不能让 `List.lanes` 拿到 0） |
+| `only_sm_is_narrow_pane` | `isWideBreakpoint` 只在 sm 为假 |
+| `long_form_is_uncapped_on_phone_and_capped_on_wide` | 手机档必须返回字符串 `'100%'`——返回数字的话 `constraintSize.maxWidth` 会拿到比屏宽还小的值、把表单压窄 |
+| `every_ladder_step_keeps_lanes_readable` | **每档起始宽 ÷ 列数 ≥ 180vp**（180 就是上面那帧崩版的量级）；同时钉住 `BP_MD_MIN_VP=600`/`BP_LG_MIN_VP=840`，防止有人把 md 调到 320 让手机也进多列 |
+
+配套改动：`breakpointCenter` 里 600/840 原来是第 40 行三元里的裸数字，提成具名导出，
+测试才钉得住。**真机宽屏渲染仍未验**——这 5 例验的是映射与安全边际，不是某个设备上的像素。
+
+**接上了 `contentMaxWidth` 的消费方**（`utils/responsive.ets` 原来那个
+`contentMaxWidthForBreakpoint(bp, phoneWidth)` 返回数字、手机档没法表达"不收窄"，
+改成 `longFormMaxWidth(bp, capVp): Length`，手机返回 `'100%'`）：
+- `LegalDocReader`（协议正文——长散文最容易被拉宽）
+- 屏2 表单（不收窄的话宽屏上一行「目的地」能拉到八百多 vp）
+- 屏8 时间轴（**不能按断点分栏**，会打断主轴竖线，所以走"收窄 + 居中"这条路）
+
+上限值由消费方从 `LayoutTokens.contentMaxWidth` 传入，因为
+`ARCHITECTURE` §分层明文规定 `utils/` 只能依赖 `common/`、**不得引用 `design/`**。
+
+**顺带修掉我自己上一轮引入的脆弱设计**：行程卡的「总花费」先做成第四格统计，
+这一帧里四格在窄列中竖排、`¥1540` 拆成三行。改成三格统计 + 金额进末行右端带标签。
+三格比四格在所有宽度下都更稳。
+
+**闸门**：七把尺 exit 0；真机 hypium 从 81 例涨到 **102 例全过**（含新增 5 例 Responsive）。

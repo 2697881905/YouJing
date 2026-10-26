@@ -14,12 +14,16 @@ import { RadiusTokens } from '../design/RadiusTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from './YoujingButton';
 import { docOf, LegalSection } from '../common/constants/LegalDocs';
+import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
+import { longFormMaxWidth } from '../utils/responsive';
 
 @Component
 export struct LegalDocReader {
   /** 'privacy' | 'agreement' */
   @Prop kind: string = 'privacy';
   @Prop readerWidth: Length = '100%';
+  /** 断点（唯一来源 utils/breakpointCenter.ets）：宽屏给正文一个可读上限 */
+  @StorageProp(KEY_CURRENT_BREAKPOINT) bp: string = 'sm';
   onBack: () => void = (): void => {};
 
   build() {
@@ -84,7 +88,10 @@ export struct LegalDocReader {
     }
     .alignItems(HorizontalAlign.Start)
     .width(this.readerWidth)
-    .constraintSize({ minHeight: LayoutTokens.sheetPanelWidth })
+    // 宽屏（折叠展开/平板）下散文不能被整屏拉宽：720 是契约 contentMaxWidth 那一档。
+    // 手机竖屏 longFormMaxWidth 返回 '100%'，等于不收窄
+    .constraintSize({ minHeight: LayoutTokens.sheetPanelWidth,
+      maxWidth: longFormMaxWidth(this.bp, LayoutTokens.contentMaxWidth) })
     .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.md, bottom: SpaceTokens.sm })
     .borderRadius(RadiusTokens.reason)
     .backgroundColor(ColorTokens.surfacePanel)

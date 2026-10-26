@@ -19,6 +19,8 @@ import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit'
 import { HdsChrome } from '../design/HdsChrome';
 import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
 import { FlowSteps, FLOW_STEP_TRIP_INPUT } from '../components/FlowSteps';
+import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
+import { longFormMaxWidth } from '../utils/responsive';
 
 // 京都为 mock 演示城（底稿帧同源），标注「示例数据」不谎报是正式内置库；
 // 北上广深为种子库正式四城（开发文档 §7 城市范围）
@@ -27,6 +29,8 @@ const CITIES: string[] = ['北京', '上海', '广州', '深圳', '京都（示�
 @Component
 export struct TripInputPage {
   private pathStack: NavPathStack = APP_NAV;
+  /** 断点（唯一来源 utils/breakpointCenter.ets） */
+  @StorageProp(KEY_CURRENT_BREAKPOINT) bp: string = 'sm';
   @State private party: number = 2;
   @State private city: string = '北京';
   @State private startDate: string = '';
@@ -379,6 +383,9 @@ export struct TripInputPage {
             }
           }
           .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.bottomScrollReserve })
+          // 表单不收窄到 720 的话，宽屏上一行「目的地」能拉到八百多 vp，
+          // 输入框与滑杆的可用长度就失去意义
+          .constraintSize({ maxWidth: longFormMaxWidth(this.bp, LayoutTokens.contentMaxWidth) })
         }
         .layoutWeight(1)
         .scrollBar(BarState.Off)
