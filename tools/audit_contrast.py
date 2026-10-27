@@ -88,16 +88,22 @@ def main():
     collect(tree, texts)
     bad = []
     best = {}
+    skipped = 0
     for txt, (x1, y1, x2, y2) in texts:
         x1, y1 = max(0, x1), max(0, y1)
         x2, y2 = min(W, x2), min(H, y2)
         if x2 - x1 < 6 or y2 - y1 < 6:
             continue
         lum = []
+        row_diffs = []
         for y in range(y1, y2, 2):
+            row = []
             for x in range(x1, x2, 2):
                 r, g, b = px[x, y]
-                lum.append(rel_lum(r, g, b))
+                v = rel_lum(r, g, b)
+                lum.append(v)
+                row.append(v)
+            row_diffs.append(row)
         lum.sort()
         l_bg = percentile(lum, 0.5)
         hi = tail_mean(lum, True)
@@ -105,6 +111,21 @@ def main():
         # 框内两个方向都没有笔画 → 这个节点没被绘制（被悬浮 dock/弹层盖住，
         # 或列表项在回收区）。属于遮挡，不是配色失败，判为不可判而不是报成低对比
         if max(hi - l_bg, l_bg - lo) < 0.02:
+            continue
+        # 再加一道**笔画覆盖率**：只靠"有没有明暗差"判不出"那差是不是字形"。
+        # 真字形的差异像素占比在 1%~60% 之间；屏5 深色档那次，列表视口外的
+        # 「40分钟」框采到的是 dock 圆角边——差异存在，但它是一条边、不是字，
+        # 于是报出 2.48:1 的假低对比。覆盖率低于 1% 判"没画字"，高于 60% 判
+        # "整块背景边界穿过框"，两者都归不可判而不是配色失败。
+        coverage = sum(1 for v in lum if abs(v - l_bg) > 0.06) / float(len(lum))
+        # 只按覆盖率还不够：dock 的圆角边横穿一个 140×51 的框，覆盖率也有 ~3%，
+        # 但它只占两三行。真字形在竖直方向是**连续铺开**的（一行行都有笔画），
+        # 所以再看"有差异的行数占比"——低于 20% 判为一条边/一根线，不是字。
+        rows_hit = sum(1 for row in row_diffs
+                       if any(abs(v - l_bg) > 0.06 for v in row))
+        row_ratio = rows_hit / float(max(1, len(row_diffs)))
+        if coverage < 0.01 or coverage > 0.60 or row_ratio < 0.20:
+            skipped += 1
             continue
         # 字色取离背景更远的那一侧：深色档是亮侧，浅色档是暗侧
         l_text = hi if (hi - l_bg) >= (l_bg - lo) else lo
@@ -121,7 +142,8 @@ def main():
         if c < floor:
             bad.append((c, floor, kind, hvp, t))
     bad.sort()
-    print('### %-14s 文本节点 %d，低于阈值 %d 处' % (label, len(texts), len(bad)))
+    print('### %-14s 文本节点 %d，低于阈值 %d 处（另有 %d 个框判为未画字/背景边界，不计）'
+          % (label, len(texts), len(bad), skipped))
     for c, floor, kind, hvp, txt in bad[:14]:
         print('    %5.2f:1 (<%.1f, %s, 框高%.0fvp)  %s' % (c, floor, kind, hvp, txt))
     return 1 if bad else 0

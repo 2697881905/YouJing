@@ -21,6 +21,9 @@ export default class EntryAbility extends UIAbility {
   private contentReady: boolean = false;
   /** 真正对用户可见：后台被 Skill 绑起时不能消费预填，否则进程一杀就丢 */
   private visible: boolean = false;
+  /** darkprobe 生效时**不能**再在 onWindowStageCreate 把 colorMode 复位成 NOT_SET，
+   *  否则那次复位会把 App 级深色档又翻回跟随系统——实测过：日志 isDarkMode=true、界面却仍是浅色 */
+  private darkProbe: boolean = false;
 
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     Logger.info('EntryAbility', 'Ability onCreate');
@@ -28,8 +31,32 @@ export default class EntryAbility extends UIAbility {
     // 而那个回调只在配置**变化**时才来：直接以深色档冷启时它不来，
     // 于是全仓 7 处 @StorageProp('isDarkMode') 一律按浅色走——
     // 深色零阴影门控失效、底图不换暗色主题、分段栏选中底色与文字色分支整段跳过。
+    this.applyDarkProbe(want);
     this.seedDarkMode();
     this.applyWant(want);
+  }
+
+  /**
+   * 深色档走查探针（只在 debug 版、只在显式带 `--ps darkprobe 1` 时生效）。
+   * 本机没有 `settings` 命令可以切系统深色（第 4 把尺因此只能量像素），
+   * 而把用户的手机翻成深色去截图是一次他设备上的可见改动——所以走 **App 级** setColorMode：
+   * 只把本 App 钉进深色档，系统主题一点不动。
+   */
+  private applyDarkProbe(want: Want): void {
+    if (!BuildConfig.IS_DEBUG) {
+      return;
+    }
+    const params: Record<string, Object> | undefined = want.parameters;
+    if (params === undefined || EntryAbility.wantString(params, 'darkprobe') !== '1') {
+      return;
+    }
+    try {
+      this.context.getApplicationContext().setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_DARK);
+      this.darkProbe = true;
+      Logger.info('EntryAbility', 'darkprobe=1：本 App 钉进深色档（系统主题未改）');
+    } catch (err) {
+      Logger.warn('EntryAbility', `darkprobe setColorMode 失败: ${(err as Error).message}`);
+    }
   }
 
   /**
@@ -183,7 +210,11 @@ export default class EntryAbility extends UIAbility {
     });
 
     try {
-      this.context.getApplicationContext().setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET);
+      if (this.darkProbe) {
+        Logger.info('EntryAbility', 'darkprobe 在效：跳过 colorMode 复位，保持 App 级深色档');
+      } else {
+        this.context.getApplicationContext().setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET);
+      }
     } catch (err) {
       Logger.error('EntryAbility', `Failed to set colorMode. Cause: ${JSON.stringify(err)}`);
     }
