@@ -150,6 +150,15 @@ export struct ExpensePage {
   private trip: Trip | null = null;
 
   aboutToAppear(): void {
+    // 冷启后第一次进「费用」tab：本页是新建的，@StorageProp 的初值不会触发 onDockShown，
+    // 只走 reload 的空 tripId 分支就会退到 rows[0]（最近一条）——用户刚打开的是行程 B，
+    // 看到账单却成了 A。这里先认「最后打开的那条」，没有才退最近一条。
+    if (this.rootMode && this.tripId.length === 0) {
+      const active: string = activeTripId();
+      if (active.length > 0) {
+        this.tripId = active;
+      }
+    }
     this.reload();
   }
 
@@ -374,7 +383,7 @@ export struct ExpensePage {
             .fontSize(TypeTokens.overline.size)
             .fontColor(cat.over ? ColorTokens.danger : ColorTokens.muted)
             .fontFeature("'tnum' on")
-            .margin({ top: 2 })
+            .margin({ top: SpaceTokens.xs })
         }
       }
       .alignItems(HorizontalAlign.End)
@@ -886,6 +895,15 @@ export struct ExpensePage {
             .onClick(() => {
               this.showRecord = true;
             })
+            // 一个节点只能挂一张 bindSheet：两张都挂在根 Column 上时后者覆盖前者，
+            // 「记一笔」因此整颗按钮点了没反应（分类预算的 sheet 抢了绑定）。
+            // 记一笔自己的面板挂回按钮本体。
+            .bindSheet($$this.showRecord, this.recordSheet(), {
+              height: '85%',
+              backgroundColor: ColorTokens.canvas,
+              showClose: true,
+              systemMaterial: getSheetImmersiveMaterial()
+            })
             }
           }
           .margin({ top: SpaceTokens.xl })
@@ -909,15 +927,9 @@ export struct ExpensePage {
       .width('100%')
       .height('100%')
       .backgroundColor(ColorTokens.canvas)
-      .bindSheet($$this.showRecord, this.recordSheet(), {
-        // 试过 SheetSize.FIT_CONTENT 来救"键盘弹起后保存键不可达"（§5ci 续 14），
-        // 复拍与 '85%' 毫无差别：保存键仍不在树里、三次上滑仍调不出来。
-        // 没有证据的视觉改动不留在代码里，退回原值；那条 P0 仍未修。
-        height: '85%',
-        backgroundColor: ColorTokens.canvas,
-        showClose: true,
-        systemMaterial: getSheetImmersiveMaterial()
-      })
+      // 试过 SheetSize.FIT_CONTENT 来救"键盘弹起后保存键不可达"（§5ci 续 14），
+      // 复拍与 '85%' 毫无差别：保存键仍不在树里、三次上滑仍调不出来。
+      // 没有证据的视觉改动不留在代码里，退回原值；那条 P0 仍未修。
       .bindSheet($$this.showBudget, this.budgetSheet(), {
         height: '55%',
         backgroundColor: ColorTokens.canvas,
