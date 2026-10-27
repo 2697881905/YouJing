@@ -20,6 +20,7 @@ import { WidgetSync } from '../widget/TodayCard';
 import { MapStop, MapStops } from '../utils/MapStops';
 import { IcsBuilder } from '../utils/IcsBuilder';
 import { CategoryStyle } from '../utils/CategoryStyle';
+import { TimeText } from '../utils/TimeText';
 import { TimelineNode } from '../components/TimelineNode';
 import { TripMapView } from '../components/TripMapView';
 import { AccessFlags, CalendarSync, SyncResult } from '../data/CalendarSync';
@@ -515,18 +516,8 @@ export struct ItineraryPage {
   }
 
   private durationText(act: Activity): string {
-    const t: string[] = act.time.split(':');
-    const e: string[] = act.endTime.split(':');
-    const mins: number = Number(e[0]) * 60 + Number(e[1]) - Number(t[0]) * 60 - Number(t[1]);
-    if (mins <= 0) {
-      return '—';
-    }
-    const h: number = Math.floor(mins / 60);
-    const m: number = mins % 60;
-    if (h > 0 && m > 0) {
-      return `${h}小时${m}分钟`;
-    }
-    return h > 0 ? `${h}小时` : `${m}分钟`;
+    const text: string = TimeText.stayOf(act);
+    return text.length > 0 ? text : '—';
   }
 
   @Builder

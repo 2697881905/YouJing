@@ -19,6 +19,7 @@ import { ShadowTokens } from '../design/ShadowTokens';
 import { Activity, Trip, TripDay } from '../model/Trip';
 import { DateUtils } from '../utils/DateUtils';
 import { TimelineNode } from '../components/TimelineNode';
+import { TimeText } from '../utils/TimeText';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { ActivityCategory, ActivityStatus } from '../model/Trip';
 import { Spot } from '../model/Spot';
@@ -41,6 +42,11 @@ export struct EditItineraryPage {
   @State private acts: Activity[] = [];
   @State private dragIdx: number = -1;
   @State private showReplace: boolean = false;
+  /**
+   * 底稿屏9 的容量提示：「移走后第 1 天空 2.5 小时，可补一个可选景点」+「补一个」。
+   * 这屏原来删完什么反馈都没有——用户不知道自己刚掏空了多长时间。
+   */
+  @State private gapNote: string = '';
   /** -1 = 补选模式（往当日末尾追加），>=0 = 替换该位置 */
   @State private replaceIdx: number = -1;
   @State private candidates: Spot[] = [];
@@ -53,6 +59,7 @@ export struct EditItineraryPage {
   }
 
   private undo(): void {
+    this.gapNote = '';
     const last: Activity[] | undefined = this.history.pop();
     if (last === undefined) {
       this.toast('还没有可撤销的改动');
@@ -116,10 +123,14 @@ export struct EditItineraryPage {
 
   private removeAt(idx: number): void {
     this.snapshot();
+    const gone: Activity = this.acts[idx];
     const next: Activity[] = this.acts.slice();
     next.splice(idx, 1);
     this.acts = next;
     this.reflowTimes();
+    const freed: string = TimeText.stayOf(gone);
+    this.gapNote = freed.length > 0
+      ? `移走后第 ${this.dayIndex + 1} 天空 ${freed}，可补一个可选景点` : '';
   }
 
   /** 打开替换面板：列本城景点库，排除当日已在的站 */
@@ -631,6 +642,30 @@ export struct EditItineraryPage {
             }
             this.dragIdx = -1;
           })
+          if (this.gapNote.length > 0) {
+            Row({ space: SpaceTokens.sm }) {
+              Text(this.gapNote)
+                .fontSize(TypeTokens.caption.size)
+                .fontWeight(450)
+                .fontColor(ColorTokens.warning)
+                .fontFeature("'tnum' on")
+                .layoutWeight(1)
+              Button('补一个')
+                .fontSize(TypeTokens.caption.size)
+                .fontWeight(600)
+                .fontColor(ColorTokens.primary)
+                .backgroundColor(Color.Transparent)
+                .type(ButtonType.Capsule)
+                .buttonStyle(ButtonStyleMode.TEXTUAL)
+                .height(LayoutTokens.minTouchTarget)
+                .onClick((): void => {
+                  this.openAdd();
+                })
+            }
+            .width('100%')
+            .alignItems(VerticalAlign.Center)
+            .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.sm })
+          }
           this.actionBar()
           }
           .width('100%')
