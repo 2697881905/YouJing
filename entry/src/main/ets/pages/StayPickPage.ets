@@ -179,7 +179,7 @@ export struct StayPickPage {
       badgeLabel: rank === 0 ? '精选 1' : this.groupBadge(a.group),
       aiRank: rank + 1,
       reason: a.suitableCrowds.length > 0 ? `适合${a.suitableCrowds.join('/')}，${din}` :
-        `地铁${a.metroLines.join('/')}线直达，${din}`
+        `${a.metroLines.join('/')}直达，${din}`
     };
     return pick;
   }
@@ -239,7 +239,7 @@ export struct StayPickPage {
   private areaMetaTop(area: Area): string {
     const tier: string = area.priceTier === AreaPriceTier.ECONOMY ? '经济档'
       : (area.priceTier === AreaPriceTier.LUXURY ? '豪华档' : '舒适档');
-    const lines: string = area.metroLines.length > 0 ? `地铁 ${area.metroLines.slice(0, 2).join('/')}` : '无直达地铁';
+    const lines: string = area.metroLines.length > 0 ? area.metroLines.slice(0, 2).join('/') : '无直达线路';
     return `${tier} · ${lines}`;
   }
 

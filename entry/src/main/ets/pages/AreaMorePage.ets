@@ -103,7 +103,7 @@ export struct AreaMorePage {
         //   档位+地铁 = 544~655px；锚定+餐饮密度 = 614~727px；机场+火车站 = 657~678px。
         // 中间试过把餐饮密度并到第一行，复拍发现那一行四张卡全部顶到 749px
         // ——也就是整条被省略号截掉，密度信息照样丢。**挪到有富余的锚定行才对。**
-        Text(`${this.tierLabel(a.priceTier)} · 地铁 ${a.metroLines.join('/')}`)
+        Text(`${this.tierLabel(a.priceTier)} · ${a.metroLines.join('/')}`)
           .fontSize(TypeTokens.caption.size)
           .fontWeight(450)
           .fontColor(ColorTokens.muted)
@@ -152,7 +152,7 @@ export struct AreaMorePage {
         // 这一屏在 loading 与「还没有这座城市的区域数据」两种状态下都不该摆输入框，
         // 否则用户会以为搜索框坏了（屏12b 实拍拍到同一形态后回这里查的）
         if (!this.loading && this.areas.length > 0) {
-          Search({ value: this.keyword, placeholder: '搜索区域、站点或地铁线' })
+          Search({ value: this.keyword, placeholder: '搜索区域、站点或线路' })
             .onChange((v: string): void => {
               this.keyword = v;
             })
@@ -182,7 +182,7 @@ export struct AreaMorePage {
               .fontWeight(700)
               .fontFamily(TypeTokens.title.family)
               .fontColor(ColorTokens.ink)
-            Text('首批支持北京、上海、广州、深圳，换一座城市试试')
+            Text('首批支持北京、上海、广州、深圳、杨凌，换一座城市试试')
               .fontSize(TypeTokens.small.size)
               .fontColor(ColorTokens.muted)
               .textAlign(TextAlign.Center)

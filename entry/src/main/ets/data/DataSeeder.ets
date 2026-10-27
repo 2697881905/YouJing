@@ -27,7 +27,7 @@ type Obj = Record<string, Object>;
 const TAG: string = 'Data.Seeder';
 const SEED_DATE: string = '2026-10-23';
 /** 种子结构版本：jsonl 字段或坐标数据一变就 bump，触发已装机 upsert 回填 */
-const SEED_VERSION: string = 'v2-geo-3';
+const SEED_VERSION: string = 'v2-geo-3-yl';
 const SEED_PREFS: string = 'youjing_seed';
 const KEY_SEED_VERSION: string = 'version';
 /** 坐标缺失时片区不落点（0 会被 MapStops.usable 滤掉），比按城市质心插错地方诚实 */
@@ -48,12 +48,17 @@ const CITIES: CitySeed[] = [
   { city: '北京', spotsFile: 'seed/spots_beijing.jsonl', areasFile: 'seed/areas_beijing.jsonl' },
   { city: '上海', spotsFile: 'seed/spots_shanghai.jsonl', areasFile: 'seed/areas_shanghai.jsonl' },
   { city: '广州', spotsFile: 'seed/spots_guangzhou.jsonl', areasFile: 'seed/areas_guangzhou.jsonl' },
-  { city: '深圳', spotsFile: 'seed/spots_shenzhen.jsonl', areasFile: 'seed/areas_shenzhen.jsonl' }
+  { city: '深圳', spotsFile: 'seed/spots_shenzhen.jsonl', areasFile: 'seed/areas_shenzhen.jsonl' },
+  // 杨凌：用户本人所在地，拿来当"真实用户视角"的测试城。
+  // 坐标是按公开资料里**街道/村镇位置**给的近似值（与 DistrictCoords 同一档精度），
+  // 精确经纬度待地理编码回填；`lines` 用公交线名，因为杨凌没有轨道交通。
+  { city: '杨凌', spotsFile: 'seed/spots_yangling.jsonl', areasFile: 'seed/areas_yangling.jsonl' }
 ];
 
 /** 区中心近似坐标（度）。正式经纬度待 Map Kit 地理编码回填。 */
 export class DistrictCoords {
   private static readonly MAP: Map<string, number[]> = new Map<string, number[]>([
+    ['杨凌:杨陵区', [34.2727, 108.0811]],
     ['北京:东城区', [39.928, 116.414]], ['北京:西城区', [39.912, 116.366]],
     ['北京:朝阳区', [39.921, 116.443]], ['北京:海淀区', [39.959, 116.298]],
     ['北京:丰台区', [39.858, 116.287]], ['北京:石景山区', [39.906, 116.223]],

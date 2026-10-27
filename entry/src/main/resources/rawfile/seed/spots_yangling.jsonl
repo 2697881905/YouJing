@@ -1,0 +1,10 @@
+{"id":"yl-001","n":"西北农林科技大学博览园","d":"杨陵区","t":["must_see","museum","family"],"dur":180,"pop":95,"bk":{"req":false,"m":"","adv":0,"rel":"17:00","closed":"","diff":"易"},"la":34.2680,"lo":108.0700}
+{"id":"yl-002","n":"杨凌现代农业示范园区创新园","d":"杨陵区","t":["must_see","family"],"dur":150,"pop":88,"bk":{"req":false,"m":"","adv":0,"rel":"17:30","closed":"","diff":"易"},"la":34.2640,"lo":108.1180}
+{"id":"yl-003","n":"杨凌渭河生态公园","d":"杨陵区","t":["nature","free"],"dur":90,"pop":80,"bk":{"req":false,"m":"","adv":0,"rel":"","closed":"","diff":"易"},"la":34.2470,"lo":108.0830}
+{"id":"yl-004","n":"隋文帝泰陵","d":"杨陵区","t":["classic","free"],"dur":60,"pop":66,"bk":{"req":false,"m":"","adv":0,"rel":"","closed":"","diff":"易"},"la":34.2560,"lo":108.0180}
+{"id":"yl-005","n":"教稼园","d":"杨陵区","t":["classic","free","family"],"dur":60,"pop":70,"bk":{"req":false,"m":"","adv":0,"rel":"","closed":"","diff":"易"},"la":34.2520,"lo":108.0350}
+{"id":"yl-006","n":"西北农林科技大学校园","d":"杨陵区","t":["nature","classic"],"dur":90,"pop":78,"bk":{"req":false,"m":"","adv":0,"rel":"","closed":"","diff":"易"},"la":34.2750,"lo":108.0730}
+{"id":"yl-007","n":"农高会会址","d":"杨陵区","t":["museum"],"dur":90,"pop":72,"bk":{"req":true,"m":"农高会期间现场登记","adv":1,"rel":"17:00","closed":"","diff":"易"},"la":34.2600,"lo":108.0600}
+{"id":"yl-008","n":"揉谷镇田西村休闲农业","d":"杨陵区","t":["nature","family"],"dur":120,"pop":58,"bk":{"req":false,"m":"","adv":0,"rel":"","closed":"","diff":"易"},"la":34.2400,"lo":108.0620}
+{"id":"yl-009","n":"杨凌规划馆","d":"杨陵区","t":["museum","family"],"dur":60,"pop":55,"bk":{"req":false,"m":"","adv":0,"rel":"17:00","closed":"","diff":"易"},"la":34.2700,"lo":108.0790}
+{"id":"yl-010","n":"川云关","d":"杨陵区","t":["classic"],"dur":45,"pop":45,"bk":{"req":false,"m":"","adv":0,"rel":"","closed":"","diff":"易"},"la":34.2490,"lo":108.0290}

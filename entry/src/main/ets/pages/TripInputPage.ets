@@ -24,7 +24,7 @@ import { longFormMaxWidth } from '../utils/responsive';
 
 // 京都为 mock 演示城（底稿帧同源），标注「示例数据」不谎报是正式内置库；
 // 北上广深为种子库正式四城（开发文档 §7 城市范围）
-const CITIES: string[] = ['北京', '上海', '广州', '深圳', '京都（示例数据）'];
+const CITIES: string[] = ['北京', '上海', '广州', '深圳', '杨凌', '京都（示例数据）'];
 
 @Component
 export struct TripInputPage {
