@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, TestType, Size, Level } from '@ohos/hypium';
-import { failureHeadline } from '../../../main/ets/common/error/FailureCopy';
+import { failureDetail, failureHeadline } from '../../../main/ets/common/error/FailureCopy';
 import { ErrorCode } from '../../../main/ets/common/error/ErrorCode';
 
 export default function failureCopyTest(): void {
@@ -25,5 +25,39 @@ export default function failureCopyTest(): void {
       // 存储区段（3xxx）不该被当成生成问题文案，走兜底
       expect(failureHeadline(ErrorCode.RDB_TRANSACTION_FAILED)).assertEqual('生成没能完成');
     });
+
+    it('detail_lines_are_human_readable', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+      expect(failureDetail(ErrorCode.TRIP_GENERATE_RETRY_EXHAUSTED))
+        .assertEqual('连着两次拿到的排期都没能拆成可用的一天');
+      expect(failureDetail(ErrorCode.SCHEMA_VALIDATION_FAILED))
+        .assertEqual('返回的行程里缺了日期或站点，落不成行程');
+      expect(failureDetail(ErrorCode.TRIP_NO_SPOT_SELECTED))
+        .assertEqual('至少要选 1 个景点才排得出行程');
+    });
+
+    it('detail_lines_never_leak_validation_terms',
+      TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+        // 真机屏7 上出现过「两次生成均失败: days 不能为空数组」——那是 TripParser 的校验术语。
+        // 这条把"副标题不许出现内部词"钉住：以后加错误码也不能把 message 直接铺上去。
+        const codes: number[] = [
+          ErrorCode.TRIP_GENERATE_RETRY_EXHAUSTED,
+          ErrorCode.SCHEMA_VALIDATION_FAILED,
+          ErrorCode.TYPE_GUARD_FAILED,
+          ErrorCode.JSON_PARSE_FAILED,
+          ErrorCode.LLM_UNAVAILABLE,
+          ErrorCode.NETWORK_TIMEOUT,
+          ErrorCode.TRIP_NO_SPOT_SELECTED,
+          ErrorCode.TRIP_NO_AREA_SELECTED,
+          9999
+        ];
+        const banned: string[] = ['数组', 'schema', 'Schema', 'JSON', 'json', 'null', 'undefined', 'code'];
+        for (let i = 0; i < codes.length; i++) {
+          const line: string = failureDetail(codes[i]);
+          expect(line.length > 0).assertTrue();
+          for (let j = 0; j < banned.length; j++) {
+            expect(line.indexOf(banned[j]) < 0).assertTrue();
+          }
+        }
+      });
   });
 }

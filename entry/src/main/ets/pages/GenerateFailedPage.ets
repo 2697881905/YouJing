@@ -8,7 +8,7 @@
  */
 
 import { APP_NAV } from '../common/constants/AppNav';
-import { failureHeadline } from '../common/error/FailureCopy';
+import { failureDetail, failureHeadline } from '../common/error/FailureCopy';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
@@ -51,12 +51,15 @@ export struct GenerateFailedPage {
     { title: '把每天的节奏调松', desc: '改成每天 3 站，给通勤留余量', route: 'PreferenceQA' }
   ];
 
-  /** 原始诊断只在 debug 版露出；release 不甩「ApiConfig 占位」这类技术文本给用户 */
+  /**
+   * 标题下面那行**一律是给人读的一句原因**（按错误码映射，debug/release 同一句）。
+   * 原始 `detail` 不再直接铺出来——真机截图里它曾以「两次生成均失败: days 不能为空数组」
+   * 的形式出现在用户眼前，那是校验术语。要留调试线索，就单独标「调试」另起一行。
+   */
   private detailText(): string {
-    if (!BuildConfig.IS_DEBUG) {
-      return '可以按下面的方法调整后再试一次。';
-    }
-    return this.detail.length > 0 ? this.detail : '未收到具体原因（此屏为直接预览）';
+    // code=0 只有 `aa start --ps route GenerateFailed` 这条直入预览通道会走到，
+    // 那时并没有真的失败过，不能对用户承诺"原因已记进日志"
+    return this.code === 0 ? '可以先按下面的方法调整后再试一次。' : failureDetail(this.code);
   }
 
   @Builder
@@ -98,9 +101,11 @@ export struct GenerateFailedPage {
 
   build() {
     HdsNavDestination() {
-      Stack({ alignContent: Alignment.Bottom }) {
-        Column() {
-
+      // 原来正文与三颗动作钮叠在同一个 Stack(Bottom) 里：正文不滚、动作条浮在上面，
+      // md 实拍「换一片住宿再试」的说明行被「再试一次」压掉半行。
+      // 改成常规两段布局：正文段吃剩余高并可滚，动作段排在流内，永远不再互相盖。
+      Column() {
+        Scroll() {
           Column() {
             SymbolGlyph($r('sys.symbol.exclamationmark_circle'))
               .fontSize(IconSizes.display)
@@ -116,6 +121,14 @@ export struct GenerateFailedPage {
               .fontColor(ColorTokens.body)
               .margin({ top: SpaceTokens.xs, bottom: SpaceTokens.xl })
               .textAlign(TextAlign.Center)
+            // 原始诊断仍要在，但不能占用户读的那一行：debug 版另起一小行、明确标「调试」
+            if (BuildConfig.IS_DEBUG && this.detail.length > 0) {
+              Text(`调试：${this.detail}`)
+                .fontSize(TypeTokens.caption.size)
+                .fontColor(ColorTokens.muted)
+                .margin({ top: SpaceTokens.xs, bottom: SpaceTokens.md })
+                .textAlign(TextAlign.Center)
+            }
 
             Column() {
               Text('需要决定')
@@ -124,7 +137,7 @@ export struct GenerateFailedPage {
                 .fontColor(ColorTokens.muted)
                 .margin({ bottom: SpaceTokens.sm })
               Column() {
-                Text('两条可行修法')
+                Text(`${this.fixes.length} 条可行修法`)
                   .fontSize(TypeTokens.overline.size)
                   .fontWeight(600)
                   .fontColor(ColorTokens.muted)
@@ -159,11 +172,12 @@ export struct GenerateFailedPage {
             .alignItems(HorizontalAlign.Start)
             .width('100%')
           }
-          .layoutWeight(1)
           .padding({ left: this.wideInset(), right: this.wideInset() })
         }
+        .layoutWeight(1)
         .width('100%')
-        .height('100%')
+        .align(Alignment.Top)
+        .scrollBar(BarState.Off)
 
         Column({ space: SpaceTokens.sm }) {
           YoujingButton({

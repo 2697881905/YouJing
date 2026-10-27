@@ -24,6 +24,7 @@ import { TripBasicInput } from '../model/PlanParams';
 import { DateUtils } from '../utils/DateUtils';
 import { Logger } from '../common/logger/Logger';
 import { AppError } from '../common/error/AppError';
+import { ErrorCode } from '../common/error/ErrorCode';
 import { common } from '@kit.AbilityKit';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
@@ -76,7 +77,9 @@ export struct GeneratingPage {
       }
       const area: Area | undefined = areas.find((a: Area): boolean => a.id === draft.selectedArea.areaId);
       if (area === undefined) {
-        throw new Error('住宿区域缺失');
+        // 裸 Error 上抛会落进屏7 的兜底标题（「生成没能完成」），而这条明明有对应码值：
+        // 4003 → 标题「还没选住宿区域」、副标题给出口。md 档实测过一次，就是这里漏的。
+        throw new AppError(ErrorCode.TRIP_NO_AREA_SELECTED, '住宿区域缺失');
       }
       const params: PlanParams = {
         basic: draft.basic, style: draft.style, stayTier: draft.stayTier,
