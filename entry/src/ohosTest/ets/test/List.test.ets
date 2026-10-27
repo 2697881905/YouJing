@@ -16,6 +16,8 @@ import skipPlannerTest from './SkipPlanner.test';
 import replanParserTest from './ReplanParser.test';
 import responsiveTest from './Responsive.test';
 import displayTextTest from './DisplayText.test';
+import yanglingSeedTest from './YanglingSeed.test';
+import navStackTest from './NavStackRouting.test';
 
 export default function testsuite() {
   tripParserTest();
@@ -36,4 +38,6 @@ export default function testsuite() {
   replanParserTest();
   responsiveTest();
     displayTextTest();
+    yanglingSeedTest();
+    navStackTest();
 }
