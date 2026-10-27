@@ -20,6 +20,7 @@ import { WidgetSync } from '../widget/TodayCard';
 import { MapStop, MapStops } from '../utils/MapStops';
 import { IcsBuilder } from '../utils/IcsBuilder';
 import { CategoryStyle } from '../utils/CategoryStyle';
+import { TimelineNode } from '../components/TimelineNode';
 import { TripMapView } from '../components/TripMapView';
 import { AccessFlags, CalendarSync, SyncResult } from '../data/CalendarSync';
 import { Logger } from '../common/logger/Logger';
@@ -451,23 +452,6 @@ export struct ItineraryPage {
   }
 
   /** 类别 → 色名由 CategoryStyle 统一（屏13 桌面卡片同一口径），这里只做色名 → token */
-  private dotColor(cat: ActivityCategory): Resource {
-    const name: string = CategoryStyle.colorName(cat);
-    if (name === CategoryStyle.BOOKMARK) {
-      return ColorTokens.bookmark;
-    }
-    if (name === CategoryStyle.ACCENT_MENTION) {
-      return ColorTokens.accentMention;
-    }
-    if (name === CategoryStyle.ICON) {
-      return ColorTokens.icon;
-    }
-    if (name === CategoryStyle.FAINT) {
-      return ColorTokens.faint;
-    }
-    return ColorTokens.primary;
-  }
-
   private bookingText(status: ActivityStatus): string {
     if (status === ActivityStatus.NOT_BOOKED) {
       return '需预约';
@@ -501,22 +485,7 @@ export struct ItineraryPage {
 
   @Builder
   spineNode(cat: ActivityCategory) {
-    Stack() {
-      // 官方 Circle 形状件（与有据同一写法）：描边居中在 r=11 的圆上，
-      // 22 + strokeWidth 2 的外沿正好是原来 24 的占位
-      Circle()
-        .width(22)
-        .height(22)
-        .fill(ColorTokens.canvas)
-        .stroke(ColorTokens.ink)
-        .strokeWidth(2)
-      Circle()
-        .width(LayoutTokens.itineraryNodeDot)
-        .height(LayoutTokens.itineraryNodeDot)
-        .fill(this.dotColor(cat))
-    }
-    .width(LayoutTokens.itineraryNodeSize)
-    .height(LayoutTokens.itineraryNodeSize)
+    TimelineNode({ cat: cat })
   }
 
   @Builder

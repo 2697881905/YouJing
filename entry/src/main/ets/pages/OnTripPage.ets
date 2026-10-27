@@ -29,6 +29,7 @@ import { TransitSymbol } from '../utils/TransitSymbol';
 import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import type { HdsNavigationMenuItemOptions, HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
 
 /**
@@ -576,6 +577,23 @@ export struct OnTripPage {
     .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
   }
 
+  /**
+   * 屏15 的标题栏。补「完整行程」这一条：
+   * 从「我的」点开一条**旅行中**的行程只会落到这一屏，而它原来没有任何入口
+   * 能进行程详情/编辑——用户点开就"困"在打卡页里（本轮走链复拍屏9 时撞上）。
+   */
+  private titleBarOptions(): HdsNavigationTitleBarOptions {
+    const items: Array<HdsNavigationMenuItemOptions> = [
+      HdsChrome.item($r('sys.symbol.list_bullet'), '完整行程', (): void => {
+        this.pathStack.pushPath({ name: 'Itinerary', param: this.tripId });
+      })];
+    return HdsChrome.bar({
+      mainTitle: this.dayLabel.length > 0 ? this.dayLabel : '旅行中',
+      subTitle: this.clock,
+      menu: items
+    });
+  }
+
   build() {
     HdsNavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
@@ -780,7 +798,7 @@ export struct OnTripPage {
     .width('100%')
     .height('100%')
     }
-    .titleBar(HdsChrome.bar({ mainTitle: this.dayLabel.length > 0 ? this.dayLabel : '旅行中', subTitle: this.clock }))
+    .titleBar(this.titleBarOptions())
     .titleMode(HdsNavDestinationTitleMode.MINI)
     .onReady((ctx: NavDestinationContext): void => {
       this.pathStack = ctx.pathStack;

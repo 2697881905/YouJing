@@ -18,6 +18,7 @@ import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
 import { Activity, Trip, TripDay } from '../model/Trip';
 import { DateUtils } from '../utils/DateUtils';
+import { TimelineNode } from '../components/TimelineNode';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { ActivityCategory, ActivityStatus } from '../model/Trip';
 import { Spot } from '../model/Spot';
@@ -293,6 +294,19 @@ export struct EditItineraryPage {
         .fontColor(ColorTokens.ink)
         .textAlign(TextAlign.End)
         .fontFeature("'tnum' on")
+        .padding({ right: SpaceTokens.sm })
+      // 底稿这屏每行时间右侧有节点圆环、环后有连续脊线；实现里两者都没有，
+      // 三张卡片是"散着的"（§5y 对表第三项）。做法与屏8 一致：
+      // 脊线定高走具名行高，不用 '100%'（无定高容器里百分比按视口解析，见屏8 注释）
+      Stack({ alignContent: Alignment.Top }) {
+        Column()
+          .width(LayoutTokens.routeLineWidth)
+          .height(this.isLastRow(idx) ? SpaceTokens.lg : LayoutTokens.itineraryRowMinHeight)
+          .backgroundColor(ColorTokens.surfaceSunken)
+        TimelineNode({ cat: act.category })
+      }
+      .width(LayoutTokens.itineraryNodeSize)
+      .height(this.isLastRow(idx) ? SpaceTokens.lg : LayoutTokens.itineraryRowMinHeight)
       Column() {
         Text(act.title)
           .fontSize(TypeTokens.small.size)
@@ -437,7 +451,7 @@ export struct EditItineraryPage {
    */
   @Builder
   dayHeader() {
-    Row({ space: SpaceTokens.sm }) {
+    Column({ space: SpaceTokens.xs }) {
       Text(this.dayHeadline())
         .fontSize(TypeTokens.title.size)
         .fontWeight(700)
@@ -449,13 +463,41 @@ export struct EditItineraryPage {
         .fontColor(ColorTokens.muted)
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .layoutWeight(1)
-        .textAlign(TextAlign.End)
     }
     .width('100%')
-    .alignItems(VerticalAlign.Bottom)
+    .alignItems(HorizontalAlign.Start)
     .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
       top: SpaceTokens.md, bottom: SpaceTokens.sm })
+  }
+
+  private isLastRow(idx: number): boolean {
+    return idx + 1 >= this.acts.length;
+  }
+
+  /** 底稿在相邻两站之间挂「步行 12分钟 · 750m」；实现里这屏完全没有站间信息 */
+  @Builder
+  legRow(act: Activity) {
+    if (act.transport !== undefined) {
+      Row({ space: SpaceTokens.xs }) {
+        Text(this.legText(act))
+          .fontSize(TypeTokens.caption.size)
+          .fontWeight(450)
+          .fontColor(ColorTokens.muted)
+          .fontFeature("'tnum' on")
+      }
+      .width('100%')
+      .padding({ left: LayoutTokens.itineraryTimeGutter + SpaceTokens.sm,
+        top: SpaceTokens.xs, bottom: SpaceTokens.xs })
+    }
+  }
+
+  private legText(act: Activity): string {
+    if (act.transport === undefined) {
+      return '';
+    }
+    const mode: string = act.transport.mode.length > 0 ? act.transport.mode : '步行';
+    const detail: string = act.transport.detail.length > 0 ? ` · ${act.transport.detail}` : '';
+    return `${mode} ${act.transport.duration}分钟${detail}`;
   }
 
   private curDay(): TripDay | null {
@@ -557,7 +599,13 @@ export struct EditItineraryPage {
           List({ space: SpaceTokens.xs }) {
             ForEach(this.acts, (act: Activity, idx: number) => {
               ListItem() {
-                this.editRow(act, idx)
+                Column() {
+                  if (idx > 0) {
+                    this.legRow(act)
+                  }
+                  this.editRow(act, idx)
+                }
+                .width('100%')
               }
             // key 只用稳定 id：拖动会改 time，带 time 的 key 会让整项重建、丢掉拖动态
             }, (act: Activity): string => `edit-${act.id}`)
