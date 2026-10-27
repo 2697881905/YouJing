@@ -170,11 +170,20 @@ export struct MapPage {
     Button() {
       Column() {
         Row({ space: SpaceTokens.xs }) {
+          // 编号原来是裸的品牌蓝 11fp 小字：深色档 `primary #0A84FF` 对 `surface_panel`
+          // 只有 4.03:1，AA 小字门槛 4.5 过不去（浅色档同一对 4.85 是过的）。
+          // 改成实心蓝底 + on_primary 数字——浅色 5.57 / 深色 5.14 都过，
+          // 也正好和地图气泡上的编号说同一种话（契约 §8 深色语义色标签即用 on_primary）
           Text(`${stop.index}`)
             .fontSize(TypeTokens.overline.size)
             .fontWeight(600)
-            .fontColor(ColorTokens.primary)
+            .fontColor(ColorTokens.onPrimary)
             .fontFeature("'tnum' on")
+            .width(18)
+            .height(18)
+            .textAlign(TextAlign.Center)
+            .borderRadius(RadiusTokens.pill)
+            .backgroundColor(ColorTokens.primary)
           Text(stop.subtitle)
             .fontSize(TypeTokens.overline.size)
             .fontWeight(450)
