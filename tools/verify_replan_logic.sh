@@ -15,6 +15,7 @@ copy() {
 }
 
 copy entry/src/main/ets/model/Trip.ets model/Trip.ts
+copy entry/src/main/ets/model/Expense.ets model/Expense.ts
 copy entry/src/main/ets/model/Replan.ets model/Replan.ts
 copy entry/src/main/ets/utils/DateUtils.ets utils/DateUtils.ts
 copy entry/src/main/ets/common/error/AppError.ets common/error/AppError.ts
