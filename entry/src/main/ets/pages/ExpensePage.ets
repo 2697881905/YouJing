@@ -692,11 +692,10 @@ export struct ExpensePage {
       .height('100%')
       .backgroundColor(ColorTokens.canvas)
       .bindSheet($$this.showRecord, this.recordSheet(), {
-        // '85%' 在折叠屏展开态会被数字键盘压死：键盘把窗口压到 1288px，
-        // 而 Scroll 的 '100%' 按键盘弹起前的 657vp 解析，于是它以为自己装得下、
-        // 不开滚，表单底部的「保存」被裁在可见区之外且滑不出来（实测三次 dircFling 无效）。
-        // 换成框架自管的 FIT_CONTENT（屏14 触达面板同档实测可用），由框架按内容给定高并保留可滚。
-        height: SheetSize.FIT_CONTENT,
+        // 试过 SheetSize.FIT_CONTENT 来救"键盘弹起后保存键不可达"（§5ci 续 14），
+        // 复拍与 '85%' 毫无差别：保存键仍不在树里、三次上滑仍调不出来。
+        // 没有证据的视觉改动不留在代码里，退回原值；那条 P0 仍未修。
+        height: '85%',
         backgroundColor: ColorTokens.canvas,
         showClose: true,
         systemMaterial: getSheetImmersiveMaterial()

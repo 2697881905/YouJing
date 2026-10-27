@@ -2539,8 +2539,13 @@ md 下内容通栏后它就贴左、右边空出 347vp。
 **实验一 `height: SheetSize.FIT_CONTENT`（替代 '85%'）**：复拍与 '85%' **完全同现象**——
 工作表未输入时「保存」在树里（x=405..1805），点进金额框、数字键盘弹起后
 `root` 压到 y=122..1410，「保存」从树里消失，`uitest uiInput dircFling 0 3000` 三次仍调不出，
-`Scroll` 的 `scrollable` 依旧是 false。**已回退**（`git checkout` 那行改回 '85%'），
-没有证据的视觉改动不留在代码里。
+`Scroll` 的 `scrollable` 依旧是 false。**已回退回 '85%'**——但这条要如实记两笔账：
+第一次回退用脚本做字符串替换，锚点没匹配上、`assert` 直接抛错退出，
+**文件其实一个字没改**，而我照着"已回退"写完提交说明就交了（`6301fc5` 正文里
+那句"FIT_CONTENT 已回退"当时是假的）。下一轮先 `grep` 当前状态才发现
+`height: SheetSize.FIT_CONTENT` 还在第 699 行，这次补真。
+老规矩再次应验：**替换脚本必须断言命中数并回读文件；提交说明按 diff 写，不按意图写**
+（同 [[verify-claims-before-commit-message]]）。
 
 **实验二 给两个输入框加 `.enterKeyType(EnterKeyType.Done)` + `.onSubmit(saveExpense)`**：
 按 `uitest uiInput keyEvent KeyEnter` 后表单没提交（`已花` 仍 ¥0、工作表仍在）。
