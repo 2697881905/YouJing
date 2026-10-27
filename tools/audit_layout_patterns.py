@@ -43,6 +43,7 @@ R2_WHITELIST = [
     ('SpotPickPage.ets', '分组间无底色块'),
     ('MapPage.ets', '浮层底'),
     ('EditItineraryPage.ets', '拖动手把手'),
+    ('SharePage.ets', '底稿屏16 路线图带：22vp 连接线 + 10vp 圆角河带（§5cg）'),
 ]
 # R4：句内联文本链接是 ArkUI 唯一写法（Span 包不进 Button）
 R4_WHITELIST = {}  # 句内联 Span 链接已由 _own_attr_chain 精确豁免，不再按行号压

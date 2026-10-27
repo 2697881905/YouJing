@@ -143,6 +143,26 @@ export struct SharePage {
     .width('100%')
   }
 
+  /** 路线带上的编号：最多画 6 个，超出部分在副标题里报真实站数 */
+  private nodeLabels(): string[] {
+    const cap: number = this.stopCount > 6 ? 6 : this.stopCount;
+    const out: string[] = [];
+    for (let i = 1; i <= cap; i++) {
+      out.push(`${i}`);
+    }
+    return out;
+  }
+
+  private ribbonCaption(): string {
+    if (this.stopCount <= 0) {
+      return '这条行程还没有节点';
+    }
+    if (this.stopCount > 6) {
+      return `共 ${this.stopCount} 站，图上只画前 6 站`;
+    }
+    return `全程 ${this.stopCount} 站`;
+  }
+
   build() {
     HdsNavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
@@ -166,9 +186,51 @@ export struct SharePage {
                   .margin({ top: SpaceTokens.xs, bottom: SpaceTokens.xl })
 
                 Column() {
-                  // 帧里这块 140vp 的「行程纸」是纯装饰：任何状态下里面都是空的，
-                  // 实拍读起来就是一张没加载出来的占位图（和屏8 那块空地图卡同一类）。
-                  // 抬头已经有目的地与日期区间，三统计紧跟其下，删掉不丢任何信息
+                  // 底稿这块是「路线图带」：编号圆点串在一条线上，下面压一道浅色河带。
+                  // 上一轮删掉的 140vp「行程纸」之所以是空占位，是因为它想画这张图却没数据源；
+                  // 现在用**真实节点数**画出来（不编任何数据），删占位留下的半屏空洞一并补上。
+                  Row({ space: 0 }) {
+                    ForEach(this.nodeLabels(), (lab: string, i: number) => {
+                      if (i > 0) {
+                        Column()
+                          .width(22)
+                          .height(LayoutTokens.routeLineWidth)
+                          .backgroundColor(ColorTokens.separator)
+                      }
+                      Stack() {
+                        Circle()
+                          .width(26)
+                          .height(26)
+                          .fill(i === 0 ? ColorTokens.primary : ColorTokens.surfaceElevated)
+                          .stroke(i === 0 ? ColorTokens.primary : ColorTokens.separator)
+                          .strokeWidth(1)
+                        Text(lab)
+                          .fontSize(TypeTokens.overline.size)
+                          .fontWeight(600)
+                          .fontColor(i === 0 ? ColorTokens.onPrimary : ColorTokens.body)
+                          .fontFeature("'tnum' on")
+                      }
+                      .width(26)
+                      .height(26)
+                    }, (lab: string, i: number): string => `share-node-${i}-${lab}`)
+                  }
+                  .justifyContent(FlexAlign.Center)
+                  .width('100%')
+
+                  Text(this.ribbonCaption())
+                    .fontSize(TypeTokens.overline.size)
+                    .fontWeight(450)
+                    .fontColor(ColorTokens.muted)
+                    .fontFeature("'tnum' on")
+                    .margin({ top: SpaceTokens.xs })
+
+                  Column()
+                    .width('100%')
+                    .height(10)
+                    .borderRadius(RadiusTokens.pill)
+                    .backgroundColor(ColorTokens.surfaceSubtle)
+                    .margin({ top: SpaceTokens.md, bottom: SpaceTokens.lg })
+
                   Row() {
                     // 三个数在 build 内直读状态变量：@Builder 形参是值快照，行程异步到达后不会刷新
                     Column() {
