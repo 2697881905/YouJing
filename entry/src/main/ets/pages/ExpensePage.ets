@@ -26,8 +26,6 @@ import { Trip } from '../model/Trip';
 import { DateUtils } from '../utils/DateUtils';
 import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
 import { Logger } from '../common/logger/Logger';
-import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
-import { listLanesForBreakpoint } from '../utils/responsive';
 import { common } from '@kit.AbilityKit';
 import { HdsNavigation, HdsNavigationTitleMode, HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { routerMap } from './AppRouter';
@@ -102,7 +100,6 @@ function yuan(amount: number): string {
 @Component
 export struct ExpensePage {
   /** 断点（唯一来源 utils/breakpointCenter.ets）：宽屏下列表并成多栏，不再被整屏拉宽 */
-  @StorageProp(KEY_CURRENT_BREAKPOINT) bp: string = 'sm';
 
   /** 本页是 EXPENSE_NAV 这条 tab 栈的宿主，push 必须落在自己的栈上 */
   private pathStack: NavPathStack = EXPENSE_NAV;
@@ -660,7 +657,10 @@ export struct ExpensePage {
           }
           .margin({ top: SpaceTokens.xl })
         }
-        .lanes(listLanesForBreakpoint(this.bp))
+        // 这一屏不并栏：List 里装的是「总览 + 预算/实际切换 + 分类条形 + 最近记账 + 钉底记一笔」，
+        // 是一份报告而不是卡片墙。md 实测 lanes(2) 把官方分段栏压成 50..1075（左半屏）、
+        // 「记一笔」主钮压成 50..1105 = 337.6vp 靠左半边——同一屏两套左右边界，
+        // 分段栏也不该被切成半宽。卡片类的屏12/屏4/屏5 才用 lanes，这里保持单栏。
         .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.Spring)
         .cachedCount(6)
