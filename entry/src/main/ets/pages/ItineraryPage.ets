@@ -1126,7 +1126,13 @@ export struct ItineraryPage {
                     })
                 }
                 .width('100%')
-                .margin(LayoutTokens.mapOverlayInset - 8)
+                // 原来是 `.width('100%')` + `.margin(inset - 8)`：百分比宽不扣边距，
+                // 加了左 margin 就整体右移，md 实测这行的 orig 到 2018、父级内容右缘只有
+                // 1993 —— 「全图」钮被地图卡的 clip 切掉 8vp（25px）。
+                // 内缩改用 padding：占位仍在 100% 之内，钮不再被切。
+                .padding({ left: LayoutTokens.mapOverlayInset - 8,
+                  right: LayoutTokens.mapOverlayInset - 8,
+                  bottom: LayoutTokens.mapOverlayInset - 8 })
               }
               .width('100%')
               .height(LayoutTokens.mapHeightCompact)

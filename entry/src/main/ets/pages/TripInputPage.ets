@@ -411,7 +411,10 @@ export struct TripInputPage {
             }
           })
         }
-        .width('100%')
+        // 钉底动作条要与上面被收窄的表单同宽：它和滚动区是兄弟节点，
+        // 只给滚动区设上限的话，主按钮会照旧铺满整屏（md 实测 50..2160 = 675vp，
+        // 而上面的字段卡是 218..1993）——同一屏两套左右边界，就是"排版交错"。
+        .width(longFormMaxWidth(this.bp, LayoutTokens.contentMaxWidth))
         .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md,
           bottom: LayoutTokens.floatingDockClearance })
       }
