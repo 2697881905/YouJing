@@ -554,14 +554,22 @@ export struct EditItineraryPage {
           this.undo();
         }
       })
-      YoujingButton({
-        variant: YoujingButtonVariant.PRIMARY,
-        label: '保存修改',
-        fullWidth: true,
-        onAction: (): void => {
-          this.finish();
-        }
-      })
+      // `fullWidth: true` 在 Row 里等于"父级 100%"（sm 内容宽 331.5vp），
+      // 同排还有一颗 120vp 的「撤销」+ 16vp 间距 → 必然溢出，真机实测主键
+      // 可见 215.4vp、右缘正好压在屏幕 1136px 上（被切掉约 136vp）。
+      // 与屏3/屏5 同一根因的第三种表现：权重只能挂在原生件上，
+      // 所以这里用原生 Column 吃剩余宽，主键再填满它。
+      Column() {
+        YoujingButton({
+          variant: YoujingButtonVariant.PRIMARY,
+          label: '保存修改',
+          fullWidth: true,
+          onAction: (): void => {
+            this.finish();
+          }
+        })
+      }
+      .layoutWeight(1)
     }
     .width('100%')
     .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.sm })
