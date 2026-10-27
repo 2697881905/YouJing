@@ -484,16 +484,24 @@ export struct StayPickPage {
                 this.autoPickArea();
               }
             })
-            YoujingButton({
-              variant: YoujingButtonVariant.PRIMARY,
-              label: '就住这里',
-              onAction: (): void => {
-                PlanDraft.get().selectedArea = { areaId: this.selectedId };
-                markDraftDirty(true);
-                this.pathStack.pushPath({ name: 'Generating' });
-              }
-            })
-              .layoutWeight(1)
+            // `.layoutWeight(1)` 挂在自定义组件 YoujingButton 上不生效（框架忽略），
+            // 主键于是一直是默认死宽 150：sm 上「200 + 150 + 间距 24」超过内容宽 331.5vp，
+            // Blank/权重都不吸收，主键被顶出屏幕右缘 46px（真机实测 orig[713..1182]）。
+            // 权重交给原生包装层，主键用 fullWidth 吃剩余宽：
+            // 「就住这里」4 字约需 96vp，sm 剩余 107.5vp 放得下；md 剩余更宽，按钮自然摊开。
+            Column() {
+              YoujingButton({
+                variant: YoujingButtonVariant.PRIMARY,
+                label: '就住这里',
+                fullWidth: true,
+                onAction: (): void => {
+                  PlanDraft.get().selectedArea = { areaId: this.selectedId };
+                  markDraftDirty(true);
+                  this.pathStack.pushPath({ name: 'Generating' });
+                }
+              })
+            }
+            .layoutWeight(1)
           }
         }
         .width('100%')
