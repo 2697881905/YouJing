@@ -136,9 +136,6 @@ export struct SharePage {
         .alignItems(HorizontalAlign.Start)
         .layoutWeight(1)
 
-        SymbolGlyph($r('sys.symbol.chevron_right'))
-          .fontSize(IconSizes.control)
-          .fontColor([ColorTokens.muted])
       }
       .width('100%')
       .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
@@ -249,35 +246,17 @@ export struct SharePage {
           .edgeEffect(EdgeEffect.Spring)
           .cachedCount(4)
           .alignListItem(ListItemAlign.Start)
-          // 动作条抬高了一档（让位 dock），滚动预留要跟着加一档，
-          // 否则行程纸的末行会藏在这条钉底栏下面
+          // 钉底动作条已撤（见下），只需让出 dock 自身净空
           .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
-            bottom: LayoutTokens.shareBarScrollReserve + LayoutTokens.floatingDockClearance })
+            bottom: LayoutTokens.floatingDockClearance })
         }
         .width('100%')
         .height('100%')
 
+        // 底稿屏16 没有钉底动作条：两个动作就是列表里那两行。
+        // 原来这里又摆一颗「导出 .ics」+一颗「分享行程文本」，与上面两行完全重复
+        // （同一屏两套入口，正是"业务流程混乱"的形态之一），撤掉，只留常驻的诚实说明。
         Column({ space: SpaceTokens.sm }) {
-          Row({ space: SpaceTokens.md }) {
-            YoujingButton({
-              variant: YoujingButtonVariant.SECONDARY,
-              label: '导出 .ics',
-              buttonWidth: 150,
-              onAction: (): void => {
-                this.exportIcs();
-              }
-            })
-            YoujingButton({
-              variant: YoujingButtonVariant.PRIMARY,
-              label: '分享行程文本',
-              onAction: (): void => {
-                this.shareText();
-              }
-            })
-              .layoutWeight(1)
-          }
-          .width('100%')
-
           Text('内容在本机生成，不上传服务器、不含账号信息')
             .fontSize(TypeTokens.caption.size)
             .fontWeight(450)
