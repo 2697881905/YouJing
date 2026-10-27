@@ -16,6 +16,7 @@ import { SpaceTokens } from '../design/SpaceTokens';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { ImmersiveSurface } from '../components/ImmersiveSurface';
+import { TimelineNode } from '../components/TimelineNode';
 import { Activity, ActivityCategory, ActivityStatus, MealType, Trip, TripDay } from '../model/Trip';
 import { ReplanDecision, ReplanOutcome } from '../model/Replan';
 import { TripDao } from '../data/TripDao';
@@ -477,6 +478,26 @@ export struct OnTripPage {
     return Math.max(1, Math.min(100, Math.round((this.elapsedMin / Math.max(1, this.totalMin)) * 100)));
   }
 
+  private nextSlotLabel(): string {
+    const nx: DayStop | null = this.next;
+    if (nx === null) {
+      return '';
+    }
+    return nx.time.length > 0 ? nx.time : nx.kind;
+  }
+
+  /**
+   * 下一站的类别。`DayStop` 上没有 category——餐次靠 `kind` 非空识别
+   * （活动那份 `kind` 恒为空串），所以这里按 kind 判，不猜字段。
+   */
+  private nextCategory(): ActivityCategory {
+    const nx: DayStop | null = this.next;
+    if (nx === null) {
+      return ActivityCategory.SIGHT;
+    }
+    return nx.kind.length > 0 ? ActivityCategory.FOOD : ActivityCategory.SIGHT;
+  }
+
   private nextTitle(): string {
     const next: DayStop | null = this.next;
     return next === null ? '' : next.title;
@@ -711,12 +732,26 @@ export struct OnTripPage {
               }
 
               Row({ space: SpaceTokens.sm }) {
-                Text(this.next === null ? '' : this.next.time)
+                // 无时刻的餐次拿 kind（早餐/午餐/晚餐）占时间槽：
+                // 列表行早就这么做（见 DayStop.kind 注释），但「下一站」这一行漏了，
+                // 实拍整列时间空白、标题像飘在半空
+                Text(this.nextSlotLabel())
                   .fontSize(TypeTokens.time.size)
                   .fontWeight(600)
                   .fontColor(ColorTokens.ink)
                   .fontFeature("'tnum' on")
                   .width(LayoutTokens.itineraryTimeGutter)
+                // 底稿这一行左侧有节点圆环、环上下接脊线；实现里只有文字，
+                // 下一站像是"飘在列表中间"。用与屏8/屏9 同一个 TimelineNode。
+                Stack({ alignContent: Alignment.Top }) {
+                  Column()
+                    .width(LayoutTokens.routeLineWidth)
+                    .height(LayoutTokens.itineraryRowMinHeight)
+                    .backgroundColor(ColorTokens.surfaceSunken)
+                  TimelineNode({ cat: this.nextCategory() })
+                }
+                .width(LayoutTokens.itineraryNodeSize)
+                .height(LayoutTokens.itineraryRowMinHeight)
                 Row({ space: SpaceTokens.xs }) {
                   Text(this.nextTitle())
                     .fontSize(TypeTokens.small.size)
