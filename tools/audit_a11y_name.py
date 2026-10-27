@@ -14,7 +14,7 @@ r"""控件可及名核对（accessibilityText / placeholder）：底稿帧把每
 退出码 0 = 语义控件全部有可及名；1 = 有漏写。
 
 口径（可机判，不猜数据流）：
-- 只查**官方语义控件** Slider/Toggle/Checkbox/TextInput/TextArea/Search/Select/Rating——
+- 只查**官方语义控件** Slider/Toggle/Checkbox/TextInput/TextArea/Search/Select/Rating/Progress/Gauge——
   它们自带角色名，没有可及名就等于读屏念「开关，关」。
 - Button / Text / 自定义组件不算：Button 的 label、Text 的内容本身就是可及名。
 - 算"有名字"的属性：accessibilityText / placeholder / label / title / value 里的具名参数。
@@ -31,7 +31,11 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, 'entry', 'src', 'main', 'ets')
 
-CONTROLS = ('Slider', 'Toggle', 'Checkbox', 'TextInput', 'TextArea', 'Search', 'Select', 'Rating')
+# Progress/Gauge 一起纳管：屏4 容量条在 dumpLayout 里就是 `Progress 100.000000`——
+# 不给可及名时读屏念的是框架的原始比例（OnTripPage 那条注释也记过「真机实测 1.000000」）。
+# LoadingProgress 不会被误抓：`(?<![A-Za-z0-9_])` 把 "Loading" 结尾的 g 挡在外面。
+CONTROLS = ('Slider', 'Toggle', 'Checkbox', 'TextInput', 'TextArea', 'Search', 'Select', 'Rating',
+            'Progress', 'Gauge')
 CONTROL_RE = re.compile(r'(?<![A-Za-z0-9_])(' + '|'.join(CONTROLS) + r')\s*\(')
 NAMED = ('accessibilityText', 'placeholder', 'label', 'title')
 
@@ -107,6 +111,22 @@ def probe():
             '    .trackColor(x)',
             '    // 这里解释把手颜色',
             "    .accessibilityText('调整预算档位')",
+        ], []),
+        ('Progress 缺可及名（读屏会念 100.000000）', [
+            '  Progress({',
+            '    value: 100,',
+            '    total: 100,',
+            '    type: ProgressType.Linear',
+            '  })',
+            "    .width('100%')",
+        ], ['Progress']),
+        ('Progress 有可及名不报', [
+            "  Progress({ value: 100, total: 100 })",
+            "    .accessibilityText(`已选 ${n} 个景点`)",
+        ], []),
+        ('LoadingProgress 不算进度条', [
+            '  LoadingProgress()',
+            "    .width(24)",
         ], []),
         ('不借兄弟控件的名字', [
             '  Checkbox()',

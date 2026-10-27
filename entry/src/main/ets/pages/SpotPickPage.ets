@@ -362,6 +362,10 @@ export struct SpotPickPage {
                 .color(ColorTokens.primary)
                 .backgroundColor(ColorTokens.surfaceSunken)
                 .width('100%')
+                // 进度条不给可及名时，读屏念的是框架的「100.000000」——
+                // 这一屏 dumpLayout 里就是这么显示的，等于把内部比例甩给使用者
+                .accessibilityText(`已选 ${this.priorities.length} 个景点，` +
+                  `按 ${this.days} 天建议上限 ${this.days * 4} 个`)
             }
             .justifyContent(FlexAlign.Center)
             .alignItems(HorizontalAlign.Start)

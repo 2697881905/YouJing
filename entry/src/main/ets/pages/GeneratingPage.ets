@@ -165,6 +165,7 @@ export struct GeneratingPage {
             .color(ColorTokens.primary)
             .backgroundColor(ColorTokens.surfaceSunken)
             .width('100%')
+            .accessibilityText(`生成进度 ${Math.round(this.progress * 100)}%`)
         }
         .alignItems(HorizontalAlign.Start)
         .width('100%')

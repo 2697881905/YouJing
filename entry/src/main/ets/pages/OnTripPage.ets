@@ -667,6 +667,7 @@ export struct OnTripPage {
                   .color(ColorTokens.primary)
                   .width('100%')
                   .margin({ top: SpaceTokens.md })
+                  .accessibilityText(`本程已完成 ${Math.round(this.progressPct())}%`)
               }
               if (this.current !== null && this.current.note !== undefined && this.current.note.length > 0) {
                 Text(this.current.note)

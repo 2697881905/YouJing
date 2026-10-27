@@ -304,6 +304,8 @@ export struct TripsPage {
           // 否则一列表全是同一条蓝线，读起来就是渲染残留（§5.14）
           .color(t.phase === 'onTrip' ? ColorTokens.primary : ColorTokens.separator)
           .width('100%')
+          // 不给可及名时读屏念的是框架原话「35.000000」（屏4 的进度条真机实测过这条）
+          .accessibilityText(`行程进度 ${Math.round(t.progress)}%`)
       }
       .alignItems(HorizontalAlign.Start)
       .width('100%')

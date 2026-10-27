@@ -272,6 +272,7 @@ export struct ExpensePage {
       Progress({ value: cat.pct, total: 100, type: ProgressType.Linear })
         .color(cat.color)
         .layoutWeight(1)
+        .accessibilityText(`${cat.name} 占预算 ${Math.round(cat.pct)}%`)
 
       Text(yuan(cat.amount))
         .fontSize(TypeTokens.caption.size)
@@ -571,6 +572,7 @@ export struct ExpensePage {
                   .color(this.spent > this.budgetTotal ? ColorTokens.danger : ColorTokens.primary)
                   .backgroundColor(ColorTokens.surfaceSunken)
                   .layoutWeight(1)
+                  .accessibilityText(`预算已用 ${Math.round(this.spentPct())}%`)
                 Text(`已用 ${Math.round(this.spentPct())}%`)
                   .fontSize(TypeTokens.caption.size)
                   .fontWeight(450)

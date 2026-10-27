@@ -2973,3 +2973,25 @@ md 首屏仍会在折叠线切一行——那是"还能往下滑"的正常提示
 配套回归：`FailureCopy.test.ets` 加两条——已知码的 detail 句逐字对表，
 以及**"任何错误码的副标题都不许出现 `数组`/`schema`/`JSON`/`null` 这类内部词"**。
 真机 hypium 全量 **120/120 通过**（原 118，加 2）。
+
+### §5ci 续 32：进度条的可及名补齐，同时撞出一条**工具边界**——dumpLayout 根本不暴露 accessibilityText
+
+走流程时屏4 的容量条在 dump 里是 `Progress text='0.000000'`（上一轮是 `100.000000`）。
+读屏软件念的就是这个框架内部比例。全仓 6 处 `Progress(` 一处可及名都没写：
+`TripsPage:302`、`GeneratingPage:164`、`ExpensePage:272`、`ExpensePage:570`、
+`SpotPickPage:357`、`OnTripPage:666`（`OnTripPage` 那条注释里"真机实测 1.000000"其实早就撞见过）。
+逐处补上带上下文的句子（`已选 N 个景点，按 X 天建议上限 Y 个` / `预算已用 N%` / `本程已完成 N%` …），
+并把第 10 把尺 `audit_a11y_name.py` 的受管控件从 8 类扩到含 `Progress`/`Gauge`
+（`LoadingProgress` 靠 `(?<![A-Za-z0-9_])` 天然排除，probe 里做了反证）。
+
+**边界（这条更要紧）**：补完之后在模拟器上复拍，`Progress` 节点的
+`text/description/hint` 仍是 `0.000000 / 空 / 空`。同屏 12 颗**已知写了 `accessibilityText`
+的 Button** 在 dump 里 `desc` 也全是空——
+所以 **`uitest dumpLayout` 不暴露应用侧 accessibilityText，它不是这项的判据**。
+这一条改动只能算"代码级 + 静态尺子"两重保障，**读屏真声未验**（要验得开屏幕朗读，
+那是用户设备上的可见改动，没做）。教训和"弹层要用截图判、不能用 dump 判"同族：
+**先确认这把尺量得到，再拿它的 0 说事**——否则会把"抓不到"当成"没写"或"写好了"。
+
+另记一条 md 实测：屏4 主键经家族修法后在 md 上吃到 `x=463..2161`（**543.4vp**），
+副键 120vp。它在 DESIGN 契约 720 的内容宽以内、也与其余四屏同构，本轮不动；
+若要在宽屏收主键宽度，那是一次独立的设计取舍，需要用户点头。
