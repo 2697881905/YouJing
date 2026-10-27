@@ -28,6 +28,16 @@ export interface Expense {
   activityId?: string;
 }
 
+/**
+ * 分类预算（屏11「分类支出」那一卡的对照基线）。
+ * 用户口径：总预算之外，每一类也要能各自设上限——所以它随行程存一份，
+ * 而不是从总预算按百分比硬拆（拆出来的数字没人认）。
+ */
+export interface CategoryBudget {
+  category: ExpenseCategory;
+  amount: number;
+}
+
 /** 分类聚合行（屏11 分类支出条） */
 export interface CategoryTotal {
   category: ExpenseCategory;

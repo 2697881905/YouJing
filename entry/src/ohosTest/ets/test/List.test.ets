@@ -18,6 +18,7 @@ import responsiveTest from './Responsive.test';
 import displayTextTest from './DisplayText.test';
 import yanglingSeedTest from './YanglingSeed.test';
 import navStackTest from './NavStackRouting.test';
+import categoryBudgetTest from './CategoryBudget.test';
 
 export default function testsuite() {
   tripParserTest();
@@ -37,7 +38,8 @@ export default function testsuite() {
   skipPlannerTest();
   replanParserTest();
   responsiveTest();
-    displayTextTest();
-    yanglingSeedTest();
-    navStackTest();
+  displayTextTest();
+  yanglingSeedTest();
+  navStackTest();
+  categoryBudgetTest();
 }

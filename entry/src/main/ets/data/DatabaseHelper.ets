@@ -31,7 +31,7 @@ import { AppError } from '../common/error/AppError';
 import { ErrorCode } from '../common/error/ErrorCode';
 
 const STORE_NAME: string = 'youjing.db';
-const DB_VERSION: number = 6;
+const DB_VERSION: number = 7;
 const TAG: string = 'Data.DatabaseHelper';
 
 const SQL_CREATE_TRIP: string = `CREATE TABLE IF NOT EXISTS trip (
@@ -113,6 +113,10 @@ const SQL_V4_ADD_EXPENSE_ACTIVITY: string = 'ALTER TABLE expense ADD COLUMN acti
 /** v1 → v2：行程按账号分区。历史本机数据 DEFAULT 即游客分区，无需回填 */
 /** v5 → v6：一餐有了时刻，屏15 才能把餐次和节点按时间并排（存量行默认空串=不显示时间） */
 const SQL_V6_ADD_MEAL_TIME: string = `ALTER TABLE meal ADD COLUMN time TEXT NOT NULL DEFAULT ''`;
+
+/** v6 → v7：分类预算（屏11）随行程存一份 JSON 数组；存量行默认空数组 */
+const SQL_V7_ADD_TRIP_CATEGORY_BUDGET: string =
+  `ALTER TABLE trip ADD COLUMN category_budget TEXT NOT NULL DEFAULT '[]'`;
 
 const SQL_V2_ADD_TRIP_USER_ID: string =
   `ALTER TABLE trip ADD COLUMN user_id TEXT NOT NULL DEFAULT '${AccountConfig.GUEST_UID}'`;
@@ -203,6 +207,9 @@ export class DatabaseHelper {
       }
       if (oldVersion < 6) {
         store.executeSql(SQL_V6_ADD_MEAL_TIME);
+      }
+      if (oldVersion < 7) {
+        store.executeSql(SQL_V7_ADD_TRIP_CATEGORY_BUDGET);
       }
       // 索引 DDL 全部 IF NOT EXISTS，逐级迁移后统一补齐
       for (const idx of SQL_INDEXES) {

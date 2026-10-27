@@ -12,6 +12,8 @@ import { TodayPlan, TodayPlanData } from './TodayPlan';
 import { AccountConfig } from '../common/config/AccountConfig';
 import { Activity, ActivityCategory, ActivityStatus, IntensityLevel, Meal, MealType, TransportInfo, Trip, TripDay } from '../model/Trip';
 import { Logger } from '../common/logger/Logger';
+import { CategoryBudget, ExpenseCategory } from '../model/Expense';
+import { parseCategoryBudgets } from '../utils/CategoryBudget';
 import { AppError } from '../common/error/AppError';
 import { ErrorCode } from '../common/error/ErrorCode';
 
@@ -54,7 +56,8 @@ export class TripDao {
         end_date: trip.endDate, people: trip.people, budget: trip.budget, style: trip.style,
         total_cost: trip.overview.totalCost, summary: trip.overview.summary,
         highlights: JSON.stringify(trip.overview.highlights), tips: JSON.stringify(trip.tips),
-        updated_at: Date.now(), user_id: AccountStore.uid()
+        updated_at: Date.now(), user_id: AccountStore.uid(),
+        category_budget: JSON.stringify(trip.categoryBudgets === undefined ? [] : trip.categoryBudgets)
       };
       store.insertSync('trip', tripRow);
       for (const day of trip.days) {
@@ -122,7 +125,8 @@ export class TripDao {
             summary: rs.getString(rs.getColumnIndex('summary'))
           },
           days: [],
-          tips: parseStringArray(rs.getString(rs.getColumnIndex('tips')))
+          tips: parseStringArray(rs.getString(rs.getColumnIndex('tips'))),
+          categoryBudgets: parseCategoryBudgets(rs.getString(rs.getColumnIndex('category_budget')))
         };
         return t;
       });
@@ -240,6 +244,17 @@ export class TripDao {
   private static countByUid(context: common.Context, table: string, uid: string): Promise<number[]> {
     return TripDao.query(context, `SELECT COUNT(*) AS c FROM ${table} WHERE user_id = ?`, [uid],
       (rs: relationalStore.ResultSet): number => rs.getLong(rs.getColumnIndex('c')));
+  }
+
+  /** 只动 trip 一行：分类预算是行程级设置，不重建整棵行程树 */
+  static saveCategoryBudgets(context: common.Context, tripId: string,
+    list: CategoryBudget[]): Promise<void> {
+    const json: string = JSON.stringify(list);
+    return DatabaseHelper.write(context, async (store: relationalStore.RdbStore): Promise<void> => {
+      store.executeSql('UPDATE trip SET category_budget = ?, updated_at = ? WHERE id = ? AND user_id = ?',
+        [json, Date.now(), tripId, AccountStore.uid()]);
+      Logger.info(TAG, `saveCategoryBudgets ${tripId} n=${list.length}`);
+    });
   }
 
   static deleteTrip(context: common.Context, tripId: string): Promise<void> {

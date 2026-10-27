@@ -8,6 +8,8 @@
  * - 金额单位：人民币元，number 类型（展示层负责千分位与 tabular-nums）。
  */
 
+import { CategoryBudget } from './Expense';
+
 /** 活动预约状态（§3.1 五值封闭） */
 export enum ActivityStatus {
   BOOKED = 'booked', // 已约
@@ -120,6 +122,8 @@ export interface Trip {
   people: number;
   /** 总预算（元）；v1 仅采集与展示，预算协同为阶段 10 预留 */
   budget: number;
+  /** 分类预算（屏11）：存量行程没这一列时读回空数组，故可选 */
+  categoryBudgets?: CategoryBudget[];
   /** 旅行风格（复用 PlanParams.TravelStyle 的码值） */
   style: string;
   overview: TripOverview;

@@ -21,7 +21,7 @@ import { ImmersiveSegmentBar, SegmentedItem } from '../components/ImmersiveSegme
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { ExpenseDao } from '../data/ExpenseDao';
 import { TripDao, TripSummary } from '../data/TripDao';
-import { CategoryTotal, Expense, ExpenseCategory } from '../model/Expense';
+import { CategoryBudget, CategoryTotal, Expense, ExpenseCategory } from '../model/Expense';
 import { Trip } from '../model/Trip';
 import { DateUtils } from '../utils/DateUtils';
 import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
@@ -36,6 +36,9 @@ interface CategorySpend {
   amount: number;
   pct: number;
   color: Resource;
+  /** 该类的预算上限（0 = 未设）。设了就以它为画条基线，超了整行转 danger */
+  budget: number;
+  over: boolean;
 }
 
 interface Receipt {
@@ -136,6 +139,10 @@ export struct ExpensePage {
   @State private receipts: Receipt[] = [];
   @State private totals: CategoryTotal[] = [];
   @State private showRecord: boolean = false;
+  @State private showBudget: boolean = false;
+  /** 六档分类预算的编辑草稿，顺序与 CATEGORY_LABELS 一致（空串 = 不设上限） */
+  @State private budgetInputs: string[] = ['', '', '', '', '', ''];
+  @State private categoryBudgets: CategoryBudget[] = [];
   @State private inputAmount: string = '';
   @State private inputName: string = '';
   @State private inputCategory: ExpenseCategory = ExpenseCategory.TICKET;
@@ -177,6 +184,7 @@ export struct ExpensePage {
       AppStorage.setOrCreate(ACTIVE_TRIP_KEY, trip.id);
       this.tripLabel = `${trip.destination} · ${trip.startDate} – ${trip.endDate}`;
       this.budgetTotal = trip.budget * trip.people;
+      this.categoryBudgets = trip.categoryBudgets === undefined ? [] : trip.categoryBudgets;
       let sumDays: number = 0;
       for (const d of trip.days) {
         sumDays += d.dailyCost;
@@ -209,7 +217,19 @@ export struct ExpensePage {
     this.totals = totals;
   }
 
-  /** 预算视角按占预算总额、实际视角按占最大分类——同一批真值，两种读法（模型里没有分档预算） */
+  private budgetOf(category: ExpenseCategory): number {
+    for (const b of this.categoryBudgets) {
+      if (b.category === category) {
+        return b.amount;
+      }
+    }
+    return 0;
+  }
+
+  /**
+   * 预算视角：这一类**设了上限就按自己的上限画条**（超了转 danger），没设才退回"占行程总预算"；
+   * 实际视角仍按占最大分类。同一批真值、三种读法。
+   */
   private currentCats(): CategorySpend[] {
     let max: number = 0;
     for (const t of this.totals) {
@@ -217,15 +237,82 @@ export struct ExpensePage {
         max = t.amount;
       }
     }
-    const base: number = this.seg === 0 ? Math.max(1, this.budgetTotal) : Math.max(1, max);
     return this.totals.map((t: CategoryTotal): CategorySpend => {
+      const budget: number = this.seg === 0 ? this.budgetOf(t.category) : 0;
+      const over: boolean = budget > 0 && t.amount > budget;
+      const base: number = budget > 0 ? budget :
+        (this.seg === 0 ? Math.max(1, this.budgetTotal) : Math.max(1, max));
       const c: CategorySpend = {
         name: labelOf(t.category),
         amount: t.amount,
         pct: Math.min(100, Math.max(1, Math.round((t.amount / base) * 100))),
-        color: colorOf(t.category)
+        color: over ? ColorTokens.danger : colorOf(t.category),
+        budget: budget,
+        over: over
       };
       return c;
+    });
+  }
+
+  /** 草稿回填必须在 show 之前：bindSheet 的内容不随事后的状态变化重绘 */
+  private openBudgetSheet(): void {
+    const next: string[] = [];
+    for (let i = 0; i < CATEGORY_LABELS.length; i++) {
+      const b: number = this.budgetOf(CATEGORY_LABELS[i].value);
+      next.push(b > 0 ? `${b}` : '');
+    }
+    this.budgetInputs = next;
+    this.showBudget = true;
+  }
+
+  private budgetDraftSum(): number {
+    let sum: number = 0;
+    for (let i = 0; i < this.budgetInputs.length; i++) {
+      const v: number = Number(this.budgetInputs[i]);
+      if (!Number.isNaN(v) && v > 0) {
+        sum += Math.round(v);
+      }
+    }
+    return sum;
+  }
+
+  private setBudgetInput(idx: number, value: string): void {
+    const next: string[] = this.budgetInputs.slice();
+    next[idx] = value;
+    this.budgetInputs = next;
+  }
+
+  /** 保存分类预算：留空 = 该类不设上限；填了必须是正整数，错了就地说明是哪一类 */
+  private saveBudgets(): void {
+    const trip: Trip | null = this.trip;
+    if (trip === null) {
+      return;
+    }
+    const list: CategoryBudget[] = [];
+    for (let i = 0; i < CATEGORY_LABELS.length; i++) {
+      const raw: string = this.budgetInputs[i].trim();
+      if (raw.length === 0) {
+        continue;
+      }
+      const v: number = Number(raw);
+      if (Number.isNaN(v) || v <= 0) {
+        this.getUIContext().getPromptAction().showToast({
+          message: `${CATEGORY_LABELS[i].label}的预算要填正整数`, duration: 1800
+        });
+        return;
+      }
+      const row: CategoryBudget = { category: CATEGORY_LABELS[i].value, amount: Math.round(v) };
+      list.push(row);
+    }
+    TripDao.saveCategoryBudgets(this.ctx(), trip.id, list).then((): void => {
+      this.categoryBudgets = list;
+      trip.categoryBudgets = list;
+      this.showBudget = false;
+      this.reload();
+      this.getUIContext().getPromptAction().showToast({ message: '已保存分类预算', duration: 1500 });
+    }).catch((err: Error): void => {
+      Logger.error('Ui.Expense', `分类预算保存失败: ${err.message}`);
+      this.getUIContext().getPromptAction().showToast({ message: '保存失败', duration: 1800 });
     });
   }
 
@@ -272,15 +359,26 @@ export struct ExpensePage {
       Progress({ value: cat.pct, total: 100, type: ProgressType.Linear })
         .color(cat.color)
         .layoutWeight(1)
-        .accessibilityText(`${cat.name} 占预算 ${Math.round(cat.pct)}%`)
+        .accessibilityText(cat.budget > 0
+          ? `${cat.name} 已花 ${cat.amount} 元，上限 ${cat.budget} 元`
+          : `${cat.name} 占预算 ${Math.round(cat.pct)}%`)
 
-      Text(yuan(cat.amount))
-        .fontSize(TypeTokens.caption.size)
-        .fontWeight(450)
-        .fontColor(ColorTokens.body)
-        .fontFeature("'tnum' on")
-        .width(72)
-        .textAlign(TextAlign.End)
+      Column() {
+        Text(yuan(cat.amount))
+          .fontSize(TypeTokens.caption.size)
+          .fontWeight(450)
+          .fontColor(cat.over ? ColorTokens.danger : ColorTokens.body)
+          .fontFeature("'tnum' on")
+        if (cat.budget > 0) {
+          Text(cat.over ? `超 ${yuan(cat.amount - cat.budget)}` : `上限 ${yuan(cat.budget)}`)
+            .fontSize(TypeTokens.overline.size)
+            .fontColor(cat.over ? ColorTokens.danger : ColorTokens.muted)
+            .fontFeature("'tnum' on")
+            .margin({ top: 2 })
+        }
+      }
+      .alignItems(HorizontalAlign.End)
+      .width(84)
     }
     .width('100%')
     .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
@@ -401,6 +499,87 @@ export struct ExpensePage {
     .backgroundColor(ColorTokens.canvas)
   }
 
+  @Builder
+  budgetField(option: CategoryOption, idx: number) {
+    Row({ space: SpaceTokens.sm }) {
+      Text(option.label)
+        .fontSize(TypeTokens.body.size)
+        .fontColor(ColorTokens.ink)
+        .width(44)
+      TextInput({ placeholder: '不设上限', text: this.budgetInputs[idx] })
+        .type(InputType.Number)
+        .fontSize(TypeTokens.body.size)
+        .fontColor(ColorTokens.ink)
+        .backgroundColor(ColorTokens.surfacePanel)
+        .borderRadius(RadiusTokens.reason)
+        .height(LayoutTokens.composeFieldHeight)
+        .layoutWeight(1)
+        // 最后一档给「完成」并直接落库：六档字段都要点数字键盘，键盘弹起时
+        // 「保存」可能落在键盘之下（真机实测点不到），键盘上的收尾键是并列的第二条通路
+        .enterKeyType(idx === CATEGORY_LABELS.length - 1 ? EnterKeyType.Done : EnterKeyType.Next)
+        .onSubmit((): void => {
+          this.saveBudgets();
+        })
+        .onChange((v: string): void => {
+          this.setBudgetInput(idx, v);
+        })
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Center)
+    .margin({ top: SpaceTokens.sm })
+  }
+
+  @Builder
+  budgetSheet() {
+    // 与 recordSheet 同一条铁律：主键在滚动区之外、滚动区吃定高上限，
+    // 否则键盘一弹起「保存」就又会被压出可见区（§5ci 续 13/15 那个 P0 的形状）
+    Column() {
+      Scroll() {
+        Column() {
+          Text('分类预算')
+            .fontSize(TypeTokens.title.size)
+            .fontWeight(700)
+            .fontFamily(TypeTokens.title.family)
+            .fontColor(ColorTokens.ink)
+            .margin({ top: SpaceTokens.xl })
+          Text(`合计 ${yuan(this.budgetDraftSum())} · 行程总预算 ${yuan(this.budgetTotal)}`)
+            .fontSize(TypeTokens.small.size)
+            .fontColor(this.budgetDraftSum() > this.budgetTotal && this.budgetTotal > 0
+              ? ColorTokens.danger : ColorTokens.body)
+            .fontFeature("'tnum' on")
+            .margin({ top: SpaceTokens.xs, bottom: SpaceTokens.md })
+
+          ForEach(CATEGORY_LABELS, (option: CategoryOption, idx: number) => {
+            this.budgetField(option, idx)
+          }, (option: CategoryOption): string => `bud-${option.value}`)
+        }
+        .alignItems(HorizontalAlign.Start)
+        .width('100%')
+        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+      }
+      .width('100%')
+      // 上限 200 而不是 320：真机实测键盘弹起后键盘顶在 y≈1700/2690，
+      // 320 的滚动区会把「保存」推到键盘底下（第一次脚本点保存没生效就是这个原因）。
+      // 六档字段本来就靠滚动逐个到达，主键必须留在键盘之上。
+      .constraintSize({ maxHeight: 200 })
+      .scrollBar(BarState.Off)
+      .align(Alignment.Top)
+
+      YoujingButton({
+        variant: YoujingButtonVariant.PRIMARY,
+        label: '保存',
+        fullWidth: true,
+        onAction: (): void => {
+          this.saveBudgets();
+        }
+      })
+        .margin({ top: SpaceTokens.sm, bottom: SpaceTokens.md })
+    }
+    .width('100%')
+    .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: SpaceTokens.xl })
+    .backgroundColor(ColorTokens.canvas)
+  }
+
   /** 预算消耗百分比：超支时封顶 100，颜色另说，进度条本身不画负值 */
   private spentPct(): number {
     if (this.budgetTotal <= 0) {
@@ -417,6 +596,32 @@ export struct ExpensePage {
       .fontColor(ColorTokens.muted)
       .width('100%')
       .padding({ top: SpaceTokens.lg, bottom: SpaceTokens.sm })
+  }
+
+  /** 分类支出这一组的头：左边标题、右边进「分类预算」工作表 */
+  @Builder
+  categoryHeader() {
+    Row() {
+      Text('分类支出')
+        .fontSize(TypeTokens.overline.size)
+        .fontWeight(600)
+        .fontColor(ColorTokens.muted)
+        .layoutWeight(1)
+      Button('分类预算')
+        .buttonStyle(ButtonStyleMode.TEXTUAL)
+        .fontColor(ColorTokens.primary)
+        .fontSize(TypeTokens.overline.size)
+        .height(LayoutTokens.minTouchTarget)
+        .padding({ left: SpaceTokens.sm, right: SpaceTokens.xs })
+        .accessibilityText('设置各分类预算上限')
+        .enabled(!this.noTrip)
+        .onClick((): void => {
+          this.openBudgetSheet();
+        })
+    }
+    .width('100%')
+    .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.xs })
+    .alignItems(VerticalAlign.Center)
   }
 
   @Builder
@@ -599,7 +804,7 @@ export struct ExpensePage {
             .backgroundColor(ColorTokens.surfaceElevated)
           }
 
-          ListItemGroup({ header: this.sectionHeader('分类支出') }) {
+          ListItemGroup({ header: this.categoryHeader() }) {
             if (this.totals.length === 0) {
               ListItem() {
                 Text(this.noTrip ? '还没有行程，先规划一条才能记账' : '还没有记账，下面记一笔后这里会出现分类')
@@ -709,6 +914,12 @@ export struct ExpensePage {
         // 复拍与 '85%' 毫无差别：保存键仍不在树里、三次上滑仍调不出来。
         // 没有证据的视觉改动不留在代码里，退回原值；那条 P0 仍未修。
         height: '85%',
+        backgroundColor: ColorTokens.canvas,
+        showClose: true,
+        systemMaterial: getSheetImmersiveMaterial()
+      })
+      .bindSheet($$this.showBudget, this.budgetSheet(), {
+        height: '55%',
         backgroundColor: ColorTokens.canvas,
         showClose: true,
         systemMaterial: getSheetImmersiveMaterial()
