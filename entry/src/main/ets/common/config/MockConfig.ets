@@ -11,5 +11,5 @@ export interface MockConfigType {
 }
 
 export const MockConfig: MockConfigType = {
-  USE_MOCK_DATA: true
+  USE_MOCK_DATA: false
 };

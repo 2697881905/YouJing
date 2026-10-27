@@ -40,6 +40,10 @@ export class PromptBuilder {
     days.push('8. 每餐 meals[].time 给 HH:mm 用餐时刻（早餐 07:00–09:00、午餐 11:30–13:30、晚餐 17:30–20:30 之间取整），屏15 会把餐次与节点按时间并排。');
     days.push('9. 活动的 location 填「到访点位/入口别称」（如「山脚入口」「北门」「正殿前」），不得与 title 或 address 重复；没有明确入口信息时留空串。');
     days.push('10. 某天确有明确风险才写 days[i].risk（闭馆日、雨季、需提前抢票等一句话）；没有风险就省略该字段，不要为凑字段编造风险。');
+    // 直连 DeepSeek 实测（2026-10-27）：模型会在中文里用英文双引号做强调，
+    // 例如 "本次行程未安排"可选加"" —— 整段 JSON 因此语法不合法，屏7 报「days: 期望 array」。
+    // json_schema strict 这条端点不支持（见 ApiConfig.SUPPORTS_JSON_SCHEMA），所以只能从提示词侧堵。
+    days.push('11. 字符串值内**禁止出现英文双引号 " 与反斜杠**；需要强调或引用名称时一律用中文书名号「」。输出必须是可被 JSON.parse 直接解析的单个对象。');
     days.push('JSON Schema:');
     days.push(TripSchema.TRIP_JSON_SCHEMA);
     return days.join('\n');

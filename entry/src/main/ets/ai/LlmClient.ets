@@ -195,6 +195,29 @@ export class MockLlmTransport implements LlmTransport {
  * 鉴权与超时同走 ApiConfig：Key 为空时请求不带 Authorization 头（只告警），
  * 超时参数显式下发，真超时报 NETWORK_TIMEOUT、其余报 NETWORK_REQUEST_FAILED。
  */
+/** OpenAI 兼容 chat/completions 响应信封（只声明本端点用得到的字段） */
+interface ChatError {
+  message?: string;
+}
+
+interface ChatMessage {
+  role?: string;
+  content?: string;
+}
+
+interface ChatChoice {
+  index?: number;
+  message?: ChatMessage;
+  finish_reason?: string;
+}
+
+interface ChatCompletion {
+  id?: string;
+  model?: string;
+  choices?: ChatChoice[];
+  error?: ChatError;
+}
+
 export class HttpLlmTransport implements LlmTransport {
   async complete(req: LlmRequest): Promise<string> {
     if (ApiConfig.BASE_URL.length === 0 || ApiConfig.LLM_CHAT_ENDPOINT.length === 0) {
@@ -207,9 +230,15 @@ export class HttpLlmTransport implements LlmTransport {
       { 'role': 'user', 'content': req.user } as Record<string, string>
     ];
     body['messages'] = messages;
+    // OpenAI 兼容端点缺 model 会直接 400（2026-10-27 直连实测）；本地网关不需要时留空不发
+    if (ApiConfig.LLM_MODEL.length > 0) {
+      body['model'] = ApiConfig.LLM_MODEL;
+    }
     // §4.3 第二层防线：response_format 强制模型遵循 Schema（strict），
     // schema 本体与第一层 Prompt 内嵌、第三层 TripParser 守卫同源（TripSchema.TRIP_JSON_SCHEMA）
-    if (req.jsonSchemaStrict) {
+    // 端点不支持 strict Schema 时降级为 json_object：第二层防线让位给第一、三层，
+    // 而不是每次都吃 400（DeepSeek 实测 json_schema 不可用）
+    if (req.jsonSchemaStrict && ApiConfig.SUPPORTS_JSON_SCHEMA) {
       const jsonSchema: Record<string, Object> = {};
       jsonSchema['name'] = 'Trip';
       jsonSchema['schema'] = JSON.parse(TripSchema.TRIP_JSON_SCHEMA);
@@ -244,9 +273,26 @@ export class HttpLlmTransport implements LlmTransport {
         readTimeout: ApiConfig.READ_TIMEOUT_MS
       });
       if (resp.responseCode < 200 || resp.responseCode >= 300) {
-        throw new AppError(ErrorCode.NETWORK_REQUEST_FAILED, `LLM HTTP ${resp.responseCode}`);
+        throw new AppError(ErrorCode.NETWORK_REQUEST_FAILED,
+          `LLM HTTP ${resp.responseCode}: ${String(resp.result).slice(0, 160)}`);
       }
-      return resp.result as string;
+      // 返回的是 **chat/completions 信封**，模型文本在 choices[0].message.content 里。
+      // 此前这里直接把整个 resp.result 交出去，TripParser 拿到的顶层键是
+      // id/model/choices/usage → 必然报「days: 期望 array」，真机两次实测都是这个形状。
+      const env: ChatCompletion = JSON.parse(String(resp.result)) as ChatCompletion;
+      const choices: ChatChoice[] | undefined = env.choices;
+      if (choices === undefined || choices.length === 0) {
+        const errEnv: ChatError | undefined = env.error;
+        const msg: string = errEnv !== undefined && errEnv.message !== undefined ? errEnv.message : '';
+        throw new AppError(ErrorCode.SCHEMA_VALIDATION_FAILED,
+          msg.length > 0 ? `LLM 返回错误: ${msg}` : 'LLM 响应里没有 choices');
+      }
+      const message: ChatMessage | undefined = choices[0].message;
+      const content: string | undefined = message === undefined ? undefined : message.content;
+      if (content === undefined || content.length === 0) {
+        throw new AppError(ErrorCode.SCHEMA_VALIDATION_FAILED, 'LLM 响应缺 choices[0].message.content');
+      }
+      return content;
     } catch (err) {
       if (err instanceof AppError) {
         throw err;
