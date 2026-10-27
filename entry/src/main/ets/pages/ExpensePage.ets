@@ -334,6 +334,14 @@ export struct ExpensePage {
         .onChange((v: string) => {
           this.inputAmount = v;
         })
+        // 键盘上的「完成」也能提交：宽屏（折叠展开）数字键盘弹起后，
+        // 工作表底部的「保存」会被压到可见区之外且滑不出来（§5ci 续 13/14 实测），
+        // 记账因此在 md 档断链。给两个输入框都挂 enterKey + onSubmit，
+        // 让用户在键盘上就能收尾；按钮仍是主通路，这条是并列的第二条。
+        .enterKeyType(EnterKeyType.Done)
+        .onSubmit((): void => {
+          this.saveExpense();
+        })
       TextInput({ placeholder: '名称，如 故宫门票', text: this.inputName })
         .fontSize(TypeTokens.body.size)
         .fontColor(ColorTokens.ink)
@@ -343,6 +351,10 @@ export struct ExpensePage {
         .margin({ top: SpaceTokens.sm })
         .onChange((v: string) => {
           this.inputName = v;
+        })
+        .enterKeyType(EnterKeyType.Done)
+        .onSubmit((): void => {
+          this.saveExpense();
         })
 
       Flex({ wrap: FlexWrap.Wrap }) {
@@ -680,7 +692,11 @@ export struct ExpensePage {
       .height('100%')
       .backgroundColor(ColorTokens.canvas)
       .bindSheet($$this.showRecord, this.recordSheet(), {
-        height: '85%',
+        // '85%' 在折叠屏展开态会被数字键盘压死：键盘把窗口压到 1288px，
+        // 而 Scroll 的 '100%' 按键盘弹起前的 657vp 解析，于是它以为自己装得下、
+        // 不开滚，表单底部的「保存」被裁在可见区之外且滑不出来（实测三次 dircFling 无效）。
+        // 换成框架自管的 FIT_CONTENT（屏14 触达面板同档实测可用），由框架按内容给定高并保留可滚。
+        height: SheetSize.FIT_CONTENT,
         backgroundColor: ColorTokens.canvas,
         showClose: true,
         systemMaterial: getSheetImmersiveMaterial()
