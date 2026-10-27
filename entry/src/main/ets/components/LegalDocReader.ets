@@ -88,8 +88,10 @@ export struct LegalDocReader {
     }
     .alignItems(HorizontalAlign.Start)
     .width(this.readerWidth)
-    // 宽屏（折叠展开/平板）下散文不能被整屏拉宽：720 是契约 contentMaxWidth 那一档。
-    // 手机竖屏 longFormMaxWidth 返回 '100%'，等于不收窄
+    // 这里的上限保持 `constraintSize.maxWidth` 而不是改成 .width()：
+    // 本组件的宽度是调用方给的 `readerWidth`（@Prop），不能被返回值顶掉；
+    // 而 屏2 那类"卡内子级 width('100%') 溢出被 clip"的问题在这里不存在——
+    // 面板本身没有再套一层带内边距的父级。（两处口径不同，别统一改。）
     .constraintSize({ minHeight: LayoutTokens.sheetPanelWidth,
       maxWidth: longFormMaxWidth(this.bp, LayoutTokens.contentMaxWidth) })
     .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.md, bottom: SpaceTokens.sm })

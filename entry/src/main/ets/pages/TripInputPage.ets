@@ -387,7 +387,7 @@ export struct TripInputPage {
           .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.bottomScrollReserve })
           // 表单不收窄到 720 的话，宽屏上一行「目的地」能拉到八百多 vp，
           // 输入框与滑杆的可用长度就失去意义
-          .constraintSize({ maxWidth: longFormMaxWidth(this.bp, LayoutTokens.contentMaxWidth) })
+          .width(longFormMaxWidth(this.bp, LayoutTokens.contentMaxWidth))
         }
         .layoutWeight(1)
         .scrollBar(BarState.Off)

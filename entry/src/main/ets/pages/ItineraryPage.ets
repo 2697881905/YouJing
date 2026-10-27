@@ -1197,7 +1197,7 @@ export struct ItineraryPage {
             bottom: LayoutTokens.floatingDockClearance })
           // 时间轴是单列长内容，不能按断点分栏（会打断主轴竖线），
           // 所以宽屏走"收窄 + 居中"这条路
-          .constraintSize({ maxWidth: longFormMaxWidth(this.bp, LayoutTokens.contentMaxWidth) })
+          .width(longFormMaxWidth(this.bp, LayoutTokens.contentMaxWidth))
         }
         .width('100%')
         .height('100%')

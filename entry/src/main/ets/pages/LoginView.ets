@@ -196,9 +196,10 @@ export struct LoginView {
       })
         .margin({ top: SpaceTokens.sm })
       }
-      .width('100%')
       .alignItems(HorizontalAlign.Start)
-      .constraintSize({ maxWidth: longFormMaxWidth(this.bp, LayoutTokens.contentMaxWidth) })
+      // 一个节点上只留一条 .width()：longFormMaxWidth 在 sm 档返回 '100%'，
+      // 与原来那条 .width('100%') 同义，写两条只会让人误读成"两个宽度在竞争"
+      .width(longFormMaxWidth(this.bp, LayoutTokens.contentMaxWidth))
     }
     .width('100%')
     .height('100%')

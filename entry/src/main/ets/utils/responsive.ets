@@ -42,6 +42,12 @@ export function listLanesForBreakpoint(bp: string): number {
  * 658vp（14fp 下约 47 个汉字一行）。md 档用 600 之后，600vp 窗口不受影响
  * （恰好等于档位下限），707vp 窗口收到 600、两侧各留 53vp，读起来是"居中的一栏"
  * 而不是"被整屏拉宽的卡片"。`contentMaxWidth` 保持契约原值不动：它是 lg 及以上的上限。
+ *
+ * 消费方必须把返回值挂到 **`.width()`** 上，不要挂 `constraintSize({ maxWidth })`：
+ * 后者只削自己、不重测子级。屏2 真机实测字段卡的 `origBounds` 宽 675vp（= 707 − 左右
+ * pagePadding 32），父级被削成 600vp 后卡内 `width('100%')` 仍按削前的约束测量，
+ * 于是每侧各溢 53.5vp，最右那颗 44vp 圆钮被 Scroll 的 clip 边切到只剩 56px。
+ * `.width(数值)` 会按这个宽度测量子级；sm 档返回 `'100%'`，行为与改动前一致。
  */
 export function longFormMaxWidth(bp: string, capVp: number): Length {
   if (bp === 'lg') {
