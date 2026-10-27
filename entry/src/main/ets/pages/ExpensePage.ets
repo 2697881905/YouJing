@@ -410,7 +410,10 @@ export struct ExpensePage {
         width: this.inputCategory === option.value ? LayoutTokens.glassBorderWidth : 0,
         color: ColorTokens.primary
       })
-      .margin({ right: SpaceTokens.sm })
+      // 六枚等宽排一行（父 Row 只有 331vp，见 recordSheet 的注释）：
+      // 默认内边距会把两字标签撑到 60vp，六枚就换行了；等宽 46.7vp 刚好排满。
+      .layoutWeight(1)
+      .padding({ left: 0, right: 0 })
       .onClick(() => {
         this.inputCategory = option.value;
       })
@@ -423,6 +426,14 @@ export struct ExpensePage {
     // 按键盘弹起前解析 → Scroll 以为装得下、不进可滚状态，「保存」被裁在可见区外
     // （改 constraintSize.maxHeight 能让它进可滚，但注入的上滑推不动它，且没键盘时
     // 反而要滑一下才看到主键——所以这里不靠"能滑到"，改成主键根本不进滚动区）。
+    // 上限 300 不是随手定的：sheet 高 85% 时内容顶在 y≈493(px)，滚动区每高 1vp，
+    // 「保存」就往下挪 1vp；300 是让它停在键盘顶（526vp）之上的最大值。
+    // 高度也不能换成 SheetSize.FIT_CONTENT（试过，真机反证）：fit 之后面板顶落到
+    // y≈1296(px)，键盘一来系统只把面板上移「刚好露出聚焦的输入框」那么多，
+    // 名称/分类/保存整块压在键盘底下（dump 里「保存」已不在树里，键盘顶 1643）。
+    // 代价是视口里只剩 46vp 给分类：六档胶囊排两行时第二行（默认选中的「门票」
+    // 就在这里）整行落在视口外——打开面板看到三枚都没选中、保存下去却记成门票
+    // （真机 dump 实证）。所以六档改成一行等宽胶囊，选择始终在屏上。
     Column() {
       Scroll() {
         Column() {
@@ -470,12 +481,10 @@ export struct ExpensePage {
           this.saveExpense();
         })
 
-      Flex({ wrap: FlexWrap.Wrap }) {
+      // 一行六枚、等宽：wrap 成两行时第二行落进 300vp 视口之外（含默认选中项）
+      Row({ space: SpaceTokens.xs }) {
         ForEach(CATEGORY_LABELS, (option: CategoryOption) => {
-          Column() {
-            this.categoryChip(option)
-          }
-          .margin({ right: SpaceTokens.sm, bottom: SpaceTokens.sm })
+          this.categoryChip(option)
         }, (option: CategoryOption): string => `rec-${option.value}-${this.inputCategory === option.value}`)
       }
       .width('100%')
