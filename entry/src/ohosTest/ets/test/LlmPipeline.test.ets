@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, TestType, Size, Level } from '@ohos/hypium';
-import { LlmClient, LlmTransport } from '../../../main/ets/ai/LlmClient';
+import { LlmClient, LlmTransport, MockLlmTransport } from '../../../main/ets/ai/LlmClient';
 import { LlmRequest, PromptBuilder } from '../../../main/ets/ai/PromptBuilder';
 import { TripSchema } from '../../../main/ets/ai/TripSchema';
 import { PlanParams, SelectedSpot, TravelStyle, TransitPreference, TripBasicInput, SpotPriority, PaceOption } from '../../../main/ets/model/PlanParams';
@@ -94,6 +94,15 @@ class BrokenTransport implements LlmTransport {
   }
 }
 
+/**
+ * 离线闭环必须**显式**用 mock 传输，不能跟全局 `USE_MOCK_DATA` 走。
+ * 2026-10-27 直连真模型后该开关翻成 false，这三条用例就去打真 DeepSeek 了：
+ * 既超 hypium 5s 用例时限（报 Error: execute timeout），又花用户的钱——测试不该有账单。
+ */
+async function genOffline(params: PlanParams, spots: Spot[]): Promise<Trip> {
+  return LlmClient.generateTrip(params, spots, makeArea(), new MockLlmTransport(params, spots, makeArea()));
+}
+
 export default function llmPipelineTest(): void {
   describe('LlmPipeline', () => {
     it('prompt_contains_schema_and_spots', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
@@ -107,7 +116,7 @@ export default function llmPipelineTest(): void {
     });
 
     it('offline_closed_loop', TestType.FUNCTION | Size.MEDIUMTEST | Level.LEVEL1, async () => {
-      const trip: Trip = await LlmClient.generateTrip(makeParams(), makeSpots(), makeArea());
+      const trip: Trip = await genOffline(makeParams(), makeSpots());
       expect(trip.days.length).assertEqual(2);
       expect(trip.days[0].dayIndex).assertEqual(1);
       expect(trip.days[1].dayIndex).assertEqual(2);
@@ -118,7 +127,7 @@ export default function llmPipelineTest(): void {
     });
 
     it('offline_spreads_spots_across_days', TestType.FUNCTION | Size.MEDIUMTEST | Level.LEVEL1, async () => {
-      const trip: Trip = await LlmClient.generateTrip(makeParams(), makeSpots(), makeArea());
+      const trip: Trip = await genOffline(makeParams(), makeSpots());
       // 2 天 2 站要摊成 1 + 1。按 perDay 贪心装会变成第 1 天塞满、第 2 天空着，
       // 用户在屏6 看到的就是「三天两晚只有头一天有东西」
       expect(trip.days[0].activities.length).assertEqual(1);
@@ -132,8 +141,8 @@ export default function llmPipelineTest(): void {
       // 屏3b helper 写「可多选，按天段分别排布」：勾了轻松 + 紧凑就得真的排出松段与紧段，
       // 不能像以前那样按优先级只取一档（那样多选等于白选）
       const spots: Spot[] = makeManySpots(12);
-      const mixed: Trip = await LlmClient.generateTrip(
-        makePaceParams([PaceOption.RELAXED, PaceOption.PACKED], 12), spots, makeArea());
+      const mixed: Trip = await genOffline(
+        makePaceParams([PaceOption.RELAXED, PaceOption.PACKED], 12), spots);
       expect(mixed.days.length).assertEqual(3);
       expect(mixed.days[0].activities.length).assertEqual(3);
       expect(mixed.days[1].activities.length).assertEqual(3);
@@ -141,13 +150,13 @@ export default function llmPipelineTest(): void {
       expect(mixed.days[0].intensity).assertEqual(IntensityLevel.LOW);
       expect(mixed.days[2].intensity).assertEqual(IntensityLevel.HIGH);
       // 天段顺序按档位轻→紧固定，不跟点选先后走
-      const reversed: Trip = await LlmClient.generateTrip(
-        makePaceParams([PaceOption.PACKED, PaceOption.RELAXED], 12), spots, makeArea());
+      const reversed: Trip = await genOffline(
+        makePaceParams([PaceOption.PACKED, PaceOption.RELAXED], 12), spots);
       expect(reversed.days[0].activities.length).assertEqual(3);
       expect(reversed.days[2].activities.length).assertEqual(6);
       // 单选仍是整趟同一档
-      const single: Trip = await LlmClient.generateTrip(
-        makePaceParams([PaceOption.STANDARD], 12), spots, makeArea());
+      const single: Trip = await genOffline(
+        makePaceParams([PaceOption.STANDARD], 12), spots);
       expect(single.days[0].activities.length).assertEqual(4);
       expect(single.days[2].activities.length).assertEqual(4);
     });

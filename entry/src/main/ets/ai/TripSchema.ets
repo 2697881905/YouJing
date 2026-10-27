@@ -77,7 +77,9 @@ export class TripSchema {
     actProps['endTime'] = TripSchema.str(true);
     actProps['title'] = TripSchema.str(true);
     actProps['location'] = TripSchema.str(true);
-    actProps['address'] = TripSchema.str(true);
+    // address 允许留空：提示词第 12 条要求模型不要重写地址（省输出 token、免幻觉），
+    // 真值由 utils/TripEnrich 按景点库回填，所以这里不再是必填
+    actProps['address'] = TripSchema.str(false);
     actProps['longitude'] = TripSchema.typed('number');
     actProps['latitude'] = TripSchema.typed('number');
     actProps['status'] = TripSchema.enumOf(TripSchema.ACTIVITY_STATUS);
@@ -86,7 +88,7 @@ export class TripSchema {
     actProps['reason'] = TripSchema.str(false);
     actProps['transport'] = transport;
     activity['properties'] = actProps;
-    activity['required'] = ['id', 'time', 'endTime', 'title', 'location', 'address',
+    activity['required'] = ['id', 'time', 'endTime', 'title', 'location',
       'longitude', 'latitude', 'status', 'category'];
     activity['additionalProperties'] = false;
 

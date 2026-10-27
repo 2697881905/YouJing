@@ -44,6 +44,9 @@ export class PromptBuilder {
     // 例如 "本次行程未安排"可选加"" —— 整段 JSON 因此语法不合法，屏7 报「days: 期望 array」。
     // json_schema strict 这条端点不支持（见 ApiConfig.SUPPORTS_JSON_SCHEMA），所以只能从提示词侧堵。
     days.push('11. 字符串值内**禁止出现英文双引号 " 与反斜杠**；需要强调或引用名称时一律用中文书名号「」。输出必须是可被 JSON.parse 直接解析的单个对象。');
+    // 直连实测（2026-10-27）：模型会把景点地址整段重写（北京市延庆区八达岭镇八达岭长城景区），
+    // 而库里本来就有这些字段——白烧输出 token 又可能写错。让它留空，落库前按 spotId 回填。
+    days.push('12. 活动的 address 一律填空串、longitude/latitude 一律填 0：到访地址由 App 按景点库回填，你重写只会写错。location 仍按第 9 条填入口别称。');
     days.push('JSON Schema:');
     days.push(TripSchema.TRIP_JSON_SCHEMA);
     return days.join('\n');

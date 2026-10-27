@@ -99,7 +99,7 @@ export class TripParser {
       endTime: TripParser.reqTime(o['endTime'], `${p}.endTime`),
       title: TripParser.reqStr(o['title'], `${p}.title`),
       location: TripParser.reqStr(o['location'], `${p}.location`),
-      address: TripParser.reqStr(o['address'], `${p}.address`),
+      address: TripParser.strOrEmpty(o['address'], `${p}.address`),
       longitude: TripParser.reqNum(o['longitude'], `${p}.longitude`),
       latitude: TripParser.reqNum(o['latitude'], `${p}.latitude`),
       status: TripParser.reqEnum(o['status'], TripSchema.ACTIVITY_STATUS, `${p}.status`) as ActivityStatus,
@@ -166,6 +166,17 @@ export class TripParser {
       throw new AppError(ErrorCode.SCHEMA_VALIDATION_FAILED, `${p}: 缺字段`);
     }
     return TripParser.asArray(v, p);
+  }
+
+  /** 允许留空/缺失的字符串（生成侧按提示词第 12 条故意不填地址，落库前由景点库回填） */
+  private static strOrEmpty(v: Object | undefined, path: string): string {
+    if (v === undefined || v === null) {
+      return '';
+    }
+    if (typeof v !== 'string') {
+      throw new AppError(ErrorCode.SCHEMA_VALIDATION_FAILED, `${path}: 期望 string`);
+    }
+    return v;
   }
 
   private static reqStr(v: Object | undefined, p: string): string {

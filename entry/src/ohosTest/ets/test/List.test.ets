@@ -19,6 +19,7 @@ import displayTextTest from './DisplayText.test';
 import yanglingSeedTest from './YanglingSeed.test';
 import navStackTest from './NavStackRouting.test';
 import categoryBudgetTest from './CategoryBudget.test';
+import tripEnrichTest from './TripEnrich.test';
 
 export default function testsuite() {
   tripParserTest();
@@ -42,4 +43,5 @@ export default function testsuite() {
   yanglingSeedTest();
   navStackTest();
   categoryBudgetTest();
+  tripEnrichTest();
 }
