@@ -16,7 +16,9 @@ import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
-import { Activity, Trip } from '../model/Trip';
+import { Activity, Trip, TripDay } from '../model/Trip';
+import { DateUtils } from '../utils/DateUtils';
+import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { ActivityCategory, ActivityStatus } from '../model/Trip';
 import { Spot } from '../model/Spot';
 import { TripDao } from '../data/TripDao';
@@ -427,17 +429,98 @@ export struct EditItineraryPage {
     .backgroundColor(ColorTokens.canvas)
   }
 
-  /** 官方标题栏：完成/补选/撤销走 content.menu，不再自绘图标 + 文字按钮 */
+  /**
+   * 契约 屏9 的 Day 头（底稿 `Day 1 · 10月12日 周六` + 右侧 `东山区 · 步行 5.2km`）。
+   * 实拍这一屏**整行没有**，三张卡片直接顶到标题栏下面，
+   * 用户在这屏不知道自己改的是哪一天（§6 对表查出的 must-fix）。
+   * 取词与屏8 同一套（`Day N · M月D日`），不另造格式。
+   */
+  @Builder
+  dayHeader() {
+    Row({ space: SpaceTokens.sm }) {
+      Text(this.dayHeadline())
+        .fontSize(TypeTokens.title.size)
+        .fontWeight(700)
+        .fontFamily(TypeTokens.title.family)
+        .fontColor(ColorTokens.ink)
+        .fontFeature("'tnum' on")
+      Text(this.daySubline())
+        .fontSize(TypeTokens.caption.size)
+        .fontColor(ColorTokens.muted)
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .layoutWeight(1)
+        .textAlign(TextAlign.End)
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Bottom)
+    .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
+      top: SpaceTokens.md, bottom: SpaceTokens.sm })
+  }
+
+  private curDay(): TripDay | null {
+    const trip: Trip | null = this.trip;
+    if (trip === null || this.dayIndex >= trip.days.length) {
+      return null;
+    }
+    return trip.days[this.dayIndex];
+  }
+
+  private dayHeadline(): string {
+    const head: string = `Day ${this.dayIndex + 1}`;
+    const day: TripDay | null = this.curDay();
+    if (day === null || !DateUtils.isValidIsoDate(day.date)) {
+      return head;
+    }
+    return `${head} · ${day.date.slice(5).replace('-', '月')}日`;
+  }
+
+  private daySubline(): string {
+    const day: TripDay | null = this.curDay();
+    const parts: string[] = [];
+    if (day !== null && day.theme.length > 0) {
+      parts.push(day.theme);
+    }
+    parts.push(`${this.acts.length} 个节点`);
+    return parts.join(' · ');
+  }
+
+  /**
+   * 契约 屏9 的钉底操作条：撤销（次级）+ 保存修改（实心主）。
+   * 实拍这一屏底部 60% 是空白、主操作只藏在标题栏的三枚图标里——
+   * 与禁令 1 一起看：整屏唯一实心主按钮放在这里。
+   */
+  @Builder
+  actionBar() {
+    Row({ space: SpaceTokens.md }) {
+      YoujingButton({
+        variant: YoujingButtonVariant.SECONDARY,
+        label: '撤销',
+        buttonWidth: 120,
+        onAction: (): void => {
+          this.undo();
+        }
+      })
+      YoujingButton({
+        variant: YoujingButtonVariant.PRIMARY,
+        label: '保存修改',
+        fullWidth: true,
+        onAction: (): void => {
+          this.finish();
+        }
+      })
+    }
+    .width('100%')
+    .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.sm })
+    .margin({ bottom: LayoutTokens.floatingDockClearance })
+  }
+
+  /** 官方标题栏：补选景点走 content.menu；完成/撤销已下到底部操作条，不再两处各一份 */
   private titleBarOptions(): HdsNavigationTitleBarOptions {
     const items: Array<HdsNavigationMenuItemOptions> = [
-      HdsChrome.item($r('sys.symbol.checkmark'), '完成', (): void => {
-        this.finish();
-      }),
       HdsChrome.item($r('sys.symbol.plus_circle'), '补选景点', (): void => {
         this.openAdd();
       }),
-      // 常驻而不是按 canUndo 显隐：HdsNavigation 的 titleBar 不随异步状态重建（屏11 副标题踩过），
-      // 动态增减会留下一个永远点不出来的死项，所以空历史时如实提示
       HdsChrome.item($r('sys.symbol.arrow_counterclockwise'), '撤销修改', (): void => {
         this.undo();
       })];
@@ -469,6 +552,8 @@ export struct EditItineraryPage {
           .layoutWeight(1)
           .justifyContent(FlexAlign.Center)
         } else {
+          Column() {
+          this.dayHeader()
           List({ space: SpaceTokens.xs }) {
             ForEach(this.acts, (act: Activity, idx: number) => {
               ListItem() {
@@ -498,6 +583,10 @@ export struct EditItineraryPage {
             }
             this.dragIdx = -1;
           })
+          this.actionBar()
+          }
+          .width('100%')
+          .layoutWeight(1)
         }
       }
       .width('100%')
