@@ -481,6 +481,9 @@ export struct ExpensePage {
       Stack({ alignContent: Alignment.Bottom }) {
       Column() {
 
+        // 分段栏是 itemWidth:164 的定宽控件（2×164=328vp 恰好是 sm 的通栏宽），
+        // 到了 md 内容通栏之后它会贴左、右边空出一条。让 ListItem 居中对齐：
+        // 通栏的子级本身占满，居中不改变它们，只有这枚定宽栏会被摆到中间。
         List() {
           ListItem() {
             ImmersiveSegmentBar({
@@ -661,6 +664,10 @@ export struct ExpensePage {
         // 是一份报告而不是卡片墙。md 实测 lanes(2) 把官方分段栏压成 50..1075（左半屏）、
         // 「记一笔」主钮压成 50..1105 = 337.6vp 靠左半边——同一屏两套左右边界，
         // 分段栏也不该被切成半宽。卡片类的屏12/屏4/屏5 才用 lanes，这里保持单栏。
+        // 分段栏是 itemWidth:164 的定宽控件（2×164=328vp 恰好 sm 通栏），
+        // md 下内容通栏后它会贴左、右边空出一条；让 ListItem 居中，
+        // 通栏子级本身占满不受影响，只有这枚定宽栏被摆到中间。
+        .alignListItem(ListItemAlign.Center)
         .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.Spring)
         .cachedCount(6)
