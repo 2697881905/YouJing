@@ -212,10 +212,16 @@ interface ChatChoice {
   finish_reason?: string;
 }
 
+interface ChatUsageBreakdown {
+  reasoning_tokens?: number;
+}
+
 interface ChatUsage {
   prompt_tokens?: number;
   completion_tokens?: number;
   prompt_cache_hit_tokens?: number;
+  /** 思考 token 混在 completion_tokens 里计费，单列出来才能定位「贵在思考」 */
+  completion_tokens_details?: ChatUsageBreakdown;
 }
 
 interface ChatCompletion {
@@ -241,6 +247,17 @@ export class HttpLlmTransport implements LlmTransport {
     // OpenAI 兼容端点缺 model 会直接 400（2026-10-27 直连实测）；本地网关不需要时留空不发
     if (ApiConfig.LLM_MODEL.length > 0) {
       body['model'] = ApiConfig.LLM_MODEL;
+    }
+    // 两项都是账单开关，不能交给服务端默认值：
+    // deepseek-flash 默认开思考（effort=high），思维链 token 按输出价计费；
+    // 旧别名 deepseek-chat 恰好是非思考变体，所以以前「没配也便宜」纯属运气。
+    if (ApiConfig.LLM_THINKING_DISABLED) {
+      const thinking: Record<string, string> = {};
+      thinking['type'] = 'disabled';
+      body['thinking'] = thinking;
+    }
+    if (ApiConfig.LLM_MAX_TOKENS > 0) {
+      body['max_tokens'] = ApiConfig.LLM_MAX_TOKENS;
     }
     // §4.3 第二层防线：response_format 强制模型遵循 Schema（strict），
     // schema 本体与第一层 Prompt 内嵌、第三层 TripParser 守卫同源（TripSchema.TRIP_JSON_SCHEMA）
@@ -296,13 +313,22 @@ export class HttpLlmTransport implements LlmTransport {
           msg.length > 0 ? `LLM 返回错误: ${msg}` : 'LLM 响应里没有 choices');
       }
       // 用量必须落日志：按 token 计费的通道，端上不记用量就没法回答「这次花了多少钱」，
-      // 也没法定位「贵在哪一段」（缓存命中数直接决定输入侧单价）
+      // 也没法定位「贵在哪一段」（缓存命中数直接决定输入侧单价，思考 token 单列才能识别思考计费）
       const u: ChatUsage | undefined = env.usage;
+      const fr: string = choices[0].finish_reason === undefined ? '?' : choices[0].finish_reason;
       if (u !== undefined) {
+        const detail: ChatUsageBreakdown | undefined = u.completion_tokens_details;
+        const reason: number = detail !== undefined && detail.reasoning_tokens !== undefined ?
+          detail.reasoning_tokens : 0;
         Logger.info(TAG, `LLM 用量 model=${env.model === undefined ? '?' : env.model} ` +
           `in=${u.prompt_tokens === undefined ? 0 : u.prompt_tokens} ` +
           `(cache 命中 ${u.prompt_cache_hit_tokens === undefined ? 0 : u.prompt_cache_hit_tokens}) ` +
-          `out=${u.completion_tokens === undefined ? 0 : u.completion_tokens}`);
+          `out=${u.completion_tokens === undefined ? 0 : u.completion_tokens} ` +
+          `(思考 ${reason}) 结束=${fr}`);
+      }
+      if (fr === 'length') {
+        Logger.warn(TAG, `LLM 输出被 max_tokens=${ApiConfig.LLM_MAX_TOKENS} 截断，` +
+          `TripParser 会判失败并重试一次（账单翻倍）`);
       }
       const message: ChatMessage | undefined = choices[0].message;
       const content: string | undefined = message === undefined ? undefined : message.content;

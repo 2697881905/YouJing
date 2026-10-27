@@ -47,6 +47,9 @@ export class PromptBuilder {
     // 直连实测（2026-10-27）：模型会把景点地址整段重写（北京市延庆区八达岭镇八达岭长城景区），
     // 而库里本来就有这些字段——白烧输出 token 又可能写错。让它留空，落库前按 spotId 回填。
     days.push('12. 活动的 address 一律填空串、longitude/latitude 一律填 0：到访地址由 App 按景点库回填，你重写只会写错。location 仍按第 9 条填入口别称。');
+    // 真机实测（2026-10-27，thinking 关闭）：首日（抵达日）整个 meals 键被省略，
+    // TripParser 报「days[0].meals: 缺字段」→ 重试一次，单次生成账单直接翻倍。
+    days.push('13. 每个 day 必须同时给出 dayIndex、date、theme、intensity、dailyCost、activities、meals 七个键，一个都不能省；某天没有用餐安排时 meals 写空数组 []（按第 4 条正常每天都有午/晚两餐）。');
     days.push('JSON Schema:');
     days.push(TripSchema.TRIP_JSON_SCHEMA);
     return days.join('\n');

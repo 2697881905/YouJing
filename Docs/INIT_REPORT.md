@@ -3183,3 +3183,67 @@ aa start -b com.youjing.app -a EntryAbility --ps darkprobe 1 [--ps route <屏>]
 **边界**：md 档（折叠展开 707vp）仍未实测——模拟器 `127.0.0.1:5555` 的文件/安装服务卡死、
 且应用数据被清到首启同意页，本条与续 36 的 md 项一起挂着。六枚等宽胶囊在 md 上会变宽
 （通栏 683vp ÷ 6），不会换行，但宽度只由 `layoutWeight` 均分，没有实拍。
+
+### §5ci 续 40：¥0.21 不是 Pro 价——是 Flash 的多轮调用，顺手堵住三个「账单会无声翻倍」的口子
+
+用户看到一次生成花了 ¥0.21，怀疑走了 DeepSeek V4-Pro。查下来**模型一直是 Flash**，
+但确实有三个计费口径风险会让账单在「不改代码」的情况下翻倍，已修。
+
+**一、先证伪「用了 Pro」**
+
+- 新旧两把 key 的 `/models` 都只列 `deepseek-flash` 与 `deepseek-v4-pro`，没有别的；
+- 旧配置里的 `deepseek-chat` 是 2026-07 退役的别名，实测（新 key + 旧 key 各一次）
+  返回体 `"model":"deepseek-flash"`，且回答不含 `reasoning_content` —— 落到的是 **flash 非思考变体**；
+- 单次生成的实测 token（杨凌 3 天、1 个必去景点）：输入 1.3k、输出 1.6k–3.7k。
+  按 Flash 空闲价（命中 ¥0.02 / 未命中 ¥1.00 / 输出 ¥4.00 每百万 token）一次 **¥0.007–0.016**，
+  高峰价翻倍 **¥0.014–0.032**；要花到 ¥0.21 得 **6–13 次调用**。
+  Pro 同尺寸一次约 ¥0.02–0.05（输出 ¥13.50/M），单次也凑不出 0.21。
+- 结论：0.21 是今天多轮真机测试的累计——其中两轮因响应信封/字段解析失败，各自触发了
+  「失败重试一次」，**每次失败都按整份 token 计费**。核对方式：控制台「用量统计」按模型看，
+  应当只有 deepseek-flash 的 token，没有 v4-pro 的行。
+
+**二、三个口径风险（都已修）**
+
+1. **别用退役别名**。`LLM_MODEL` 原值 `deepseek-chat`，服务端当前映射到 flash **非思考**；
+   映射一旦改成 flash 思考或 pro，账单会无声翻倍/×3.4，端上毫无感知。改为在售 id `deepseek-flash`。
+2. **flash 默认开思考**。官方 `/models` 里 `effort.default_level = high`，思维链 token 混在
+   `completion_tokens` 里按输出价计费。旧别名恰好是非思考变体，以前"没配也便宜"纯属运气。
+   `ApiConfig` 新增 `LLM_THINKING_DISABLED = true`，请求体显式发 `thinking:{type:'disabled'}`。
+3. **没有输出上限**。非思考模式服务端默认只给 8K，长行程 JSON 被截断（`finish_reason=length`）
+   → TripParser 判失败 → 重试 → 双倍账单且用户看到屏7。新增 `LLM_MAX_TOKENS = 16384`，
+   并在 `finish_reason=length` 时写 warn。
+
+**三、顺带抓到一个真会翻倍的失败**
+
+改完第一次真机生成：`days[0].meals: 缺字段`（抵达日整个 meals 键被省略）→ 自动重试才成功，
+一次生成付两份钱。提示词补第 13 条「七个键一个都不能省，没有用餐安排也要给 []」，
+重跑一次 **attempt=1 直接成功**，Day 1 正常带午/晚餐。
+
+**四、用量日志补全**
+
+`ChatUsage` 增解析 `completion_tokens_details.reasoning_tokens`；日志从
+`model/in/cache/out` 扩到 `model/in/cache/out/(思考 N)/结束=finish_reason` ——
+以后「钱花在哪一段」直接从 hilog 回答，不用再翻控制台。
+
+**取证**（Pocket 2，sm，2026-10-27 18:50 与 18:52，均为**空闲时段**）：
+
+| 轮次 | 调用 | 输入（命中） | 输出 | 结束 | 结果 |
+|---|---|---|---|---|---|
+| 改前 | 1 | 1312（1024） | 1717 | stop | 解析失败：days[0].meals 缺字段 |
+| 改前 | 2 | 1312（1152） | 1601 | stop | 成功，合计 ≈ ¥0.0138 |
+| 改后 | 1 | 1374（256） | 3674 | stop | attempt=1 成功，≈ ¥0.0158（高峰价 ≈ ¥0.032） |
+
+- 改后日志原文：`LLM 用量 model=deepseek-flash in=1374 (cache 命中 256) out=3674 (思考 0) 结束=stop`；
+- 截图：`~/Pictures/有径/走查帧-2026-10-27/sm-屏8-真LLM生成含餐次.jpeg`（Day 1 · 11:30 午餐、17:30 晚餐）；
+- `assembleHap` BUILD SUCCESSFUL；仓库版 `ApiConfig.API_KEY` 仍是空串，真 key 只在本机
+  （skip-worktree），换入的新 key 未进任何提交。
+
+**五、单价口径（官方价页 2026-10-27 现查）**
+
+- Flash：命中 ¥0.02 / 未命中 ¥1.00 / 输出 ¥4.00 每百万 token；Pro：¥0.15 / ¥4.50 / ¥13.50。
+- **高峰时段＝北京时间工作日 9:00–12:00、14:00–18:00**，其余时段（含周末、法定节假日全天）半价。
+  同一趟行程白天生成比晚上贵一倍——要省钱就避开这两个窗口。
+
+**边界**：思考关闭后规划质量只做了 1 次实拍核对（Day 1 动线、餐次、公交段都在），
+样本不足；若后续出现字段缺失/动线不合理，先把 `LLM_THINKING_DISABLED` 置 false 复测再谈提示词。
+旧的 `deepseek-chat` 别名在控制台可继续观察，本工程不再依赖它。
