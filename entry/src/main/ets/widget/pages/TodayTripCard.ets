@@ -185,11 +185,16 @@ struct TodayTripCard {
       // 帧 Widget B 独有：编号站点条（当前站实心蓝、最近一个待预约节点套金环）
       if (this.stripNodes().length > 0) {
         Stack() {
-          Column()
-            .width('100%')
-            .height(LayoutTokens.routeLineWidth)
-            .backgroundColor($r('app.color.primary'))
-            .margin({ left: SpaceTokens.md, right: SpaceTokens.md })
+          // 线的让位交给外层 Row 的 padding：`width('100%') + 横向 margin` 解成 100%+32，
+          // 会让线两头**超出**卡片内容区（原写法想让线缩进 md，实际缩不进去）
+          Row() {
+            Column()
+              .width('100%')
+              .height(LayoutTokens.routeLineWidth)
+              .backgroundColor($r('app.color.primary'))
+          }
+          .width('100%')
+          .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
           Row() {
             ForEach(this.stripNodes(), (n: StripNode) => {
               Stack() {

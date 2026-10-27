@@ -435,8 +435,9 @@ export struct StayPickPage {
                         this.mapChip(pick)
                       }, (pick: AreaPick): string => `chip-${pick.area.id}-${pick.aiRank}`)
                     }
+                    // 外层 Column 已经给了左右 md 的 padding；这里再叠一道横向 margin
+                    // 就是 100% 宽 + 32 边距，必然往两边溢出（父级让位用 padding，不用 margin）
                     .width('100%')
-                    .margin({ left: SpaceTokens.md, right: SpaceTokens.md })
                     Text('该城市暂未提供位置信息，按推荐顺序列出')
                       .fontSize(TypeTokens.caption.size)
                       .fontWeight(450)

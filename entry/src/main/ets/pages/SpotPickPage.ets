@@ -431,14 +431,18 @@ export struct SpotPickPage {
                   this.confirm();
                 }
               })
-              YoujingButton({
-                variant: YoujingButtonVariant.PRIMARY,
-                label: '确认选择',
-                onAction: (): void => {
-                  this.confirm();
-                }
-              })
-                .layoutWeight(1)
+              // 权重给原生包装层，自定义组件上的 .layoutWeight 不生效（屏5/屏9 同族）
+              Column() {
+                YoujingButton({
+                  variant: YoujingButtonVariant.PRIMARY,
+                  label: '确认选择',
+                  fullWidth: true,
+                  onAction: (): void => {
+                    this.confirm();
+                  }
+                })
+              }
+              .layoutWeight(1)
             }
           }
           .width('100%')

@@ -917,15 +917,20 @@ export struct ItineraryPage {
               this.pickNewTime();
             }
           })
-          YoujingButton({
-            variant: YoujingButtonVariant.PRIMARY,
-            label: '加入日历提醒',
-            onAction: (): void => {
-              this.showDetail = false;
-              this.showSystemAccess = true;
-            }
-          })
-            .layoutWeight(1)
+          // 权重只能挂在原生包装层上：`.layoutWeight` 写在自定义组件 YoujingButton 身上
+          // 会被框架静默忽略，主键就一直是默认死宽、右缘不贴内容边（屏5/屏9 同族缺陷）
+          Column() {
+            YoujingButton({
+              variant: YoujingButtonVariant.PRIMARY,
+              label: '加入日历提醒',
+              fullWidth: true,
+              onAction: (): void => {
+                this.showDetail = false;
+                this.showSystemAccess = true;
+              }
+            })
+          }
+          .layoutWeight(1)
         }
         .width('100%')
         .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.sm, bottom: SpaceTokens.md })
@@ -1051,14 +1056,17 @@ export struct ItineraryPage {
             this.showSystemAccess = false;
           }
         })
-        YoujingButton({
-          variant: YoujingButtonVariant.PRIMARY,
-          label: '同意并写入',
-          onAction: (): void => {
-            this.writeToSystem();
-          }
-        })
-          .layoutWeight(1)
+        Column() {
+          YoujingButton({
+            variant: YoujingButtonVariant.PRIMARY,
+            label: '同意并写入',
+            fullWidth: true,
+            onAction: (): void => {
+              this.writeToSystem();
+            }
+          })
+        }
+        .layoutWeight(1)
       }
       .width('100%')
       .margin({ top: SpaceTokens.xl })
