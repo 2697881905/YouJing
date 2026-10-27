@@ -123,6 +123,56 @@ struct TodayTripCard {
     return rows;
   }
 
+  /** 帧 Widget B 独有：编号站点条（当前站实心蓝、待预约节点套金环、最多四格） */
+  @Builder
+  routeStrip() {
+        // 帧 Widget B 独有：编号站点条（当前站实心蓝、最近一个待预约节点套金环）
+        if (this.stripNodes().length > 0) {
+          Stack() {
+            // 线的让位交给外层 Row 的 padding：`width('100%') + 横向 margin` 解成 100%+32，
+            // 会让线两头**超出**卡片内容区（原写法想让线缩进 md，实际缩不进去）
+            Row() {
+              Column()
+                .width('100%')
+                .height(LayoutTokens.routeLineWidth)
+                .backgroundColor($r('app.color.primary'))
+            }
+            .width('100%')
+            .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+            Row() {
+              ForEach(this.stripNodes(), (n: StripNode) => {
+                Stack() {
+                  Circle()
+                    .width(LayoutTokens.itineraryNodeSize)
+                    .height(LayoutTokens.itineraryNodeSize)
+                    .fill(n.current ? $r('app.color.primary') : $r('app.color.surface_subtle'))
+                    .stroke(n.booking ? $r('app.color.bookmark') : Color.Transparent)
+                    .strokeWidth(1)
+                  Text(n.label)
+                    .fontSize(TypeTokens.overline.size)
+                    .fontWeight(TypeTokens.overline.weight)
+                    .fontColor(n.current ? $r('app.color.on_primary') : $r('app.color.body'))
+                    .fontFeature("'tnum' on")
+                }
+              }, (n: StripNode): string => `s-${n.label}-${n.current}-${n.booking}`)
+            }
+            .width('100%')
+            .justifyContent(FlexAlign.SpaceBetween)
+          }
+          .width('100%')
+          .alignContent(Alignment.Center)
+          .margin({ top: SpaceTokens.xs })
+        }
+  }
+
+  /** 2×4 与 2×2 净高相同（都是两行格子）：宽卡把日标签与 meta 并到一行，
+   *  省出的高度给站点条，时刻表因此最多三行——总站数站点条已经报了 */
+  private visibleRows(): CardRow[] {
+    const rows: CardRow[] = this.cardRows();
+    return this.dimension === '2*4' && rows.length > 3 ? rows.slice(0, 3) : rows;
+  }
+
+
   build() {
     Column() {
       Row() {
@@ -134,30 +184,56 @@ struct TodayTripCard {
       }
       .width('100%')
 
-      Text(this.dayTitle)
-        // 帧 7fc1cb85 的卡片日标签是 .serif-title 21/700。档位已对齐；
-        // 衬线在卡片里拿不到：注册通道被编译器封死（见文件头），通用字族 'serif' 是否
-        // 落到系统宋体未实拍验证过，不写没验过的属性。
-        .fontSize(TypeTokens.title.size)
-        .fontWeight(TypeTokens.title.weight)
-        .fontColor($r('app.color.ink'))
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-      // TodayPlan 算好的「还剩 N 站 · 共 M 站」此前只推到存储、从没上屏（屏13 帧里
-      // 这行就是标题下的 meta 行）；空态由 footer 一句承担，所以空数据把 meta 留空
-      if (this.meta.length > 0) {
-        Text(this.meta)
-          .fontSize(TypeTokens.widgetMeta.size)
-          .fontWeight(TypeTokens.widgetMeta.weight)
-          .fontColor($r('app.color.body'))
-          .fontFeature("'tnum' on")
+      // 帧 Widget B（2×4）：日标签与 meta **并成一行**（两端对齐、基线同排）。
+      // 2×4 与 2×2 的净高相同（都是两行格子），只是宽一倍——原来日标签与 meta 各占一行，
+      // 再叠上时刻表三行 + 站点条 + 页脚就溢出卡底（真机实测页脚整条没画出来）。
+      // 并成一行省出的 77px 正好还给站点条；时刻表在宽卡最多三行，总站数由站点条报。
+      if (this.dimension === '2*4') {
+        Row() {
+          Text(this.dayTitle)
+            .fontSize(TypeTokens.title.size)
+            .fontWeight(TypeTokens.title.weight)
+            .fontColor($r('app.color.ink'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .layoutWeight(1)
+          if (this.meta.length > 0) {
+            Text(this.meta)
+              .fontSize(TypeTokens.widgetMeta.size)
+              .fontWeight(TypeTokens.widgetMeta.weight)
+              .fontColor($r('app.color.body'))
+              .fontFeature("'tnum' on")
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+          }
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Bottom)
+      } else {
+        Text(this.dayTitle)
+          // 帧 7fc1cb85 的卡片日标签是 .serif-title 21/700。档位已对齐；
+          // 衬线在卡片里拿不到：注册通道被编译器封死（见文件头），通用字族 'serif' 是否
+          // 落到系统宋体未实拍验证过，不写没验过的属性。
+          .fontSize(TypeTokens.title.size)
+          .fontWeight(TypeTokens.title.weight)
+          .fontColor($r('app.color.ink'))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
+        // TodayPlan 算好的「还剩 N 站 · 共 M 站」此前只推到存储、从没上屏（屏13 帧里
+        // 这行就是标题下的 meta 行）；空态由 footer 一句承担，所以空数据把 meta 留空
+        if (this.meta.length > 0) {
+          Text(this.meta)
+            .fontSize(TypeTokens.widgetMeta.size)
+            .fontWeight(TypeTokens.widgetMeta.weight)
+            .fontColor($r('app.color.body'))
+            .fontFeature("'tnum' on")
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
       }
 
       Column({ space: SpaceTokens.xs }) {
-        ForEach(this.cardRows(), (row: CardRow) => {
+        ForEach(this.visibleRows(), (row: CardRow) => {
           Row({ space: SpaceTokens.xs }) {
             Text(row.time)
               .fontSize(TypeTokens.time.size)
@@ -181,43 +257,9 @@ struct TodayTripCard {
       }
       .width('100%')
       .margin({ top: SpaceTokens.xs })
-
-      // 帧 Widget B 独有：编号站点条（当前站实心蓝、最近一个待预约节点套金环）
-      if (this.stripNodes().length > 0) {
-        Stack() {
-          // 线的让位交给外层 Row 的 padding：`width('100%') + 横向 margin` 解成 100%+32，
-          // 会让线两头**超出**卡片内容区（原写法想让线缩进 md，实际缩不进去）
-          Row() {
-            Column()
-              .width('100%')
-              .height(LayoutTokens.routeLineWidth)
-              .backgroundColor($r('app.color.primary'))
-          }
-          .width('100%')
-          .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-          Row() {
-            ForEach(this.stripNodes(), (n: StripNode) => {
-              Stack() {
-                Circle()
-                  .width(LayoutTokens.itineraryNodeSize)
-                  .height(LayoutTokens.itineraryNodeSize)
-                  .fill(n.current ? $r('app.color.primary') : $r('app.color.surface_subtle'))
-                  .stroke(n.booking ? $r('app.color.bookmark') : Color.Transparent)
-                  .strokeWidth(1)
-                Text(n.label)
-                  .fontSize(TypeTokens.overline.size)
-                  .fontWeight(TypeTokens.overline.weight)
-                  .fontColor(n.current ? $r('app.color.on_primary') : $r('app.color.body'))
-                  .fontFeature("'tnum' on")
-              }
-            }, (n: StripNode): string => `s-${n.label}-${n.current}-${n.booking}`)
-          }
-          .width('100%')
-          .justifyContent(FlexAlign.SpaceBetween)
-        }
-        .width('100%')
-        .alignContent(Alignment.Center)
-        .margin({ top: SpaceTokens.xs })
+      // 帧 Widget B 独有：编号站点条（当前站实心蓝、待预约节点套金环、最多四格）
+      if (this.dimension === '2*4') {
+        this.routeStrip()
       }
 
       Text(this.footer)
@@ -226,7 +268,9 @@ struct TodayTripCard {
         .fontColor($r('app.color.muted'))
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .margin({ top: SpaceTokens.xs })
+        // 2×4 与 2×2 净高相同，这一屏多挂了站点条：页脚再要 4vp 上边距就压出卡片底边
+        // （真机实测页脚 y 尾 2168 > 卡底 2163）。站点条本身已带留白，宽卡这里不再要。
+        .margin({ top: this.dimension === '2*4' ? 0 : SpaceTokens.xs })
     }
     .alignItems(HorizontalAlign.Start)
     .width('100%')
