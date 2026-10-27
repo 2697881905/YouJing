@@ -12,6 +12,7 @@
 
 import { ACTIVE_TRIP_KEY, EXPENSE_NAV, TAB_SHOWN_KEY, isTabShownTick, activeTripId, enterPlanningFlow, TAB_EXPENSE } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
+import { MoneyText } from '../utils/MoneyText';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
@@ -95,7 +96,7 @@ function clockText(millis: number): string {
 
 function yuan(amount: number): string {
   // DESIGN §4 数字格式：整数 + 单位，不用千分位
-  return `¥${amount}`;
+  return MoneyText.yuan(amount);
 }
 
 @Component

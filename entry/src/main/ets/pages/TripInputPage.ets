@@ -6,6 +6,7 @@
 
 import { APP_NAV, markDraftDirty } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
+import { MoneyText } from '../utils/MoneyText';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
@@ -328,7 +329,7 @@ export struct TripInputPage {
                   Column() {
                   this.fieldLabel('预算档位')
                   // DESIGN §4 数字格式：summary 一律「整数 + 单位」，不用千分位
-                  Text(`¥${this.budget} / 人`)
+                  Text(`${MoneyText.yuan(this.budget)} / 人`)
                       .fontSize(TypeTokens.headline.size)
                       .fontWeight(600)
                       .fontColor(ColorTokens.ink)

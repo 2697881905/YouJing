@@ -7,6 +7,7 @@
 
 import { MINE_NAV, enterPlanningFlow, TAB_SHOWN_KEY, isTabShownTick, TAB_MINE } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
+import { MoneyText } from '../utils/MoneyText';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
@@ -101,7 +102,7 @@ export struct TripsPage {
           id: r.id, place: r.destination,
           dateMeta: `${r.startDate} – ${r.endDate} · ${span} 天 · ${r.people} 人`,
           spots: `${r.spotCount}`, walk: `${r.legCount} 段`, bookingNum: `${r.bookingCount}`,
-          bookingBadge: r.totalCost > 0 ? `¥${r.totalCost}` : '',
+          bookingBadge: r.totalCost > 0 ? MoneyText.yuan(r.totalCost) : '',
           statusLine: statusLine, progress: progress, phase: phase, progressLabel: progressLabel,
           onTrip: onTrip, muted: false
         };

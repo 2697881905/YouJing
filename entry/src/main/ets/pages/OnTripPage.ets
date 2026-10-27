@@ -10,6 +10,7 @@
 
 import { ACTIVE_TRIP_KEY, APP_NAV } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
+import { MoneyText } from '../utils/MoneyText';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
@@ -429,7 +430,7 @@ export struct OnTripPage {
               // 无时刻的餐次拿餐次标签占住时间槽（不编 08:00 假时刻），名字列留给店名
               time: st.time.length > 0 ? st.time : st.kind,
               name: st.title,
-              amount: shown === undefined ? '' : `¥${shown}`,
+              amount: shown === undefined ? '' : MoneyText.yuan(shown),
               ongoing: false
             };
             list.push(row);
@@ -469,7 +470,7 @@ export struct OnTripPage {
     }
     if (cur.isMeal) {
       const head: string = cur.time.length > 0 ? `${cur.time} · ${cur.kind}` : cur.kind;
-      return cur.cost > 0 ? `${head} · 预估 ¥${cur.cost}` : head;
+      return cur.cost > 0 ? `${head} · 预估 ${MoneyText.yuan(cur.cost)}` : head;
     }
     return `${cur.time} 开始 · 建议 ${hoursText(cur.time, cur.endTime)}小时 · 已过 ${this.elapsedMin}分钟`;
   }
@@ -516,7 +517,7 @@ export struct OnTripPage {
     }
     if (next.isMeal) {
       // 一餐没有"停留建议"（模型不给 endTime），只报地点与预估，不编时长
-      const cost: string = next.cost > 0 ? ` ¥${next.cost}` : '';
+      const cost: string = next.cost > 0 ? ` ${MoneyText.yuan(next.cost)}` : '';
       return `${next.place.length > 0 ? `${next.place}${cost}` : `预估${cost}`}`;
     }
     return `建议停留 ${hoursText(next.time, next.endTime)}小时 · ${next.place}`;
