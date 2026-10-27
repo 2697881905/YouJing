@@ -14,7 +14,7 @@ import { SpaceTokens } from '../design/SpaceTokens';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
 import { Activity, ActivityCategory, ActivityStatus, IntensityLevel, TripDay, Trip } from '../model/Trip';
-import { TripDao } from '../data/TripDao';
+import { TripDao, TripSummary } from '../data/TripDao';
 import { ShareExporter } from '../data/ShareExporter';
 import { WidgetSync } from '../widget/TodayCard';
 import { MapStop, MapStops } from '../utils/MapStops';
@@ -100,6 +100,19 @@ export struct ItineraryPage {
         this.syncRemind = f.remind;
       }).catch((err: Error) => {
         Logger.warn('Ui.Itinerary', `触达开关读取失败: ${err.message}`);
+      });
+    } else {
+      // 外部拉起（深链 / 小艺 / 桌面卡片）可能只给屏名不给 tripId。
+      // 屏11 早就退到最近一条行程，屏8 原来这里什么都不做——同一件事两屏行为不一样，
+      // 用户从外部进来看到的是一页空白。按屏11 的口径补齐。
+      const ctx2: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      TripDao.listSummaries(ctx2).then((rows: TripSummary[]): void => {
+        if (rows.length > 0) {
+          this.tripId = rows[0].id;
+          this.reload();
+        }
+      }).catch((err: Error): void => {
+        Logger.warn('Ui.Itinerary', `取最近行程失败: ${err.message}`);
       });
     }
   }
