@@ -218,7 +218,8 @@ export struct PreferenceQAPage {
             // 末题这枚按钮做的是"去选景点"，不是"生成"（生成在屏4 之后的屏6）——
             // 底稿写「生成行程」会让用户以为点完就出行程，按实际行为改口
             label: this.qIndex === this.questions.length - 1 ? '选景点' : '下一题',
-            buttonWidth: 150,
+            buttonWidth: 120,  // 150 装 3 个汉字本来就富余，钉底条里 返回+帮我选+Blank+这颗 在 363.5vp 手机上
+                                            // 合计超过内容宽 → Blank 塌成 0、这颗被顶出屏幕右缘 15.5vp（真机实测）,
             onAction: (): void => {
               this.advance();
             }
