@@ -30,8 +30,15 @@ export struct GenerateFailedPage {
   private pathStack: NavPathStack = APP_NAV;
   @Prop code: number = 0;
   @Prop detail: string = '';
+  /**
+   * 三条可行修法。原来只有"景点"和"节奏"两条——
+   * 而**通勤起点是屏5 选的住宿片区决定的**，屏5 的「帮我选」在候选片区都缺坐标时
+   * 会退回推荐顺序（`StayPickPage` 那条 toast），这类受阻在屏7 没有任何一条出口能回去重选。
+   * 补中间这条，落点 `StayPick` 走同一个 `goFix`（在栈上就 popToName，不在就 push）。
+   */
   private fixes: FixOption[] = [
     { title: '回选点页增减景点', desc: '去掉一个必去站，或补几个备选站点', route: 'SpotPick' },
+    { title: '换一片住宿再试', desc: '住宿片区决定通勤起点，换一片常能解掉超时', route: 'StayPick' },
     { title: '把每天的节奏调松', desc: '改成每天 3 站，给通勤留余量', route: 'PreferenceQA' }
   ];
 
