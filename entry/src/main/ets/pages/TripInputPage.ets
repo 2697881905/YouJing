@@ -360,6 +360,7 @@ export struct TripInputPage {
                   // 整条就退化成了进度条（§5 实拍结论）。帧里只画了 4px 底轨、没给把手规则，
                   // 所以这是「帧未规定」而不是「帧规定不可见」——官方 Slider 没有可见把手就没法拖。
                   .blockColor(ColorTokens.primary)
+                  .accessibilityText(`调整预算档位，当前 ${MoneyText.yuan(this.budget)} 每人`)
                   .onChange((v: number) => {
                     this.budget = Math.round(v);
                   })

@@ -137,6 +137,7 @@ export struct LoginView {
           .selectedColor(ColorTokens.primary)
           .width(24)
           .height(24)
+          .accessibilityText('同意隐私政策与用户协议')
           .onChange((v: boolean): void => {
             this.agreed = v;
           })
