@@ -39,8 +39,15 @@ export default function responsiveTest(): void {
         // 手机竖屏返回 '100%'，等于不收窄——这一档必须是字符串而不是数字，
         // 否则 constraintSize.maxWidth 会拿到一个比屏宽还小的数、把表单压窄
         expect(longFormMaxWidth('sm', CAP_VP)).assertEqual('100%');
-        expect(longFormMaxWidth('md', CAP_VP)).assertEqual(CAP_VP);
+        // md 档不能沿用 CAP_VP：Mate X7 展开实测窗口 707vp，而契约
+        // content-max-width 是 720——上限比整块屏还宽，maxWidth 在 600~720vp
+        // 这一整段永远不触发（协议正文实测被拉到 658vp，约 47 个汉字一行）。
+        // 所以 md 收到"md 档下限"这个已有数值上，lg 起才用调用方传的 720。
+        expect(longFormMaxWidth('md', CAP_VP)).assertEqual(BP_MD_MIN_VP);
         expect(longFormMaxWidth('lg', CAP_VP)).assertEqual(CAP_VP);
+        // 两档必须单调：更宽的窗口允许更宽的一栏，否则折叠屏展开/折叠时列宽会跳
+        expect(BP_LG_MIN_VP >= BP_MD_MIN_VP).assertTrue();
+        expect(CAP_VP >= BP_MD_MIN_VP).assertTrue();
       });
 
     it('every_ladder_step_keeps_lanes_readable', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
