@@ -11,6 +11,8 @@ import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
+import { KEY_WINDOW_WIDTH_VP, BP_MD_MIN_VP } from '../utils/breakpointCenter';
+import { symmetricInsetForCap } from '../utils/responsive';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { TripDao } from '../data/TripDao';
@@ -33,6 +35,13 @@ const ICS_ADVANCE_DAYS: number = 1;
 
 @Component
 export struct SharePage {
+  /** 窗口实测宽（vp），由断点中心一处测量；0 = 尚未测到，按不收窄处理 */
+  @StorageProp(KEY_WINDOW_WIDTH_VP) windowWidthVp: number = 0;
+
+  /** 宽屏下的左右内缩：手机档原样返回 base（等于没改），折叠屏展开把内容收成 600vp 一栏 */
+  private wideInset(): number {
+    return symmetricInsetForCap(this.windowWidthVp, BP_MD_MIN_VP, SpaceTokens.lg);
+  }
   @Prop tripId: string = '';
   @State private subtitle: string = '';
   @State private dayCount: number = 0;
@@ -309,7 +318,7 @@ export struct SharePage {
           .cachedCount(4)
           .alignListItem(ListItemAlign.Start)
           // 钉底动作条已撤（见下），只需让出 dock 自身净空
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
+          .padding({ left: this.wideInset(), right: this.wideInset(),
             bottom: LayoutTokens.floatingDockClearance })
         }
         .width('100%')
@@ -328,7 +337,7 @@ export struct SharePage {
         // 钉底动作条原来只留 xl(24)：这一屏也挂在悬浮 dock 上，
         // 结果「导出 .ics / 分享行程文本」整条被 dock 压住、说明文字裁掉半行
         // （与屏2、首页同一类缺陷）。改成让出实测 dock 净空
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.floatingDockClearance })
+        .padding({ left: this.wideInset(), right: this.wideInset(), bottom: LayoutTokens.floatingDockClearance })
       }
       .width('100%')
       .height('100%')

@@ -13,6 +13,8 @@ import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
+import { KEY_WINDOW_WIDTH_VP, BP_MD_MIN_VP } from '../utils/breakpointCenter';
+import { symmetricInsetForCap } from '../utils/responsive';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { BuildConfig } from '../common/constants/BuildConfig';
@@ -27,6 +29,13 @@ interface FixOption {
 
 @Component
 export struct GenerateFailedPage {
+  /** 窗口实测宽（vp），由断点中心一处测量；0 = 尚未测到，按不收窄处理 */
+  @StorageProp(KEY_WINDOW_WIDTH_VP) windowWidthVp: number = 0;
+
+  /** 宽屏下的左右内缩：手机档原样返回 base（等于没改），折叠屏展开把内容收成 600vp 一栏 */
+  private wideInset(): number {
+    return symmetricInsetForCap(this.windowWidthVp, BP_MD_MIN_VP, SpaceTokens.lg);
+  }
   private pathStack: NavPathStack = APP_NAV;
   @Prop code: number = 0;
   @Prop detail: string = '';
@@ -196,7 +205,7 @@ export struct GenerateFailedPage {
         }
         .width('100%')
         // 钉底动作条原来只留 xl(24)：这一屏也在悬浮 dock 上，实拍第三颗钮整颗被压住
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.floatingDockClearance })
+        .padding({ left: this.wideInset(), right: this.wideInset(), bottom: LayoutTokens.floatingDockClearance })
       }
       .width('100%')
       .height('100%')

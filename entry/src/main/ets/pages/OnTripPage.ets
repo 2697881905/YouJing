@@ -14,6 +14,8 @@ import { MoneyText } from '../utils/MoneyText';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
+import { KEY_WINDOW_WIDTH_VP, BP_MD_MIN_VP } from '../utils/breakpointCenter';
+import { symmetricInsetForCap } from '../utils/responsive';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { ImmersiveSurface } from '../components/ImmersiveSurface';
@@ -84,6 +86,13 @@ function hoursText(start: string, end: string): string {
 
 @Component
 export struct OnTripPage {
+  /** 窗口实测宽（vp），由断点中心一处测量；0 = 尚未测到，按不收窄处理 */
+  @StorageProp(KEY_WINDOW_WIDTH_VP) windowWidthVp: number = 0;
+
+  /** 宽屏下的左右内缩：手机档原样返回 base（等于没改），折叠屏展开把内容收成 600vp 一栏 */
+  private wideInset(): number {
+    return symmetricInsetForCap(this.windowWidthVp, BP_MD_MIN_VP, SpaceTokens.lg);
+  }
   /**
    * 这一屏可能被 push 在四条 tab 栈的任意一条上——从「我的行程」点开就走 MINE_NAV。
    * 原来硬用 APP_NAV：从「我的」页签进来时，分享/编辑/全图/记一笔全部推到
@@ -825,7 +834,7 @@ export struct OnTripPage {
       .edgeEffect(EdgeEffect.Spring)
       .sticky(StickyStyle.Header)
       .cachedCount(6)
-      .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
+      .padding({ left: this.wideInset(), right: this.wideInset(),
             bottom: LayoutTokens.floatingDockClearance })
       .width('100%')
       .height('100%')
