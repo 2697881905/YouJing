@@ -310,9 +310,14 @@ export struct ExpensePage {
 
   @Builder
   recordSheet() {
-    // 键盘弹起会遮住表单一半高度：整块可滚，保存键才够得着
-    Scroll() {
-      Column() {
+    // 主键不再放进滚动区，滚动区也不再吃百分比高度。
+    // 实测：键盘弹起后 bindSheet 不按压缩后的窗口重量高，`.height('100%')` 于是
+    // 按键盘弹起前解析 → Scroll 以为装得下、不进可滚状态，「保存」被裁在可见区外
+    // （改 constraintSize.maxHeight 能让它进可滚，但注入的上滑推不动它，且没键盘时
+    // 反而要滑一下才看到主键——所以这里不靠"能滑到"，改成主键根本不进滚动区）。
+    Column() {
+      Scroll() {
+        Column() {
       Text('记一笔')
         .fontSize(TypeTokens.title.size)
         .fontWeight(700)
@@ -368,6 +373,18 @@ export struct ExpensePage {
       .width('100%')
       .margin({ top: SpaceTokens.md })
 
+        }
+        .alignItems(HorizontalAlign.Start)
+        .width('100%')
+        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+      }
+      .width('100%')
+      // 定高上限（不是 '100%'）：滚动视口整体落在键盘之上的可见区内，
+      // 主键紧跟其后，于是「保存」的位置与 sheet 是否重量高无关。
+      .constraintSize({ maxHeight: 300 })
+      .scrollBar(BarState.Off)
+      .align(Alignment.Top)
+
       YoujingButton({
         variant: YoujingButtonVariant.PRIMARY,
         label: '保存',
@@ -376,16 +393,10 @@ export struct ExpensePage {
           this.saveExpense();
         }
       })
-        .margin({ top: SpaceTokens.lg })
-      }
-      .alignItems(HorizontalAlign.Start)
-      .width('100%')
-      .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: SpaceTokens.xl })
+        .margin({ top: SpaceTokens.sm, bottom: SpaceTokens.md })
     }
     .width('100%')
-    .height('100%')
-    .scrollBar(BarState.Off)
-    .align(Alignment.Top)
+    .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: SpaceTokens.xl })
     .backgroundColor(ColorTokens.canvas)
   }
 
