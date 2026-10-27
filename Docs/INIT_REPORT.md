@@ -2249,3 +2249,24 @@ aa test -b com.youjing.app -m entry_test -s unittest OpenHarmonyTestRunner
 顺带纠正一条旧记忆：`harmonyos-ohostest-context-limits` 说"ohosTest 只有 ApplicationContext，
 RDB/preferences 拒绝"——那是 **DB/偏好类**断言的边界，纯逻辑与 utils 层的 103 例
 在模拟器上全绿。别把那条当成"整个 ohosTest 跑不动"。
+
+### §5ci 续 4：本仓第一次给"展示文案层"配回归（8 例，真机 runner 全绿）
+
+`entry/src/ohosTest/ets/test/DisplayText.test.ets`（已登记进 `List.test.ets`）。
+覆盖的都是本轮收口出来的统一入口，且全是纯字符串函数——不需要 DB、不需要权限、不需要眼睛：
+
+- **MoneyText**：`999/1,000/16,000/1,234,567/1,000,000`（整百万是分组最容易错位的一档）、
+  负数 `-1,240`（超支场景负号必须留在最前）、`1234.9 → 1,234`（金额无小数语义）、
+  `¥0` 必须出字而不是出空（费用页那格不能凭空消失）。
+- **TimeText**：`4小时30分钟 / 4小时 / 45分钟` 三档；
+  **缺 endTime、时间倒挂、0 时长一律回空串**——这三种态 AI 与重排都造得出来，
+  而 `-60分钟` 是"可读的胡说"。
+- **广播字符串协议**：`<index>:<时间戳>` 的前缀匹配最怕多档互撞，
+  专门钉 `'10:…'` 不算第 1 页签的广播、空串谁都不匹配；
+  `draftDirty` 的 `0:` 必须显式写回（不写回首启会凭空冒"继续未完成的规划"）；
+  最后一条把**生成器与谓词绑在一起测**（`announceTabShown(2)` 出来的串必须被
+  `isTabShownTick(_, 2)` 认，键名直接引 `TAB_SHOWN_KEY`/`DRAFT_DIRTY_KEY` 常量而不是字面量），
+  以后谁改了广播格式，这条先红而不是页面静默失灵。
+
+全量从 103 例涨到 **111 例、0 失败**——同时反证了新文件真的被 `List.test.ets` 登记进去
+（只跑单类通过不代表注册链通了）。

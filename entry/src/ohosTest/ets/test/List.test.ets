@@ -15,6 +15,7 @@ import promptContractTest from './PromptContract.test';
 import skipPlannerTest from './SkipPlanner.test';
 import replanParserTest from './ReplanParser.test';
 import responsiveTest from './Responsive.test';
+import displayTextTest from './DisplayText.test';
 
 export default function testsuite() {
   tripParserTest();
@@ -34,4 +35,5 @@ export default function testsuite() {
   skipPlannerTest();
   replanParserTest();
   responsiveTest();
+    displayTextTest();
 }
