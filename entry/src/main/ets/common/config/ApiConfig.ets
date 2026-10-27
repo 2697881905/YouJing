@@ -24,6 +24,34 @@ export interface ApiConfigType {
    * 上架前必须迁进系统凭据存储并撤掉本明文位（Docs/LLM接入方案-2026-10-26.md §三-2）。
    */
   API_KEY: string;
+  /**
+   * 对话模型名。**必配**：OpenAI 兼容端点（DeepSeek 等）缺 model 字段直接 400，
+   * 这一项此前没有落点（2026-10-27 直连实测抓到）。免鉴权本地网关可留空不发。
+   *
+   * 必须写**在售的真模型 id**（deepseek-flash / deepseek-v4-pro），不写退役别名：
+   * 旧值 `deepseek-chat` 2026-07 起已退役，当前只是被服务端映射到 deepseek-flash，
+   * 映射口径随时可变（改成 Pro 就是 13.5 元/百万 token 的输出价，端上毫无感知）。
+   */
+  LLM_MODEL: string;
+  /**
+   * 关闭思考模式（`thinking: {type:'disabled'}`）。deepseek-flash **默认开思考**，
+   * 思维链 token 混在 completion_tokens 里按输出计费（2026-10-27 实测：直接请求带
+   * reasoning_tokens，模型列表里默认 effort=high）。本 App 只要一段结构化 JSON，
+   * 思考是纯成本，故关掉；若某天规划质量不够要换回思考，置 false 并接受账单上涨。
+   */
+  LLM_THINKING_DISABLED: boolean;
+  /**
+   * 单次输出上限（max_tokens）。非思考模式服务端默认只给 8K，长行程 JSON 可能被
+   * 截断（finish_reason=length）→ TripParser 判失败 → 重试一次，等于双倍账单。
+   * 16384 覆盖现有最长行程，0 = 不发送、用服务端默认。
+   */
+  LLM_MAX_TOKENS: number;
+  /**
+   * 端点是否支持 `response_format: json_schema`（§4.3 第二层防线 strict 模式）。
+   * DeepSeek 实测回 "This response_format type is unavailable now" → 置 false 时
+   * 退回 `json_object`，Schema 仍由第一层（Prompt 内嵌）+ 第三层（TripParser 守卫）兜。
+   */
+  SUPPORTS_JSON_SCHEMA: boolean;
   /** 连接建立超时（毫秒）。 */
   CONNECT_TIMEOUT_MS: number;
   /**
@@ -48,6 +76,10 @@ export const ApiConfig: ApiConfigType = {
   BASE_URL: '',
   LLM_CHAT_ENDPOINT: '',
   API_KEY: '',
+  LLM_MODEL: 'deepseek-flash',
+  LLM_THINKING_DISABLED: true,
+  LLM_MAX_TOKENS: 16384,
+  SUPPORTS_JSON_SCHEMA: false,
   CONNECT_TIMEOUT_MS: 10000,
   READ_TIMEOUT_MS: 120000,
   REPLAN_URL: '',
