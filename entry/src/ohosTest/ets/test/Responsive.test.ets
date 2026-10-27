@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, TestType, Size, Level } from '@ohos/hypium';
-import { listLanesForBreakpoint, longFormMaxWidth } from '../../../main/ets/utils/responsive';
+import { listLanesForBreakpoint, longFormMaxWidth, symmetricInsetForCap } from '../../../main/ets/utils/responsive';
 import { isWideBreakpoint, BP_MD_MIN_VP, BP_LG_MIN_VP } from '../../../main/ets/utils/breakpointCenter';
 
 /** 卡片实测的最小可读列宽（vp）：低于它，我的行程卡的站名会被压成省略号、
@@ -49,6 +49,19 @@ export default function responsiveTest(): void {
         expect(BP_LG_MIN_VP >= BP_MD_MIN_VP).assertTrue();
         expect(CAP_VP >= BP_MD_MIN_VP).assertTrue();
       });
+
+    it('symmetric_inset_leaves_phone_untouched', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+      // 首页预览卡不能靠 maxWidth 收窄（子级全是 width('100%')，会左贴边、右侧空出一条），
+      // 所以按窗口实测宽做对称内缩。这条钉死"手机档零变化"：
+      // 360vp 手机、以及断点中心还没测到窗口宽（0）时，都必须原样返回 base。
+      expect(symmetricInsetForCap(360, BP_MD_MIN_VP, 16)).assertEqual(16);
+      expect(symmetricInsetForCap(0, BP_MD_MIN_VP, 16)).assertEqual(16);
+      // 折叠屏展开 707vp → 收进 600vp 一栏，两侧各 (707-600)/2 ≈ 54vp
+      expect(symmetricInsetForCap(707, BP_MD_MIN_VP, 16)).assertEqual(54);
+      // 恰好等于"栏宽 + 2×base"的临界窗口不收窄，不能出现负内缩
+      expect(symmetricInsetForCap(BP_MD_MIN_VP + 32, BP_MD_MIN_VP, 16)).assertEqual(16);
+      expect(symmetricInsetForCap(1100, BP_MD_MIN_VP, 16) > 16).assertTrue();
+    });
 
     it('every_ladder_step_keeps_lanes_readable', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
       // 断点阈值与列数必须成对：某一步的"起始宽 ÷ 列数"若低于最小列宽，

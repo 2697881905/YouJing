@@ -52,3 +52,21 @@ export function longFormMaxWidth(bp: string, capVp: number): Length {
   }
   return '100%';
 }
+
+/**
+ * 对称内缩量：给**不能限宽**的容器用。
+ *
+ * 为什么另开一条而不复用 `longFormMaxWidth`：折叠屏展开的首页里，卡片子级全是
+ * `width('100%')`，父 Column 加 `constraintSize.maxWidth` 只会让它左贴边、
+ * 右侧留一条空白（看起来更坏，不是更好）。要"居中的一栏"就得两侧等宽内缩，
+ * 而 `(窗口宽 − 目标栏宽) / 2` 需要窗口实测值——这个值断点中心已经量过一次，
+ * 从 `KEY_WINDOW_WIDTH_VP` 读，不在页面里另挂 windowSizeChange。
+ *
+ * 窄屏（窗口宽 ≤ 栏宽 + 2×base）返回 base，等于手机档一字不改。
+ */
+export function symmetricInsetForCap(windowWidthVp: number, capVp: number, baseVp: number): number {
+  if (windowWidthVp <= 0 || windowWidthVp <= capVp + baseVp * 2) {
+    return baseVp;
+  }
+  return Math.round((windowWidthVp - capVp) / 2);
+}

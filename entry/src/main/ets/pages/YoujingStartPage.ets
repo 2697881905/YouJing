@@ -22,6 +22,8 @@ import { TripDao, TripSummary } from '../data/TripDao';
 import { WidgetSync } from '../widget/TodayCard';
 import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
+import { KEY_WINDOW_WIDTH_VP, BP_MD_MIN_VP } from '../utils/breakpointCenter';
+import { symmetricInsetForCap } from '../utils/responsive';
 
 interface PreviewStop {
   time: string;
@@ -50,6 +52,8 @@ export struct YoujingStartPage {
   private pathStack: NavPathStack = APP_NAV;
   /** dock 切回这一页时重取最近行程（广播见 AppNav.TAB_SHOWN_KEY，主链复审 P1） */
   @StorageProp(TAB_SHOWN_KEY) @Watch('onDockShown') dockTick: string = '';
+  /** 窗口实测宽（vp），由断点中心一处测量；0 = 尚未测到，按不收窄处理 */
+  @StorageProp(KEY_WINDOW_WIDTH_VP) windowWidthVp: number = 0;
 
   private onDockShown(): void {
     if (isTabShownTick(this.dockTick, TAB_ITINERARY)) {
@@ -437,8 +441,15 @@ export struct YoujingStartPage {
     .height('100%')
     .alignItems(HorizontalAlign.Start)
     // 这一屏挂在有悬浮 dock 的 tab 上且自身不滚动：整页给 dock 让出净空，
-    // 最后一行才不会藏到 dock 底下
-    .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.floatingDockClearance })
+    // 最后一行才不会藏到 dock 底下。
+    // 左右内缩走对称内缩而不是 maxWidth：这屏的卡片子级全是 width('100%')，
+    // 给父 Column 加 constraintSize.maxWidth 只会左贴边、右侧空出一条（实测更坏）。
+    // 折叠屏展开（窗口 707vp）时预览卡原本通铺 642vp、三行节点右侧 55% 全白。
+    .padding({
+      left: symmetricInsetForCap(this.windowWidthVp, BP_MD_MIN_VP, SpaceTokens.lg),
+      right: symmetricInsetForCap(this.windowWidthVp, BP_MD_MIN_VP, SpaceTokens.lg),
+      bottom: LayoutTokens.floatingDockClearance
+    })
     .backgroundColor(ColorTokens.canvas)
   }
 }

@@ -25,6 +25,9 @@ import { Logger } from '../common/logger/Logger';
 export const KEY_CURRENT_BREAKPOINT: string = 'currentBreakpoint';
 export const KEY_IS_WIDE_PANE: string = 'isWidePane';
 export const KEY_FOLD_STATUS: string = 'foldStatus';
+/** 窗口实测宽（vp）。卡片类容器不能用 `constraintSize.maxWidth` 收窄时
+ *  （它的子级全是 `width('100%')`），用它算对称内缩量——见 responsive.symmetricInsetForCap */
+export const KEY_WINDOW_WIDTH_VP: string = 'windowWidthVp';
 
 const TAG: string = 'Breakpoint';
 
@@ -45,6 +48,7 @@ function applyWindowWidth(widthPx: number): void {
   const bp: string = wVp >= BP_LG_MIN_VP ? 'lg' : (wVp >= BP_MD_MIN_VP ? 'md' : 'sm');
   AppStorage.setOrCreate<string>(KEY_CURRENT_BREAKPOINT, bp);
   AppStorage.setOrCreate<boolean>(KEY_IS_WIDE_PANE, isWideBreakpoint(bp));
+  AppStorage.setOrCreate<number>(KEY_WINDOW_WIDTH_VP, Number(wVp.toFixed(1)));
   Logger.info(TAG, `窗口宽 ${wVp.toFixed(1)}vp → 断点 ${bp}`);
 }
 
@@ -57,6 +61,8 @@ export function initBreakpointCenter(ctx: common.Context): void {
   // 先落确定性初值：窗口实测值异步就绪后覆盖，消费方 @StorageProp 会即时收到更新
   AppStorage.setOrCreate<string>(KEY_CURRENT_BREAKPOINT, 'sm');
   AppStorage.setOrCreate<boolean>(KEY_IS_WIDE_PANE, false);
+  // 0 = 还没实测到窗口宽，消费方按"不收窄"处理
+  AppStorage.setOrCreate<number>(KEY_WINDOW_WIDTH_VP, 0);
   try {
     const disp: display.Display = display.getDefaultDisplaySync();
     density = disp.densityPixels;
