@@ -2224,3 +2224,28 @@ lg 及以上才用 `contentMaxWidth`（720）。600 不是我新发明的魔数�
 坐标点击（试了 2 次）与 `keyEvent KeyTab/KeyEnter` 键盘注入都进不到弹窗层，
 属工具边界（不是 App 缺陷），不再叠第三种注入方法。
 所以这三屏"折叠屏展开后确实收成 600vp 一栏"仍是未验项，与首页那条一起等手机连回。
+
+### §5ci 续 3：跑起了 hypium 全量（103 例 0 失败），本仓第一次有设备侧回归证据
+
+`entry/build/default/outputs/ohosTest/entry-ohosTest-signed.hap` 装进模拟器后：
+
+```
+aa test -b com.youjing.app -m entry_test -s unittest OpenHarmonyTestRunner -s class Responsive
+  → Tests run: 5, Failure: 0, Error: 0, Pass: 5
+aa test -b com.youjing.app -m entry_test -s unittest OpenHarmonyTestRunner
+  → Tests run: 103, Failure: 0, Error: 0, Pass: 103
+```
+
+**过程里差点把 0 读成通过**：第一次我按类名猜 `-s class ResponsiveTest`，
+报的是 `Tests run: 0` ——旧教训"检测器报 0 前先反证它抓得到"在这里同样成立，
+`describe` 的标签是 `Responsive`（`Responsive.test.ets:21`），改对之后 5 例全跑。
+**`Tests run: 0` 不是"没有失败"，是"什么都没跑"。**
+
+意义：§5ci 那条"md 档上限改成 600"从此不只是我手算 + node 跑真函数——
+它在真机 runner 里过的是**仓里那份 `Responsive.test.ets`**，
+阈值、列数阶梯、对称内缩五档、两档单调性一起钉住。以后谁再动断点表，
+这条会先红，不用等宽屏实拍（宽屏实拍仍然要补，两回事）。
+
+顺带纠正一条旧记忆：`harmonyos-ohostest-context-limits` 说"ohosTest 只有 ApplicationContext，
+RDB/preferences 拒绝"——那是 **DB/偏好类**断言的边界，纯逻辑与 utils 层的 103 例
+在模拟器上全绿。别把那条当成"整个 ohosTest 跑不动"。
