@@ -357,7 +357,15 @@ export struct TripsPage {
               .fontColor(ColorTokens.ink)
               .textAlign(TextAlign.Center)
               .margin({ bottom: SpaceTokens.xs })
-            Text('从一座城市开始，让有径替你排好每天的路')
+            // 屏12b 底稿原句，但**由我们选断行点**：整句交给排版引擎在 240vp 里折，
+            // 实拍断成「能直 / 接走的行程」，把「直接」劈成两半
+            // （与屏11/屏5 同族，见 INIT_REPORT §5o/§5y）。
+            // 两行各自语义完整，字句仍与底稿一致。
+            Text('选一座城市，四道题')
+              .fontSize(TypeTokens.small.size)
+              .fontColor(ColorTokens.body)
+              .textAlign(TextAlign.Center)
+            Text('就能拿到一份能直接走的行程')
               .fontSize(TypeTokens.small.size)
               .fontColor(ColorTokens.body)
               .textAlign(TextAlign.Center)
@@ -365,7 +373,7 @@ export struct TripsPage {
               .margin({ bottom: SpaceTokens.xl })
             YoujingButton({
               variant: YoujingButtonVariant.PRIMARY,
-              label: '创建新行程',
+              label: '规划新行程',
               buttonWidth: 200,
               onAction: (): void => {
                 PlanDraft.fresh();
