@@ -1127,6 +1127,13 @@ export struct ItineraryPage {
                     .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
                     .borderRadius(RadiusTokens.pill)
                     .backgroundColor(ColorTokens.canvas)
+                    // 真模型会把通勤方式写全（「地铁+市郊铁路 1 段 · 步行 4 段 · 市郊铁路+地铁 1 段」46 字），
+                    // mock 那句只有 14 字——所以这条只有在真数据下才暴露：胶囊不限宽，
+                    // 把右侧「全图」顶到 origBounds 1009..1158 而 bounds 只剩 1009..1086（裁掉 23vp）。
+                    // 让位给文字侧：可缩 + 单行省略，按钮保持原尺寸。
+                    .flexShrink(1)
+                    .maxLines(1)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
                   Blank()
                   // 与地图页 chip 同档的官方 Button（原来是裸 Text + onClick）。
                   // 走过 NORMAL 档：真机上胶囊表面在底图上完全不出色（量到与瓦片同色），

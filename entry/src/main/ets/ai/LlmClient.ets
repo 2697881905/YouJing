@@ -211,11 +211,18 @@ interface ChatChoice {
   finish_reason?: string;
 }
 
+interface ChatUsage {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  prompt_cache_hit_tokens?: number;
+}
+
 interface ChatCompletion {
   id?: string;
   model?: string;
   choices?: ChatChoice[];
   error?: ChatError;
+  usage?: ChatUsage;
 }
 
 export class HttpLlmTransport implements LlmTransport {
@@ -286,6 +293,15 @@ export class HttpLlmTransport implements LlmTransport {
         const msg: string = errEnv !== undefined && errEnv.message !== undefined ? errEnv.message : '';
         throw new AppError(ErrorCode.SCHEMA_VALIDATION_FAILED,
           msg.length > 0 ? `LLM 返回错误: ${msg}` : 'LLM 响应里没有 choices');
+      }
+      // 用量必须落日志：按 token 计费的通道，端上不记用量就没法回答「这次花了多少钱」，
+      // 也没法定位「贵在哪一段」（缓存命中数直接决定输入侧单价）
+      const u: ChatUsage | undefined = env.usage;
+      if (u !== undefined) {
+        Logger.info(TAG, `LLM 用量 model=${env.model === undefined ? '?' : env.model} ` +
+          `in=${u.prompt_tokens === undefined ? 0 : u.prompt_tokens} ` +
+          `(cache 命中 ${u.prompt_cache_hit_tokens === undefined ? 0 : u.prompt_cache_hit_tokens}) ` +
+          `out=${u.completion_tokens === undefined ? 0 : u.completion_tokens}`);
       }
       const message: ChatMessage | undefined = choices[0].message;
       const content: string | undefined = message === undefined ? undefined : message.content;
