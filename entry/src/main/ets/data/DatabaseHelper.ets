@@ -32,7 +32,7 @@ import { AppError } from '../common/error/AppError';
 import { ErrorCode } from '../common/error/ErrorCode';
 
 const STORE_NAME: string = 'youjing.db';
-const DB_VERSION: number = 8;
+const DB_VERSION: number = 9;
 const TAG: string = 'Data.DatabaseHelper';
 
 const SQL_CREATE_TRIP: string = `CREATE TABLE IF NOT EXISTS trip (
@@ -135,6 +135,18 @@ const SQL_V8_CHECKIN_EVIDENCE: string[] = [
 const SQL_V2_ADD_TRIP_USER_ID: string =
   `ALTER TABLE trip ADD COLUMN user_id TEXT NOT NULL DEFAULT '${AccountConfig.GUEST_UID}'`;
 
+/**
+ * v8 → v9：删行程没有级联清子表，历史上留下的孤儿打卡/费用一次性清掉。
+ * 只删「父行程已不存在」的行；仍挂在任何行程下的数据不动。
+ */
+const SQL_V9_CLEAN_ORPHANS: string[] = [
+  'DELETE FROM checkin WHERE trip_id NOT IN (SELECT id FROM trip)',
+  'DELETE FROM expense WHERE trip_id NOT IN (SELECT id FROM trip)',
+  'DELETE FROM meal WHERE trip_id NOT IN (SELECT id FROM trip)',
+  'DELETE FROM activity WHERE trip_id NOT IN (SELECT id FROM trip)',
+  'DELETE FROM trip_day WHERE trip_id NOT IN (SELECT id FROM trip)'
+];
+
 export class DatabaseHelper {
   private static storePromise: Promise<relationalStore.RdbStore> | null = null;
   /** 单写通道：所有写事务排队串行，规避 RDB busy（§8 风险表） */
@@ -227,6 +239,11 @@ export class DatabaseHelper {
       }
       if (oldVersion < 8) {
         for (const sql of SQL_V8_CHECKIN_EVIDENCE) {
+          store.executeSql(sql);
+        }
+      }
+      if (oldVersion < 9) {
+        for (const sql of SQL_V9_CLEAN_ORPHANS) {
           store.executeSql(sql);
         }
       }

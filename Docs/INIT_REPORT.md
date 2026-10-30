@@ -3734,3 +3734,65 @@ TypeError: Cannot read property close of undefined
 - 没有新增/修改/删除任何行程、打卡或费用；只读拉了 `youjing.db`（含 -wal/-shm）核对入口判据。
 - App cacheDir 新增海报 JPEG（`youjing-review-yangling-20261030-001.jpg`），属可清理的运行期文件。
 - 分享面板只拉起、未向任何目标发送；未改隐私同意态。
+
+### §5ci 续 49：任意城市 Stage 1 真机探针 + RDB v9 孤儿数据清理（AGC 未过期间的旁路工作）
+
+AGC 地理围栏/实况窗仍在审核，通知/实况窗承载层继续压着；本轮做两件不依赖它的事：
+Map Kit 地点检索真机探针（任意城市数据管线的 Stage 1），以及删行程留下的孤儿数据修复。
+
+**A. Map Kit 地点检索探针（只读，零 LLM，零 RDB 写入）**
+
+临时 NavDestination 探针页调用 6 次 Site Kit 接口，取证后代码已删除、未提交；完整记录见
+`Docs/MapKit地点检索探针-2026-10-31.md`。
+
+| 调用 | 结果 |
+|---|---|
+| `searchByText(西安/景点, cityId=西安, isCityLimit=true, pageSize=20)` | `totalCount=500`、20 条；name/location/admin3/poiTypes 20/20；openingHours 多数有逐周文本；`rating/starRating` 恒 0，`reliability` 未返回 |
+| `searchByText(博物馆, 不带 cityId)` | `totalCount=462`，前 20 条为卢浮宫/大英博物馆/宝马博物馆等全球结果 → **cityId 必填** |
+| `searchByText(成都/景点, cityId=成都)` | `totalCount=500`，宽窄巷子/熊猫基地/武侯祠等本地结果 |
+| `geocode(西安)` | 10 条；第一条「西安市」34.33365,108.81960，第二条「西安市中心」34.34208,108.94080 → 不能盲取第一条 |
+| `nearbySearch(大雁塔, 酒店, 3000m)` | `totalCount=486`、20 条，带距离 146.3–851.3m → 住宿供给可判 |
+| `searchById(大雁塔文化休闲景区)` | phone 有、website 无、description 546 字、abstractText 52 字、openingHours 空；评分仍 0 |
+
+结论：Site Kit 已开通、无 1002600004、0 错误码；名称/坐标/区县/类型/营业时间可用，
+**评分与预约不可得**（热度只能按检索秩，预约一律「以官方为准」），且存在重复
+（西安城墙/城墙·碑林、兵马俑两条）与远郊混入（蓝田县水陆庵）。Stage 2 的约束与
+开放问题（配额、缓存许可、去重阈值、Area 质量、LLM 成本）已写进探针报告；本轮不实现 Stage 2。
+
+**B. RDB v9：孤儿打卡/费用清理 + 删行程级联**
+
+- 改前真机库取证：`checkin` 孤儿 1 条、`expense` 孤儿 2 条（父行程已不存在），
+  `trip_day/activity/meal` 孤儿 0——删除行程时子表无外键级联，打卡/费用漏删。
+- `DatabaseHelper`：`DB_VERSION` 8→9；v9 迁移一次性删除五张子表里 `trip_id NOT IN (SELECT id FROM trip)`
+  的行，只动父行程已不存在的孤儿。
+- `TripDao.deleteRows` 拆成两条语义：`saveTrip` 重建行程树但**保留**打卡/费用（活动 id 不变）；
+  `deleteTrip` 才删打卡/费用；并先按 `trip.user_id = 当前账号` 验归属，避免同 id 的他人行程被连带删除。
+- 真机验证：安装后 `PRAGMA user_version=9`；五张子表孤儿全部 0；`trip=10 / checkin=4` 与迁移前一致。
+- SQL 语义副本验证（不碰用户数据）：造一条合成 trip + checkin + expense 后，
+  「save 路径」只删行程树、checkin/expense 保留 1/1；「delete 路径」全部清到 0/0。
+
+**构建 / 尺子 / hypium / 离线**
+
+- 主 HAP `entry-default-signed.hap` 02:09:59 BUILD SUCCESSFUL；ohosTest HAP 02:11:17 BUILD SUCCESSFUL。
+- 静态十二把尺全 0 偏差；`audit_contrast` 本轮未改 UI，沿用上一轮结论。
+- hypium 真机全量：`Tests run: 171, Failure: 0, Error: 0, Pass: 171, Ignore: 0`。
+- 离线：`TRIP_REVIEW_OK cases=57` 保持（本轮未动回顾纯逻辑）。
+- **零 LLM 调用**；探针 6 次 Map Kit 只读请求，无配额报错。
+
+**边界**
+
+1. **Stage 2 未实现**：只拿到数据可行性结论，任意城市仍未接入 UI/生成链路；Open 问题见探针报告。
+2. **探针覆盖仅西安/成都两城各 1 个查询词**：未抽 10 城/多 POI 类型，`totalCount=500` 封顶后的
+   分页质量、远郊比例、去重阈值还需 Stage 2 抽检。
+3. **删行程级联没有走 UI 真机删除**：为避免删用户行程，只做了 DB 副本的 SQL 语义验证；
+   真机只验证了 v9 迁移清理与既有数据不变。
+4. **Map Kit 配额/缓存许可未确认**：端侧 key 是现成的，但检索结果能否落 RDB、缓存多久仍未知；
+   Stage 2 设计按「只放内存、不落库」处理。
+5. **探针代码已删**：`MapSiteProbePage` 与临时 `Probe` 路由不在提交里；当前产物是干净包。
+
+**数据副作用（如实记）**
+
+- v9 迁移删除了 1 条孤儿打卡、2 条孤儿费用（父行程已不存在，界面上本就不可见）；
+  10 条行程、4 条有效打卡未改动。
+- Map Kit 探针只发只读请求，没有创建/修改任何行程、打卡、费用或 spot/area 行。
+- 本轮没有新建行程、没有生成行程、没有花费 LLM 额度。

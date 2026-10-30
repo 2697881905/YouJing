@@ -52,7 +52,7 @@ function parseStringArray(text: string | null): string[] {
 export class TripDao {
   static saveTrip(context: common.Context, trip: Trip): Promise<void> {
     return DatabaseHelper.write(context, async (store: relationalStore.RdbStore): Promise<void> => {
-      await TripDao.deleteRows(store, trip.id);
+      await TripDao.deleteRows(store, trip.id, false);
       const tripRow: relationalStore.ValuesBucket = {
         id: trip.id, destination: trip.destination, start_date: trip.startDate,
         end_date: trip.endDate, people: trip.people, budget: trip.budget, style: trip.style,
@@ -264,7 +264,7 @@ export class TripDao {
 
   static deleteTrip(context: common.Context, tripId: string): Promise<void> {
     return DatabaseHelper.write(context, async (store: relationalStore.RdbStore): Promise<void> => {
-      await TripDao.deleteRows(store, tripId);
+      await TripDao.deleteRows(store, tripId, true);
     });
   }
 
@@ -284,11 +284,34 @@ export class TripDao {
     store.insertSync('activity', row);
   }
 
-  private static async deleteRows(store: relationalStore.RdbStore, tripId: string): Promise<void> {
-    store.executeSync('DELETE FROM trip WHERE id = ?', [tripId]);
-    store.executeSync('DELETE FROM trip_day WHERE trip_id = ?', [tripId]);
-    store.executeSync('DELETE FROM activity WHERE trip_id = ?', [tripId]);
+  /**
+   * 重建行程树。purgeChildren=false 用于 saveTrip：编辑行程会重建 trip_day/activity/meal，
+   * 但活动 id 保持不变，打卡与费用必须留着；只有用户删整条行程（purgeChildren=true）才清它们。
+   */
+  private static async deleteRows(store: relationalStore.RdbStore, tripId: string,
+    purgeChildren: boolean): Promise<void> {
+    // 只删当前账号名下的行程：trip 子表没有 user_id，先验归属再按 trip_id 清子表，
+    // 避免同 id 的他人行程（或脏数据）被连带删除
+    const owned: relationalStore.ResultSet = await store.querySql(
+      'SELECT id FROM trip WHERE id = ? AND user_id = ?', [tripId, AccountStore.uid()]);
+    let exists: boolean = false;
+    try {
+      exists = owned.goToFirstRow();
+    } finally {
+      owned.close();
+    }
+    if (!exists) {
+      return;
+    }
+    if (purgeChildren) {
+      // 删整条行程必须把打卡与费用一并清掉：它们没有外键级联，漏删会留下不可见的孤儿行
+      store.executeSync('DELETE FROM checkin WHERE trip_id = ?', [tripId]);
+      store.executeSync('DELETE FROM expense WHERE trip_id = ?', [tripId]);
+    }
     store.executeSync('DELETE FROM meal WHERE trip_id = ?', [tripId]);
+    store.executeSync('DELETE FROM activity WHERE trip_id = ?', [tripId]);
+    store.executeSync('DELETE FROM trip_day WHERE trip_id = ?', [tripId]);
+    store.executeSync('DELETE FROM trip WHERE id = ? AND user_id = ?', [tripId, AccountStore.uid()]);
   }
 
   private static async query<T>(context: common.Context, sql: string,
