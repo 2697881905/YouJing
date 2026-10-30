@@ -61,6 +61,18 @@ export class ShareExporter {
     return events;
   }
 
+  /** 本机生成的回顾海报：只分享 cacheDir 里的图片，不申请相册权限、不落相册 */
+  static async shareImage(context: common.UIAbilityContext, path: string, title: string): Promise<void> {
+    const uri: string = fileUri.getUriFromPath(path);
+    const record: systemShare.SharedRecord = {
+      utd: uniformTypeDescriptor.UniformDataType.IMAGE,
+      uri: uri,
+      title: title
+    };
+    await ShareExporter.present(context, new systemShare.SharedData(record));
+    Logger.info(TAG, `分享海报 ${title}`);
+  }
+
   private static async present(context: common.UIAbilityContext, data: systemShare.SharedData): Promise<void> {
     const controller: systemShare.ShareController = new systemShare.ShareController(data);
     await controller.show(context, {

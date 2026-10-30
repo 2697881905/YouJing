@@ -32,6 +32,8 @@ export interface TripSummary {
   bookingCount: number;
   /** 有通勤记录的节点数（transport_mode 非空） */
   legCount: number;
+  /** 已打卡的活动数（行后回顾的入口判据：有证据才值得回顾） */
+  checkinCount: number;
   updatedAt: number;
 }
 
@@ -88,7 +90,9 @@ export class TripDao {
       'SELECT t.id, t.destination, t.start_date, t.end_date, t.people, t.total_cost, t.updated_at, ' +
         '(SELECT COUNT(*) FROM activity a WHERE a.trip_id = t.id) AS spot_count, ' +
         "(SELECT COUNT(*) FROM activity a WHERE a.trip_id = t.id AND a.status IN ('not_booked','pending','full')) AS booking_count, " +
-        '(SELECT COUNT(*) FROM activity a WHERE a.trip_id = t.id AND a.transport_mode IS NOT NULL) AS leg_count ' +
+        '(SELECT COUNT(*) FROM activity a WHERE a.trip_id = t.id AND a.transport_mode IS NOT NULL) AS leg_count, ' +
+        '(SELECT COUNT(*) FROM checkin c JOIN activity a ON a.id = c.trip_id || \':\' || c.activity_id ' +
+        'WHERE c.trip_id = t.id AND c.user_id = t.user_id) AS checkin_count ' +
         'FROM trip t WHERE t.user_id = ? ORDER BY t.updated_at DESC', [AccountStore.uid()],
       (rs: relationalStore.ResultSet): TripSummary => {
         const s: TripSummary = {
@@ -101,6 +105,7 @@ export class TripDao {
           spotCount: rs.getLong(rs.getColumnIndex('spot_count')),
           bookingCount: rs.getLong(rs.getColumnIndex('booking_count')),
           legCount: rs.getLong(rs.getColumnIndex('leg_count')),
+          checkinCount: rs.getLong(rs.getColumnIndex('checkin_count')),
           updatedAt: rs.getLong(rs.getColumnIndex('updated_at'))
         };
         return s;

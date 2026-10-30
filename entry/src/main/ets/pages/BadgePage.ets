@@ -21,8 +21,11 @@ import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit'
 import { HdsChrome } from '../design/HdsChrome';
 import { common } from '@kit.AbilityKit';
 import { BadgeDao } from '../data/BadgeDao';
+import { SpotDao } from '../data/SpotDao';
+import { Spot } from '../model/Spot';
 import { Badge, BadgeGroup, BadgeRecord, badgeCityCount, badgeDateText, badgeMeta,
   badgeRoute, badgeTotal, buildBadgeBoard } from '../utils/BadgeBoard';
+import { CitySpotSet, CityStamp, buildCityStamps, stampMeta, stampOf } from '../utils/CityStamps';
 import { DateUtils } from '../utils/DateUtils';
 import { Logger } from '../common/logger/Logger';
 
@@ -33,21 +36,36 @@ export struct BadgePage {
 
   private pathStack: NavPathStack = APP_NAV;
   @State private groups: BadgeGroup[] = [];
+  /** 城市套章进度：与勋章组同序；没有种子数据的城市 total=0，不画进度 */
+  @State private stamps: CityStamp[] = [];
   @State private loading: boolean = true;
 
   aboutToAppear(): void {
     this.reload();
   }
 
-  private reload(): Promise<void> {
+  private async reload(): Promise<void> {
     const ctx = this.getUIContext().getHostContext() as common.Context;
-    return BadgeDao.listMine(ctx).then((rows: BadgeRecord[]): void => {
-      this.groups = buildBadgeBoard(rows);
+    try {
+      const rows: BadgeRecord[] = await BadgeDao.listMine(ctx);
+      const groups: BadgeGroup[] = buildBadgeBoard(rows);
+      const sets: CitySpotSet[] = [];
+      for (const group of groups) {
+        const spots: Spot[] = await SpotDao.loadByCity(ctx, group.city);
+        const names: string[] = [];
+        for (const spot of spots) {
+          names.push(spot.name);
+        }
+        const set: CitySpotSet = { city: group.city, names: names };
+        sets.push(set);
+      }
+      this.groups = groups;
+      this.stamps = buildCityStamps(sets, groups);
       this.loading = false;
-    }).catch((err: Error): void => {
+    } catch (err) {
       this.loading = false;
-      Logger.error('Ui.Badge', `勋章加载失败: ${err.message}`);
-    });
+      Logger.error('Ui.Badge', `勋章加载失败: ${(err as Error).message}`);
+    }
   }
 
   private totalCount(): number {
@@ -65,6 +83,21 @@ export struct BadgePage {
       }
     }
     return 0;
+  }
+
+  private stampTotal(city: string): number {
+    const stamp: CityStamp | null = stampOf(this.stamps, city);
+    return stamp === null ? 0 : stamp.total;
+  }
+
+  private stampCollected(city: string): number {
+    const stamp: CityStamp | null = stampOf(this.stamps, city);
+    return stamp === null ? 0 : stamp.collected;
+  }
+
+  private stampComplete(city: string): boolean {
+    const stamp: CityStamp | null = stampOf(this.stamps, city);
+    return stamp !== null && stamp.complete;
   }
 
   /** 最近一枚是哪天收的；没有勋章时返回空串（空态不画总览卡） */
@@ -115,17 +148,33 @@ export struct BadgePage {
 
   @Builder
   cityHeader(city: string) {
-    Row() {
-      Text(city)
-        .fontSize(TypeTokens.overline.size)
-        .fontWeight(600)
-        .fontColor(ColorTokens.muted)
-      Blank()
-      Text(`${this.countIn(city)} 枚`)
-        .fontSize(TypeTokens.overline.size)
-        .fontWeight(450)
-        .fontColor(ColorTokens.muted)
-        .fontFeature("'tnum' on")
+    Column({ space: SpaceTokens.xs }) {
+      Row() {
+        Text(city)
+          .fontSize(TypeTokens.overline.size)
+          .fontWeight(600)
+          .fontColor(ColorTokens.muted)
+        Blank()
+        Text(stampMeta(stampOf(this.stamps, city), this.countIn(city)))
+          .fontSize(TypeTokens.overline.size)
+          .fontWeight(450)
+          .fontColor(ColorTokens.muted)
+          .fontFeature("'tnum' on")
+      }
+      .width('100%')
+
+      if (this.stampTotal(city) > 0) {
+        Progress({ value: this.stampCollected(city), total: this.stampTotal(city), type: ProgressType.Linear })
+          .color(this.stampComplete(city) ? ColorTokens.success : ColorTokens.primary)
+          .width('100%')
+          .accessibilityText(`城市套章进度 ${this.stampCollected(city)} / ${this.stampTotal(city)}`)
+        if (this.stampComplete(city)) {
+          Text('已集齐城市套章')
+            .fontSize(TypeTokens.overline.size)
+            .fontWeight(600)
+            .fontColor(ColorTokens.success)
+        }
+      }
     }
     .width('100%')
     // 吸顶层要自带实底：sticky 头没有底板时，滚动行会从字下穿过去

@@ -17,6 +17,7 @@ import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton
 import { TripDao, TripSummary } from '../data/TripDao';
 import { PlanDraft } from '../data/PlanDraft';
 import { DateUtils } from '../utils/DateUtils';
+import { AnniversaryTrip, anniversaryText, findAnniversary } from '../utils/TripReview';
 import { common } from '@kit.AbilityKit';
 import { HdsNavigation, HdsNavigationTitleMode, HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { routerMap } from './AppRouter';
@@ -42,6 +43,8 @@ interface TripCardData {
   /** 'upcoming' 未出发 / 'onTrip' 旅行中 / 'past' 已结束——三态区分要素（§5.13） */
   phase: string;
   onTrip: boolean;
+  /** 已结束且有活动打卡：落点改成回顾 */
+  reviewable: boolean;
   muted: boolean;
 }
 
@@ -64,6 +67,9 @@ export struct TripsPage {
   }
   @StorageProp('isDarkMode') isDark: boolean = false;
   @State private trips: TripCardData[] = [];
+  /** 周年横幅：今天月日落在某条跨年历史行程区间内才出现；无命中时两条都为空 */
+  @State private anniversaryId: string = '';
+  @State private anniversaryLine: string = '';
   /** 官方 Search 的关键词：目的地或日期串命中即保留 */
   @State private keyword: string = '';
   @State private refreshing: boolean = false;
@@ -73,9 +79,10 @@ export struct TripsPage {
     const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
     return TripDao.listSummaries(ctx).then((rows: TripSummary[]) => {
       const list: TripCardData[] = [];
+      const today: string = DateUtils.todayIso();
+      const anniversaries: AnniversaryTrip[] = [];
       for (const r of rows) {
         const span: number = DateUtils.spanDays(r.startDate, r.endDate);
-        const today: string = DateUtils.todayIso();
         // ISO 串可直接比大小；不能用 spanDays 的差值判在途——它含首尾且下限为 1，
         // 会把「还没出发」的未来行程误判成旅行中
         const onTrip: boolean = today >= r.startDate && today <= r.endDate;
@@ -98,16 +105,28 @@ export struct TripsPage {
         } else {
           progressLabel = '已结束 · 100%';
         }
+        // 有打卡证据的过去行程才把落点改成回顾；没有证据时仍进详情
+        const reviewable: boolean = phase === 'past' && r.checkinCount > 0;
+        if (reviewable) {
+          progressLabel = '已结束 · 可回顾';
+        }
         const t: TripCardData = {
           id: r.id, place: r.destination,
           dateMeta: `${r.startDate} – ${r.endDate} · ${span} 天 · ${r.people} 人`,
           spots: `${r.spotCount}`, walk: `${r.legCount} 段`, bookingNum: `${r.bookingCount}`,
           bookingBadge: r.totalCost > 0 ? MoneyText.yuan(r.totalCost) : '',
           statusLine: statusLine, progress: progress, phase: phase, progressLabel: progressLabel,
-          onTrip: onTrip, muted: false
+          onTrip: onTrip, reviewable: reviewable, muted: false
         };
         list.push(t);
+        const anniversary: AnniversaryTrip = {
+          id: r.id, destination: r.destination, startDate: r.startDate, endDate: r.endDate
+        };
+        anniversaries.push(anniversary);
       }
+      const hit: AnniversaryTrip | null = findAnniversary(anniversaries, today);
+      this.anniversaryId = hit === null ? '' : hit.id;
+      this.anniversaryLine = hit === null ? '' : anniversaryText(hit, today);
       this.trips = list;
     });
   }
@@ -322,19 +341,76 @@ export struct TripsPage {
     .width('100%')
     .padding(0)
     .borderRadius(RadiusTokens.card)
-    .accessibilityText(`${t.place} ${t.dateMeta}，${t.statusLine}，打开行程`)
+    .accessibilityText(`${t.place} ${t.dateMeta}，${t.statusLine}，` +
+      (t.reviewable ? '打开旅行回顾' : '打开行程'))
     .onClick(() => {
-      this.pathStack.pushPath({ name: t.onTrip ? 'OnTrip' : 'Itinerary', param: t.id });
+      if (t.onTrip) {
+        this.pathStack.pushPath({ name: 'OnTrip', param: t.id });
+      } else if (t.reviewable) {
+        this.pathStack.pushPath({ name: 'Review', param: t.id });
+      } else {
+        this.pathStack.pushPath({ name: 'Itinerary', param: t.id });
+      }
     })
   }
 
   /** 根页模式：作为 tab 的内容区内联在 TabContent 里（有据路线 B），此时本页自带 HdsNavigation */
   rootMode: boolean = false;
 
+  /** 行后周年：不做推送（通知权限与 AGC 承载层未就绪），只在 App 内露一条回顾入口 */
+  @Builder
+  anniversaryBanner() {
+    Column() {
+      Button({ type: ButtonType.Normal, stateEffect: true }) {
+        Row({ space: SpaceTokens.md }) {
+          SymbolGlyph($r('sys.symbol.medal'))
+            .fontSize(IconSizes.control)
+            .fontColor([ColorTokens.primary])
+          Column({ space: SpaceTokens.xs }) {
+            Text(this.anniversaryLine)
+              .fontSize(TypeTokens.small.size)
+              .fontWeight(600)
+              .fontColor(ColorTokens.ink)
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+            Text('点开看看那趟旅程的回顾')
+              .fontSize(TypeTokens.caption.size)
+              .fontWeight(450)
+              .fontColor(ColorTokens.muted)
+          }
+          .alignItems(HorizontalAlign.Start)
+          .layoutWeight(1)
+          SymbolGlyph($r('sys.symbol.chevron_right'))
+            .fontSize(IconSizes.control)
+            .fontColor([ColorTokens.icon])
+        }
+        .width('100%')
+        .padding(SpaceTokens.md)
+        .borderRadius(RadiusTokens.card)
+        .backgroundColor(ColorTokens.primaryTint)
+        .alignItems(VerticalAlign.Center)
+      }
+      .buttonStyle(ButtonStyleMode.TEXTUAL)
+      .width('100%')
+      .padding(0)
+      .borderRadius(RadiusTokens.card)
+      .accessibilityText(`${this.anniversaryLine}，打开旅行回顾`)
+      .onClick((): void => {
+        this.pathStack.pushPath({ name: 'Review', param: this.anniversaryId });
+      })
+    }
+    .width('100%')
+    .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.sm })
+  }
+
   @Builder
   rootShell() {
       Stack({ alignContent: Alignment.Bottom }) {
       Column() {
+        if (this.trips.length > 0 && this.anniversaryId.length > 0) {
+          this.anniversaryBanner()
+        }
+
         // 官方 Search：目的地或日期关键词过滤（此前右上角放大镜是个没有动作的死控件）。
         // 一条行程都没有时不挂搜索框——没有可搜的内容，摆一个输入框只会让人以为坏了
         if (this.trips.length > 0) {

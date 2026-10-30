@@ -15,42 +15,56 @@ import { DatabaseHelper } from './DatabaseHelper';
 import { AccountStore } from './AccountStore';
 import { BadgeRecord } from '../utils/BadgeBoard';
 
-const SQL_LIST: string =
+const SQL_SELECT: string =
   'SELECT c.activity_id, c.checked_at, c.source, c.distance_m, c.trip_id, ' +
   'a.title, t.destination, t.start_date, t.end_date ' +
   'FROM checkin c ' +
   'JOIN activity a ON a.id = c.trip_id || \':\' || c.activity_id ' +
   'JOIN trip t ON t.id = c.trip_id ' +
-  'WHERE c.user_id = ? AND t.user_id = ? ' +
-  'ORDER BY c.checked_at DESC';
+  'WHERE c.user_id = ? AND t.user_id = ? ';
 
 export class BadgeDao {
   /** 当前账号全部可作为勋章凭证的打卡（只含活动，不含餐次） */
-  static async listMine(context: common.Context): Promise<BadgeRecord[]> {
+  static listMine(context: common.Context): Promise<BadgeRecord[]> {
+    return BadgeDao.query(context, `${SQL_SELECT}ORDER BY c.checked_at DESC`,
+      [AccountStore.uid(), AccountStore.uid()]);
+  }
+
+  /** 单条行程的打卡凭证（行后回顾：只取本次旅程的证据，不拿全量在页面里筛） */
+  static listForTrip(context: common.Context, tripId: string): Promise<BadgeRecord[]> {
+    return BadgeDao.query(context, `${SQL_SELECT}AND c.trip_id = ? ORDER BY c.checked_at DESC`,
+      [AccountStore.uid(), AccountStore.uid(), tripId]);
+  }
+
+  private static async query(context: common.Context, sql: string,
+    args: relationalStore.ValueType[]): Promise<BadgeRecord[]> {
     const store: relationalStore.RdbStore = await DatabaseHelper.getStore(context);
-    const uid: string = AccountStore.uid();
-    const rs: relationalStore.ResultSet = await store.querySql(SQL_LIST, [uid, uid]);
+    const rs: relationalStore.ResultSet = await store.querySql(sql, args);
     const out: BadgeRecord[] = [];
     try {
       while (rs.goToNextRow()) {
-        const tripId: string = rs.getString(rs.getColumnIndex('trip_id'));
-        const activityId: string = rs.getString(rs.getColumnIndex('activity_id'));
-        const record: BadgeRecord = {
-          id: `${tripId}:${activityId}`,
-          tripId: tripId,
-          spotName: rs.getString(rs.getColumnIndex('title')),
-          city: rs.getString(rs.getColumnIndex('destination')),
-          tripStartDate: rs.getString(rs.getColumnIndex('start_date')),
-          tripEndDate: rs.getString(rs.getColumnIndex('end_date')),
-          earnedAt: rs.getLong(rs.getColumnIndex('checked_at')),
-          arrival: rs.getString(rs.getColumnIndex('source')) === 'arrival',
-          distanceM: rs.getDouble(rs.getColumnIndex('distance_m'))
-        };
-        out.push(record);
+        out.push(BadgeDao.read(rs));
       }
     } finally {
       rs.close();
     }
     return out;
+  }
+
+  private static read(rs: relationalStore.ResultSet): BadgeRecord {
+    const tripId: string = rs.getString(rs.getColumnIndex('trip_id'));
+    const activityId: string = rs.getString(rs.getColumnIndex('activity_id'));
+    const record: BadgeRecord = {
+      id: `${tripId}:${activityId}`,
+      tripId: tripId,
+      spotName: rs.getString(rs.getColumnIndex('title')),
+      city: rs.getString(rs.getColumnIndex('destination')),
+      tripStartDate: rs.getString(rs.getColumnIndex('start_date')),
+      tripEndDate: rs.getString(rs.getColumnIndex('end_date')),
+      earnedAt: rs.getLong(rs.getColumnIndex('checked_at')),
+      arrival: rs.getString(rs.getColumnIndex('source')) === 'arrival',
+      distanceM: rs.getDouble(rs.getColumnIndex('distance_m'))
+    };
+    return record;
   }
 }
