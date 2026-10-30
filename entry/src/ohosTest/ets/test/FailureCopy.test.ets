@@ -15,6 +15,7 @@ export default function failureCopyTest(): void {
       expect(failureHeadline(ErrorCode.SCHEMA_VALIDATION_FAILED)).assertEqual('AI 给的行程缺关键信息');
       expect(failureHeadline(ErrorCode.LLM_UNAVAILABLE)).assertEqual('连不上行程服务');
       expect(failureHeadline(ErrorCode.NETWORK_TIMEOUT)).assertEqual('网络不通或超时');
+      expect(failureHeadline(ErrorCode.MAP_CITY_DATA_FAILED)).assertEqual('地图数据没取到');
       expect(failureHeadline(ErrorCode.TRIP_NO_SPOT_SELECTED)).assertEqual('还没选景点');
       expect(failureHeadline(ErrorCode.TRIP_NO_AREA_SELECTED)).assertEqual('还没选住宿区域');
     });
@@ -33,6 +34,8 @@ export default function failureCopyTest(): void {
         .assertEqual('返回的行程里缺了日期或站点，落不成行程');
       expect(failureDetail(ErrorCode.TRIP_NO_SPOT_SELECTED))
         .assertEqual('至少要选 1 个景点才排得出行程');
+      expect(failureDetail(ErrorCode.MAP_CITY_DATA_FAILED))
+        .assertEqual('地图服务没有返回这座城市的景点或住宿区，检查网络后再试');
     });
 
     it('detail_lines_never_leak_validation_terms',
@@ -46,6 +49,7 @@ export default function failureCopyTest(): void {
           ErrorCode.JSON_PARSE_FAILED,
           ErrorCode.LLM_UNAVAILABLE,
           ErrorCode.NETWORK_TIMEOUT,
+          ErrorCode.MAP_CITY_DATA_FAILED,
           ErrorCode.TRIP_NO_SPOT_SELECTED,
           ErrorCode.TRIP_NO_AREA_SELECTED,
           9999

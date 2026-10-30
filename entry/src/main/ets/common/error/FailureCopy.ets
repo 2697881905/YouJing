@@ -21,6 +21,9 @@ export function failureHeadline(code: number): string {
   if (code === ErrorCode.NETWORK_REQUEST_FAILED || code === ErrorCode.NETWORK_TIMEOUT) {
     return '网络不通或超时';
   }
+  if (code === ErrorCode.MAP_CITY_DATA_FAILED) {
+    return '地图数据没取到';
+  }
   if (code === ErrorCode.TRIP_NO_SPOT_SELECTED) {
     return '还没选景点';
   }
@@ -51,6 +54,9 @@ export function failureDetail(code: number): string {
   }
   if (code === ErrorCode.NETWORK_REQUEST_FAILED || code === ErrorCode.NETWORK_TIMEOUT) {
     return '请求超时或网络不通';
+  }
+  if (code === ErrorCode.MAP_CITY_DATA_FAILED) {
+    return '地图服务没有返回这座城市的景点或住宿区，检查网络后再试';
   }
   if (code === ErrorCode.TRIP_NO_SPOT_SELECTED) {
     return '至少要选 1 个景点才排得出行程';

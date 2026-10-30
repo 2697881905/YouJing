@@ -14,7 +14,7 @@ import { DateUtils } from './DateUtils';
 export interface TripIntent {
   /** 命中的支持城市；'' = 没识别出目的地 */
   city: string;
-  /** 命中常见但未内置的城市；'' = 没有 */
+  /** 命中可走 Map Kit 的未内置城市；'' = 没有 */
   unsupportedCity: string;
   /** ISO 出发日；'' = 没提到 */
   startDate: string;
@@ -58,10 +58,12 @@ export class TripIntentParser {
     }
     const dest: string = TripIntentParser.findDestination(raw);
     if (dest.startsWith('!')) {
+      // 未内置城市不再提前返回：日期/人数/预算/偏好照样解析，
+      // 由页面决定走 Map Kit 还是明确拒绝（Stage 2）
       intent.unsupportedCity = dest.substring(1);
-      return intent;
+    } else {
+      intent.city = dest;
     }
-    intent.city = dest;
     intent.startDate = TripIntentParser.parseStartDate(raw, todayIso, intent.notes);
     intent.dayCount = TripIntentParser.parseDuration(raw);
     intent.people = TripIntentParser.parsePeople(raw);

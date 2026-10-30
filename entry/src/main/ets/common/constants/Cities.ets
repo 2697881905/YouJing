@@ -22,6 +22,15 @@ export const CITY_DEFS: CityDef[] = [
 
 export const SUPPORTED_CITIES: string[] = CITY_DEFS.map((c: CityDef): string => c.name);
 
+/**
+ * 是否走 Map Kit 任意城市检索：内置五城与京都 mock 之外的都算。
+ * 只决定「种子库为空时要不要联网取数」，不校验城市名是否真实；取不到会走 1004 失败出口。
+ */
+export function isMapCity(city: string): boolean {
+  const name: string = city.trim();
+  return name.length > 0 && SUPPORTED_CITIES.indexOf(name) < 0 && name.indexOf('京都') < 0;
+}
+
 export interface CityAlias {
   alias: string;
   city: string;
@@ -40,8 +49,8 @@ export const CITY_ALIASES: CityAlias[] = [
 ];
 
 /**
- * 常见但尚未内置数据的城市：只用来把「暂不支持」说清楚，
- * 不拿它做任何匹配之外的推断。名单不追求穷尽。
+ * 常见但非种子的城市：一句话里出现时交给 Map Kit 兜底（Stage 2），
+ * 不再直接拒绝；名单不追求穷尽，城市面板的「其他城市」可输入任意名称。
  */
 export const UNSUPPORTED_CITIES: string[] = [
   '西安', '成都', '杭州', '重庆', '南京', '武汉', '长沙', '苏州', '厦门', '青岛',

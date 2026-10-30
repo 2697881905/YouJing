@@ -71,8 +71,17 @@ export default function tripIntentTest(): void {
       const intent: TripIntent = TripIntentParser.parse('11月15日去西安玩4天', TODAY);
       expect(intent.city).assertEqual('');
       expect(intent.unsupportedCity).assertEqual('西安');
+      expect(intent.startDate).assertEqual('2026-11-15');
+      expect(intent.dayCount).assertEqual(4);
       const fromTo: TripIntent = TripIntentParser.parse('从北京去西安玩三天', TODAY);
       expect(fromTo.unsupportedCity).assertEqual('西安');
+      const full: TripIntent =
+        TripIntentParser.parse('下周五去西安玩三天，两个人，预算一万', TODAY);
+      expect(full.unsupportedCity).assertEqual('西安');
+      expect(full.startDate).assertEqual('2026-11-06');
+      expect(full.dayCount).assertEqual(3);
+      expect(full.people).assertEqual(2);
+      expect(full.budgetAmount).assertEqual(10000);
     });
 
     it('duration_and_date_edges', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {

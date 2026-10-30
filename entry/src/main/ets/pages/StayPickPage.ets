@@ -34,6 +34,8 @@ import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit'
 import type { HdsNavigationMenuItemOptions, HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
 import { Logger } from '../common/logger/Logger';
+import { isMapCity } from '../common/constants/Cities';
+import { isMapArea } from '../utils/MapCityMapper';
 import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
 import { listLanesForBreakpoint } from '../utils/responsive';
 
@@ -62,10 +64,13 @@ export struct StayPickPage {
   @State private areaSig: string = '';
   /** 屏4 已选景点的坐标，「帮我选」按到这些点的平均距离取最小 */
   private spotPoints: GeoPoint[] = [];
+  /** 任意城市：住宿区按区县聚合，档位/通勤未校准 */
+  private mapCity: boolean = false;
 
   aboutToAppear(): void {
     const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
     const city: string = PlanDraft.get().basic.destination;
+    this.mapCity = isMapCity(city);
     // 先取景点坐标、再排区域候选：两条 Promise 链式衔接，不用「谁先回来算谁」
     this.loadSpotPoints(ctx, city).then((): Promise<Area[]> => {
       return PlanRepository.loadAreas(ctx, city);
@@ -166,6 +171,15 @@ export struct StayPickPage {
   /** 理由与三列只拼区域库里真有的字段：到首个景点耗时/日均通勤/房源数
    *  需要路径规划与住宿库存，本项目两者都没有，底稿那三项数字不再照抄 */
   private makePick(a: Area, rank: number): AreaPick {
+    if (isMapArea(a)) {
+      const mapPick: AreaPick = {
+        area: a,
+        badgeLabel: rank === 0 ? '精选 1' : '地图区县',
+        aiRank: rank + 1,
+        reason: '按到所选景点的平均直线距离推荐；住宿档与通勤未校准'
+      };
+      return mapPick;
+    }
     const din: string = `周边餐饮${a.diningDensity}密度`;
     const pick: AreaPick = {
       area: a,
@@ -230,6 +244,9 @@ export struct StayPickPage {
    * 「锚定 南锣鼓/巷」这种把站名劈成两半的断法（屏11 同一族缺陷，见 INIT_REPORT §5o）。
    */
   private areaMetaTop(area: Area): string {
+    if (isMapArea(area)) {
+      return '舒适档（未校准） · 地图服务区县';
+    }
     const tier: string = area.priceTier === AreaPriceTier.ECONOMY ? '经济档'
       : (area.priceTier === AreaPriceTier.LUXURY ? '豪华档' : '舒适档');
     const lines: string = area.metroLines.length > 0 ? area.metroLines.slice(0, 2).join('/') : '无直达线路';
@@ -237,6 +254,9 @@ export struct StayPickPage {
   }
 
   private areaMetaAnchor(area: Area): string {
+    if (isMapArea(area)) {
+      return '';
+    }
     return area.anchorStations.length > 0 ? `锚定 ${area.anchorStations[0]}` : '';
   }
 
@@ -334,14 +354,24 @@ export struct StayPickPage {
       .margin({ top: SpaceTokens.md })
 
       // 通勤三列（底稿为 到首个景点/日均通勤/舒适型房源，三项均需路径规划与住宿库存，
-      // 内置库没有；换成区域库真有的三个字段，版式不变）
-      Row() {
-        this.commuteCol(`${pick.area.airportMinutes}分钟`, '到机场')
-        this.commuteCol(`${pick.area.trainStationMinutes}分钟`, '到火车站')
-        this.commuteCol(pick.area.diningDensity, '餐饮密度')
+      // 内置库没有；换成区域库真有的三个字段，版式不变）。
+      // 地图服务区县没有这些字段，不拿 0 分钟冒充事实，改为一句未校准说明。
+      if (isMapArea(pick.area)) {
+        Text('住宿区按景点所在区县聚合；通勤与餐饮未校准')
+          .fontSize(TypeTokens.caption.size)
+          .fontWeight(450)
+          .fontColor(ColorTokens.muted)
+          .width('100%')
+          .margin({ top: SpaceTokens.md })
+      } else {
+        Row() {
+          this.commuteCol(`${pick.area.airportMinutes}分钟`, '到机场')
+          this.commuteCol(`${pick.area.trainStationMinutes}分钟`, '到火车站')
+          this.commuteCol(pick.area.diningDensity, '餐饮密度')
+        }
+        .width('100%')
+        .margin({ top: SpaceTokens.md })
       }
-      .width('100%')
-      .margin({ top: SpaceTokens.md })
     }
     .width('100%')
     .padding(SpaceTokens.lg)
@@ -376,6 +406,26 @@ export struct StayPickPage {
     .layoutWeight(1)
   }
 
+  @Builder
+  mapSourceNotice() {
+    Column({ space: SpaceTokens.xs }) {
+      Text('住宿区来自地图服务')
+        .fontSize(TypeTokens.overline.size)
+        .fontWeight(600)
+        .fontColor(ColorTokens.muted)
+      Text('按景点所在区县聚合；住宿档、通勤与餐饮未校准')
+        .fontSize(TypeTokens.caption.size)
+        .fontWeight(450)
+        .fontColor(ColorTokens.body)
+    }
+    .alignItems(HorizontalAlign.Start)
+    .width('100%')
+    .padding(SpaceTokens.md)
+    .borderRadius(RadiusTokens.reason)
+    .backgroundColor(ColorTokens.surfacePanel)
+    .margin({ bottom: SpaceTokens.md })
+  }
+
   build() {
     HdsNavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
@@ -389,6 +439,11 @@ export struct StayPickPage {
 
           // 官方 List：地图面板一个 ListItem，三张候选卡各成一个 ListItem（卡间距在卡片自己身上）
           List() {
+            if (this.mapCity) {
+              ListItem() {
+                this.mapSourceNotice()
+              }
+            }
             ListItem() {
               // 候选片区地图：区域库有逐片坐标时上真实底图（三片是互斥选项，不连线），
               // 坐标缺失才退回 route-paper 图例——不拿城市质心假装位置

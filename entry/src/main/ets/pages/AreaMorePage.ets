@@ -24,6 +24,8 @@ import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
+import { isMapArea } from '../utils/MapCityMapper';
+import { isMapCity } from '../common/constants/Cities';
 
 const GROUP_ORDER: AreaGroup[] = [AreaGroup.CORE, AreaGroup.COMMERCIAL, AreaGroup.METRO];
 
@@ -37,20 +39,27 @@ export struct AreaMorePage {
   @State private areas: Area[] = [];
   @State private keyword: string = '';
   @State private loading: boolean = true;
+  @State private loadFailed: boolean = false;
+  private mapCity: boolean = false;
 
   aboutToAppear(): void {
     const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    this.mapCity = isMapCity(this.city);
     // 与屏5 同一取数口：京都演示城也要能走 mock 路由，不直连 DAO
     PlanRepository.loadAreas(ctx, this.city).then((rows: Area[]) => {
       this.areas = rows;
       this.loading = false;
     }).catch((err: Error) => {
       this.loading = false;
+      this.loadFailed = true;
       Logger.error('Ui.AreaMore', `区域加载失败: ${err.message}`);
     });
   }
 
   private groupLabel(group: AreaGroup): string {
+    if (this.mapCity) {
+      return '地图服务区县';
+    }
     if (group === AreaGroup.CORE) {
       return '核心地段';
     }
@@ -103,19 +112,22 @@ export struct AreaMorePage {
         //   档位+地铁 = 544~655px；锚定+餐饮密度 = 614~727px；机场+火车站 = 657~678px。
         // 中间试过把餐饮密度并到第一行，复拍发现那一行四张卡全部顶到 749px
         // ——也就是整条被省略号截掉，密度信息照样丢。**挪到有富余的锚定行才对。**
-        Text(`${this.tierLabel(a.priceTier)} · ${a.metroLines.join('/')}`)
+        Text(isMapArea(a) ? '舒适档（未校准） · 地图服务区县'
+          : `${this.tierLabel(a.priceTier)} · ${a.metroLines.join('/')}`)
           .fontSize(TypeTokens.caption.size)
           .fontWeight(450)
           .fontColor(ColorTokens.muted)
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(`锚定 ${a.anchorStations.join('/')} · 餐饮${a.diningDensity}密度`)
+        Text(isMapArea(a) ? '按景点所在区县聚合'
+          : `锚定 ${a.anchorStations.join('/')} · 餐饮${a.diningDensity}密度`)
           .fontSize(TypeTokens.caption.size)
           .fontWeight(450)
           .fontColor(ColorTokens.muted)
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(`到机场 ${a.airportMinutes} 分钟 · 到火车站 ${a.trainStationMinutes} 分钟`)
+        Text(isMapArea(a) ? '通勤与住宿供给未校准'
+          : `到机场 ${a.airportMinutes} 分钟 · 到火车站 ${a.trainStationMinutes} 分钟`)
           .fontSize(TypeTokens.caption.size)
           .fontWeight(450)
           .fontColor(ColorTokens.body)
@@ -177,12 +189,14 @@ export struct AreaMorePage {
             SymbolGlyph($r('sys.symbol.map'))
               .fontSize(IconSizes.display)
               .fontColor([ColorTokens.muted])
-            Text('还没有这座城市的区域数据')
+            Text(this.mapCity
+              ? (this.loadFailed ? '地图服务没取到这座城市的住宿区' : '地图服务没有返回这座城市的住宿区')
+              : '还没有这座城市的区域数据')
               .fontSize(TypeTokens.title.size)
               .fontWeight(700)
               .fontFamily(TypeTokens.title.family)
               .fontColor(ColorTokens.ink)
-            Text('首批支持北京、上海、广州、深圳、杨凌，换一座城市试试')
+            Text(this.mapCity ? '检查网络后重试，或换一座城市' : '首批支持北京、上海、广州、深圳、杨凌，换一座城市试试')
               .fontSize(TypeTokens.small.size)
               .fontColor(ColorTokens.muted)
               .textAlign(TextAlign.Center)

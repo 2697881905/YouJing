@@ -29,6 +29,7 @@ import { common } from '@kit.AbilityKit';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import type { HdsNavigationMenuItemOptions, HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
+import { isMapCity } from '../common/constants/Cities';
 
 interface SpotGroup {
   label: string;
@@ -37,7 +38,8 @@ interface SpotGroup {
   total: number;
 }
 
-const TAG_LABELS: string[] = ['必去', '经典', '小众', '亲子'];
+const TAG_LABELS: string[] = ['必去', '经典', '小众', '亲子', '其他'];
+const KNOWN_TAGS: SpotTag[] = [SpotTag.MUST_SEE, SpotTag.CLASSIC, SpotTag.NICHE, SpotTag.FAMILY];
 /** 每组默认展示个数（§3.3 第一层：每组取热度最高的 N 个） */
 const REVEAL_CAP: number = 8;
 /** 「推荐更多」每次放宽的展示个数 */
@@ -54,12 +56,24 @@ export struct SpotPickPage {
   @State private priorities: SelectedSpot[] = [];
   @State private revealCap: number = REVEAL_CAP;
   @State private loaded: boolean = false;
+  /** Map Kit 城市：空态/重试/来源提示与种子城市分开说 */
+  @State private mapCity: boolean = false;
+  @State private loadFailed: boolean = false;
+  private destination: string = '';
   private days: number = 3;
 
   aboutToAppear(): void {
+    this.load();
+  }
+
+  private load(): void {
     const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
     const b: TripBasicInput = PlanDraft.get().basic;
     this.days = DateUtils.spanDays(b.startDate, b.endDate);
+    this.destination = b.destination;
+    this.mapCity = isMapCity(b.destination);
+    this.loaded = false;
+    this.loadFailed = false;
     PlanRepository.loadSpots(ctx, b.destination).then((spots: Spot[]) => {
       this.all = spots;
       // 回退到这一屏时保住已标的景点：`confirm()`(:181) 把选择写进了草稿，
@@ -71,6 +85,7 @@ export struct SpotPickPage {
       this.loaded = true;
     }).catch((err: Error) => {
       this.loaded = true;
+      this.loadFailed = true;
       Logger.error('Ui.SpotPick', `景点库加载失败: ${err.message}`);
     });
   }
@@ -80,8 +95,14 @@ export struct SpotPickPage {
     const byPop: Spot[] = spots.slice().sort((a: Spot, b: Spot): number => b.popularity - a.popularity);
     const out: SpotGroup[] = [];
     for (let i = 0; i < TAG_LABELS.length; i++) {
-      const tag: SpotTag = [SpotTag.MUST_SEE, SpotTag.CLASSIC, SpotTag.NICHE, SpotTag.FAMILY][i];
-      const inTag: Spot[] = byPop.filter((s: Spot): boolean => s.tags.indexOf(tag) >= 0);
+      let inTag: Spot[];
+      if (i < KNOWN_TAGS.length) {
+        const tag: SpotTag = KNOWN_TAGS[i];
+        inTag = byPop.filter((s: Spot): boolean => s.tags.indexOf(tag) >= 0);
+      } else {
+        // Map Kit 的 POI 类型映射不到四值时进「其他」，不能被分组吞掉
+        inTag = byPop.filter((s: Spot): boolean => !this.hasKnownTag(s));
+      }
       if (inTag.length > 0) {
         const g: SpotGroup = {
           label: TAG_LABELS[i],
@@ -92,6 +113,15 @@ export struct SpotPickPage {
       }
     }
     this.groups = out;
+  }
+
+  private hasKnownTag(sp: Spot): boolean {
+    for (const tag of KNOWN_TAGS) {
+      if (sp.tags.indexOf(tag) >= 0) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private priorityOf(id: string): SpotPriority | undefined {
@@ -285,6 +315,87 @@ export struct SpotPickPage {
     .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.md, bottom: SpaceTokens.md })
   }
 
+  private backToInput(): void {
+    if (this.pathStack.popToName('TripInput') < 0) {
+      this.pathStack.pushPath({ name: 'TripInput' });
+    }
+  }
+
+  @Builder
+  mapSourceNotice() {
+    Column({ space: SpaceTokens.xs }) {
+      Text('景点来自地图服务')
+        .fontSize(TypeTokens.overline.size)
+        .fontWeight(600)
+        .fontColor(ColorTokens.muted)
+      Text('停留时长为估算，预约与开放时间以官方为准')
+        .fontSize(TypeTokens.caption.size)
+        .fontWeight(450)
+        .fontColor(ColorTokens.body)
+    }
+    .alignItems(HorizontalAlign.Start)
+    .width('100%')
+    .padding(SpaceTokens.md)
+    .borderRadius(RadiusTokens.reason)
+    .backgroundColor(ColorTokens.surfacePanel)
+    .margin({ top: SpaceTokens.sm })
+  }
+
+  @Builder
+  emptyState() {
+    Column({ space: SpaceTokens.md }) {
+      SymbolGlyph($r('sys.symbol.map'))
+        .fontSize(IconSizes.display)
+        .fontColor([ColorTokens.muted])
+      Text(this.mapCity
+        ? (this.loadFailed ? `地图服务没取到${this.destination}的景点` :
+          `地图服务没有返回${this.destination}的景点`)
+        : '还没有这座城市的景点数据')
+        .fontSize(TypeTokens.title.size)
+        .fontWeight(700)
+        .fontFamily(TypeTokens.title.family)
+        .fontColor(ColorTokens.ink)
+        .textAlign(TextAlign.Center)
+      Text(this.mapCity ? '检查网络后重试，或换一座城市' : '首批支持北京、上海、广州、深圳，换一座城市试试')
+        .fontSize(TypeTokens.small.size)
+        .fontColor(ColorTokens.muted)
+        .textAlign(TextAlign.Center)
+      if (this.mapCity) {
+        Row({ space: SpaceTokens.md }) {
+          YoujingButton({
+            variant: YoujingButtonVariant.PRIMARY,
+            label: '重试',
+            buttonWidth: 120,
+            onAction: (): void => {
+              this.load();
+            }
+          })
+          YoujingButton({
+            variant: YoujingButtonVariant.TEXT,
+            label: '换城市',
+            buttonWidth: 120,
+            onAction: (): void => {
+              this.backToInput();
+            }
+          })
+        }
+      } else {
+        YoujingButton({
+          variant: YoujingButtonVariant.PRIMARY,
+          label: '换城市',
+          buttonWidth: 160,
+          onAction: (): void => {
+            this.backToInput();
+          }
+        })
+      }
+    }
+    .width('100%')
+    .layoutWeight(1)
+    .justifyContent(FlexAlign.Center)
+    .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+  }
+
   /** 官方标题栏：动作走 content.menu，不再自绘 SymbolGlyph + onClick */
   private titleBarOptions(): HdsNavigationTitleBarOptions {
     const items: Array<HdsNavigationMenuItemOptions> = [HdsChrome.item(
@@ -309,36 +420,15 @@ export struct SpotPickPage {
 
 
           if (this.loaded && this.all.length === 0) {
-            // 空态（契约 empty-state 规格：48px 展示档图标 + title + callout + 一个主按钮）
-            Column({ space: SpaceTokens.md }) {
-              SymbolGlyph($r('sys.symbol.map'))
-                .fontSize(IconSizes.display)
-                .fontColor([ColorTokens.muted])
-              Text('还没有这座城市的景点数据')
-                .fontSize(TypeTokens.title.size)
-                .fontWeight(700)
-                .fontFamily(TypeTokens.title.family)
-                .fontColor(ColorTokens.ink)
-              Text('首批支持北京、上海、广州、深圳，换一座城市试试')
-                .fontSize(TypeTokens.small.size)
-                .fontColor(ColorTokens.muted)
-                .textAlign(TextAlign.Center)
-              YoujingButton({
-                variant: YoujingButtonVariant.PRIMARY,
-                label: '换城市',
-                buttonWidth: 160,
-                onAction: (): void => {
-                  if (this.pathStack.popToName('TripInput') < 0) {
-                    this.pathStack.pushPath({ name: 'TripInput' });
-                  }
-                }
-              })
-            }
-            .width('100%')
-            .layoutWeight(1)
-            .justifyContent(FlexAlign.Center)
-            .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+            this.emptyState()
           } else {
+            if (this.mapCity) {
+              Column() {
+                this.mapSourceNotice()
+              }
+              .width('100%')
+              .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+            }
             Column({ space: SpaceTokens.xs }) {
               Text(`已选 ${this.priorities.length} / 可用 ${this.days} 天 · 建议上限 ${this.days * 4} 个`)
                 .fontSize(TypeTokens.caption.size)

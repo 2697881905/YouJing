@@ -29,7 +29,7 @@ import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
 import { FlowSteps, FLOW_STEP_TRIP_INPUT } from '../components/FlowSteps';
 import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
 import { longFormMaxWidth } from '../utils/responsive';
-import { SUPPORTED_CITIES } from '../common/constants/Cities';
+import { SUPPORTED_CITIES, isMapCity } from '../common/constants/Cities';
 
 // 京都为 mock 演示城（底稿帧同源），标注「示例数据」不谎报是正式内置库；
 // 正式种子城从 Cities 单点取（DataSeeder 与一句话解析读同一份）
@@ -48,6 +48,8 @@ export struct TripInputPage {
   @State private startDate: string = '';
   @State private endDate: string = '';
   @State private showCity: boolean = false;
+  /** 城市面板里的“其他城市”：未内置城市走 Map Kit，不写死城市列表 */
+  @State private otherCity: string = '';
   @State private budget: number = BudgetConfig.DEFAULT;
   // 一句话成行程：原句只在内存里，识别结果先落表单与草稿，再由用户决定生成或去调整
   @State private sentence: string = '';
@@ -275,13 +277,20 @@ export struct TripInputPage {
     this.getUIContext().getFocusController().clearFocus();
     const today: string = DateUtils.todayIso();
     const intent: TripIntent = TripIntentParser.parse(text, today);
+    // 未内置城市不再一票否决：走 Map Kit 取数（Stage 2）；取不到再给失败出口
+    let targetCity: string = intent.city;
+    let viaMap: boolean = false;
     if (intent.unsupportedCity.length > 0) {
-      this.recognizing = false;
-      this.intentError =
-        `「${intent.unsupportedCity}」还没有内置数据，目前支持 ${SUPPORTED_CITIES.join('/')}`;
-      return;
+      if (!isMapCity(intent.unsupportedCity)) {
+        this.recognizing = false;
+        this.intentError =
+          `「${intent.unsupportedCity}」还没有内置数据，目前支持 ${SUPPORTED_CITIES.join('/')}`;
+        return;
+      }
+      targetCity = intent.unsupportedCity;
+      viaMap = true;
     }
-    if (intent.city.length === 0) {
+    if (targetCity.length === 0) {
       this.recognizing = false;
       this.intentError = '没认出目的地。可以写「去上海玩三天」，或直接用下面的字段选择';
       return;
@@ -298,22 +307,29 @@ export struct TripInputPage {
     const pace: string = intent.pace.length > 0 ? intent.pace : TripInputPage.paceCodeOf(draft.paces);
     try {
       const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
-      const spots: Spot[] = await PlanRepository.loadSpots(ctx, intent.city);
-      const areas: Area[] = await PlanRepository.loadAreas(ctx, intent.city);
+      const spots: Spot[] = await PlanRepository.loadSpots(ctx, targetCity);
+      const areas: Area[] = await PlanRepository.loadAreas(ctx, targetCity);
       if (!this.alive) {
         return;
       }
       if (spots.length === 0 || areas.length === 0) {
         this.recognizing = false;
-        this.intentError = `「${intent.city}」的数据还不完整，换座城市或用下面的字段选择`;
+        this.intentError = viaMap
+          ? `地图服务没有返回「${targetCity}」的景点或住宿区，检查网络后重试`
+          : `「${targetCity}」的数据还不完整，换座城市或用下面的字段选择`;
         return;
       }
       const picked: SelectedSpot[] = PlanAutoPick.pickSpots(spots, days, pace, intent.tags);
       const area: Area | null = PlanAutoPick.pickArea(areas, spots, picked, stayTier);
+      intent.city = targetCity;
+      if (viaMap) {
+        intent.notes.push(`${targetCity}未内置，景点与住宿区来自地图服务；开放时间与预约以官方为准`);
+      }
       this.applyIntent(intent, start, end, days, people, budget, stayTier, pace, picked, area);
       this.recognizing = false;
       Logger.info('Ui.TripInput',
-        `一句话识别 ${intent.city} ${days}天 people=${people} spots=${picked.length} area=${area !== null ? area.id : 'none'}`);
+        `一句话识别 ${targetCity} ${days}天 people=${people} spots=${picked.length} ` +
+        `area=${area !== null ? area.id : 'none'} viaMap=${viaMap}`);
       // bindSheet 的内容不随父状态重赋值重绘：预览字段必须在开面板之前写好
       this.previewOpen = true;
     } catch (err) {
@@ -322,7 +338,9 @@ export struct TripInputPage {
       }
       this.recognizing = false;
       Logger.error('Ui.TripInput', `一句话识别失败: ${(err as Error).message}`);
-      this.intentError = '读城市数据时出错了，请稍后再试';
+      this.intentError = viaMap
+        ? `地图服务没取到「${targetCity}」的数据，检查网络后重试`
+        : '读城市数据时出错了，请稍后再试';
     }
   }
 
@@ -427,41 +445,99 @@ export struct TripInputPage {
       })
   }
 
+  /** 城市面板的“其他城市”：不再限制在 5 个内置城市里，数据由 Map Kit 兜底 */
+  private useOtherCity(): void {
+    const name: string = this.otherCity.trim();
+    if (name.length === 0) {
+      this.getUIContext().getPromptAction().showToast({ message: '先输入城市名' });
+      return;
+    }
+    this.city = name;
+    this.otherCity = '';
+    this.showCity = false;
+  }
+
   @Builder
   citySheet() {
-    Column() {
-      ForEach(CITIES, (c: string) => {
-        // 官方 Button 承载整行：原来是裸 Row + onClick，读屏进不去也没有按压态。
-        // 外观仍由内层 Row 承载，Button 只做可点/可聚焦的壳。
-        Button({ type: ButtonType.Normal, stateEffect: true }) {
-          Row() {
-            Text(c)
-              .fontSize(TypeTokens.body.size)
-              .fontWeight(c === this.city ? 600 : 400)
-              .fontColor(c === this.city ? ColorTokens.primary : ColorTokens.ink)
-              .layoutWeight(1)
-            if (c === this.city) {
-              SymbolGlyph($r('sys.symbol.checkmark'))
-                .fontSize(IconSizes.control)
-                .fontColor([ColorTokens.primary])
-            }
-          }
-          .width('100%')
-          .height(LayoutTokens.minTouchTarget)
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
-        }
-        .buttonStyle(ButtonStyleMode.TEXTUAL)
+    Column({ space: SpaceTokens.sm }) {
+      Text('其他城市')
+        .fontSize(TypeTokens.overline.size)
+        .fontWeight(600)
+        .fontColor(ColorTokens.muted)
         .width('100%')
-        .padding(0)
-        .accessibilityText(c === this.city ? `选择目的地 ${c}，当前已选` : `选择目的地 ${c}`)
-        .onClick(() => {
-          this.city = c;
-          this.showCity = false;
+        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+      // 主操作固定在滚动区外：键盘压缩窗口时百分比高的 Scroll 可能不进可滚状态，
+      // 放在里面的「使用」会点不到（tools/audit_scroll_actions.py 的同类缺陷）
+      Row({ space: SpaceTokens.sm }) {
+        TextInput({ text: this.otherCity, placeholder: '输入城市名，如西安' })
+          .height(LayoutTokens.minTouchTarget)
+          .fontSize(TypeTokens.small.size)
+          .onChange((v: string): void => {
+            this.otherCity = v;
+          })
+          .layoutWeight(1)
+          .accessibilityText('输入其他城市')
+        YoujingButton({
+          variant: YoujingButtonVariant.SECONDARY,
+          label: '使用',
+          buttonWidth: 72,
+          onAction: (): void => {
+            this.useOtherCity();
+          }
         })
-      }, (c: string): string => `city-${c}`)
+      }
+      .width('100%')
+      .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+      Text('未内置城市会用地图服务检索；开放时间与预约以官方为准')
+        .fontSize(TypeTokens.caption.size)
+        .fontWeight(450)
+        .fontColor(ColorTokens.muted)
+        .width('100%')
+        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+
+      Scroll() {
+        Column() {
+          ForEach(CITIES, (c: string) => {
+            // 官方 Button 承载整行：原来是裸 Row + onClick，读屏进不去也没有按压态。
+            // 外观仍由内层 Row 承载，Button 只做可点/可聚焦的壳。
+            Button({ type: ButtonType.Normal, stateEffect: true }) {
+              Row() {
+                Text(c)
+                  .fontSize(TypeTokens.body.size)
+                  .fontWeight(c === this.city ? 600 : 400)
+                  .fontColor(c === this.city ? ColorTokens.primary : ColorTokens.ink)
+                  .layoutWeight(1)
+                if (c === this.city) {
+                  SymbolGlyph($r('sys.symbol.checkmark'))
+                    .fontSize(IconSizes.control)
+                    .fontColor([ColorTokens.primary])
+                }
+              }
+              .width('100%')
+              .height(LayoutTokens.minTouchTarget)
+              .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+            }
+            .buttonStyle(ButtonStyleMode.TEXTUAL)
+            .width('100%')
+            .padding(0)
+            .accessibilityText(c === this.city ? `选择目的地 ${c}，当前已选` : `选择目的地 ${c}`)
+            .onClick(() => {
+              this.city = c;
+              this.showCity = false;
+            })
+          }, (c: string): string => `city-${c}`)
+        }
+        .width('100%')
+      }
+      .layoutWeight(1)
+      .width('100%')
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
     }
     .width('100%')
+    .height('100%')
     .padding({ top: SpaceTokens.md, bottom: SpaceTokens.md })
+    .alignItems(HorizontalAlign.Start)
     .backgroundColor(ColorTokens.canvas)
   }
 
@@ -584,7 +660,7 @@ export struct TripInputPage {
                 .fontSize(TypeTokens.body.size)
                 .fontWeight(600)
                 .fontColor(ColorTokens.ink)
-              Text('说清去哪、几天、几个人。识别在本机完成，不联网也不花额度')
+              Text('说清去哪、几天、几个人。识别在本机完成；未内置城市会联网查地图服务，不花模型额度')
                 .fontSize(TypeTokens.caption.size)
                 .fontWeight(450)
                 .fontColor(ColorTokens.muted)
@@ -843,7 +919,7 @@ export struct TripInputPage {
       .height('100%')
       .backgroundColor(ColorTokens.canvas)
       .bindSheet($$this.showCity, this.citySheet(), {
-        height: 300,
+        height: 420,
         backgroundColor: ColorTokens.canvas,
         showClose: true,
         // 与其他三处弹层同档：半模态走 ULTRA_THICK 系统材质（材质不可用时回退上面的实色底）

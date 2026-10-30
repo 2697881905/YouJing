@@ -11,6 +11,9 @@ import { Spot } from '../model/Spot';
 import { Area } from '../model/Area';
 import { MockSpots, MockAreas } from '../mock/MockData';
 import { Logger } from '../common/logger/Logger';
+import { isMapCity } from '../common/constants/Cities';
+import { MapKitCityStore } from './MapKitCityStore';
+import { MapCityData } from '../utils/MapCityMapper';
 
 export class PlanRepository {
   static async loadSpots(context: common.Context, city: string): Promise<Spot[]> {
@@ -21,6 +24,12 @@ export class PlanRepository {
       return MockSpots.CULTURE.concat(MockSpots.FOOD).concat(MockSpots.NATURE);
     }
     const spots: Spot[] = await SpotDao.loadByCity(context, city);
+    if (spots.length === 0 && isMapCity(city)) {
+      // 非内置城市：种子库为空时才联网；内置五城行为不变
+      Logger.info('Data.PlanRepository', `loadSpots ${city} 回退 Map Kit`);
+      const data: MapCityData = await MapKitCityStore.load(context, city);
+      return data.spots;
+    }
     if (spots.length === 0) {
       Logger.info('Data.PlanRepository', `loadSpots ${city} 景点库为空`);
     }
@@ -33,6 +42,11 @@ export class PlanRepository {
       return MockAreas.PICKS.map((p): Area => p.area);
     }
     const areas: Area[] = await AreaDao.loadByCity(context, city);
+    if (areas.length === 0 && isMapCity(city)) {
+      Logger.info('Data.PlanRepository', `loadAreas ${city} 回退 Map Kit`);
+      const data: MapCityData = await MapKitCityStore.load(context, city);
+      return data.areas;
+    }
     if (areas.length === 0) {
       Logger.info('Data.PlanRepository', `loadAreas ${city} 区域库为空`);
     }

@@ -15,6 +15,7 @@ export class ErrorCode {
   static readonly NETWORK_REQUEST_FAILED: number = 1001; // 网络请求失败（连接错误或非 2xx 响应）
   static readonly NETWORK_TIMEOUT: number = 1002; // 网络请求超时
   static readonly LLM_UNAVAILABLE: number = 1003; // LLM 服务不可用（小艺 Skill 或直连 API 无响应）
+  static readonly MAP_CITY_DATA_FAILED: number = 1004; // Map Kit 任意城市数据获取失败（网络/配额/无结果）
 
   // ---- 2xxx JSON / 解析 ----
   static readonly JSON_PARSE_FAILED: number = 2001; // LLM 返回内容不是合法 JSON
