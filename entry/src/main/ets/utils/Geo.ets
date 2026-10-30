@@ -3,6 +3,10 @@
  *
  * 只有大圆距离：本项目不接路径规划，所以「通勤最短」在本App里能算的最近似
  * 就是到所选景点的平均直线距离，界面文案按这个口径写，不谎报成导航里程。
+ *
+ * 同一份距离也给屏15 的到站判定用。到站半径取 300m：2026-10-27 真机探针室内
+ * acc≈237m，100/200m 半径在室内只剩噪声，300m 还能分开「已在景区里」与「还在路上」；
+ * 定位精度只显示、不参与判定——让精度参与会把一次室内漂移算成「已到站」。
  */
 
 export interface GeoPoint {
@@ -45,6 +49,35 @@ export class Geo {
       sum += Geo.distanceKm(from, t);
     }
     return sum / targets.length;
+  }
+
+  /** 到站半径（米） */
+  static readonly ARRIVAL_RADIUS_M: number = 300;
+
+  /** 两点距离（米）；任一点不可用返回 -1 */
+  static distanceM(a: GeoPoint, b: GeoPoint): number {
+    if (!Geo.usable(a.latitude, a.longitude) || !Geo.usable(b.latitude, b.longitude)) {
+      return -1;
+    }
+    return Geo.distanceKm(a, b) * 1000;
+  }
+
+  /** 距离 ≤ 300m 即到站；不可用距离（-1）不算到站 */
+  static arrived(distanceM: number): boolean {
+    return Number.isFinite(distanceM) && distanceM >= 0 && distanceM <= Geo.ARRIVAL_RADIUS_M;
+  }
+
+  /** 距离文案：<1km 取整到米，≥1km 保留一位小数；不可用距离返回空串（界面不显示） */
+  static distanceText(distanceM: number): string {
+    if (!Number.isFinite(distanceM) || distanceM < 0) {
+      return '';
+    }
+    // 先取整再分档：999.6m 约成 1000 后要走公里档，避免出现「1000m」
+    const meters: number = Math.round(distanceM);
+    if (meters < 1000) {
+      return `${meters}m`;
+    }
+    return `${Math.round(meters / 100) / 10}km`;
   }
 
   /** 平均距离最小的下标；points 或 targets 不可用时返回 -1 */

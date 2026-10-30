@@ -54,5 +54,32 @@ export default function geoTest(): void {
       // 海外城市要能算距离：MapStops.usable 是国内瓦片覆盖门禁，语义不同
       expect(Geo.usable(35.0116, 135.7681)).assertTrue();
     });
+
+    // 以下为屏15 到站判定的口径（切片2 T1）：米制距离、300m 半径、文案分档
+    it('distanceM_agrees_with_distanceKm', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+      const a: GeoPoint = pt(39.9, 116.4);
+      const b: GeoPoint = pt(39.9018, 116.4);
+      const m: number = Geo.distanceM(a, b);
+      expect(m > 190 && m < 210).assertTrue();
+      expect(Math.abs(m - Geo.distanceKm(a, b) * 1000) < 0.001).assertTrue();
+      // 无坐标一侧返回 -1，不能当成 0m 的距离
+      expect(Geo.distanceM(pt(0, 0), a)).assertEqual(-1);
+    });
+
+    it('arrival_radius_is_inclusive_300m', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+      expect(Geo.ARRIVAL_RADIUS_M).assertEqual(300);
+      expect(Geo.arrived(0)).assertTrue();
+      expect(Geo.arrived(300)).assertTrue();
+      expect(Geo.arrived(300.1)).assertFalse();
+      expect(Geo.arrived(-1)).assertFalse();
+    });
+
+    it('distance_text_switches_to_km_without_printing_1000m',
+      TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+      expect(Geo.distanceText(12.4)).assertEqual('12m');
+      expect(Geo.distanceText(999.6)).assertEqual('1km');
+      expect(Geo.distanceText(1234)).assertEqual('1.2km');
+      expect(Geo.distanceText(-1)).assertEqual('');
+    });
   });
 }

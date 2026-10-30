@@ -3329,3 +3329,67 @@ Location Kit 运营团队 2026-10-30 回复（原文见 `Docs/围栏与后台唤
 **排期结论**：审核结果未出期间，切片 2 只按 **T1**（前台 `locationChange` 到达检测 + 勋章落库）
 排期；T2 系统围栏不进本期范围，等系统通知后再按复测清单 A/B/C 判定。
 本轮只改文档与记忆，未动代码、未构建、零 LLM 调用。
+
+### §5ci 续 43：切片2 T1 落地——屏15 前台到站检测 + 打卡位置凭证（无设备轮）
+
+用户批准 T1 设计，同时明确「暂时不能用模拟器或者是真机，另一个任务正在模拟器调试」。
+所以这一轮的验收口径是**离线可证的才算**：纯逻辑用 tsc + 断言、迁移用源码里的原句喂 sqlite、
+构建产物用 ABC 特征串反证；凡是要屏幕/定位/权限的，一律写进下面的「未验」清单，不冒充通过。
+
+**做了什么（五处，纯加法）**
+
+| 位置 | 内容 | 要点 |
+|---|---|---|
+| `module.json5` + `string.json` | `ohos.permission.LOCATION` / `APPROXIMATELY_LOCATION`，`when: inuse` + 用途说明串 | 只要前台；与围栏无关，不受 AGC 审核阻塞 |
+| `utils/Geo.ets` | `ARRIVAL_RADIUS_M = 300`、`distanceM`、`arrived`、`distanceText` | 半径取 300m：10-27 探针室内 acc≈237m，100/200m 只剩噪声；**精度只显示、不参与判定**，否则一次室内漂移就会被判成「已到站」 |
+| `data/DatabaseHelper.ets` | `DB_VERSION` 7→8，checkin 加 6 列 `uuid/latitude/longitude/accuracy_m/distance_m/source` | 存量行 `source` 默认 `'manual'`、坐标 0——回填不了的不假造，勋章按这个字段区分 |
+| `data/CheckinDao.ets` | `set(..., evidence: CheckinEvidence \| null)`，写 `uuid`（`util.generateRandomUUID`）与 `source` | 有凭证→`arrival`，无凭证→`manual`；`null` 不是异常路径，是「手动打卡」的正常口径 |
+| `common/location/ArrivalWatcher.ets`（新增） | 只订阅「仅使用期间」的 `locationChange`，10s / 20m 一档 | `canIUse` 门禁 + `isLocationEnabled` + 权限申请；**退订先摘回调再 `off()`**（Map Kit 那次拆除期反调的教训） |
+| `pages/OnTripPage.ets` | hero 多一行「已到站 · 距站点 12m」/「距此站 320m」；到站打卡才带坐标 | 只在「今天 + 当前站有坐标 + 拿到前台定位」时订阅；离开页面/切到非今天/换站无坐标立即退订并清状态 |
+
+两条并发细节写进代码而不是文档：权限弹窗还在时页面退订、或又发起一次 `start()`，
+旧的那次靠 `ArrivalWatcher` 内的取消令牌作废（不能把回调打进已销毁的页面）；
+页面侧用 `watcherStarting` 挡重复 `start()`。
+
+**离线证据**
+
+| 闸门 | 命令口径 | 结果 |
+|---|---|---|
+| Geo 纯逻辑 | 拷成 `.ts` + DevEco 自带 tsc `--strict` | 0 诊断 |
+| Geo 断言 | 21 条（含屏5 老的 `distanceKm/meanDistanceKm/argminMean` 三条防退化） | `ALL PASS 21/21` |
+| 半径边界 | 300 含端点、300.001 不含、0 算到站、-1/NaN/∞ 不算 | 全过 |
+| 文案边界 | `999.2m`→`999m`、`999.6`→`1km`（先取整再分档）、`-1`/`NaN`→空串 | 全过 |
+| 真实地理 | 故宫→天安门 ≈1.0km，判「未到站」；同点判「已到站」 | 全过 |
+| v8 迁移 | 从源码正则抽出**原句**喂 sqlite：v4→v8、v7→v8 | `PASS 2/2`；两路都得到 10 列，存量行默认 `('',0,0,0,0,'manual')` |
+| 覆盖写 | 同 `(trip_id, activity_id)` 二次打卡 | `ON_CONFLICT_REPLACE` 后仍 1 行、`checked_at` 更新 |
+| 主 HAP | `assembleHap` | BUILD SUCCESSFUL |
+| 测试 HAP | 同（ohosTest） | BUILD SUCCESSFUL |
+| 产物新鲜度 | `strings modules.abc`：`syncArrivalWatcher` 2 / `evidenceNow` 2 / `refreshArrival` 2 / `ARRIVAL_RADIUS_M` 1；三条新用例名各 1 | hvigor 报 UP-TO-DATE，靠特征串反证编进去了（[[hvigor-up-to-date-stale-artifact]]） |
+| 静态尺 12 把 | colors/type/geometry/material/fontfamily/tnum/elevation/a11y_name/button_width/label_fit/layout_patterns/scroll_actions | 全部 exit 0 |
+| 第 13 把（对比度） | `audit_contrast.py` 需 dump+jpeg | 无设备 → exit 2（用法提示），**这轮没跑** |
+| 到站行配色 | color.json 精算，底是 hero 的 `surface_elevated` | 浅色 success 5.42 / muted 5.10；深色 8.25 / 5.74，均过 AA |
+
+**未验（等设备空出来第一件）**
+
+- hypium 全量没跑。Geo 新增 3 条，但**总数不推一个假数字**：最后一次设备级记录是 81，
+  而源码现在有 136 处 `it()`、其中还有按循环生成用例名的（`seed_counts_${c}`），
+  两者不同源（81 来自更早的源码状态），要对齐得等设备。
+- 权限弹窗外观、「本次允许 / 拒绝」两条路径、拒绝后静默降级成手动打卡。
+- 真实的 `locationChange` 回调是否按 10s/20m 到达；hero 那行在真机上的渲染与换站刷新。
+- 打卡后 `checkin` 表里 6 个新列的实际取值（含 `distance_m` 是否落在半径内）。
+- v7→v8 在**真实 RdbStore** 上的迁移（sqlite 只是同句复现，不是同一实现）。
+- 「权限弹窗还开着时离开页面」只有代码级的令牌兜底，没有设备级证据。
+
+**两条分寸**
+
+1. **`utils/Geo.ets` 是先误覆盖、再从 git 恢复后做加法**：我第一次写这个文件时把屏5 已有的
+   `distanceKm/meanDistanceKm/argminMean` 整份盖掉，`git diff` 当场看出来，`git checkout --`
+   还原原文后只追加新方法。所以这轮的断言里特意留了三条老接口的用例，防的正是这种退化。
+2. **顺手发现一处既有隐患（本轮不改）**：`(oldVersion === 0)` 新建库路径下，
+   `trip.user_id` / `spot.confidence` / `meal.time` 这三列建表语句里已经有了，后面的
+   `ALTER TABLE ... ADD COLUMN` 必然重复（sqlite 复现报 `duplicate column name`）。
+   代码里 `store.executeSql` **没有 await**，拒绝不会进 `catch`——真机装过多次新库没出过问题，
+   但那是观察，不是这轮实测，**机制没验就不写结论**。T1 加的 6 条 ALTER 不受这条影响
+   （`CREATE TABLE checkin` 不含新列）。无设备验证前不动它，先记在这里。
+
+本轮零 LLM 调用（没碰生成链）。

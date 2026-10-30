@@ -7,7 +7,7 @@
  * - 版本号驱动迁移：onUpgrade 按 old→new 逐级执行，多条迁移放事务，成功才写新版本号；
  * - 过滤列建索引；单条记录 ≤2MB（行程 JSON 列远小于该值，tips/highlights 为文本）。
  *
- * 表结构（v5）：
+ * 表结构（v8）：
  *   trip        行程聚合根（overview/tips 展平为列与 JSON 文本；user_id 为账号分区键）
  *   trip_day    单日（tripId+dayIndex 索引）
  *   activity    活动节点（含 transport 三列与 reason；tripId+dayIndex 索引）
@@ -15,7 +15,8 @@
  *   spot/area   内置资产库（city 索引；预约/溯源列展平；v5 起 spot 带 confidence）
  *   expense     手工记账（v3；trip_id+day_index 索引，同 trip 一样按 user_id 分区；
  *               v4 起带 activity_id，可把一笔开销挂到具体节点）
- *   checkin     节点打卡（v4；(trip_id,activity_id) 唯一，本机用户态不入 AI 契约）
+ *   checkin     节点打卡（v4；(trip_id,activity_id) 唯一，本机用户态不入 AI 契约；
+ *               v8 起到站凭证 uuid/坐标/精度/距离/来源，供行后勋章与将来同步用）
  *
  * 迁移纪律（开发文档 §5.2）：onUpgrade 的判断一律用 `oldVersion < N` 累积式，
  * 不用 `=== N` 精确匹配——精确匹配会让 v1 老库直接升到最新版时跳过中间步骤
@@ -31,7 +32,7 @@ import { AppError } from '../common/error/AppError';
 import { ErrorCode } from '../common/error/ErrorCode';
 
 const STORE_NAME: string = 'youjing.db';
-const DB_VERSION: number = 7;
+const DB_VERSION: number = 8;
 const TAG: string = 'Data.DatabaseHelper';
 
 const SQL_CREATE_TRIP: string = `CREATE TABLE IF NOT EXISTS trip (
@@ -117,6 +118,19 @@ const SQL_V6_ADD_MEAL_TIME: string = `ALTER TABLE meal ADD COLUMN time TEXT NOT 
 /** v6 → v7：分类预算（屏11）随行程存一份 JSON 数组；存量行默认空数组 */
 const SQL_V7_ADD_TRIP_CATEGORY_BUDGET: string =
   `ALTER TABLE trip ADD COLUMN category_budget TEXT NOT NULL DEFAULT '[]'`;
+
+/**
+ * v7 → v8：打卡留「到站凭证」。旧记录（v4–v7 写的）一律算手动打卡：
+ * source 默认 'manual'、坐标为 0——回填不了的东西不假造，行后勋章按 source 区分。
+ */
+const SQL_V8_CHECKIN_EVIDENCE: string[] = [
+  'ALTER TABLE checkin ADD COLUMN uuid TEXT NOT NULL DEFAULT \'\'',
+  'ALTER TABLE checkin ADD COLUMN latitude REAL NOT NULL DEFAULT 0',
+  'ALTER TABLE checkin ADD COLUMN longitude REAL NOT NULL DEFAULT 0',
+  'ALTER TABLE checkin ADD COLUMN accuracy_m REAL NOT NULL DEFAULT 0',
+  'ALTER TABLE checkin ADD COLUMN distance_m REAL NOT NULL DEFAULT 0',
+  'ALTER TABLE checkin ADD COLUMN source TEXT NOT NULL DEFAULT \'manual\''
+];
 
 const SQL_V2_ADD_TRIP_USER_ID: string =
   `ALTER TABLE trip ADD COLUMN user_id TEXT NOT NULL DEFAULT '${AccountConfig.GUEST_UID}'`;
@@ -210,6 +224,11 @@ export class DatabaseHelper {
       }
       if (oldVersion < 7) {
         store.executeSql(SQL_V7_ADD_TRIP_CATEGORY_BUDGET);
+      }
+      if (oldVersion < 8) {
+        for (const sql of SQL_V8_CHECKIN_EVIDENCE) {
+          store.executeSql(sql);
+        }
       }
       // 索引 DDL 全部 IF NOT EXISTS，逐级迁移后统一补齐
       for (const idx of SQL_INDEXES) {

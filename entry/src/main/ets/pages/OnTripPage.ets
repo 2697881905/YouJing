@@ -24,10 +24,12 @@ import { Activity, ActivityCategory, ActivityStatus, MealType, Trip, TripDay } f
 import { ReplanDecision, ReplanOutcome } from '../model/Replan';
 import { TripDao } from '../data/TripDao';
 import { SkipPlanner } from '../data/SkipPlanner';
-import { CheckinDao } from '../data/CheckinDao';
+import { CheckinDao, CheckinEvidence } from '../data/CheckinDao';
 import { ExpenseDao } from '../data/ExpenseDao';
 import { ReplanClient } from '../ai/ReplanClient';
 import { DateUtils } from '../utils/DateUtils';
+import { Geo, GeoPoint } from '../utils/Geo';
+import { ArrivalWatcher, LocationFix } from '../common/location/ArrivalWatcher';
 import { WidgetSync } from '../widget/TodayCard';
 import { TransitSymbol } from '../utils/TransitSymbol';
 import { Logger } from '../common/logger/Logger';
@@ -54,6 +56,9 @@ interface DayStop {
   endTime: string;
   note: string;
   place: string;
+  /** 站点坐标；餐次没有坐标（0 = 没有），到站判定只对活动生效 */
+  lat: number;
+  lng: number;
   isMeal: boolean;
   /** 活动分类；餐次为 null——「不去」入口按它和 status 判定 */
   category: ActivityCategory | null;
@@ -120,6 +125,14 @@ export struct OnTripPage {
   @State private isToday: boolean = false;
   /** 当前展示的整日；跳过/撤销都以它为输入 */
   private day: TripDay | null = null;
+  /** 到站检测（切片2 T1）：前台定位算出的文案与状态；无权限时保持空/否 */
+  @State private arrivalText: string = '';
+  @State private arrived: boolean = false;
+  private watcher: ArrivalWatcher = new ArrivalWatcher();
+  private watcherActive: boolean = false;
+  /** 权限弹窗还没回来：避免 reload 连点导致重复 start */
+  private watcherStarting: boolean = false;
+  private lastFix: LocationFix | null = null;
   /** 跳过前的深拷贝（只在本进程有效，方案 §3.6） */
   private skipSnapshot: TripDay | null = null;
   private skipSnapshotTripId: string = '';
@@ -127,6 +140,12 @@ export struct OnTripPage {
 
   aboutToAppear(): void {
     this.reload();
+  }
+
+  aboutToDisappear(): void {
+    this.watcher.stop();
+    this.watcherActive = false;
+    this.watcherStarting = false;
   }
 
   private ctx(): common.Context {
@@ -176,6 +195,7 @@ export struct OnTripPage {
         this.canUndo = false;
         const emptyMarks: Record<string, number> = await CheckinDao.listForTrip(context, trip.id);
         await this.buildRows(emptyMarks);
+        this.syncArrivalWatcher();
         return;
       }
       this.isToday = day.date === DateUtils.todayIso();
@@ -211,6 +231,7 @@ export struct OnTripPage {
       const marks: Record<string, number> = await CheckinDao.listForTrip(context, trip.id);
       this.checkedIn = marks[curStop.key] !== undefined;
       await this.buildRows(marks);
+      this.syncArrivalWatcher();
     } catch (err) {
       Logger.error('Ui.OnTrip', `加载失败: ${(err as Error).message}`);
     }
@@ -380,7 +401,8 @@ export struct OnTripPage {
       stops.push({
         key: a.id, time: a.time, sortMin: Math.max(0, DateUtils.minutesOf(a.time)), title: a.title,
         endTime: a.endTime, note: a.note === undefined ? '' : a.note,
-        place: a.address.length > 0 ? a.address : a.location, isMeal: false, kind: '', cost: 0,
+        place: a.address.length > 0 ? a.address : a.location,
+        lat: a.latitude, lng: a.longitude, isMeal: false, kind: '', cost: 0,
         category: a.category,
         status: a.status, transportMode: t === undefined ? '' : t.mode,
         transportMin: t === undefined ? 0 : t.duration,
@@ -394,7 +416,7 @@ export struct OnTripPage {
         sortMin: shown.length > 0 ? Math.max(0, DateUtils.minutesOf(shown)) : this.mealSlot(m.type),
         title: m.name.length > 0 ? m.name : this.mealLabel(m.type),
         kind: this.mealLabel(m.type), endTime: '', note: '',
-        place: m.location, isMeal: true, cost: m.estimatedCost,
+        place: m.location, lat: 0, lng: 0, isMeal: true, cost: m.estimatedCost,
         category: null,
         status: null, transportMode: '', transportMin: 0, transportDetail: '',
         hasTransport: false
@@ -450,6 +472,79 @@ export struct OnTripPage {
       });
   }
 
+  /** 只有「今天 + 当前站有坐标」才订阅前台定位；其余情况一律退订并清状态 */
+  private syncArrivalWatcher(): void {
+    const cur: DayStop | null = this.current;
+    const need: boolean = this.isToday && cur !== null && Geo.usable(cur.lat, cur.lng);
+    if (!need) {
+      this.watcher.stop();
+      this.watcherActive = false;
+      this.watcherStarting = false;
+      this.lastFix = null;
+      this.arrivalText = '';
+      this.arrived = false;
+      return;
+    }
+    if (this.watcherActive || this.watcherStarting) {
+      this.refreshArrival();
+      return;
+    }
+    this.watcherStarting = true;
+    this.watcher.start(this.ctx(), (fix: LocationFix): void => {
+      this.lastFix = fix;
+      this.refreshArrival();
+    }).then((ok: boolean): void => {
+      this.watcherStarting = false;
+      this.watcherActive = ok;
+      if (ok) {
+        this.refreshArrival();
+      }
+    });
+  }
+
+  /** 用最近一次前台定位刷新 hero 的到站状态；没有定位就不出这一行 */
+  private refreshArrival(): void {
+    const cur: DayStop | null = this.current;
+    const fix: LocationFix | null = this.lastFix;
+    if (cur === null || fix === null || !Geo.usable(cur.lat, cur.lng)) {
+      this.arrivalText = '';
+      this.arrived = false;
+      return;
+    }
+    const from: GeoPoint = { latitude: fix.latitude, longitude: fix.longitude };
+    const to: GeoPoint = { latitude: cur.lat, longitude: cur.lng };
+    const distance: number = Geo.distanceM(from, to);
+    const text: string = Geo.distanceText(distance);
+    if (text.length === 0) {
+      this.arrivalText = '';
+      this.arrived = false;
+      return;
+    }
+    this.arrived = Geo.arrived(distance);
+    this.arrivalText = this.arrived ? `已到站 · 距站点 ${text}` : `距此站 ${text}`;
+  }
+
+  /**
+   * 到站凭证：只有「当前已判定到站」才给。没到站照样能打卡（原来就有这个按钮），
+   * 但那一笔按手动打卡记，不给坐标——行后勋章按 source 区分。
+   */
+  private evidenceNow(cur: DayStop): CheckinEvidence | null {
+    const fix: LocationFix | null = this.lastFix;
+    if (!this.arrived || fix === null || !Geo.usable(cur.lat, cur.lng)) {
+      return null;
+    }
+    const from: GeoPoint = { latitude: fix.latitude, longitude: fix.longitude };
+    const to: GeoPoint = { latitude: cur.lat, longitude: cur.lng };
+    const distance: number = Geo.distanceM(from, to);
+    if (distance < 0) {
+      return null;
+    }
+    const evidence: CheckinEvidence = {
+      latitude: fix.latitude, longitude: fix.longitude, accuracyM: fix.accuracyM, distanceM: distance
+    };
+    return evidence;
+  }
+
   private toggleCheckin(): void {
     const cur: DayStop | null = this.current;
     const trip: Trip | null = this.trip;
@@ -458,10 +553,11 @@ export struct OnTripPage {
       return;
     }
     const target: boolean = !this.checkedIn;
-    CheckinDao.set(this.ctx(), trip.id, cur.key, target).then((): void => {
+    const evidence: CheckinEvidence | null = target ? this.evidenceNow(cur) : null;
+    CheckinDao.set(this.ctx(), trip.id, cur.key, target, evidence).then((): void => {
       this.checkedIn = target;
       this.reload();
-      this.toast(target ? `已打卡 ${cur.title}` : '已取消打卡');
+      this.toast(target ? (evidence === null ? `已打卡 ${cur.title}` : `已到站打卡 ${cur.title}`) : '已取消打卡');
     }).catch((err: Error) => {
       Logger.error('Ui.OnTrip', `打卡失败: ${err.message}`);
       this.toast('打卡失败');
@@ -659,6 +755,15 @@ export struct OnTripPage {
                   .fontWeight(450)
                   .fontColor(ColorTokens.body)
                   .fontFeature("'tnum' on")
+              }
+              // 到站状态：拿到前台定位且当前站有坐标才出这一行，没有权限就整行不显示
+              if (this.arrivalText.length > 0) {
+                Text(this.arrivalText)
+                  .fontSize(TypeTokens.caption.size)
+                  .fontWeight(450)
+                  .fontColor(this.arrived ? ColorTokens.success : ColorTokens.muted)
+                  .fontFeature("'tnum' on")
+                  .margin({ top: SpaceTokens.xs })
               }
               // 进度条只在"这一站有结束时刻"时画。一餐没有 endTime，
               // 而 progressPct() 有 Math.max(1, …) 的下限——不关掉它会被夹成满格（真机实测 1.000000）。

@@ -23,6 +23,10 @@
     {
       "name": "calendar_permission_reason",
       "value": "用于把行程中需预约的站点与每日安排写入系统日历，并按设置提前提醒"
+    },
+    {
+      "name": "location_permission_reason",
+      "value": "用于判断你是否已到达当前行程站点，到站时可打卡并记录位置凭证；位置只存本机"
     }
   ]
 }
