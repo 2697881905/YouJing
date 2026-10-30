@@ -123,7 +123,9 @@ export struct ImmersiveSegmentBar {
 
   build() {
     Row() {
-      if (this.barOptions !== undefined) {
+      // 只有一项时不渲染官方控件：它会在首帧改内部 buttonBorderRadius，
+      // 触发「state changed during render」中断整棵子树（屏8 单日行程实测空白）
+      if (this.barOptions !== undefined && this.items.length > 1) {
         SegmentButton({
           options: this.barOptions,
           selectedIndexes: $indexes,

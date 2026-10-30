@@ -1190,24 +1190,29 @@ export struct ItineraryPage {
     HdsNavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
         Column() {
-          // Day 分段栏（官方 SegmentButton + 材质）；标题与分享/编辑已迁到官方标题栏
-          Column() {
-            Row() {
-              ImmersiveSegmentBar({
-                items: this.segments,
-                selectedIndex: $dayIndex,
-                buttonVerticalPadding: 2.15,
-                // 契约四处玻璃面之一：分段控件轨道走系统材质（handoff §5/§9）。
-                // 本页轨道下有 surfaceElevated 实色背板而非滚动内容，lightContent 保持 false
-                overrideTrackMaterial: true,
-                a11yLabel: '行程日期切换'
-              })
+          // Day 分段栏（官方 SegmentButton + 材质）；标题与分享/编辑已迁到官方标题栏。
+          // 单日行程不挂：官方 SegmentButton 只有一项时首帧会改内部 buttonBorderRadius，
+          // 触发「state changed during render」把整屏内容打断成空白（真机 2026-10-30：
+          // 1 天行程的屏8 只剩标题栏）。一天也没有可切换的对象，日标题已带 Day 1。
+          if (this.days.length > 1) {
+            Column() {
+              Row() {
+                ImmersiveSegmentBar({
+                  items: this.segments,
+                  selectedIndex: $dayIndex,
+                  buttonVerticalPadding: 2.15,
+                  // 契约四处玻璃面之一：分段控件轨道走系统材质（handoff §5/§9）。
+                  // 本页轨道下有 surfaceElevated 实色背板而非滚动内容，lightContent 保持 false
+                  overrideTrackMaterial: true,
+                  a11yLabel: '行程日期切换'
+                })
+              }
+              .width('100%')
+              .justifyContent(FlexAlign.Start)
+              .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: SpaceTokens.sm })
             }
-            .width('100%')
-            .justifyContent(FlexAlign.Start)
-            .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: SpaceTokens.sm })
+            .backgroundColor(ColorTokens.surfaceElevated)
           }
-          .backgroundColor(ColorTokens.surfaceElevated)
 
           // 官方 List：地图面板一个 ListItem，节点与通勤腿各成一个 ListItem，
           // 日标题走 ListItemGroup 的 header —— 底稿写的「吸顶日标题」由 sticky 真正兑现。
