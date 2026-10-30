@@ -93,6 +93,16 @@ eq(perPerson.tags.indexOf(SpotTag.MUST_SEE) >= 0, true, '打卡 → must_see');
 const unsupported: TripIntent = TripIntentParser.parse('11月15日去西安玩4天', TODAY);
 eq(unsupported.city, '', '未内置城市不冒充支持城市');
 eq(unsupported.unsupportedCity, '西安', '西安判成未支持');
+eq(unsupported.startDate, '2026-11-15', '未内置城市仍解析日期');
+eq(unsupported.dayCount, 4, '未内置城市仍解析天数');
+
+const unsupportedFull: TripIntent =
+  TripIntentParser.parse('下周五去西安玩三天，两个人，预算一万', TODAY);
+eq(unsupportedFull.unsupportedCity, '西安', '西安整句');
+eq(unsupportedFull.startDate, '2026-11-06', '西安整句解析日期');
+eq(unsupportedFull.dayCount, 3, '西安整句解析天数');
+eq(unsupportedFull.people, 2, '西安整句解析人数');
+eq(unsupportedFull.budgetAmount, 10000, '西安整句解析预算');
 
 const fromTo: TripIntent = TripIntentParser.parse('从北京去西安玩三天', TODAY);
 eq(fromTo.unsupportedCity, '西安', '「从北京去西安」目的地取西安');
