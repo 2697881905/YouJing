@@ -11,6 +11,11 @@ import { describe, it, expect, TestType, Size, Level } from '@ohos/hypium';
 import { PromptBuilder } from '../../../main/ets/ai/PromptBuilder';
 import { TripSchema } from '../../../main/ets/ai/TripSchema';
 import { ActivityCategory, ActivityStatus, IntensityLevel, MealType } from '../../../main/ets/model/Trip';
+import { Spot, SpotTag } from '../../../main/ets/model/Spot';
+import { Area, AreaGroup, AreaPriceTier } from '../../../main/ets/model/Area';
+import {
+  PaceOption, PlanParams, SelectedSpot, SpotPriority, TransitPreference, TravelStyle
+} from '../../../main/ets/model/PlanParams';
 
 export default function promptContractTest(): void {
   describe('提示词与 Schema 同源', () => {
@@ -30,6 +35,41 @@ export default function promptContractTest(): void {
         for (const k of required) {
           expect(TripSchema.TRIP_JSON_SCHEMA.indexOf(k) >= 0).assertTrue();
         }
+      });
+
+    it('map_spot_prompt_is_honest_about_booking_and_hours',
+      TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+        const spot: Spot = {
+          id: 'mk:西安:x1', name: '西安城墙', city: '西安', tags: [SpotTag.CLASSIC],
+          brief: '', suggestedDuration: 90, openingHours: '8:30–17:00', popularity: 100,
+          nearbySpotIds: [], longitude: 108.94, latitude: 34.26, district: '碑林区',
+          nearestMetro: '', booking: { requiresBooking: false },
+          provenance: { source: 'MapKit 地点检索', updatedAt: '2026-10-31', confidence: '中' }
+        };
+        const area: Area = {
+          id: 'mk-area:西安:碑林区', name: '碑林区', city: '西安',
+          longitude: 108.94, latitude: 34.26, description: '',
+          anchorStations: [], metroLines: [], airportMinutes: 0, trainStationMinutes: 0,
+          commerceTags: ['地图服务'], diningDensity: '', suitableCrowds: [],
+          priceTier: AreaPriceTier.COMFORT, group: AreaGroup.CORE,
+          source: 'MapKit', updatedAt: '2026-10-31'
+        };
+        const selected: SelectedSpot = { spotId: spot.id, priority: SpotPriority.MUST };
+        const params: PlanParams = {
+          basic: { destination: '西安', startDate: '2026-11-06', endDate: '2026-11-08',
+            people: 2, budget: 8000 },
+          style: TravelStyle.LEISURE, stayTier: 'comfort', transit: TransitPreference.PUBLIC,
+          paces: [PaceOption.STANDARD], selectedSpots: [selected],
+          selectedArea: { areaId: area.id }
+        };
+        const text: string = PromptBuilder.userPrompt(params, [spot], area);
+        expect(text.indexOf('预约信息未获取，以官方为准') >= 0).assertTrue();
+        expect(text.indexOf('无需预约') >= 0).assertFalse();
+        expect(text.indexOf('开放:8:30–17:00') >= 0).assertTrue();
+        expect(text.indexOf('到机场 0 分钟') >= 0).assertFalse();
+        expect(text.indexOf('地图服务区县') >= 0).assertTrue();
+        expect(PromptBuilder.systemPrompt().indexOf('排期必须落在该时段内') >= 0).assertTrue();
+        expect(PromptBuilder.systemPrompt().indexOf('禁止编造预约方式') >= 0).assertTrue();
       });
 
     it('schema_enums_match_model_enums_both_ways',

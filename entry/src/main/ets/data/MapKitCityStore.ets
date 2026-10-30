@@ -121,6 +121,8 @@ export class MapKitCityStore {
         abstractText = poi.description;
       }
     }
+    const hoursTexts: string[] = poi === undefined || poi.openingHours === undefined ||
+      poi.openingHours.texts === undefined ? [] : poi.openingHours.texts;
     const addr: site.AddressComponent = s.addressComponent;
     const locality: string = addr.locality === undefined ? '' : addr.locality;
     const admin2: string = addr.adminLevel2 === undefined ? '' : addr.adminLevel2;
@@ -136,7 +138,8 @@ export class MapKitCityStore {
     }
     const input: MapSiteInput = {
       siteId: s.siteId, name: name, longitude: location.longitude, latitude: location.latitude,
-      district: district, types: types, rank: rank, abstractText: abstractText
+      district: district, types: types, rank: rank, abstractText: abstractText,
+      openingHoursTexts: hoursTexts
     };
     return input;
   }

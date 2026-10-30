@@ -50,6 +50,8 @@ export class PromptBuilder {
     // 真机实测（2026-10-27，thinking 关闭）：首日（抵达日）整个 meals 键被省略，
     // TripParser 报「days[0].meals: 缺字段」→ 重试一次，单次生成账单直接翻倍。
     days.push('13. 每个 day 必须同时给出 dayIndex、date、theme、intensity、dailyCost、activities、meals 七个键，一个都不能省；某天没有用餐安排时 meals 写空数组 []（按第 4 条正常每天都有午/晚两餐）。');
+    days.push('14. 若景点给出「开放」时段，排期必须落在该时段内；没有开放信息时不要编造开放时间。');
+    days.push('15. 景点预约信息为「未获取」时，禁止编造预约方式/提前天数，写「以官方为准」即可。');
     days.push('JSON Schema:');
     days.push(TripSchema.TRIP_JSON_SCHEMA);
     return days.join('\n');
@@ -60,20 +62,35 @@ export class PromptBuilder {
     const b = params.basic;
     lines.push(`目的地：${b.destination}；日期：${b.startDate} 至 ${b.endDate}；人数：${b.people}；预算：${b.budget} 元/人。`);
     lines.push(`风格：${params.style}；住宿档位：${params.stayTier}；交通偏好：${params.transit}；节奏：${params.paces.join('/') || 'standard'}。`);
-    lines.push(`住宿区域：${area.name}（价格档位 ${area.priceTier}，` +
-      `${area.metroLines.join('/')}，锚定站 ${area.anchorStations.join('/')}，` +
-      `到机场 ${area.airportMinutes} 分钟、火车站 ${area.trainStationMinutes} 分钟）。`);
+    if (area.source.indexOf('MapKit') >= 0) {
+      // 地图服务区县没有档位/通勤/地铁字段；不能把 0 分钟、空线路喂给模型
+      lines.push(`住宿区域：${area.name}（地图服务区县；住宿档、通勤与餐饮未校准，` +
+        `具体住宿以平台实时信息为准）。`);
+    } else {
+      lines.push(`住宿区域：${area.name}（价格档位 ${area.priceTier}，` +
+        `${area.metroLines.join('/')}，锚定站 ${area.anchorStations.join('/')}，` +
+        `到机场 ${area.airportMinutes} 分钟、火车站 ${area.trainStationMinutes} 分钟）。`);
+    }
     lines.push('已选景点（含完整规划信息）：');
     for (const sel of params.selectedSpots) {
       const spot: Spot | undefined = spots.find((s: Spot): boolean => s.id === sel.spotId);
       if (spot === undefined) {
         continue;
       }
-      const bk: string = spot.booking.requiresBooking
-        ? `需预约(${spot.booking.bookingMethod ?? '官方渠道'}${spot.booking.advanceDays !== undefined ? ` 提前${spot.booking.advanceDays}天` : ''}${spot.booking.closedDay !== undefined ? ` 闭馆:${spot.booking.closedDay}` : ''})`
-        : '无需预约';
+      const isMapSpot: boolean = spot.provenance.source.indexOf('MapKit') >= 0;
+      let bk: string;
+      if (isMapSpot) {
+        // MapKit 没有预约字段：不能对模型说「无需预约」，只能如实说未获取
+        bk = '预约信息未获取，以官方为准';
+      } else if (spot.booking.requiresBooking) {
+        bk = `需预约(${spot.booking.bookingMethod ?? '官方渠道'}${spot.booking.advanceDays !== undefined ? ` 提前${spot.booking.advanceDays}天` : ''}${spot.booking.closedDay !== undefined ? ` 闭馆:${spot.booking.closedDay}` : ''})`;
+      } else {
+        bk = '无需预约';
+      }
+      const hours: string = spot.openingHours !== undefined && spot.openingHours.length > 0
+        ? `｜开放:${spot.openingHours}` : '';
       lines.push(`- [${sel.priority}] ${spot.name}｜${spot.district}｜建议${spot.suggestedDuration}分钟｜` +
-        `坐标(${spot.longitude.toFixed(4)},${spot.latitude.toFixed(4)})｜${bk}｜周边:${spot.nearbySpotIds.join(',') || '无'}` +
+        `坐标(${spot.longitude.toFixed(4)},${spot.latitude.toFixed(4)})｜${bk}${hours}｜周边:${spot.nearbySpotIds.join(',') || '无'}` +
         `${sel.userNote !== undefined ? `｜用户备注:${sel.userNote}` : ''}`);
     }
     return lines.join('\n');

@@ -260,6 +260,15 @@ export struct SpotPickPage {
           .fontColor(ColorTokens.muted)
           .fontFeature("'tnum' on")
           .margin({ top: SpaceTokens.xs })
+        if (sp.openingHours !== undefined && sp.openingHours.length > 0) {
+          // 只展示各天一致的时段；不一致/闭馆/没有数据时这里不出现，统一以官方为准
+          Text(`开放 ${sp.openingHours} · 地图服务`)
+            .fontSize(TypeTokens.caption.size)
+            .fontWeight(450)
+            .fontColor(ColorTokens.body)
+            .fontFeature("'tnum' on")
+            .margin({ top: SpaceTokens.xs })
+        }
         // 预约硬信息口径（§3.2/§7）：标注「以官方为准」，不放任用户当成实时准确
         if (sp.booking.requiresBooking) {
           Text('预约规则以官方为准')

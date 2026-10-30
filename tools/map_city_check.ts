@@ -4,8 +4,8 @@
  */
 
 import {
-  MapSiteInput, addressMatchesCity, buildAreas, buildSpots, dedupeSites, groupDistricts,
-  isMapArea, tagsOfTypes, durationOf, typeLabelOf
+  MapSiteInput, addressMatchesCity, buildAreas, buildSpots, commonHours, dedupeSites,
+  groupDistricts, isMapArea, tagsOfTypes, durationOf, typeLabelOf
 } from '../entry/src/main/ets/utils/MapCityMapper';
 import { isMapCity, POPULAR_MAP_CITIES } from '../entry/src/main/ets/common/constants/Cities';
 import { Spot, SpotTag } from '../entry/src/main/ets/model/Spot';
@@ -71,6 +71,17 @@ eq(spots[2].brief.indexOf('唐代玄奘') >= 0, true, 'spots.briefAbstract');
 eq(spots[2].brief.length <= 80, true, 'spots.briefCapped');
 eq(spots[3].brief, '雁塔区 · 博物馆', 'spots.briefFallback');
 eq(spots[3].suggestedDuration, 120, 'spots.museumDuration');
+const hoursSite: MapSiteInput = site('h', '有开放时间', 34.2, 108.9, '雁塔区', ['MUSEUM'], 0);
+hoursSite.openingHoursTexts = ['星期一: 8:30 - 17:00', '星期二: 8:30 - 17:00'];
+const hoursSpots: Spot[] = buildSpots([hoursSite], '测试', '2026-10-31');
+eq(hoursSpots[0].openingHours === undefined ? '' : hoursSpots[0].openingHours, '8:30–17:00',
+  'spots.openingHours');
+eq(commonHours(['星期一: 8:30 - 17:00', '星期二: 8:30 - 17:00']), '8:30–17:00', 'hours.common');
+eq(commonHours(['星期一: 0:00 - 23:59']), '全天开放', 'hours.allDay');
+eq(commonHours(['星期一: 8:30 - 17:00', '星期二: 9:00 - 17:00']), '', 'hours.variable');
+eq(commonHours(['星期一: 休息']), '', 'hours.closed');
+eq(commonHours([]), '', 'hours.empty');
+eq(commonHours(['星期一: 9:00 - 12:00, 13:00 - 17:00']), '', 'hours.multiRange');
 eq(durationOf(['ZOO']), 180, 'dur.zoo');
 eq(durationOf(['TOWER']), 45, 'dur.tower');
 eq(durationOf([]), 90, 'dur.default');

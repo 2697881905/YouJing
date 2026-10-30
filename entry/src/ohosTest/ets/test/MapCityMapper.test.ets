@@ -5,8 +5,8 @@
 
 import { describe, it, expect, TestType, Size, Level } from '@ohos/hypium';
 import {
-  DistrictAgg, MapSiteInput, addressMatchesCity, buildAreas, buildSpots, dedupeSites,
-  groupDistricts, isMapArea, tagsOfTypes, durationOf, typeLabelOf
+  DistrictAgg, MapSiteInput, addressMatchesCity, buildAreas, buildSpots, commonHours,
+  dedupeSites, groupDistricts, isMapArea, tagsOfTypes, durationOf, typeLabelOf
 } from '../../../main/ets/utils/MapCityMapper';
 import { isMapCity, POPULAR_MAP_CITIES } from '../../../main/ets/common/constants/Cities';
 import { Spot, SpotTag } from '../../../main/ets/model/Spot';
@@ -58,6 +58,19 @@ export default function mapCityMapperTest(): void {
         expect(spots[0].tags.indexOf(SpotTag.CLASSIC) >= 0).assertTrue();
         expect(spots[2].brief.indexOf('唐代玄奘') >= 0).assertTrue();
         expect(spots[3].suggestedDuration).assertEqual(120);
+        const hoursSite: MapSiteInput =
+          site('h', '有开放时间', 34.2, 108.9, '雁塔区', ['MUSEUM'], 0);
+        hoursSite.openingHoursTexts = ['星期一: 8:30 - 17:00', '星期二: 8:30 - 17:00'];
+        const hoursSpots: Spot[] = buildSpots([hoursSite], '测试', '2026-10-31');
+        expect(hoursSpots[0].openingHours === undefined ? '' : hoursSpots[0].openingHours)
+          .assertEqual('8:30–17:00');
+        expect(commonHours(['星期一: 8:30 - 17:00', '星期二: 8:30 - 17:00']))
+          .assertEqual('8:30–17:00');
+        expect(commonHours(['星期一: 0:00 - 23:59'])).assertEqual('全天开放');
+        expect(commonHours(['星期一: 8:30 - 17:00', '星期二: 9:00 - 17:00'])).assertEqual('');
+        expect(commonHours(['星期一: 休息'])).assertEqual('');
+        expect(commonHours([])).assertEqual('');
+        expect(commonHours(['星期一: 9:00 - 12:00, 13:00 - 17:00'])).assertEqual('');
       });
 
     it('type_mapping_and_defaults', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {

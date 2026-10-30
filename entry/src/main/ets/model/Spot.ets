@@ -47,6 +47,11 @@ export interface Spot {
   brief: string;
   /** 建议游玩时长，分钟 */
   suggestedDuration: number;
+  /**
+   * 每日一致的开放时段（如「8:30–17:00」「全天开放」）；仅 MapKit 城市有。
+   * 各天不一致、有闭馆日或没有数据时留空，界面统一「以官方为准」。
+   */
+  openingHours?: string;
   /** 热度指数（0-100，组内排序键） */
   popularity: number;
   /** 周边景点 id（第三层规划传入，用于串联） */

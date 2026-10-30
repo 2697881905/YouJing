@@ -31,6 +31,8 @@ export interface MapSiteInput {
   rank: number;
   /** poi.abstractText / description，可空 */
   abstractText?: string;
+  /** poi.openingHours.texts（逐周字符串），由 commonHours 归并 */
+  openingHoursTexts?: string[];
 }
 
 export interface MapCityData {
@@ -139,8 +141,49 @@ export function durationOf(types: string[]): number {
   return 90;
 }
 
-export function typeLabelOf(types: string[]): string {
-  for (const t of types) {
+/**
+ * MapKit 逐周营业文本 → 「每日一致」的时段。
+ * 任一天缺时段、多时段（午休）、闭馆或各天不一致，一律返回空串；
+ * 界面只展示能确认的每日时段，其余统一「以官方为准」，不猜。
+ */
+export function commonHours(texts: string[] | undefined): string {
+  if (texts === undefined || texts.length === 0) {
+    return '';
+  }
+  let open: string = '';
+  let close: string = '';
+  let count: number = 0;
+  for (const line of texts) {
+    const ranges: RegExpMatchArray | null =
+      line.match(/\d{1,2}:\d{2}\s*[-–—]\s*\d{1,2}:\d{2}/g);
+    if (ranges === null || ranges.length !== 1) {
+      return '';
+    }
+    const m: RegExpMatchArray | null =
+      ranges[0].match(/(\d{1,2}:\d{2})\s*[-–—]\s*(\d{1,2}:\d{2})/);
+    if (m === null) {
+      return '';
+    }
+    if (count === 0) {
+      open = m[1];
+      close = m[2];
+    } else if (m[1] !== open || m[2] !== close) {
+      return '';
+    }
+    count += 1;
+  }
+  if (count === 0) {
+    return '';
+  }
+  const openZero: boolean = open === '00:00' || open === '0:00';
+  const closeEnd: boolean = close === '23:59' || close === '24:00';
+  if (openZero && closeEnd) {
+    return '全天开放';
+  }
+  return `${open}–${close}`;
+}
+
+export function typeLabelOf(types: string[]): string {  for (const t of types) {
     if (t === 'MUSEUM' || t === 'ART_MUSEUM' || t === 'SCIENCE_MUSEUM') {
       return '博物馆';
     }
@@ -202,6 +245,10 @@ export function buildSpots(sites: MapSiteInput[], city: string, today: string): 
       booking: { requiresBooking: false },
       provenance: { source: MAP_SPOT_SOURCE, updatedAt: today, confidence: '中' }
     };
+    const hours: string = commonHours(site.openingHoursTexts);
+    if (hours.length > 0) {
+      spot.openingHours = hours;
+    }
     spots.push(spot);
   }
   return spots;
