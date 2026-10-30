@@ -22,8 +22,14 @@ import { ImmersiveSurface } from '../components/ImmersiveSurface';
 import { TimelineNode } from '../components/TimelineNode';
 import { Activity, ActivityCategory, ActivityStatus, MealType, Trip, TripDay } from '../model/Trip';
 import { ReplanDecision, ReplanOutcome } from '../model/Replan';
+import { WeatherBrief, WeatherDay } from '../model/Weather';
 import { TripDao } from '../data/TripDao';
 import { SkipPlanner } from '../data/SkipPlanner';
+import { WeatherAdvisor } from '../data/WeatherAdvisor';
+import { WeatherStore } from '../data/WeatherStore';
+import {
+  SignalAction, SignalContext, SignalKind, TripSignals, TripSuggestion
+} from '../data/TripSignals';
 import { CheckinDao, CheckinEvidence } from '../data/CheckinDao';
 import { BadgeDao } from '../data/BadgeDao';
 import { Badge, BadgeGroup, BadgeRecord, badgeSourceText, badgeTotal, buildBadgeBoard, findBadge } from '../utils/BadgeBoard';
@@ -87,6 +93,9 @@ function clockNow(): string {
   return `${h.length < 2 ? `0${h}` : h}:${m.length < 2 ? `0${m}` : m}`;
 }
 
+/** 同类建议「忽略」后的静默窗口（分钟） */
+const SIGNAL_MUTE_MIN: number = 30;
+
 function hoursText(start: string, end: string): string {
   const mins: number = Math.max(0, DateUtils.minutesOf(end) - DateUtils.minutesOf(start));
   return `${Math.round(mins / 6) / 10}`;
@@ -145,6 +154,25 @@ export struct OnTripPage {
   /** 页面已离开：迟到的勋章查询不再开弹窗 */
   private disposed: boolean = false;
 
+  /** 切片3 T1：今日天气（只有「今天 + 取到」才出行）；数值走 tnum */
+  @State private weatherText: string = '';
+  @State private weatherAdvice: string = '';
+  /** 切片3 T2：建议条文案；空串 = 不出条 */
+  @State private signalTitle: string = '';
+  @State private signalDetail: string = '';
+  @State private signalLabel: string = '';
+  private weather: WeatherDay | null = null;
+  private signal: TripSuggestion | null = null;
+  /** 「忽略」只静默同类信号 30 分钟；换类立即重判 */
+  private mutedKind: SignalKind | null = null;
+  private mutedAtMin: number = -1;
+  /** 静默态只在同一行程同一天内有效，切天自动清 */
+  private signalDayKey: string = '';
+  /** 当前展示日的可打卡站点（buildStops 结果），信号动作按 key 反查目标 */
+  private stops: DayStop[] = [];
+  /** 当日打卡记录 key → 金额；信号判定要读已打卡站 */
+  private marks: Record<string, number> = {};
+
   aboutToAppear(): void {
     this.disposed = false;
     this.reload();
@@ -187,9 +215,13 @@ export struct OnTripPage {
         this.current = null;
         this.next = null;
         this.rows = [];
+        this.stops = [];
+        this.marks = {};
         this.checkedIn = false;
         this.isToday = false;
         this.clearSkipState();
+        this.clearWeather();
+        this.clearSignal();
         this.notice = '';
         return;
       }
@@ -206,18 +238,29 @@ export struct OnTripPage {
         this.dayLabel = '旅行中';
         this.current = null;
         this.next = null;
+        this.stops = [];
         this.totalMin = 0;
         this.elapsedMin = 0;
         this.nextLeg = '';
         this.checkedIn = false;
         this.isToday = false;
         this.canUndo = false;
+        this.clearWeather();
+        this.clearSignal();
         const emptyMarks: Record<string, number> = await CheckinDao.listForTrip(context, trip.id);
+        this.marks = emptyMarks;
         await this.buildRows(emptyMarks);
         this.syncArrivalWatcher();
         return;
       }
       this.isToday = day.date === DateUtils.todayIso();
+      this.stops = stops;
+      const dayKey: string = `${trip.id}:${day.dayIndex}`;
+      if (dayKey !== this.signalDayKey) {
+        this.signalDayKey = dayKey;
+        this.mutedKind = null;
+        this.mutedAtMin = -1;
+      }
       this.canUndo = this.skipSnapshot !== null && this.skipSnapshotTripId === trip.id &&
         this.skipSnapshotDayIndex === day.dayIndex;
       this.dayLabel = `进行中 · Day ${day.dayIndex}`;
@@ -248,9 +291,11 @@ export struct OnTripPage {
         ? `${nx.transportMode} ${nx.transportMin}分钟${nx.transportDetail.length > 0 ? ` · ${nx.transportDetail}` : ''}`
         : '';
       const marks: Record<string, number> = await CheckinDao.listForTrip(context, trip.id);
+      this.marks = marks;
       this.checkedIn = marks[curStop.key] !== undefined;
       await this.buildRows(marks);
       this.syncArrivalWatcher();
+      this.refreshWeather(day);
     } catch (err) {
       Logger.error('Ui.OnTrip', `加载失败: ${(err as Error).message}`);
     }
@@ -264,15 +309,15 @@ export struct OnTripPage {
   }
 
   /**
-   * 跳过下一站：云函数决策 → 端侧排程 → 落库 → 刷新页面。
-   * expectedStopId 来自实况窗按钮，用于拒绝「按钮已陈旧」的点击；页面内入口传 ''。
+   * 跳过指定站点：云函数决策 → 端侧排程 → 落库 → 刷新页面。
+   * expectedStopId 来自建议条/实况窗按钮，用于拒绝「按钮已陈旧」的点击；
+   * 页面内「不去下一站」传 ''，取当前下一站。
    */
   private async performSkip(expectedStopId: string): Promise<void> {
     const trip: Trip | null = this.trip;
     const day: TripDay | null = this.day;
-    const next: DayStop | null = this.next;
-    if (trip === null || day === null || next === null) {
-      this.toast('没有可跳过的下一站');
+    if (trip === null || day === null) {
+      this.toast('今日暂无安排');
       return;
     }
     if (this.replanning) {
@@ -282,15 +327,17 @@ export struct OnTripPage {
       this.toast('只能跳过今天的站点');
       return;
     }
-    if (expectedStopId.length > 0 && expectedStopId !== next.key) {
-      this.toast('下一站已变化，请重试');
+    const target: DayStop | null = expectedStopId.length > 0
+      ? this.stopOf(expectedStopId) : this.next;
+    if (target === null) {
+      this.toast('这一站已变化，请重试');
       return;
     }
-    if (next.isMeal || !SkipPlanner.isSkippable(next.category, next.status)) {
+    if (target.isMeal || !SkipPlanner.isSkippable(target.category, target.status)) {
       this.toast('这一站不能跳过');
       return;
     }
-    const skippedId: string = next.key;
+    const skippedId: string = target.key;
     const nowMin: number = DateUtils.minutesOf(clockNow());
     const snapshot: TripDay = SkipPlanner.cloneDay(day);
     this.replanning = true;
@@ -311,6 +358,35 @@ export struct OnTripPage {
       this.notice = '重排失败，行程未改动';
       return;
     }
+    await this.commitDay(trip, snapshot, outcome);
+  }
+
+  /**
+   * 用户确认「顺延 N 分钟」：确定性算术，不调云函数/LLM。
+   * 与跳过共用快照/撤销/落库/卡片刷新链路。
+   */
+  private async performShift(deltaMin: number): Promise<void> {
+    const trip: Trip | null = this.trip;
+    const day: TripDay | null = this.day;
+    if (trip === null || day === null || !this.isToday || this.replanning) {
+      return;
+    }
+    const nowMin: number = DateUtils.minutesOf(clockNow());
+    const snapshot: TripDay = SkipPlanner.cloneDay(day);
+    this.replanning = true;
+    this.notice = '正在顺延今日剩余行程…';
+    const outcome: ReplanOutcome = SkipPlanner.shiftRemaining(day, nowMin, deltaMin);
+    if (outcome.changed !== true) {
+      this.replanning = false;
+      this.notice = '';
+      this.toast(outcome.note);
+      return;
+    }
+    await this.commitDay(trip, snapshot, outcome);
+  }
+
+  /** 落库 + 快照 + 结果提示：跳过与顺延共用 */
+  private async commitDay(trip: Trip, snapshot: TripDay, outcome: ReplanOutcome): Promise<void> {
     const updated: Trip = this.replaceDay(trip, outcome.day);
     try {
       await TripDao.saveTrip(this.ctx(), updated);
@@ -329,6 +405,16 @@ export struct OnTripPage {
     this.canUndo = true;
     await this.reload();
     this.refreshWidget();
+  }
+
+  /** 信号动作的目标反查：找不到说明界面已陈旧，绝不按 key 猜站 */
+  private stopOf(key: string): DayStop | null {
+    for (const s of this.stops) {
+      if (s.key === key) {
+        return s;
+      }
+    }
+    return null;
   }
 
   /** 撤销 = 把跳过前快照写回该日并落库；快照只在本进程、只保留一层 */
@@ -502,21 +588,25 @@ export struct OnTripPage {
       this.lastFix = null;
       this.arrivalText = '';
       this.arrived = false;
+      this.refreshSignal();
       return;
     }
     if (this.watcherActive || this.watcherStarting) {
       this.refreshArrival();
+      this.refreshSignal();
       return;
     }
     this.watcherStarting = true;
     this.watcher.start(this.ctx(), (fix: LocationFix): void => {
       this.lastFix = fix;
       this.refreshArrival();
+      this.refreshSignal();
     }).then((ok: boolean): void => {
       this.watcherStarting = false;
       this.watcherActive = ok;
       if (ok) {
         this.refreshArrival();
+        this.refreshSignal();
       }
     });
   }
@@ -541,6 +631,111 @@ export struct OnTripPage {
     }
     this.arrived = Geo.arrived(distance);
     this.arrivalText = this.arrived ? `已到站 · 距站点 ${text}` : `距此站 ${text}`;
+  }
+
+  /** 今日天气：命中缓存立即返回；请求/解析失败静默（不出天气行，不阻塞页面） */
+  private refreshWeather(day: TripDay | null): void {
+    if (day === null || !this.isToday) {
+      this.clearWeather();
+      this.refreshSignal();
+      return;
+    }
+    WeatherStore.load(this.ctx(), day).then((weather: WeatherDay | null): void => {
+      if (this.disposed) {
+        return;
+      }
+      this.weather = weather;
+      if (weather === null) {
+        this.weatherText = '';
+        this.weatherAdvice = '';
+      } else {
+        const brief: WeatherBrief = WeatherAdvisor.brief(weather);
+        this.weatherText = brief.text;
+        this.weatherAdvice = brief.advice;
+      }
+      this.refreshSignal();
+    }).catch((err: Error): void => {
+      if (this.disposed) {
+        return;
+      }
+      Logger.warn('Ui.OnTrip', `天气读取失败: ${err.message}`);
+      this.clearWeather();
+      this.refreshSignal();
+    });
+  }
+
+  private clearWeather(): void {
+    this.weather = null;
+    this.weatherText = '';
+    this.weatherAdvice = '';
+  }
+
+  /** 被动建议：一次只出一条；同类被「忽略」后 30 分钟内不再弹，换类立即重判 */
+  private refreshSignal(): void {
+    const day: TripDay | null = this.day;
+    if (day === null || !this.isToday) {
+      this.clearSignal();
+      return;
+    }
+    const fix: LocationFix | null = this.lastFix;
+    let point: GeoPoint | null = null;
+    if (fix !== null) {
+      const p: GeoPoint = { latitude: fix.latitude, longitude: fix.longitude };
+      point = p;
+    }
+    const nowMin: number = DateUtils.minutesOf(clockNow());
+    const ctx: SignalContext = {
+      isToday: this.isToday,
+      nowMin: nowMin,
+      fix: point,
+      checkedIds: Object.keys(this.marks),
+      weather: this.weather
+    };
+    const suggestion: TripSuggestion | null = TripSignals.suggest(day, ctx);
+    if (suggestion === null) {
+      this.clearSignal();
+      return;
+    }
+    if (this.mutedKind !== null && suggestion.kind === this.mutedKind &&
+      nowMin - this.mutedAtMin < SIGNAL_MUTE_MIN) {
+      this.clearSignal();
+      return;
+    }
+    this.signal = suggestion;
+    this.signalTitle = suggestion.title;
+    this.signalDetail = suggestion.detail;
+    this.signalLabel = suggestion.actionLabel;
+  }
+
+  private clearSignal(): void {
+    this.signal = null;
+    this.signalTitle = '';
+    this.signalDetail = '';
+    this.signalLabel = '';
+  }
+
+  private muteSignal(): void {
+    const s: TripSuggestion | null = this.signal;
+    if (s !== null) {
+      this.mutedKind = s.kind;
+      this.mutedAtMin = DateUtils.minutesOf(clockNow());
+    }
+    this.clearSignal();
+  }
+
+  /** 建议条唯一动作入口：顺延走确定性排程，跳过复用既有重排链路 */
+  private runSignalAction(): void {
+    const s: TripSuggestion | null = this.signal;
+    if (s === null) {
+      return;
+    }
+    this.mutedKind = null;
+    this.mutedAtMin = -1;
+    if (s.action === SignalAction.SHIFT) {
+      this.performShift(s.deltaMin);
+      return;
+    }
+    this.performSkip(s.targetId);
   }
 
   /**
@@ -726,6 +921,49 @@ export struct OnTripPage {
   }
 
   @Builder
+  signalBar() {
+    // 这一屏已经有 hero 的「记一笔费用」实心主按钮（禁令 1：一屏只许一个），
+    // 所以建议动作走 SECONDARY，「忽略」走 TEXT。
+    Column() {
+      Text(this.signalTitle)
+        .fontSize(TypeTokens.small.size)
+        .fontWeight(600)
+        .fontColor(ColorTokens.warning)
+        .fontFeature("'tnum' on")
+      Text(this.signalDetail)
+        .fontSize(TypeTokens.caption.size)
+        .fontWeight(450)
+        .fontColor(ColorTokens.body)
+        .fontFeature("'tnum' on")
+        .margin({ top: SpaceTokens.xs })
+      Row({ space: SpaceTokens.sm }) {
+        YoujingButton({
+          variant: YoujingButtonVariant.SECONDARY,
+          label: this.signalLabel,
+          buttonWidth: 150,
+          onAction: (): void => {
+            this.runSignalAction();
+          }
+        })
+        YoujingButton({
+          variant: YoujingButtonVariant.TEXT,
+          label: '忽略',
+          buttonWidth: 72,
+          onAction: (): void => {
+            this.muteSignal();
+          }
+        })
+      }
+      .margin({ top: SpaceTokens.sm })
+    }
+    .alignItems(HorizontalAlign.Start)
+    .width('100%')
+    .padding(SpaceTokens.md)
+    .borderRadius(RadiusTokens.card)
+    .backgroundColor(ColorTokens.surfaceElevated)
+  }
+
+  @Builder
   groupHeader() {
     // 材质豁免：这条吸顶行住在卡片内（父 List 已 canvas 实色 + 圆角 clip），不是契约 §1024
     // 指的那条满宽"日分隔"玻璃栏；给它上材质等于在卡片里开玻璃，违 §1149。
@@ -803,6 +1041,11 @@ export struct OnTripPage {
             this.noticeBar()
           }
         }
+        if (this.signalTitle.length > 0 && !this.replanning) {
+          ListItem() {
+            this.signalBar()
+          }
+        }
         ListItem() {
           // hero 面板包一层官方 HDS 双边流光（HdsVisualComponent），不支持的设备自动退回实色
           ImmersiveSurface({ radius: RadiusTokens.hero, surfaceWidth: '100%' }) {
@@ -834,6 +1077,16 @@ export struct OnTripPage {
                   .fontSize(TypeTokens.caption.size)
                   .fontWeight(450)
                   .fontColor(this.arrived ? ColorTokens.success : ColorTokens.muted)
+                  .fontFeature("'tnum' on")
+                  .margin({ top: SpaceTokens.xs })
+              }
+              // 今日天气（切片3 T1）：只在「今天」且取到天气时出现；有建议时追加降水窗口
+              if (this.weatherText.length > 0) {
+                Text(this.weatherAdvice.length > 0
+                  ? `${this.weatherText} · ${this.weatherAdvice}` : this.weatherText)
+                  .fontSize(TypeTokens.caption.size)
+                  .fontWeight(450)
+                  .fontColor(ColorTokens.muted)
                   .fontFeature("'tnum' on")
                   .margin({ top: SpaceTokens.xs })
               }

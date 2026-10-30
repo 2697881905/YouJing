@@ -203,6 +203,216 @@ export class SkipPlanner {
     return outcome;
   }
 
+  // ---- 顺延（切片 3 T3）----
+
+  /** 顺延的移动对象：尚未开始、非交通/住宿、未预约、非跳过占位 */
+  static isShiftTarget(a: Activity, nowMin: number): boolean {
+    if (a.category === ActivityCategory.TRANSPORT || a.category === ActivityCategory.HOTEL) {
+      return false;
+    }
+    if (a.status === ActivityStatus.BOOKED) {
+      return false;
+    }
+    if (SkipPlanner.isSkippedMarker(a)) {
+      return false;
+    }
+    const start: number = DateUtils.minutesOf(a.time);
+    return start >= 0 && start >= nowMin;
+  }
+
+  /**
+   * 用户确认「顺延」后的确定性排程：把未开始站点整体后移 delta 分钟，
+   * 撞上锚点（预约/交通/住宿/有时刻的餐次/当前站剩余时段）就继续后移。
+   * 越过 23:59 的项及其后保持原时间并追加「待调整」——宁可让用户手动改，
+   * 也不把站点藏到第二天。
+   */
+  static shiftRemaining(day: TripDay, nowMin: number, deltaMin: number): ReplanOutcome {
+    const work: TripDay = SkipPlanner.cloneDay(day);
+    const delta: number = Math.floor(deltaMin);
+    const targetIds: string[] = [];
+    if (nowMin >= 0 && delta > 0) {
+      for (const a of work.activities) {
+        if (SkipPlanner.isShiftTarget(a, nowMin)) {
+          targetIds.push(a.id);
+        }
+      }
+    }
+    if (targetIds.length === 0) {
+      const none: ReplanOutcome = {
+        day: work,
+        note: '没有需要顺延的站点',
+        usedFallback: false,
+        changed: false
+      };
+      return none;
+    }
+
+    // 每站先加 delta，再按时间轴 settle 避开锚点；站间次序只前进不回退。
+    const anchors: Span[] = SkipPlanner.shiftAnchors(work, nowMin);
+    const placedIds: string[] = [];
+    const carryIds: string[] = [];
+    let cursor: number = 0;
+    let overflowed: boolean = false;
+    for (const id of targetIds) {
+      const a: Activity | null = SkipPlanner.activityOf(work, id);
+      if (a === null) {
+        continue;
+      }
+      if (overflowed) {
+        a.note = SkipPlanner.appendCarry(a.note);
+        carryIds.push(id);
+        continue;
+      }
+      const originalStart: number = DateUtils.minutesOf(a.time);
+      const originalEnd: number = SkipPlanner.normalizedEnd(a, originalStart);
+      const duration: number = Math.max(1, originalEnd - originalStart);
+      let start: number = Math.max(originalStart + delta, cursor);
+      start = SkipPlanner.settle(start, duration, anchors);
+      if (start + duration > DAY_END) {
+        overflowed = true;
+        a.note = SkipPlanner.appendCarry(a.note);
+        carryIds.push(id);
+        continue;
+      }
+      a.time = DateUtils.hhmmOf(start);
+      a.endTime = DateUtils.hhmmOf(start + duration);
+      cursor = start + duration;
+      placedIds.push(id);
+    }
+
+    if (!SkipPlanner.shiftValid(work, day, nowMin, placedIds, carryIds)) {
+      const restored: TripDay = SkipPlanner.cloneDay(day);
+      const failed: ReplanOutcome = {
+        day: restored,
+        note: '顺延失败，行程未改变',
+        usedFallback: false,
+        changed: false
+      };
+      return failed;
+    }
+    const suffix: string = carryIds.length > 0 ? '（部分站点待调整）' : '';
+    const note: string = `已顺延 ${delta} 分钟，后续行程整体后移${suffix}`;
+    const outcome: ReplanOutcome = { day: work, note: note, usedFallback: false, changed: true };
+    return outcome;
+  }
+
+  /** 顺延锚点：预约/交通/住宿活动、有时刻的餐次、当前站的剩余时段 [now, end) */
+  private static shiftAnchors(work: TripDay, nowMin: number): Span[] {
+    const spans: Span[] = [];
+    let current: Activity | null = null;
+    let currentStart: number = -1;
+    for (const a of work.activities) {
+      const start: number = DateUtils.minutesOf(a.time);
+      const anchored: boolean = a.category === ActivityCategory.TRANSPORT ||
+        a.category === ActivityCategory.HOTEL || a.status === ActivityStatus.BOOKED;
+      if (start < 0) {
+        continue;
+      }
+      if (anchored) {
+        const end: number = SkipPlanner.normalizedEnd(a, start);
+        if (end > start) {
+          spans.push({ start: start, end: end });
+        }
+        continue;
+      }
+      if (SkipPlanner.isSkippedMarker(a)) {
+        continue;
+      }
+      if (start <= nowMin && start > currentStart) {
+        current = a;
+        currentStart = start;
+      }
+    }
+    if (current !== null) {
+      const end: number = SkipPlanner.normalizedEnd(current, currentStart);
+      if (end > nowMin) {
+        spans.push({ start: nowMin, end: end });
+      }
+    }
+    for (const m of work.meals) {
+      if (m.time === undefined) {
+        continue;
+      }
+      const start: number = DateUtils.minutesOf(m.time);
+      if (start < 0) {
+        continue;
+      }
+      const end: number = Math.min(DAY_END, start + MEAL_ANCHOR_MIN);
+      if (end > start) {
+        spans.push({ start: start, end: end });
+      }
+    }
+    return spans;
+  }
+
+  private static shiftValid(work: TripDay, original: TripDay, nowMin: number,
+    placedIds: string[], carryIds: string[]): boolean {
+    if (work.activities.length !== original.activities.length ||
+      work.meals.length !== original.meals.length) {
+      return false;
+    }
+    for (let i = 0; i < original.activities.length; i++) {
+      if (work.activities[i].id !== original.activities[i].id) {
+        return false;
+      }
+    }
+    for (let i = 0; i < original.meals.length; i++) {
+      if (work.meals[i].type !== original.meals[i].type ||
+        work.meals[i].time !== original.meals[i].time) {
+        return false;
+      }
+    }
+
+    const anchors: Span[] = SkipPlanner.shiftAnchors(work, nowMin);
+    const placed: Span[] = [];
+    for (const id of placedIds) {
+      const a: Activity | null = SkipPlanner.activityOf(work, id);
+      if (a === null) {
+        return false;
+      }
+      const start: number = DateUtils.minutesOf(a.time);
+      const end: number = DateUtils.minutesOf(a.endTime);
+      if (start < nowMin || end <= start || end > DAY_END) {
+        return false;
+      }
+      for (const anchor of anchors) {
+        if (start < anchor.end && anchor.start < end) {
+          return false;
+        }
+      }
+      placed.push({ start: start, end: end });
+    }
+    for (let i = 0; i < placed.length; i++) {
+      for (let j = i + 1; j < placed.length; j++) {
+        if (placed[i].start < placed[j].end && placed[j].start < placed[i].end) {
+          return false;
+        }
+      }
+    }
+
+    for (const id of carryIds) {
+      const now: Activity | null = SkipPlanner.activityOf(work, id);
+      const was: Activity | null = SkipPlanner.activityOf(original, id);
+      if (now === null || was === null || now.time !== was.time || now.endTime !== was.endTime) {
+        return false;
+      }
+      if (now.note === undefined || now.note.indexOf(CARRY_MARK) < 0) {
+        return false;
+      }
+    }
+
+    for (const before of original.activities) {
+      if (placedIds.indexOf(before.id) >= 0 || carryIds.indexOf(before.id) >= 0) {
+        continue;
+      }
+      const now: Activity | null = SkipPlanner.activityOf(work, before.id);
+      if (now === null || now.time !== before.time || now.endTime !== before.endTime) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   // ---- 守卫 ----
 
   private static accept(day: TripDay, decision: ReplanDecision, remainIds: string[]): boolean {

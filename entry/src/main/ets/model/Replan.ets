@@ -39,6 +39,8 @@ export interface ReplanOutcome {
   day: TripDay;
   note: string;
   usedFallback: boolean;
+  /** 行程是否真的变了（顺延无目标时为 false，页面据此不出结果提示） */
+  changed?: boolean;
 }
 
 /** 请求里只带通勤时长，不带方式/详情（§3.4 示例）。 */

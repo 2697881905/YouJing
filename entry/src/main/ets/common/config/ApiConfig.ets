@@ -70,6 +70,11 @@ export interface ApiConfigType {
   REPLAN_CONNECT_TIMEOUT_MS: number;
   /** 重排客户端超时预算：读取 6 秒（方案 §3.5）。 */
   REPLAN_READ_TIMEOUT_MS: number;
+  /**
+   * 天气端点（Open-Meteo，免 Key 免登录，公开地址可直接进仓库）。
+   * 空串 = 不出天气行。只发当日首站坐标四舍五入到 0.1°，不发实时定位。
+   */
+  WEATHER_URL: string;
 }
 
 export const ApiConfig: ApiConfigType = {
@@ -85,5 +90,6 @@ export const ApiConfig: ApiConfigType = {
   REPLAN_URL: '',
   REPLAN_TOKEN: '',
   REPLAN_CONNECT_TIMEOUT_MS: 2000,
-  REPLAN_READ_TIMEOUT_MS: 6000
+  REPLAN_READ_TIMEOUT_MS: 6000,
+  WEATHER_URL: 'https://api.open-meteo.com/v1/forecast'
 };

@@ -20,7 +20,7 @@ const KEY_AGREED: string = 'privacyAgreedAt';
 const KEY_VERSION: string = 'privacyVersion';
 
 /** 协议版本。改《隐私政策》/《用户协议》正文时同步抬这个值 */
-export const CONSENT_VERSION: string = 'v1';
+export const CONSENT_VERSION: string = 'v2';
 
 /** AppStorage 键：UI 侧用它做响应式闸门（@StorageProp + @Watch） */
 export const CONSENT_AGREED_KEY: string = 'privacyAgreed';

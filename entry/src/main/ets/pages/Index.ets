@@ -125,7 +125,9 @@ struct Index {
   private consentDialog: CustomDialogController = new CustomDialogController({
     builder: PrivacyConsentDialog({
       onAgree: (): void => {
+        // agree() 先同步置位（AppStorage + 内存），落盘是异步的；关窗不等落盘
         ConsentStore.agree().catch((): void => {});
+        this.consentDialog.close();
       },
       onDecline: (): void => {
         ConsentStore.decline();
@@ -137,6 +139,13 @@ struct Index {
       }
     }),
     autoCancel: false,
+    // 同意前 Back / Esc / 侧滑都不许把闸门关掉：否则「退出应用」那条出口被绕过，
+    // 用户没同意也能继续用（真机实测 Back 能直接关掉，同意态仍是未同意）
+    onWillDismiss: (action: DismissDialogAction): void => {
+      if (ConsentStore.isAgreed()) {
+        action.dismiss();
+      }
+    },
     alignment: DialogAlignment.Center
   });
 

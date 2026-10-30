@@ -3524,3 +3524,76 @@ TypeError: Cannot read property close of undefined
 
 - 为造「首次收章」在本机测试行程补选了一站「西北农林科技大学校园」，并对它做了一次「取消打卡→再打卡」的往返；最终状态 = 已打卡，墙里 3 枚，没有删除任何既有行程或打卡。
 - 本轮零 LLM 调用。
+
+### §5ci 续 46：切片3 行中智能落地——屏15 天气行 + 建议条（跳过/顺延/忽略）+ 隐私 v2（真机取证）
+
+**做了什么**
+
+行中段第一条闭环：天气只读、建议只提议、改行程必须用户点。三层分工：
+
+| 件 | 文件 | 要点 |
+|---|---|---|
+| 契约 | `model/Weather.ets` | `WeatherHour/WeatherDay/WeatherBrief`，小时粒度到当日分钟（`startMin`） |
+| 取数/解析 | `common/weather/WeatherClient.ets` / `WeatherParser.ets` | Open-Meteo 免 Key；坐标在 `WeatherStore.targetOf` 里 `toFixed(1)`（约 11km）且只取当日首站；WMO code → 中文标签，解析不过即 null |
+| 缓存 | `data/WeatherStore.ets` | 内存 + preferences 双层，TTL 30 分钟；无坐标/请求失败/解析失败都静默返回 null（页面不出天气行，不阻塞） |
+| 简报 | `data/WeatherAdvisor.ets` | `今日 19°/4° 晴间多云 · 降水 0%`；`rainIn()` 只在目标时段取小时最大值，阈值 `RAIN_MIN_PROB=60` |
+| 信号 | `data/TripSignals.ets` | 优先级 偏离 > 落后 > 有雨；偏离 = 有定位 + 距当前站 >1000m + 开始后 ≥10 分钟 + 未打卡 + 可跳过；落后 = 最后打卡之后首个未打卡站晚 ≥30 分钟（无可顺延站退化为跳过）；有雨 = 前方首个室外可跳过站在其时段内降水 ≥60% |
+| 顺延 | `data/SkipPlanner.ets`（新增 `isShiftTarget/shiftRemaining`） | 只移动「未开始、非交通/住宿、未预约、非跳过占位」；每站先 +delta 再避开锚点（预约/交通/住宿/有时刻餐次/当前站剩余时段），次序只前进；越过 23:59 的项保持原时间并追加「待调整」；`shiftValid` 复核通过才落盘；`ReplanOutcome.changed?` 区分「没目标」与「真改了」 |
+| 屏15 | `pages/OnTripPage.ets` | hero 内天气行（到站行之后）；建议条在 hero 之上，`warning` 标题 + SECONDARY 动作 + TEXT「忽略」；`performShift` 与 `performSkip` 共用快照/撤销/落库；`performSkip` 从「只能跳下一站」放宽为「任意可跳站点」，目标按 key 反查，找不到就提示重试、绝不猜站 |
+| 忽略 | 同上 | 同类信号静默 30 分钟（`SIGNAL_MUTE_MIN`），换类立即重判；静默态随页面实例，切天清零 |
+| 隐私 | `LegalDocs.ets` / `ConsentStore.ets` | 新增「今日天气」条（只发 0.1° 坐标、不发实时定位/账号/行程内容、结果本地缓存 30 分钟）；`CONSENT_VERSION` v1 → v2，老用户重问一次 |
+| 用例 | `ohosTest/.../WeatherSignals.test.ets` | 9 例：WMO 标签与简报、解析契约、偏离优先于落后、阈值与打卡门槛、无顺延目标退化跳过、有雨阈值与室外判定、顺延基本/锚点/溢出、无目标与跳过占位 |
+| 离线 | `tools/verify_weather_logic.sh` + `tools/weather_signals_check.ts` | 102 条断言；bundled tsc `--strict` 过检后由 node 执行 |
+| 文档 | `Docs/行中智能方案.md` | 目标/边界、数据源与隐私、契约、屏15 呈现、任务拆解、验收、风险 |
+
+**中途抓到并修掉的两处同意闸门缺陷（不修就发不出去）**
+
+隐私正文改版会让老用户重新过闸，实测时一次撞出两条：
+
+1. **点「同意并继续」弹窗不关**：hilog 已打 `已记录明示同意 version=v2`，但对话框仍在，用户被卡死。根因：`Index.onAgree` 只写了同意态，没有关闭控制器。修复：`this.consentDialog.close()`（`agree()` 先同步置位，关窗不等落盘）。
+2. **Back 能绕过闸门**：`uitest uiInput keyEvent Back` 后弹窗消失、`ConsentStore.isAgreed()` 仍为 false，应用可直接使用——「不同意并退出」那条出口被绕过。修复：`onWillDismiss` 里只有 `isAgreed()` 才 `action.dismiss()`，其余一律不关。
+
+两条都做了 Before/After 真机复测（Before：同意不关窗 / Back 关窗；After：Back 不关窗、同意关窗并落 v2）。修复验证用的是临时 `v2-test` 版本号，测完已回退 `v2` 并重建装机；`modules.abc` 内 `v2-test` 命中 0 次、`onWillDismiss` 命中 2 次。
+
+**真机取证（Pocket 2，sm 363.5vp，2026-10-30 23:2x–23:5x）**
+
+| 路径 | 结果 |
+|---|---|
+| 隐私政策第 3 条 | 面板内滚动可见「3. 今日天气」，正文与 `LegalDocs` 完全一致 |
+| 老用户重问 | v1 同意态下装 v2 → 闸门重新出现；同意后再装同一 v2 → 不再重问（`install -r` 保留 preferences） |
+| 天气行 | `今日 19°/4° 晴间多云 · 降水 0%`，真 Open-Meteo 数据 |
+| 建议条渲染 | `比计划晚 882 分钟` / 「西北农林科技大学博览园」还没打卡，今天没有可顺延的站 / `跳过这一站` + `忽略`；深色档截图无截断 |
+| 跳过动作 | 点 `跳过这一站` → `已跳过「西北农林科技大学博览园」，离线重排` + `撤销`；信号重算为 `比计划晚 688 分钟`，目标换成「午餐品尝杨凌蘸水面」 |
+| 撤销 | 点 `撤销` → `已撤销重排`；条回到 `比计划晚 884 分钟`，博览园站恢复 |
+| 忽略 | 点 `忽略` → 条立即消失 |
+| 30 分钟静默 | 忽略后点 `完成打卡`（触发 reload → 天气缓存 → 重判同一 BEHIND），条没有回来；再取消打卡仍不回来 → 静默在同一页面实例内生效。退出重进形成新实例 → 条以 `比计划晚 897 分钟` 回来（静默不跨实例） |
+| 非今天不亮 | 跨过 00:00 后再点同一行程 → 进入屏9 详情（已结束），不出现天气行/建议条 |
+
+**构建 / 尺子 / hypium / 离线**
+
+- 主 HAP：`entry-default-signed.hap` BUILD SUCCESSFUL（23:12，最终 v2 源码；abc 内 `比计划晚`/`open-meteo` 可检索、`v2-test` 0 次）。
+- ohosTest HAP：23:36 重建 BUILD SUCCESSFUL（20 executed / 15 up-to-date）。
+- 静态十把尺全 0 偏差：colors / type / geometry / material / fontfamily / tnum / elevation / button_width / scroll_actions / label_fit；`audit_contrast` 是运行期尺（要 dump+png 两个参数），不在这轮静检里。
+- hypium 真机全量：`Tests run: 158, Failure: 0, Error: 0, Pass: 158, Ignore: 0`（基线 149 + WeatherSignals 9），`TestFinished-ResultCode: 0`。
+- 离线：`WEATHER_SIGNALS_OK cases=102` + `WEATHER_LOGIC_OK`（bundled tsc `--strict`）。
+
+**成本（本轮唯一一次真实 LLM 调用）**
+
+- 为造「今天全未打卡」的行程触发「落后」信号，新建「杨凌 · 2026-10-30 · 1 天 · 7 景点/3 通勤」。
+- hilog：`LLM 用量 model=deepseek-flash in=1374 (cache 命中 1152) out=1005 (思考 0) 结束=stop`，只调 1 次、无重试。
+- 23:25 属非高峰（半价）：命中 1152×¥0.02/M + 未命中 222×¥1.00/M + 输出 1005×¥4.00/M = 高峰价 ¥0.0043，实际约 **¥0.0021**。
+
+**边界（没验到就不写成功）**
+
+1. **「顺延」按钮没有真机画面证据**：取证到 23:57 时，`isShiftTarget` 要求 `start ≥ now`，今日已无未开始站点 → 信号按设计退化为「跳过这一站」。这是时刻条件的硬边界，不是实现缺失：顺延的锚点/溢出/复核由 102 条离线断言与 3 个 hypium 用例（`shift_targets_and_basic` / `shift_respects_current_stop_and_overflow` / `shift_no_targets_and_markers`）覆盖，但「按钮文字 + 时刻整体后移」的端到端画面本轮没拍到。
+2. **「有雨」未真机触发**：当日降水 0%，60% 阈值不达；只有离线 + hypium 证据。
+3. **「偏离」未真机触发**：当前节点是晚餐（无坐标）→ ArrivalWatcher 不启动；且需要 >1km 实际位移 + 前台定位权限；只有离线 + hypium 证据。
+4. **md/宽屏未量**：本机 sm 363.5vp；建议条两枚按钮（150+72vp）未在 md 复拍。
+5. **静默不跨实例**：退出重进或换站新建页面会清零 `mutedKind`——本轮实测确认，按现状记录（没有做成跨页面持久化静默）。
+6. 顺带核实：屏9 / 屏12 的 dump 里有 `99.166667` / `100.000000` 文本节点，截图对应位置不可见（Progress 内部值节点），不按上屏缺陷处理。
+
+**数据副作用（如实记）**
+
+- 新增并保留一条测试行程「杨凌 2026-10-30 · 7 景点/3 通勤」（本轮唯一 LLM 生成）；没有删除或改动用户既有行程。
+- 为验证动作做了「跳过 → 撤销」「打卡晚餐 → 取消打卡」两个往返，最终站表与打卡记录均回到原状。
+- 本机同意态 = v2（隐私正文改版后的最新版）。
