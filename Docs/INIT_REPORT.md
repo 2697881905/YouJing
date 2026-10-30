@@ -3461,3 +3461,66 @@ v7→v8：本机库是 T1 首装时从有数据的旧库迁上来的（checkin 1
 
 - 本轮没有新的 LLM 调用（夹具生成的那一次 flash ≈¥0.01 已在上一轮报过）。
 - 真机脚本两次误触（首页 pad 点落到「开始规划新行程」、屏8 编辑图标偏 12px）都是靠「点完立刻 dump」发现的，已当场纠正，未留在结论里。
+
+### §5ci 续 45：切片2 收尾——打卡收章弹窗 + 「我的勋章」墙（真机取证，含一次 jscrash 修复）
+
+**做了什么**
+
+勋章不建新表：全部从 v8 的打卡证据派生（`uuid/坐标/source` 已在 T1 落库）。
+
+| 件 | 文件 | 要点 |
+|---|---|---|
+| 数据 | `data/BadgeDao.ets` | `checkin JOIN activity ON a.id = c.trip_id||':'||c.activity_id JOIN trip`，按 `user_id` 分区；餐次没有 activity 行，联表天然排除，不为餐次编章 |
+| 纯逻辑 | `utils/BadgeBoard.ets` | 同名同城合并成一枚（trim 后去重）；`visits` 计次；任一次 `arrival` 即升级并保留最小 `distanceM`；首收时间/首行程取最早；城市组按最新章排序，组内按时间倒序；`badgeRoute()` 用行程区间决定回屏15 还是屏9 |
+| 弹窗 | `components/BadgeEarnedDialog.ets` | 官方 `@CustomDialog`，只在「这一笔就是这枚章的首次收下」时由屏15 打开；文案如实写「到站打卡/手动打卡」 |
+| 勋章墙 | `pages/BadgePage.ets` | 官方 `List + ListItemGroup`（吸顶城市头）、总览卡（medal+已收集 N 枚+城市数/最近日期）、行用官方 `Button(stateEffect)` 做壳；空态、加载态各一套 |
+| 入口 | `pages/TripsPage.ets` / `AppRouter.ets` | 屏12 标题栏在 ⊕ 与头像之间加 medal 钮（三项全露出，退出登录未被折进 more）；路由名 `Badges`，深链 `--ps route Badges` 可达 |
+| 用例 | `ohosTest/.../BadgeBoard.test.ets` | 10 例：空、同名同城合并、异城不合并、trim、空名丢弃、分组排序、findBadge 限城、来源/元信息文案、按行程区间选路由、本地日文本 |
+
+**真机取证（Pocket 2，sm 363.5vp）**
+
+| 路径 | 结果 |
+|---|---|
+| 深链 `--ps route Badges` | 直接落勋章墙：总览「已收集 3 枚 / 1 个城市 · 最近 10月30日」，标题副行「共 3 枚」，城市头「杨凌 3 枚」，三行按时间倒序 |
+| 屏12 标题栏 medal 钮 | 截图确认三钮顺序 = ⊕ / 勋章 / 头像；点勋章 → 同一面墙 |
+| 屏15 首次收章 | 补选「西北农林科技大学校园」→ 完成打卡 → 弹窗「已收下这枚勋章 / 西北农林科技大学校园 / 杨凌 · 手动打卡 / 行囊里已有 3 枚」 |
+| 弹窗「查看勋章」 | 关弹窗 → push `Badges` → 墙里新章置顶，总数从 2 变 3 |
+| 弹窗「继续行程」 | 弹窗消失，停留屏15，打卡态保持 |
+| 勋章行 → 旅行中行程 | 点「西北农林科技大学校园」（今天在区间内）→ 屏15，当前节点正是该站 |
+| 勋章行 → 已结束行程 | 点「杨凌渭河生态公园」（10月27–29）→ 屏9 行程详情（Day 1 · 10月27日），不是屏15 |
+
+**中途抓到并修掉的 jscrash（本轮最重要的一条）**
+
+第一次点「查看勋章」App 直接退回桌面。hilog 给出精确栈：
+
+```
+TypeError: Cannot read property close of undefined
+    at onAction entry (entry/src/main/ets/components/BadgeEarnedDialog.ets:63:29)
+  → com.youjing.app is about to exit due to RuntimeError
+```
+
+根因：`@CustomDialog` struct 里声明的 `controller: CustomDialogController` **不会自动注入**，
+弹窗自己调 `this.controller.close()` 就是 undefined。项目里的 `PrivacyConsentDialog` 从不自己 close
+（关闭权在宿主），本轮弹窗没有沿用这条口径。
+修复：弹窗只回调 `onViewWall/onDismiss`；宿主新增 `closeBadgeDialog()`（先置空再 close，天然幂等），
+`aboutToDisappear` 与两个回调统一走它。重装后两条出口都复测通过；修复后 hypium 全量 149/149。
+
+**静态尺与构建**
+
+- 构建：entry 与 entry@ohosTest 双 HAP BUILD SUCCESSFUL；新增文件无 ArkTS 报错（仅 `Function may throw exceptions` 警告级）。
+- 十把尺全 0 偏差：colors / type / geometry / material / fontfamily / tnum / elevation / button_width / scroll_actions / label_fit。
+  tnum 已覆盖新页的 `已收集 N 枚`、`N 个城市 · 最近…`、`N 枚` 与行内 `badgeMeta()` 调用点。
+- hypium：149 例全绿（原 139 + BadgeBoard 10）。
+
+**边界（没验到就不写成功）**
+
+1. **空态未真机验**：本机账号已有 3 枚章，没有第二个空账号可用；`groups.length===0` 分支只经过代码阅读与纯逻辑空数组用例，UI 分支无设备证据。
+2. **`source='arrival'` 的章未真机验**：手机离站点 1.5–1.8km，造不出到站打卡；来源文案的 arrival 分支只有纯逻辑用例。
+3. **重复到访不弹窗未真机验**：验证路径要求「另一条行程里已收过的景点成为今天的当前站」，本机当前行程的当前站只有校园；`firstCheckinId !== tripId:key` 这条守卫只有代码证据。
+4. **md/宽屏两列未量**：本机 sm；`listLanesForBreakpoint` 的 2/3 列在 Pocket 2 上不可达（用户另一台折叠屏未展开测）。
+5. **深色档未拍**：沿用 token，未做单独夜间复拍。
+
+**数据副作用（如实记）**
+
+- 为造「首次收章」在本机测试行程补选了一站「西北农林科技大学校园」，并对它做了一次「取消打卡→再打卡」的往返；最终状态 = 已打卡，墙里 3 枚，没有删除任何既有行程或打卡。
+- 本轮零 LLM 调用。

@@ -447,6 +447,8 @@ export struct TripsPage {
         menu: [HdsChrome.item($r('sys.symbol.plus'), '新建行程', (): void => {
           PlanDraft.fresh();
           enterPlanningFlow('TripInput');
+        }), HdsChrome.item($r('sys.symbol.medal'), '我的勋章', (): void => {
+          this.pathStack.pushPath({ name: 'Badges' });
         }), HdsChrome.item($r('sys.symbol.person_crop_circle_fill_1'), '退出登录', (): void => {
           this.confirmLogout();
         })]
@@ -465,6 +467,8 @@ export struct TripsPage {
         menu: [HdsChrome.item($r('sys.symbol.plus'), '新建行程', (): void => {
           PlanDraft.fresh();
           enterPlanningFlow('TripInput');
+        }), HdsChrome.item($r('sys.symbol.medal'), '我的勋章', (): void => {
+          this.pathStack.pushPath({ name: 'Badges' });
         }), HdsChrome.item($r('sys.symbol.person_crop_circle_fill_1'), '退出登录', (): void => {
           this.confirmLogout();
         })]

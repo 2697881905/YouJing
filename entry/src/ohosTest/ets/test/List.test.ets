@@ -21,6 +21,7 @@ import navStackTest from './NavStackRouting.test';
 import categoryBudgetTest from './CategoryBudget.test';
 import tripEnrichTest from './TripEnrich.test';
 import dayLoadTest from './DayLoad.test';
+import badgeBoardTest from './BadgeBoard.test';
 
 export default function testsuite() {
   tripParserTest();
@@ -46,4 +47,5 @@ export default function testsuite() {
   categoryBudgetTest();
   tripEnrichTest();
   dayLoadTest();
+  badgeBoardTest();
 }

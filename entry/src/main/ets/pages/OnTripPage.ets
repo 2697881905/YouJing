@@ -25,6 +25,9 @@ import { ReplanDecision, ReplanOutcome } from '../model/Replan';
 import { TripDao } from '../data/TripDao';
 import { SkipPlanner } from '../data/SkipPlanner';
 import { CheckinDao, CheckinEvidence } from '../data/CheckinDao';
+import { BadgeDao } from '../data/BadgeDao';
+import { Badge, BadgeGroup, BadgeRecord, badgeSourceText, badgeTotal, buildBadgeBoard, findBadge } from '../utils/BadgeBoard';
+import { BadgeEarnedDialog } from '../components/BadgeEarnedDialog';
 import { ExpenseDao } from '../data/ExpenseDao';
 import { ReplanClient } from '../ai/ReplanClient';
 import { DateUtils } from '../utils/DateUtils';
@@ -137,15 +140,31 @@ export struct OnTripPage {
   private skipSnapshot: TripDay | null = null;
   private skipSnapshotTripId: string = '';
   private skipSnapshotDayIndex: number = 0;
+  /** 「收下勋章」弹窗；每次收章新建一个，关闭即丢（不复用，避免带上上一枚的内容） */
+  private badgeDialog: CustomDialogController | null = null;
+  /** 页面已离开：迟到的勋章查询不再开弹窗 */
+  private disposed: boolean = false;
 
   aboutToAppear(): void {
+    this.disposed = false;
     this.reload();
   }
 
   aboutToDisappear(): void {
+    this.disposed = true;
     this.watcher.stop();
     this.watcherActive = false;
     this.watcherStarting = false;
+    this.closeBadgeDialog();
+  }
+
+  /** 弹窗的关闭权在宿主：@CustomDialog 里的 controller 成员没有注入，不能由弹窗自己 close */
+  private closeBadgeDialog(): void {
+    const dialog: CustomDialogController | null = this.badgeDialog;
+    this.badgeDialog = null;
+    if (dialog !== null) {
+      dialog.close();
+    }
   }
 
   private ctx(): common.Context {
@@ -557,11 +576,64 @@ export struct OnTripPage {
     CheckinDao.set(this.ctx(), trip.id, cur.key, target, evidence).then((): void => {
       this.checkedIn = target;
       this.reload();
+      if (target && !cur.isMeal) {
+        // 活动打卡才可能收章：餐次没有 activity 行，联表取不到，不为它编一枚
+        this.offerBadge(trip, cur);
+        return;
+      }
       this.toast(target ? (evidence === null ? `已打卡 ${cur.title}` : `已到站打卡 ${cur.title}`) : '已取消打卡');
     }).catch((err: Error) => {
       Logger.error('Ui.OnTrip', `打卡失败: ${err.message}`);
       this.toast('打卡失败');
     });
+  }
+
+  /**
+   * 打卡完成后的收章判定：只有「这一笔就是这枚章的首次收下」才弹窗。
+   * 同一景点重复到访（同名同城已合并成一枚）不再打扰，只留一条打卡提示。
+   */
+  private offerBadge(trip: Trip, cur: DayStop): void {
+    BadgeDao.listMine(this.ctx()).then((rows: BadgeRecord[]): void => {
+      if (this.disposed) {
+        return;
+      }
+      const groups: BadgeGroup[] = buildBadgeBoard(rows);
+      const badge: Badge | null = findBadge(groups, trip.destination, cur.title);
+      if (badge === null || badge.firstCheckinId !== `${trip.id}:${cur.key}`) {
+        this.toast(`已打卡 ${cur.title}`);
+        return;
+      }
+      this.openBadgeDialog(badge, badgeTotal(groups));
+    }).catch((err: Error): void => {
+      Logger.error('Ui.OnTrip', `勋章读取失败: ${err.message}`);
+      this.toast(`已打卡 ${cur.title}`);
+    });
+  }
+
+  private openBadgeDialog(badge: Badge, total: number): void {
+    const controller: CustomDialogController = new CustomDialogController({
+      builder: BadgeEarnedDialog({
+        spotName: badge.spotName,
+        city: badge.city,
+        sourceLabel: badgeSourceText(badge),
+        total: total,
+        onViewWall: (): void => {
+          this.closeBadgeDialog();
+          this.pathStack.pushPath({ name: 'Badges' });
+        },
+        onDismiss: (): void => {
+          this.closeBadgeDialog();
+        }
+      }),
+      autoCancel: true,
+      alignment: DialogAlignment.Center,
+      // 点遮罩/返回键关掉时也要清引用，否则下次 aboutToDisappear 会去关一个已关的弹窗
+      cancel: (): void => {
+        this.badgeDialog = null;
+      }
+    });
+    this.badgeDialog = controller;
+    controller.open();
   }
 
   private toast(msg: string): void {
