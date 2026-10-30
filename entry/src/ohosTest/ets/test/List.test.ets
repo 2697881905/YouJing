@@ -20,6 +20,7 @@ import yanglingSeedTest from './YanglingSeed.test';
 import navStackTest from './NavStackRouting.test';
 import categoryBudgetTest from './CategoryBudget.test';
 import tripEnrichTest from './TripEnrich.test';
+import dayLoadTest from './DayLoad.test';
 
 export default function testsuite() {
   tripParserTest();
@@ -44,4 +45,5 @@ export default function testsuite() {
   navStackTest();
   categoryBudgetTest();
   tripEnrichTest();
+  dayLoadTest();
 }

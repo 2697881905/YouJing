@@ -114,5 +114,21 @@ export default function mapStopsTest(): void {
       expect(MapStops.signature(a) === MapStops.signature(b)).assertFalse();
       expect(MapStops.signature(a)).assertEqual('1:39.9000,116.4000');
     });
+
+    it('activityIndex_matches_fromDay_filter', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+      // 屏8 点地图落点要滚到「第几行」：序号是滤掉交通节点与坏坐标后的序号，
+      // 直接当 activities 下标用会错行，所以反查必须与 fromDay 的过滤逐字一致
+      const d: TripDay = day(1, [
+        act('t', '08:00', '去程', ActivityCategory.TRANSPORT, 39.9, 116.4),
+        act('a', '09:00', 'A', ActivityCategory.SIGHT, 39.9, 116.4),
+        act('bad', '10:00', 'B', ActivityCategory.SIGHT, 0, 0),
+        act('c', '11:00', 'C', ActivityCategory.FOOD, 39.9, 116.5)
+      ]);
+      expect(MapStops.fromDay(d).length).assertEqual(2);
+      expect(MapStops.activityIndex(d, 1)).assertEqual(1);
+      expect(MapStops.activityIndex(d, 2)).assertEqual(3);
+      expect(MapStops.activityIndex(d, 0)).assertEqual(-1);
+      expect(MapStops.activityIndex(d, 3)).assertEqual(-1);
+    });
   });
 }

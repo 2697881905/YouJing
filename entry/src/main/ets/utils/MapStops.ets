@@ -33,10 +33,37 @@ export class MapStops {
     return latitude >= 18 && latitude <= 54 && longitude >= 73 && longitude <= 135;
   }
 
+  /** 一个 activity 会不会成为地图落点：交通节点不上图，坐标不可用的也不上 */
+  static eligible(act: Activity): boolean {
+    return act.category !== ActivityCategory.TRANSPORT && MapStops.usable(act.latitude, act.longitude);
+  }
+
+  /**
+   * 反查：MapStop.index（1 起）→ day.activities 下标，找不到 -1。
+   * 屏8 点地图落点要把对应行带回视野，而 index 是「滤掉不可上图节点后」的序号，
+   * 直接当数组下标用会错行——这里与 fromDay 共用 eligible()，两处不会再漂。
+   */
+  static activityIndex(day: TripDay, index: number): number {
+    if (index < 1) {
+      return -1;
+    }
+    let seen: number = 0;
+    for (let i = 0; i < day.activities.length; i++) {
+      if (!MapStops.eligible(day.activities[i])) {
+        continue;
+      }
+      seen += 1;
+      if (seen === index) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
   static fromDay(day: TripDay): MapStop[] {
     const out: MapStop[] = [];
     for (const act of day.activities) {
-      if (act.category === ActivityCategory.TRANSPORT || !MapStops.usable(act.latitude, act.longitude)) {
+      if (!MapStops.eligible(act)) {
         continue;
       }
       out.push({

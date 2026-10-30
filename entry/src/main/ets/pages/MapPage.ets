@@ -61,6 +61,8 @@ export struct MapPage {
   @State private titleText: string = '地图';
   @State private loaded: boolean = false;
   private seq: number = 0;
+  /** 站点条滚动器：点地图气泡时把对应站点卡带回视野（切片1 A） */
+  private stripScroller: Scroller = new Scroller();
 
   /**
    * 首帧取数必须挂在这里，不能只靠 onShown：
@@ -146,6 +148,11 @@ export struct MapPage {
   private focusStop(index: number): void {
     this.seq += 1;
     this.request = `focus:${index}:${this.seq}`;
+    // 站点条跟随：点地图气泡时，对应的站点卡可能滚在屏幕外，只飞镜头用户会以为没反应
+    const pos: number = this.stops.findIndex((s: MapStop): boolean => s.index === index);
+    if (pos >= 0) {
+      this.stripScroller.scrollToIndex(pos, true, ScrollAlign.CENTER);
+    }
   }
 
   @Builder
@@ -205,7 +212,8 @@ export struct MapPage {
     .type(ButtonType.Normal)
     .borderRadius(RadiusTokens.capsule)
     .buttonStyle(ButtonStyleMode.NORMAL)
-    .margin({ right: SpaceTokens.sm })
+    // 卡片间距由 List 的 space 给（原先是 Scroll+Row 时代的 margin），
+    // 两边都留会变成 16vp 的间隔
     .onClick((): void => {
       this.focusStop(stop.index);
     })
@@ -251,18 +259,22 @@ export struct MapPage {
 
           if (this.stops.length > 0) {
             Column() {
-              Scroll() {
-                Row() {
-                  ForEach(this.stops, (stop: MapStop) => {
+              // 站点条从 Scroll+Row 换成官方 List：只有 List 能按序号把某一项滚进视野
+              // （scrollToIndex），Scroll 得靠手算卡片宽度累加定位，一改样式就错位。
+              // 卡片定宽，故用 alignListItem 而不是 lanes（分栏会把 132 宽的卡压成半宽）。
+              List({ space: SpaceTokens.sm, scroller: this.stripScroller }) {
+                ForEach(this.stops, (stop: MapStop) => {
+                  ListItem() {
                     this.stopChip(stop)
-                  }, (stop: MapStop): string => `mapstop-${stop.index}`)
-                }
-                .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+                  }
+                }, (stop: MapStop): string => `mapstop-${stop.index}`)
               }
-              .scrollable(ScrollDirection.Horizontal)
+              .listDirection(Axis.Horizontal)
+              .alignListItem(ListItemAlign.Center)
               .scrollBar(BarState.Off)
               .width('100%')
               .height(64)
+              .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
             }
             .width('100%')
             .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })

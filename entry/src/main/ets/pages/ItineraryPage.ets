@@ -35,6 +35,10 @@ import { DateUtils } from '../utils/DateUtils';
 import { TransitSymbol } from '../utils/TransitSymbol';
 import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
 import { longFormMaxWidth } from '../utils/responsive';
+import { DayLoad, DayLoadCalc, LoadLevel } from '../utils/DayLoad';
+
+/** 负载微条 3vp（比通用 Progress 的 4vp 细一档，它读的是趋势不是数值） */
+const LOAD_BAR_STYLE: LinearStyleOptions = { strokeWidth: 3, strokeRadius: 1.5 };
 
 @Component
 export struct ItineraryPage {
@@ -65,6 +69,14 @@ export struct ItineraryPage {
   @State private daySig: string = '';
   @State private bookingCount: number = 0;
   @State private dayCount: number = 0;
+  /** 时间线滚动器：点地图落点要把对应行带回视野（切片1 A）。
+   *  必须是 ListScroller——scrollToItemInGroup 只在子类上，基类 Scroller 没有这个方法 */
+  private listScroller: ListScroller = new ListScroller();
+  /** 地图面板镜头指令，'focus:<index>:<seq>'，与地图页同一口径 */
+  @State private mapRequest: string = '';
+  /** 被地图落点点中的行，1.6s 后自动褪色——滚动本身在行已可见时给不出反馈 */
+  @State private focusActId: string = '';
+  private reqSeq: number = 0;
   private trip: Trip | null = null;
   // 中性占位：加载前不能报一个编造的目的地与天数
   @State private titleText: string = '行程详情';
@@ -119,6 +131,8 @@ export struct ItineraryPage {
 
   /** 切天或编辑页回写后重算当天落点（地图面板与时间线必须同源） */
   syncDayStops(): void {
+    // 高亮属于「刚才点中的那一行」，换天/换数据后它已经不在语境里
+    this.focusActId = '';
     if (this.days.length === 0) {
       this.dayStops = [];
       this.daySig = '';
@@ -127,6 +141,94 @@ export struct ItineraryPage {
     const stops: MapStop[] = MapStops.fromDay(this.curDay());
     this.dayStops = stops;
     this.daySig = MapStops.signature(stops);
+  }
+
+  /**
+   * 屏8 列表↔地图联动（切片1 A）：点地图落点 → 镜头飞到该点 + 时间线滚到对应行并高亮。
+   * 两件事必须同时做：只飞镜头，列表不动，用户看不出「这个点对应哪一行」。
+   */
+  private onMapStopTap(index: number): void {
+    const inDay: number = MapStops.activityIndex(this.curDay(), index);
+    if (inDay < 0) {
+      return;
+    }
+    const act: Activity = this.curDay().activities[inDay];
+    this.reqSeq += 1;
+    this.mapRequest = `focus:${index}:${this.reqSeq}`;
+    this.focusActId = act.id;
+    // List 的组号：ListItem 也按组计数，地图卡在场时它与 ListItemGroup 各占一个
+    const group: number = this.dayStops.length > 0 ? 1 : 0;
+    // 组内下标：每个活动先出站点行、再出通勤腿，故站点行的组内序号 = 活动下标 × 2
+    this.listScroller.scrollToItemInGroup(group, inDay * 2, true, ScrollAlign.CENTER);
+    setTimeout((): void => {
+      if (this.focusActId === act.id) {
+        this.focusActId = '';
+      }
+    }, 1600);
+  }
+
+  /** 当日负载（三态条）：同一份数据只算一次，宿主宽度变化时自然重算 */
+  private dayLoad(): DayLoad {
+    return DayLoadCalc.of(this.curDay());
+  }
+
+  /** 微条走品牌色，只在高负载/超载时转语义色——常态不该是一条警示线 */
+  private loadBarColor(): Resource {
+    const level: LoadLevel = this.dayLoad().level;
+    if (level === LoadLevel.OVER) {
+      return ColorTokens.danger;
+    }
+    if (level === LoadLevel.WARN) {
+      return ColorTokens.warning;
+    }
+    return ColorTokens.primary;
+  }
+
+  private loadTextColor(): Resource {
+    const level: LoadLevel = this.dayLoad().level;
+    if (level === LoadLevel.OVER) {
+      return ColorTokens.danger;
+    }
+    if (level === LoadLevel.WARN) {
+      return ColorTokens.warning;
+    }
+    return ColorTokens.muted;
+  }
+
+  @Builder
+  loadStrip() {
+    Row({ space: SpaceTokens.sm }) {
+      Progress({ value: Math.min(100, this.dayLoad().ratio * 100), total: 100, type: ProgressType.Linear })
+        .style(LOAD_BAR_STYLE)
+        .color(this.loadBarColor())
+        .backgroundColor(ColorTokens.surfaceSunken)
+        .layoutWeight(1)
+        // 条本身没有文字：读屏要能听到同一句读数
+        .accessibilityText(DayLoadCalc.label(this.dayLoad()))
+      Text(DayLoadCalc.label(this.dayLoad()))
+        .fontSize(TypeTokens.caption.size)
+        .fontWeight(450)
+        .fontColor(this.loadTextColor())
+        .fontFeature("'tnum' on")
+        .maxLines(1)
+      if (this.dayLoad().level === LoadLevel.OVER) {
+        // 超窗口才出现：给一条直达屏9 的路，而不是让用户自己从右上角找编辑
+        Button('去减一站')
+          .fontSize(TypeTokens.caption.size)
+          .fontWeight(600)
+          .height(LayoutTokens.minTouchTarget)
+          .type(ButtonType.Capsule)
+          .buttonStyle(ButtonStyleMode.TEXTUAL)
+          .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+          .accessibilityText('当日安排超出建议时长，去编辑页减掉一站')
+          .onClick((): void => {
+            const target: EditTarget = { tripId: this.tripId, dayIndex: this.dayIndex };
+            this.pathStack.pushPath({ name: 'EditItinerary', param: target });
+          })
+      }
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Center)
   }
 
   /** 屏14 预览取真实待写节点：优先详情面板选中的活动，否则当日首站 */
@@ -618,6 +720,10 @@ export struct ItineraryPage {
       .width('100%')
       // 76px 是 minimum 不是 cap（DESIGN §7）：系统字号放大或长理由文案时行要能撑开
       .constraintSize({ minHeight: LayoutTokens.itineraryRowMinHeight })
+      // 联动高亮：点地图落点后这一行亮一次（primary_tint 是品牌蓝 10%/20% 的既有档，
+      // 不做新色值），1.6s 后由 onMapStopTap 的定时器褪回
+      .backgroundColor(this.focusActId === act.id ? ColorTokens.primaryTint : Color.Transparent)
+      .borderRadius(RadiusTokens.card)
       .onClick(() => {
         this.detailAct = act;
         this.showDetail = true;
@@ -669,6 +775,9 @@ export struct ItineraryPage {
         .fontColor(ColorTokens.muted)
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
+      if (this.dayLoad().minutes > 0) {
+        this.loadStrip()
+      }
     }
     .alignItems(HorizontalAlign.Start)
     .width('100%')
@@ -1103,7 +1212,7 @@ export struct ItineraryPage {
           // 官方 List：地图面板一个 ListItem，节点与通勤腿各成一个 ListItem，
           // 日标题走 ListItemGroup 的 header —— 底稿写的「吸顶日标题」由 sticky 真正兑现。
           // 行距 12px（itinerary-block-gap）：不传 space 时 List 默认 0，站点行与交通腿会紧贴
-          List({ space: LayoutTokens.itineraryBlockGap }) {
+          List({ space: LayoutTokens.itineraryBlockGap, scroller: this.listScroller }) {
             // 当天没有落点时**整块地图卡不出**：原来它照样撑满 mapHeightCompact，
             // 只剩一个深蓝渐变空盒加角落一枚「当日暂无安排」——主屏三分之一的面积
             // 既没信息也不可点（实拍确认）
@@ -1113,7 +1222,11 @@ export struct ItineraryPage {
               Stack({ alignContent: Alignment.BottomStart }) {
                 TripMapView({
                   stops: this.dayStops,
-                  signature: this.daySig
+                  signature: this.daySig,
+                  request: this.mapRequest,
+                  onStopClick: (index: number): void => {
+                    this.onMapStopTap(index);
+                  }
                 })
                   .width('100%')
                   .height('100%')
@@ -1219,7 +1332,9 @@ export struct ItineraryPage {
                       this.transitLeg(this.curDay().activities[idx + 1])
                     }
                   }
-                }, (act: Activity): string => `itin-${this.tripId}-${this.dayIndex}-${act.id}-${act.title}`)
+                }, (act: Activity): string =>
+                  `itin-${this.tripId}-${this.dayIndex}-${act.id}-${act.title}-` +
+                  `${act.id === this.focusActId ? 'f' : 'n'}`)
             }
           }
           .layoutWeight(1)
