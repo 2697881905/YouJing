@@ -48,6 +48,8 @@ export interface DistrictAgg {
 const FAMILY_TYPES: string[] = ['ZOO', 'AQUARIUM', 'PARK', 'BOTANICAL_GARDEN', 'AMUSEMENT_PARK'];
 const CLASSIC_TYPES: string[] = ['MUSEUM', 'ART_MUSEUM', 'SCIENCE_MUSEUM', 'TOURIST_ATTRACTION',
   'TEMPLE', 'PLACE_OF_WORSHIP', 'TOWER', 'MEMORIAL', 'LANDMARK'];
+/** 住宿区候选上限：地图服务区县按酒店供给优先，最多给 8 片 */
+const MAX_AREAS: number = 8;
 
 function norm(text: string): string {
   return text.trim().replace(/\s+/g, '');
@@ -253,7 +255,16 @@ export function buildAreas(sites: MapSiteInput[], city: string, today: string,
     }
   }
   const pool: DistrictAgg[] = withHotel.length > 0 ? withHotel : districts;
-  const top: DistrictAgg[] = pool.slice(0, 6);
+  // 酒店供给多的区县优先（市中心通常供给更足）；没有供给数据时退回景点数
+  pool.sort((a: DistrictAgg, b: DistrictAgg): number => {
+    const ha: number = hotelCounts[a.name] === undefined ? 0 : hotelCounts[a.name];
+    const hb: number = hotelCounts[b.name] === undefined ? 0 : hotelCounts[b.name];
+    if (hb !== ha) {
+      return hb - ha;
+    }
+    return b.count - a.count;
+  });
+  const top: DistrictAgg[] = pool.slice(0, MAX_AREAS);
   const areas: Area[] = [];
   for (const d of top) {
     const name: string = d.name === '地图服务' ? `${city}市区` : d.name;

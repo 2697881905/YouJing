@@ -7,7 +7,7 @@ import {
   MapSiteInput, addressMatchesCity, buildAreas, buildSpots, dedupeSites, groupDistricts,
   isMapArea, tagsOfTypes, durationOf, typeLabelOf
 } from '../entry/src/main/ets/utils/MapCityMapper';
-import { isMapCity } from '../entry/src/main/ets/common/constants/Cities';
+import { isMapCity, POPULAR_MAP_CITIES } from '../entry/src/main/ets/common/constants/Cities';
 import { Spot, SpotTag } from '../entry/src/main/ets/model/Spot';
 import { Area } from '../entry/src/main/ets/model/Area';
 
@@ -103,6 +103,20 @@ const allAreas: Area[] = buildAreas(deduped, '西安', '2026-10-31', {});
 eq(allAreas.length, 3, 'areas.noSupplyFallsBackToAll');
 eq(isMapArea(allAreas[0]), true, 'areas.noSupplyStillMap');
 
+const spread: MapSiteInput[] = [
+  site('c1', '中心景点一', 34.26, 108.94, '中心区', ['TOURIST_ATTRACTION'], 0),
+  site('c2', '中心景点二', 34.27, 108.95, '中心区', ['TOURIST_ATTRACTION'], 1),
+  site('f1', '远郊景点一', 34.50, 109.50, '远郊区', ['TOURIST_ATTRACTION'], 2),
+  site('f2', '远郊景点二', 34.51, 109.51, '远郊区', ['TOURIST_ATTRACTION'], 3),
+  site('f3', '远郊景点三', 34.52, 109.52, '远郊区', ['TOURIST_ATTRACTION'], 4)
+];
+const spreadHotels: Record<string, number> = {};
+spreadHotels['中心区'] = 500;
+spreadHotels['远郊区'] = 10;
+const spreadAreas: Area[] = buildAreas(spread, '测试', '2026-10-31', spreadHotels);
+eq(spreadAreas.length, 2, 'areas.spreadLength');
+eq(spreadAreas[0].name, '中心区', 'areas.hotelSupplyFirst');
+
 // ---------- 城市判定 ----------
 eq(isMapCity('西安'), true, 'city.map');
 eq(isMapCity('西安市'), true, 'city.mapWithSuffix');
@@ -110,6 +124,8 @@ eq(isMapCity('北京'), false, 'city.seed');
 eq(isMapCity('京都'), false, 'city.mock');
 eq(isMapCity('京都（示例数据）'), false, 'city.mockLabel');
 eq(isMapCity(''), false, 'city.empty');
+eq(POPULAR_MAP_CITIES.length, 8, 'city.popularCount');
+ok(POPULAR_MAP_CITIES.every((c: string): boolean => isMapCity(c)), 'city.popularAllMap');
 
 // ---------- POI 归属校验（无效 cityId 会返回全国结果的兜底） ----------
 eq(addressMatchesCity('西安市', '陕西省', '雁塔区', '西安'), true, 'match.xian');

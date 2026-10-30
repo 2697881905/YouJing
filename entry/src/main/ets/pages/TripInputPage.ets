@@ -29,7 +29,7 @@ import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
 import { FlowSteps, FLOW_STEP_TRIP_INPUT } from '../components/FlowSteps';
 import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
 import { longFormMaxWidth } from '../utils/responsive';
-import { SUPPORTED_CITIES, isMapCity } from '../common/constants/Cities';
+import { SUPPORTED_CITIES, POPULAR_MAP_CITIES, isMapCity } from '../common/constants/Cities';
 
 // 京都为 mock 演示城（底稿帧同源），标注「示例数据」不谎报是正式内置库；
 // 正式种子城从 Cities 单点取（DataSeeder 与一句话解析读同一份）
@@ -497,6 +497,47 @@ export struct TripInputPage {
 
       Scroll() {
         Column() {
+          Text('热门城市（地图服务）')
+            .fontSize(TypeTokens.overline.size)
+            .fontWeight(600)
+            .fontColor(ColorTokens.muted)
+            .width('100%')
+            .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.sm,
+              bottom: SpaceTokens.xs })
+          Flex({ wrap: FlexWrap.Wrap }) {
+            ForEach(POPULAR_MAP_CITIES, (c: string) => {
+              Button(c)
+                .fontSize(TypeTokens.small.size)
+                .fontWeight(this.city === c ? 600 : 450)
+                .fontColor(this.city === c ? ColorTokens.ink : ColorTokens.body)
+                .height(LayoutTokens.minTouchTarget)
+                .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+                .type(ButtonType.Capsule)
+                .buttonStyle(ButtonStyleMode.NORMAL)
+                .backgroundColor(this.city === c ? ColorTokens.primaryTint : ColorTokens.surfaceElevated)
+                .border({
+                  width: this.city === c ? LayoutTokens.glassBorderWidth : 0,
+                  color: ColorTokens.primary
+                })
+                .margin({ right: SpaceTokens.sm, bottom: SpaceTokens.sm })
+                .accessibilityText(`选择热门城市 ${c}`)
+                .onClick((): void => {
+                  this.city = c;
+                  this.showCity = false;
+                })
+            }, (c: string): string => `hot-city-${c}`)
+          }
+          .width('100%')
+          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+
+          Text('内置数据城市')
+            .fontSize(TypeTokens.overline.size)
+            .fontWeight(600)
+            .fontColor(ColorTokens.muted)
+            .width('100%')
+            .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.sm,
+              bottom: SpaceTokens.xs })
+
           ForEach(CITIES, (c: string) => {
             // 官方 Button 承载整行：原来是裸 Row + onClick，读屏进不去也没有按压态。
             // 外观仍由内层 Row 承载，Button 只做可点/可聚焦的壳。

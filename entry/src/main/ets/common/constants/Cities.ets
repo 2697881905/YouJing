@@ -22,6 +22,11 @@ export const CITY_DEFS: CityDef[] = [
 
 export const SUPPORTED_CITIES: string[] = CITY_DEFS.map((c: CityDef): string => c.name);
 
+/** 城市面板的热门快捷入口：全部走 Map Kit，不冒充内置种子城市 */
+export const POPULAR_MAP_CITIES: string[] = [
+  '西安', '成都', '杭州', '重庆', '南京', '武汉', '长沙', '厦门'
+];
+
 /**
  * 是否走 Map Kit 任意城市检索：内置五城与京都 mock 之外的都算。
  * 只决定「种子库为空时要不要联网取数」，不校验城市名是否真实；取不到会走 1004 失败出口。

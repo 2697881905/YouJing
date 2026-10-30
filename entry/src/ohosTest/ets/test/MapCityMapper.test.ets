@@ -8,7 +8,7 @@ import {
   DistrictAgg, MapSiteInput, addressMatchesCity, buildAreas, buildSpots, dedupeSites,
   groupDistricts, isMapArea, tagsOfTypes, durationOf, typeLabelOf
 } from '../../../main/ets/utils/MapCityMapper';
-import { isMapCity } from '../../../main/ets/common/constants/Cities';
+import { isMapCity, POPULAR_MAP_CITIES } from '../../../main/ets/common/constants/Cities';
 import { Spot, SpotTag } from '../../../main/ets/model/Spot';
 import { Area } from '../../../main/ets/model/Area';
 
@@ -91,6 +91,20 @@ export default function mapCityMapperTest(): void {
         expect(isMapArea(areas[0])).assertTrue();
         const all: Area[] = buildAreas(deduped, '西安', '2026-10-31', {});
         expect(all.length).assertEqual(3);
+
+        const spread: MapSiteInput[] = [
+          site('c1', '中心景点一', 34.26, 108.94, '中心区', ['TOURIST_ATTRACTION'], 0),
+          site('c2', '中心景点二', 34.27, 108.95, '中心区', ['TOURIST_ATTRACTION'], 1),
+          site('f1', '远郊景点一', 34.50, 109.50, '远郊区', ['TOURIST_ATTRACTION'], 2),
+          site('f2', '远郊景点二', 34.51, 109.51, '远郊区', ['TOURIST_ATTRACTION'], 3),
+          site('f3', '远郊景点三', 34.52, 109.52, '远郊区', ['TOURIST_ATTRACTION'], 4)
+        ];
+        const spreadHotels: Record<string, number> = {};
+        spreadHotels['中心区'] = 500;
+        spreadHotels['远郊区'] = 10;
+        const spreadAreas: Area[] = buildAreas(spread, '测试', '2026-10-31', spreadHotels);
+        expect(spreadAreas.length).assertEqual(2);
+        expect(spreadAreas[0].name).assertEqual('中心区');
       });
 
     it('map_city_detection', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
@@ -99,6 +113,10 @@ export default function mapCityMapperTest(): void {
       expect(isMapCity('北京')).assertFalse();
       expect(isMapCity('京都')).assertFalse();
       expect(isMapCity('')).assertFalse();
+      expect(POPULAR_MAP_CITIES.length).assertEqual(8);
+      for (let i = 0; i < POPULAR_MAP_CITIES.length; i++) {
+        expect(isMapCity(POPULAR_MAP_CITIES[i])).assertTrue();
+      }
     });
 
     it('address_must_match_requested_city', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {

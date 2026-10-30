@@ -22,7 +22,7 @@ import {
 const TAG: string = 'Data.MapCity';
 const PAGE_SIZE: number = 20;
 const MAX_PAGES: number = 3;
-const MAX_DISTRICTS: number = 6;
+const MAX_DISTRICTS: number = 10;
 const HOTEL_RADIUS: number = 3000;
 const TTL_MS: number = 30 * 60 * 1000;
 
@@ -73,6 +73,7 @@ export class MapKitCityStore {
         throw new AppError(ErrorCode.MAP_CITY_DATA_FAILED, `地图服务没有返回「${city}」的景点`);
       }
       const hotelCounts: Record<string, number> = {};
+      // 先给更多区县查供给，映射层再按供给排序取前 8；否则远郊高景点数区县会挤掉市中心
       const districts: DistrictAgg[] = groupDistricts(deduped).slice(0, MAX_DISTRICTS);
       for (const d of districts) {
         hotelCounts[d.name] = await MapKitCityStore.hotelCount(context, d.latitude, d.longitude);
