@@ -21,6 +21,7 @@ import { Area, AreaGroup, AreaPriceTier } from '../model/Area';
 import { Logger } from '../common/logger/Logger';
 import { AppError } from '../common/error/AppError';
 import { ErrorCode } from '../common/error/ErrorCode';
+import { CITY_DEFS } from '../common/constants/Cities';
 
 type Obj = Record<string, Object>;
 
@@ -37,23 +38,6 @@ const NO_COORD: number = 0;
 const SPOT_TAGS: string[] = ['must_see', 'classic', 'niche', 'family'];
 const AREA_TIERS: string[] = ['economy', 'comfort', 'luxury'];
 const AREA_GROUPS: string[] = ['core', 'commercial', 'metro'];
-
-interface CitySeed {
-  city: string;
-  spotsFile: string;
-  areasFile: string;
-}
-
-const CITIES: CitySeed[] = [
-  { city: '北京', spotsFile: 'seed/spots_beijing.jsonl', areasFile: 'seed/areas_beijing.jsonl' },
-  { city: '上海', spotsFile: 'seed/spots_shanghai.jsonl', areasFile: 'seed/areas_shanghai.jsonl' },
-  { city: '广州', spotsFile: 'seed/spots_guangzhou.jsonl', areasFile: 'seed/areas_guangzhou.jsonl' },
-  { city: '深圳', spotsFile: 'seed/spots_shenzhen.jsonl', areasFile: 'seed/areas_shenzhen.jsonl' },
-  // 杨凌：用户本人所在地，拿来当"真实用户视角"的测试城。
-  // 坐标是按公开资料里**街道/村镇位置**给的近似值（与 DistrictCoords 同一档精度），
-  // 精确经纬度待地理编码回填；`lines` 用公交线名，因为杨凌没有轨道交通。
-  { city: '杨凌', spotsFile: 'seed/spots_yangling.jsonl', areasFile: 'seed/areas_yangling.jsonl' }
-];
 
 /** 区中心近似坐标（度）。正式经纬度待 Map Kit 地理编码回填。 */
 export class DistrictCoords {
@@ -106,11 +90,11 @@ export class DataSeeder {
       Logger.info(TAG, `已有 ${count} 景点，种子 ${SEED_VERSION} 已灌，跳过`);
       return false;
     }
-    for (const c of CITIES) {
+    for (const c of CITY_DEFS) {
       const spotLines: string[] = await DataSeeder.readJsonl(context, c.spotsFile);
       const spots: Spot[] = [];
       for (const line of spotLines) {
-        const spot: Spot | null = DataSeeder.toSpot(line, c.city);
+        const spot: Spot | null = DataSeeder.toSpot(line, c.name);
         if (spot !== null) {
           spots.push(spot);
         }
@@ -119,13 +103,13 @@ export class DataSeeder {
       const areaLines: string[] = await DataSeeder.readJsonl(context, c.areasFile);
       const areas: Area[] = [];
       for (const line of areaLines) {
-        const area: Area | null = DataSeeder.toArea(line, c.city);
+        const area: Area | null = DataSeeder.toArea(line, c.name);
         if (area !== null) {
           areas.push(area);
         }
       }
       await AreaDao.saveAreas(context, areas);
-      Logger.info(TAG, `${c.city} 灌入 spots=${spots.length} areas=${areas.length}`);
+      Logger.info(TAG, `${c.name} 灌入 spots=${spots.length} areas=${areas.length}`);
     }
     DataSeeder.recordVersion(context);
     return true;

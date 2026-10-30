@@ -23,6 +23,7 @@ import tripEnrichTest from './TripEnrich.test';
 import dayLoadTest from './DayLoad.test';
 import badgeBoardTest from './BadgeBoard.test';
 import weatherSignalsTest from './WeatherSignals.test';
+import tripIntentTest from './TripIntent.test';
 
 export default function testsuite() {
   tripParserTest();
@@ -50,4 +51,5 @@ export default function testsuite() {
   dayLoadTest();
   badgeBoardTest();
   weatherSignalsTest();
+  tripIntentTest();
 }

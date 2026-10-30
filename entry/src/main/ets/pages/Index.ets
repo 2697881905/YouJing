@@ -210,6 +210,8 @@ struct Index {
       if (stack.size() > 0) {
         stack.clear();
       }
+      // 回根和切页签一样算「这一页重新露面」：刚生成的行程要在首页立刻出现
+      announceTabShown(index);
     })
     .width('100%')
     .height('100%')

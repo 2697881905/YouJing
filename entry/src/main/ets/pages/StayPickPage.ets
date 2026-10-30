@@ -23,6 +23,7 @@ import { Area, AreaGroup, AreaPriceTier } from '../model/Area';
 import { Spot } from '../model/Spot';
 import { SelectedSpot } from '../model/PlanParams';
 import { Geo, GeoPoint } from '../utils/Geo';
+import { PlanAutoPick } from '../utils/PlanAutoPick';
 import { MapStop, MapStops } from '../utils/MapStops';
 import { TripMapView } from '../components/TripMapView';
 import { PlanRepository } from '../data/PlanRepository';
@@ -144,30 +145,22 @@ export struct StayPickPage {
       return;
     }
     const targets: GeoPoint[] = this.spotPoints;
-    const usableIdx: number[] = [];
-    const areaPoints: GeoPoint[] = [];
-    for (let i = 0; i < this.picks.length; i++) {
-      const a: Area = this.picks[i].area;
-      if (Geo.usable(a.latitude, a.longitude)) {
-        usableIdx.push(i);
-        const g: GeoPoint = { latitude: a.latitude, longitude: a.longitude };
-        areaPoints.push(g);
-      }
-    }
-    const at: number = targets.length === 0 ? -1 : Geo.argminMean(areaPoints, targets);
-    if (at < 0) {
+    const areas: Area[] = this.picks.map((p: AreaPick): Area => p.area);
+    // 与屏2 一句话「直接生成」共用同一条最近区规则（utils/PlanAutoPick），
+    // 免得手工走屏5 与自动生成得到两套不同的住宿区
+    const pick: Area | null = PlanAutoPick.nearestArea(areas, targets);
+    if (pick === null) {
       this.selectedId = this.picks[0].area.id;
-      Logger.warn('Ui.StayPick',
-        `帮我选退回推荐顺序 targets=${targets.length} usableAreas=${areaPoints.length}`);
+      Logger.warn('Ui.StayPick', `帮我选退回推荐顺序 targets=${targets.length}`);
       this.toast(targets.length === 0 ? '暂时算不出距离，先按推荐顺序选了一片' :
         '候选片区都缺位置信息，先按推荐顺序选了一片');
       return;
     }
-    const pick: AreaPick = this.picks[usableIdx[at]];
-    this.selectedId = pick.area.id;
-    const km: number = Geo.meanDistanceKm(areaPoints[at], targets);
-    Logger.info('Ui.StayPick', `帮我选 ${pick.area.name} 平均 ${km.toFixed(2)}km targets=${targets.length}`);
-    this.toast(`${pick.area.name} · 到 ${targets.length} 个所选景点平均约 ${km.toFixed(1)} km`);
+    this.selectedId = pick.id;
+    const g: GeoPoint = { latitude: pick.latitude, longitude: pick.longitude };
+    const km: number = Geo.meanDistanceKm(g, targets);
+    Logger.info('Ui.StayPick', `帮我选 ${pick.name} 平均 ${km.toFixed(2)}km targets=${targets.length}`);
+    this.toast(`${pick.name} · 到 ${targets.length} 个所选景点平均约 ${km.toFixed(1)} km`);
   }
 
   /** 理由与三列只拼区域库里真有的字段：到首个景点耗时/日均通勤/房源数

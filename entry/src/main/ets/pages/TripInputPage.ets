@@ -13,8 +13,15 @@ import { SpaceTokens } from '../design/SpaceTokens';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { PlanDraft } from '../data/PlanDraft';
-import { TripBasicInput } from '../model/PlanParams';
+import { PlanRepository } from '../data/PlanRepository';
+import { PaceOption, SelectedSpot, TransitPreference, TravelStyle, TripBasicInput } from '../model/PlanParams';
+import { Spot } from '../model/Spot';
+import { Area } from '../model/Area';
 import { DateUtils } from '../utils/DateUtils';
+import { TripIntent, TripIntentParser } from '../utils/TripIntentParser';
+import { PlanAutoPick, tagLabel, tierLabel } from '../utils/PlanAutoPick';
+import { Logger } from '../common/logger/Logger';
+import { common } from '@kit.AbilityKit';
 import { BudgetConfig } from '../common/constants/BudgetConfig';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
@@ -22,10 +29,14 @@ import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
 import { FlowSteps, FLOW_STEP_TRIP_INPUT } from '../components/FlowSteps';
 import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
 import { longFormMaxWidth } from '../utils/responsive';
+import { SUPPORTED_CITIES } from '../common/constants/Cities';
 
 // 京都为 mock 演示城（底稿帧同源），标注「示例数据」不谎报是正式内置库；
-// 北上广深为种子库正式四城（开发文档 §7 城市范围）
-const CITIES: string[] = ['北京', '上海', '广州', '深圳', '杨凌', '京都（示例数据）'];
+// 正式种子城从 Cities 单点取（DataSeeder 与一句话解析读同一份）
+const CITIES: string[] = SUPPORTED_CITIES.concat(['京都（示例数据）']);
+
+/** 示例句：五类字段全命中，用户改几个词就能得到自己的句子 */
+const SAMPLE_SENTENCE: string = '下周五去上海玩三天，两个人，喜欢历史和美食，预算一万';
 
 @Component
 export struct TripInputPage {
@@ -38,10 +49,27 @@ export struct TripInputPage {
   @State private endDate: string = '';
   @State private showCity: boolean = false;
   @State private budget: number = BudgetConfig.DEFAULT;
+  // 一句话成行程：原句只在内存里，识别结果先落表单与草稿，再由用户决定生成或去调整
+  @State private sentence: string = '';
+  @State private recognizing: boolean = false;
+  @State private intentError: string = '';
+  @State private previewOpen: boolean = false;
+  @State private pvCity: string = '';
+  @State private pvWhen: string = '';
+  @State private pvPeople: string = '';
+  @State private pvBudget: string = '';
+  @State private pvPref: string = '';
+  @State private pvPick: string = '';
+  @State private pvNotes: string = '';
+  @State private pvCanGenerate: boolean = false;
+  /** 数据读取期间用户可能按返回；await 回来后不再写已销毁页面的状态 */
+  private alive: boolean = true;
   private basePartyOptions: number[] = [1, 2, 4];
 
   /** 屏2 是草稿的展示方：外部拉起（小艺/深链）预填与返回本屏都要回显真值 */
   aboutToAppear(): void {
+    this.alive = true;
+    this.recognizing = false;
     // 默认日期按今天起算：写死的 2026-07-01 早已在过去，picker 也不该允许选过去
     const today: string = DateUtils.todayIso();
     this.startDate = today;
@@ -67,6 +95,10 @@ export struct TripInputPage {
     if (b.budget >= BudgetConfig.MIN && b.budget <= BudgetConfig.MAX) {
       this.budget = b.budget;
     }
+  }
+
+  aboutToDisappear(): void {
+    this.alive = false;
   }
 
   /** 快捷档位固定 1/2/4；小艺带来 3 或 5 等人数时把它补进选项，避免数字对但 chip 不高亮 */
@@ -127,6 +159,231 @@ export struct TripInputPage {
         });
       }
     });
+  }
+
+  private static styleOf(code: string, fallback: TravelStyle): TravelStyle {
+    if (code === 'leisure') {
+      return TravelStyle.LEISURE;
+    }
+    if (code === 'fast_pace') {
+      return TravelStyle.FAST_PACE;
+    }
+    if (code === 'family') {
+      return TravelStyle.FAMILY;
+    }
+    if (code === 'foodie') {
+      return TravelStyle.FOODIE;
+    }
+    if (code === 'culture') {
+      return TravelStyle.CULTURE;
+    }
+    return fallback;
+  }
+
+  private static transitOf(code: string, fallback: TransitPreference): TransitPreference {
+    if (code === 'public') {
+      return TransitPreference.PUBLIC;
+    }
+    if (code === 'taxi_main') {
+      return TransitPreference.TAXI_MAIN;
+    }
+    if (code === 'charter') {
+      return TransitPreference.CHARTER;
+    }
+    return fallback;
+  }
+
+  private static pacesOf(code: string, fallback: PaceOption[]): PaceOption[] {
+    if (code === 'relaxed') {
+      return [PaceOption.RELAXED];
+    }
+    if (code === 'standard') {
+      return [PaceOption.STANDARD];
+    }
+    if (code === 'packed') {
+      return [PaceOption.PACKED];
+    }
+    return fallback;
+  }
+
+  /** 草稿里的多选节奏折成一个码：与 LlmClient 的天段顺序一致，取第一段档位 */
+  private static paceCodeOf(paces: PaceOption[]): string {
+    if (paces.length === 0) {
+      return 'standard';
+    }
+    if (paces.indexOf(PaceOption.RELAXED) >= 0) {
+      return 'relaxed';
+    }
+    if (paces.indexOf(PaceOption.STANDARD) >= 0) {
+      return 'standard';
+    }
+    return 'packed';
+  }
+
+  private styleLabel(style: TravelStyle): string {
+    if (style === TravelStyle.FAST_PACE) {
+      return '暴走';
+    }
+    if (style === TravelStyle.FAMILY) {
+      return '亲子';
+    }
+    if (style === TravelStyle.FOODIE) {
+      return '美食';
+    }
+    if (style === TravelStyle.CULTURE) {
+      return '文化';
+    }
+    return '休闲';
+  }
+
+  private transitLabel(t: TransitPreference): string {
+    if (t === TransitPreference.TAXI_MAIN) {
+      return '打车为主';
+    }
+    if (t === TransitPreference.CHARTER) {
+      return '包车';
+    }
+    return '公共交通';
+  }
+
+  private paceLabel(code: string): string {
+    if (code === 'relaxed') {
+      return '每天 3 站';
+    }
+    if (code === 'packed') {
+      return '每天 6 站';
+    }
+    return '每天 4 站';
+  }
+
+  /**
+   * 一句话成行程：本地解析（零联网、零 LLM），把能对上的字段写进表单与草稿，
+   * 对不上的保持原值并在预览里逐条说明。原句不落盘、不发送。
+   */
+  private async recognize(): Promise<void> {
+    if (this.recognizing) {
+      return;
+    }
+    const text: string = this.sentence.trim();
+    if (text.length === 0) {
+      this.intentError = '先写一句，比如「下周五去上海玩三天，两个人」';
+      return;
+    }
+    this.intentError = '';
+    this.recognizing = true;
+    // 键盘不收的话半模态会被输入法顶起，底部主键可能落到可见区之外
+    this.getUIContext().getFocusController().clearFocus();
+    const today: string = DateUtils.todayIso();
+    const intent: TripIntent = TripIntentParser.parse(text, today);
+    if (intent.unsupportedCity.length > 0) {
+      this.recognizing = false;
+      this.intentError =
+        `「${intent.unsupportedCity}」还没有内置数据，目前支持 ${SUPPORTED_CITIES.join('/')}`;
+      return;
+    }
+    if (intent.city.length === 0) {
+      this.recognizing = false;
+      this.intentError = '没认出目的地。可以写「去上海玩三天」，或直接用下面的字段选择';
+      return;
+    }
+    const draft: PlanDraft = PlanDraft.get();
+    const start: string = intent.startDate.length > 0 ? intent.startDate : today;
+    const days: number = intent.dayCount > 0 ? intent.dayCount : 3;
+    const end: string = DateUtils.addDays(start, days - 1);
+    const people: number = intent.people > 0 ? intent.people : this.party;
+    const budget: number = intent.budgetAmount > 0
+      ? TripIntentParser.budgetPerPerson(intent.budgetAmount, intent.budgetIsPerPerson, people)
+      : this.budget;
+    const stayTier: string = intent.stayTier.length > 0 ? intent.stayTier : draft.stayTier;
+    const pace: string = intent.pace.length > 0 ? intent.pace : TripInputPage.paceCodeOf(draft.paces);
+    try {
+      const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const spots: Spot[] = await PlanRepository.loadSpots(ctx, intent.city);
+      const areas: Area[] = await PlanRepository.loadAreas(ctx, intent.city);
+      if (!this.alive) {
+        return;
+      }
+      if (spots.length === 0 || areas.length === 0) {
+        this.recognizing = false;
+        this.intentError = `「${intent.city}」的数据还不完整，换座城市或用下面的字段选择`;
+        return;
+      }
+      const picked: SelectedSpot[] = PlanAutoPick.pickSpots(spots, days, pace, intent.tags);
+      const area: Area | null = PlanAutoPick.pickArea(areas, spots, picked, stayTier);
+      this.applyIntent(intent, start, end, days, people, budget, stayTier, pace, picked, area);
+      this.recognizing = false;
+      Logger.info('Ui.TripInput',
+        `一句话识别 ${intent.city} ${days}天 people=${people} spots=${picked.length} area=${area !== null ? area.id : 'none'}`);
+      // bindSheet 的内容不随父状态重赋值重绘：预览字段必须在开面板之前写好
+      this.previewOpen = true;
+    } catch (err) {
+      if (!this.alive) {
+        return;
+      }
+      this.recognizing = false;
+      Logger.error('Ui.TripInput', `一句话识别失败: ${(err as Error).message}`);
+      this.intentError = '读城市数据时出错了，请稍后再试';
+    }
+  }
+
+  private applyIntent(intent: TripIntent, start: string, end: string, days: number,
+    people: number, budget: number, stayTier: string, pace: string,
+    picked: SelectedSpot[], area: Area | null): void {
+    const d: PlanDraft = PlanDraft.get();
+    this.city = intent.city;
+    this.startDate = start;
+    this.endDate = end;
+    this.party = people;
+    this.budget = budget;
+    const basic: TripBasicInput = {
+      destination: intent.city, startDate: start, endDate: end, people: people, budget: budget
+    };
+    d.basic = basic;
+    d.style = TripInputPage.styleOf(intent.style, d.style);
+    d.stayTier = stayTier;
+    d.transit = TripInputPage.transitOf(intent.transit, d.transit);
+    d.paces = TripInputPage.pacesOf(intent.pace, d.paces);
+    d.selectedSpots = picked;
+    d.selectedArea = { areaId: area !== null ? area.id : '' };
+    markDraftDirty(true);
+    const notes: string[] = [];
+    if (intent.startDate.length === 0) {
+      notes.push('没写日期，从今天出发');
+    }
+    if (intent.dayCount === 0) {
+      notes.push('没写玩几天，按 3 天');
+    }
+    if (intent.people === 0) {
+      notes.push(`没写人数，按当前 ${people} 人`);
+    }
+    if (intent.budgetAmount === 0) {
+      notes.push(`没写预算，保留 ${MoneyText.yuan(budget)}/人`);
+    } else if (!intent.budgetIsPerPerson) {
+      notes.push(`按总预算 ÷ ${people} 人 折算人均`);
+    }
+    for (const n of intent.notes) {
+      notes.push(n);
+    }
+    if (area === null) {
+      notes.push('片区库为空，直接生成会缺住宿区');
+    }
+    this.pvCity = intent.city;
+    this.pvWhen = `${this.fmt(start)} – ${this.fmt(end)} · ${days}天${days - 1}晚`;
+    this.pvPeople = `${people} 人`;
+    this.pvBudget = `${MoneyText.yuan(budget)} / 人`;
+    this.pvPref = `${this.styleLabel(d.style)} · ${tierLabel(stayTier)} · ` +
+      `${this.transitLabel(d.transit)} · ${this.paceLabel(pace)}`;
+    this.pvPick = PlanAutoPick.describe(picked, area, days, pace);
+    if (intent.tags.length > 0) {
+      // 标签只影响选点顺序，不写进偏好行的话用户看不出「历史」被采纳了
+      const names: string[] = [];
+      for (const t of intent.tags) {
+        names.push(tagLabel(t));
+      }
+      this.pvPick = `${this.pvPick}，${names.join('/')}优先`;
+    }
+    this.pvNotes = notes.join('\n');
+    this.pvCanGenerate = area !== null && picked.length > 0;
   }
 
   @Builder
@@ -208,6 +465,99 @@ export struct TripInputPage {
     .backgroundColor(ColorTokens.canvas)
   }
 
+  @Builder
+  intentRow(label: string, value: string) {
+    Row() {
+      Text(label)
+        .fontSize(TypeTokens.caption.size)
+        .fontWeight(450)
+        .fontColor(ColorTokens.muted)
+        .width(64)
+      Text(value)
+        .fontSize(TypeTokens.small.size)
+        .fontWeight(500)
+        .fontColor(ColorTokens.ink)
+        .fontFeature("'tnum' on")
+        .textAlign(TextAlign.End)
+        .layoutWeight(1)
+    }
+    .width('100%')
+    .constraintSize({ minHeight: LayoutTokens.minTouchTarget })
+    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  intentSheet() {
+    Column() {
+      Column({ space: SpaceTokens.xs }) {
+        Text('识别结果')
+          .fontSize(TypeTokens.headline.size)
+          .fontWeight(700)
+          .fontColor(ColorTokens.ink)
+        Text('只改句子提到的字段，其余沿用当前设置')
+          .fontSize(TypeTokens.caption.size)
+          .fontWeight(450)
+          .fontColor(ColorTokens.muted)
+      }
+      .alignItems(HorizontalAlign.Start)
+      .width('100%')
+      .padding({ top: SpaceTokens.md, bottom: SpaceTokens.sm })
+
+      Scroll() {
+        Column({ space: SpaceTokens.xs }) {
+          this.intentRow('目的地', this.pvCity)
+          this.intentRow('日期', this.pvWhen)
+          this.intentRow('人数', this.pvPeople)
+          this.intentRow('预算', this.pvBudget)
+          this.intentRow('偏好', this.pvPref)
+          this.intentRow('预选', this.pvPick)
+          if (this.pvNotes.length > 0) {
+            Text(this.pvNotes)
+              .fontSize(TypeTokens.caption.size)
+              .fontWeight(450)
+              .fontColor(ColorTokens.muted)
+              .lineHeight(TypeTokens.caption.size * 1.5)
+              .width('100%')
+              .margin({ top: SpaceTokens.sm })
+          }
+        }
+        .alignItems(HorizontalAlign.Start)
+        .width('100%')
+      }
+      .layoutWeight(1)
+      .scrollBar(BarState.Off)
+      .align(Alignment.Top)
+
+      Column({ space: SpaceTokens.sm }) {
+        YoujingButton({
+          variant: YoujingButtonVariant.PRIMARY,
+          label: '直接生成行程',
+          fullWidth: true,
+          disabled: !this.pvCanGenerate,
+          onAction: (): void => {
+            this.previewOpen = false;
+            this.pathStack.pushPath({ name: 'Generating' });
+          }
+        })
+        YoujingButton({
+          variant: YoujingButtonVariant.TEXT,
+          label: '去调整',
+          fullWidth: true,
+          onAction: (): void => {
+            this.previewOpen = false;
+          }
+        })
+      }
+      .width('100%')
+      .padding({ top: SpaceTokens.md })
+    }
+    .width('100%')
+    .height('100%')
+    .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: SpaceTokens.lg })
+    .backgroundColor(ColorTokens.canvas)
+    .alignItems(HorizontalAlign.Start)
+  }
+
   build() {
     HdsNavDestination() {
       Column() {
@@ -227,6 +577,70 @@ export struct TripInputPage {
             .alignItems(HorizontalAlign.Start)
             .width('100%')
             .margin({ top: SpaceTokens.lg, bottom: SpaceTokens.lg })
+
+            // 一句话成行程：本地解析，识别结果先给预览，再由用户决定直接生成或去逐屏调整
+            Column({ space: SpaceTokens.sm }) {
+              Text('一句话成行程')
+                .fontSize(TypeTokens.body.size)
+                .fontWeight(600)
+                .fontColor(ColorTokens.ink)
+              Text('说清去哪、几天、几个人。识别在本机完成，不联网也不花额度')
+                .fontSize(TypeTokens.caption.size)
+                .fontWeight(450)
+                .fontColor(ColorTokens.muted)
+              TextInput({ placeholder: '例：下周五去上海玩三天，两个人', text: this.sentence })
+                .fontSize(TypeTokens.body.size)
+                .fontColor(ColorTokens.ink)
+                .backgroundColor(ColorTokens.surfacePanel)
+                .borderRadius(RadiusTokens.reason)
+                .height(LayoutTokens.composeFieldHeight)
+                .enterKeyType(EnterKeyType.Done)
+                .accessibilityText('一句话描述行程')
+                .onChange((v: string): void => {
+                  this.sentence = v;
+                  if (this.intentError.length > 0) {
+                    this.intentError = '';
+                  }
+                })
+                .onSubmit((): void => {
+                  this.recognize();
+                })
+              if (this.intentError.length > 0) {
+                Text(this.intentError)
+                  .fontSize(TypeTokens.caption.size)
+                  .fontWeight(450)
+                  .fontColor(ColorTokens.danger)
+                  .width('100%')
+              }
+              Row({ space: SpaceTokens.sm }) {
+                // 实心主按钮留给底部「开始规划」，这里用次按钮，避免同屏双实心蓝
+                YoujingButton({
+                  variant: YoujingButtonVariant.SECONDARY,
+                  label: this.recognizing ? '识别中…' : '识别',
+                  buttonWidth: 120,
+                  disabled: this.recognizing,
+                  onAction: (): void => {
+                    this.recognize();
+                  }
+                })
+                YoujingButton({
+                  variant: YoujingButtonVariant.TEXT,
+                  label: '填入示例',
+                  buttonWidth: 120,
+                  onAction: (): void => {
+                    this.sentence = SAMPLE_SENTENCE;
+                    this.intentError = '';
+                  }
+                })
+              }
+              .width('100%')
+            }
+            .alignItems(HorizontalAlign.Start)
+            .width('100%')
+            .padding(SpaceTokens.md)
+            .borderRadius(RadiusTokens.card)
+            .backgroundColor(ColorTokens.surfaceSubtle)
+            .margin({ bottom: SpaceTokens.lg })
 
             Column({ space: SpaceTokens.md }) {
               // 目的地
@@ -417,6 +831,13 @@ export struct TripInputPage {
         .width(longFormMaxWidth(this.bp, LayoutTokens.contentMaxWidth))
         .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md,
           bottom: LayoutTokens.floatingDockClearance })
+        // 一张节点只能挂一张 bindSheet：城市选择在根节点，识别预览挂在这条动作条上
+        .bindSheet($$this.previewOpen, this.intentSheet(), {
+          height: '72%',
+          backgroundColor: ColorTokens.canvas,
+          showClose: true,
+          systemMaterial: getSheetImmersiveMaterial()
+        })
       }
       .width('100%')
       .height('100%')
