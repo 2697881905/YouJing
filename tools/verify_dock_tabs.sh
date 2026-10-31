@@ -145,13 +145,22 @@ echo "  注意：验收前必须装与当前分支一致的产物（hvigor 产�
 md5 -q entry/build/default/outputs/default/entry-default-signed.hap | tee "$OUT/hap.md5"
 read -r -p "  确认手机空闲、产物已装机？回车继续（Ctrl-C 中止）" _
 
-say "1 四页签点切（行程 → 地图 → 费用 → 我的，每步 dump）"
+say "1 五页签点切（地图 → 行程 → 规划 → 费用 → 我的，每步 dump）"
 $HDC shell "aa start -a EntryAbility -b $BUNDLE" >/dev/null 2>&1
 sleep 2.5
 dump 1-home
-for t in 地图 费用 我的 行程; do
+for t in 行程 规划 费用 我的 地图; do
   tap_text "$t" "1-tap-$t" && sleep 1.6 && dump "1-after-$t" && shot "1-after-$t"
 done
+# 五格重排后最容易静默坏掉的是「切回来数据没刷新」：序号错位不崩、只是不重取。
+# 所以每格都要 dump 正文并人工核对是当前数据，不能只看有没有切过去。
+echo "  ↑ 逐格核对 dump 正文是当前数据而不是第一次进入那份（isTabShownTick 错位的唯一肉眼判据）"
+
+say "1b 新「我的」格要有身份区与勋章卡（不能还是行程列表）"
+tap_text 我的 "1b-goto" && sleep 1.6 && dump 1b-mine && shot 1b-mine
+grep -q "勋章" "$OUT/1b-mine.json" || echo "  !! 1b 「我的」格里没有勋章卡" >&2
+grep -qE "游客空间|\*\*\*" "$OUT/1b-mine.json" \
+  || echo "  !! 1b 「我的」格缺少身份区（脱敏 ID 或游客态）" >&2
 
 say "2 费用 tab 根页内容（要有金额，不是占位）"
 tap_text 费用 "2-goto" && sleep 1.6 && dump 2-expense && shot 2-expense
@@ -165,6 +174,12 @@ say "4 冷启深链 route=TripInput"
 start_route TripInput
 dump 4-tripinput && shot 4-tripinput
 grep -qE "目的地|出发|人数" "$OUT/4-tripinput.json" || echo "  !! 4 未落到屏2" >&2
+
+say "4b 冷启深链 route=Badges（要 push 进「我的」那条懒建的栈——重排后最容易丢的一条）"
+start_route Badges
+dump 4b-badges && shot 4b-badges
+grep -q "勋章" "$OUT/4b-badges.json" \
+  || echo "  !! 4b 深链没落到勋章墙（push 落进了还没绑 Navigation 的栈）" >&2
 
 say "5 二次深链同一个 tab（8c5d0a5 修的那条：第一次建 tab 之后的深链）"
 start_route Itinerary "trip-1792912362551"
