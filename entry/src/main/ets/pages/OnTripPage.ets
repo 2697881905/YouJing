@@ -121,6 +121,12 @@ export struct OnTripPage {
   @Prop tripId: string = '';
   @State private rows: CheckedRow[] = [];
   @State private current: DayStop | null = null;
+  /**
+   * 该在打卡列表里标「进行中」的那一站。`current` 有个兜底：还没到首站时刻时它取第一站，
+   * 那对 hero 是「今天先去哪儿」，对列表却不能说「进行中」——什么都还没开始。
+   * 所以这里只在**时刻已到**时才记键名，两件事分开判。
+   */
+  private ongoingKey: string = '';
   @State private next: DayStop | null = null;
   @State private checkedIn: boolean = false;
   @State private elapsedMin: number = 0;
@@ -213,6 +219,7 @@ export struct OnTripPage {
         this.trip = null;
         this.day = null;
         this.current = null;
+        this.ongoingKey = '';
         this.next = null;
         this.rows = [];
         this.stops = [];
@@ -237,6 +244,7 @@ export struct OnTripPage {
       if (day === null || day.activities.length === 0 || stops.length === 0) {
         this.dayLabel = '旅行中';
         this.current = null;
+        this.ongoingKey = '';
         this.next = null;
         this.stops = [];
         this.totalMin = 0;
@@ -275,6 +283,7 @@ export struct OnTripPage {
       }
       const curStop: DayStop = stops[cur];
       this.current = curStop;
+      this.ongoingKey = curStop.sortMin <= DateUtils.minutesOf(now) ? curStop.key : '';
       this.next = cur + 1 < stops.length ? stops[cur + 1] : null;
       // 进度条只在"这一站有结束时刻"时给：餐次没有 endTime，不拿一小时假装它的窗口
       if (!curStop.isMeal && curStop.endTime.length > 0) {
@@ -545,19 +554,30 @@ export struct OnTripPage {
     return trip.days[0];
   }
 
-  /** 今日已打卡的行；金额取挂在该节点上的开销合计 */
+  /**
+   * 今日进度行：已打卡的 + **当前这一站（还没打卡）**。
+   *
+   * 底稿帧（屏15 fc4e40cd）在这一节里排的是「07:40 早餐 已打卡 / 08:30 渡月桥 已打卡 /
+   * 09:00 竹林 进行中」——三行两态，`check-status-ongoing` 有独立样式（时间与标签都走
+   * `#0066CC`、不带对勾）。所以这一节的语义是"今天走到哪了"，不是字面只有已打卡；
+   * 分组头沿用帧的原句「今日已打卡」，不替帧改文案。
+   * 金额取挂在该节点上的开销合计。
+   */
   private buildRows(marks: Record<string, number>): Promise<Record<string, number>> {
     const trip: Trip | null = this.trip;
     if (trip === null) {
       return Promise.resolve<Record<string, number>>({});
     }
     const day: TripDay | null = this.pickDay(trip);
+    const ongoingKey: string = this.ongoingKey;
     return ExpenseDao.sumGroupedByActivity(this.ctx(), trip.id)
       .then((sums: Record<string, number>): Record<string, number> => {
         const list: CheckedRow[] = [];
         if (day !== null) {
           for (const st of this.buildStops(day)) {
-            if (marks[st.key] === undefined) {
+            const checked: boolean = marks[st.key] !== undefined;
+            const ongoing: boolean = !checked && st.key === ongoingKey;
+            if (!checked && !ongoing) {
               continue;
             }
             const paid: number | undefined = sums[st.key];
@@ -567,7 +587,7 @@ export struct OnTripPage {
               time: st.time.length > 0 ? st.time : st.kind,
               name: st.title,
               amount: shown === undefined ? '' : MoneyText.yuan(shown),
-              ongoing: false
+              ongoing: ongoing
             };
             list.push(row);
           }
