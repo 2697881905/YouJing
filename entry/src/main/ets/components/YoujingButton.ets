@@ -34,6 +34,11 @@ export struct YoujingButton {
   onAction?: () => void = undefined;
 
   private labelColor(): Resource {
+    // 禁令 10：禁用态换 token，不用 opacity。旧写法 .opacity(0.4) 把实心蓝压成淡蓝，
+    // 白字跟着一起淡到 1.26:1（2026-10-31 浅色档真机实测），读不出按钮上写的是什么。
+    if (this.disabled) {
+      return ColorTokens.muted;
+    }
     return this.variant === YoujingButtonVariant.PRIMARY ? ColorTokens.onPrimary : ColorTokens.ink;
   }
 
@@ -65,7 +70,6 @@ export struct YoujingButton {
     .height(LayoutTokens.minTouchTarget)
     .width(this.fullWidth ? '100%' : this.buttonWidth)
     .enabled(!this.disabled)
-    .opacity(this.disabled ? 0.4 : 1)
     .onClick(() => {
       if (this.onAction !== undefined) {
         this.onAction();
