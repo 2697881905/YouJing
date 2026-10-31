@@ -33,7 +33,8 @@ export class PromptBuilder {
     days.push('规则：');
     days.push('1. days 数组长度必须等于用户消息里的「计划天数」，dayIndex 从 1 连续递增；' +
       'date 第一天等于 startDate，逐日 +1，最后一天等于 endDate。');
-    days.push('2. 每个活动 time/endTime 为 HH:mm；相邻活动间如有通勤，写入后一活动的 transport（mode/duration分钟/detail）。');
+    days.push('2. 每个活动 time/endTime 为 HH:mm；相邻活动间如有通勤，写入后一活动的 transport（mode/duration分钟/detail）；' +
+      'category=transport 的节点本身就是这段通勤，不要再给它填 transport 字段，避免同一条腿被重复计算。');
     days.push('3. status 只能取 booked|not_booked|full|pending|no_need；category 只能取 transport|sight|food|shop|rest|hotel|other。');
     days.push('4. 必须覆盖用户标记为 must 的全部景点；want 尽量覆盖；optional 视时间取舍。餐饮每天至少午餐、晚餐各一条（meals）。');
     days.push('5. 景点的预约信息（booking）必须体现在对应活动的 note 或 reason 中，并注明「以官方为准」。');
@@ -57,6 +58,9 @@ export class PromptBuilder {
     // 真机实测（2026-10-31）：1 天行程只给「同一天至同一天」时，模型拆成两天且 dayIndex 重复
     days.push('16. 计划天数为 1 时，days 必须恰好包含 1 个元素（dayIndex=1，date 等于 startDate 和 endDate）；' +
       '不得把行程拆成「抵达日 + 游玩日」两天，也不得输出第 2 天。');
+    days.push('17. 计划天数为 1 时：停留 + 通勤总时长不超过 10 小时（含往返住宿区）；' +
+      '首站不早于 07:30，末站不晚于 21:00；装不下时保留 must，删减 want/optional，' +
+      '不要用「早起 + 深夜」硬塞。');
     days.push('JSON Schema:');
     days.push(TripSchema.TRIP_JSON_SCHEMA);
     return days.join('\n');

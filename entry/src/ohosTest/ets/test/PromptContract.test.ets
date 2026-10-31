@@ -71,6 +71,7 @@ export default function promptContractTest(): void {
         expect(text.indexOf('地图服务区县') >= 0).assertTrue();
         expect(PromptBuilder.systemPrompt().indexOf('排期必须落在该时段内') >= 0).assertTrue();
         expect(PromptBuilder.systemPrompt().indexOf('禁止编造预约方式') >= 0).assertTrue();
+        expect(PromptBuilder.systemPrompt().indexOf('不要再给它填 transport 字段') >= 0).assertTrue();
       });
 
     it('single_day_prompt_states_one_day_and_bans_split',
@@ -94,6 +95,7 @@ export default function promptContractTest(): void {
         const sp: string = PromptBuilder.systemPrompt();
         expect(sp.indexOf('不得把行程拆成') >= 0).assertTrue();
         expect(sp.indexOf('最后一天等于 endDate') >= 0).assertTrue();
+        expect(sp.indexOf('停留 + 通勤总时长不超过 10 小时') >= 0).assertTrue();
       });
 
     it('schema_enums_match_model_enums_both_ways',

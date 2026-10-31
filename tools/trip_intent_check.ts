@@ -185,6 +185,32 @@ const packed: SelectedSpot[] = PlanAutoPick.pickSpots(spots, 2, 'packed', []);
 eq(packed.length, 6, '紧凑 2 天也只有 6 个候选，不重复');
 eq(PlanAutoPick.pickSpots([], 3, 'standard', []).length, 0, '无景点返回空');
 
+// ---------- 单日按 10h 窗口收口 ----------
+const home: Area = area('home', AreaPriceTier.COMFORT, 34.27, 108.07);
+const nearSpots: Spot[] = [
+  spot('n1', 100, [SpotTag.CLASSIC], 34.27, 108.07),
+  spot('n2', 90, [], 34.28, 108.08),
+  spot('n3', 80, [], 34.29, 108.09),
+  spot('n4', 70, [], 34.30, 108.10)
+];
+const nearSingle: SelectedSpot[] = PlanAutoPick.pickSpotsForSingleDay(
+  nearSpots, 'standard', [], home);
+eq(nearSingle.length, 3, '同城 4 站按 10h 窗口收到 3 站');
+eq(nearSingle[0].priority, SpotPriority.MUST, '单日首站仍是必去');
+const farSpots: Spot[] = [
+  spot('f1', 100, [SpotTag.CLASSIC], 34.34, 108.35),
+  spot('f2', 90, [], 34.28, 108.08),
+  spot('f3', 80, [], 34.29, 108.09),
+  spot('f4', 70, [], 34.30, 108.10)
+];
+const farSingle: SelectedSpot[] = PlanAutoPick.pickSpotsForSingleDay(
+  farSpots, 'standard', [], home);
+eq(farSingle.length, 2, '远郊首站把单日名额压到 2');
+eq(farSingle[0].spotId, 'f1', '高优先级远郊首站保留');
+eq(PlanAutoPick.pickSpotsForSingleDay([], 'standard', [], home).length, 0, '单日无景点返回空');
+ok(PlanAutoPick.describe(nearSingle, home, 1, 'standard')
+  .indexOf('按单日 10 小时窗口预选 3 个景点') >= 0, '单日预览说明窗口与站数');
+
 // ---------- 自动住宿区 ----------
 
 const areas: Area[] = [

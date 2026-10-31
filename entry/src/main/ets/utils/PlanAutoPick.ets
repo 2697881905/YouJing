@@ -21,9 +21,15 @@ export class PlanAutoPick {
     return pace === PaceOption.PACKED ? 6 : 4;
   }
 
+  /** 单日建议在场窗口，与 utils/DayLoad.WINDOW_MINUTES 同源（600min） */
+  static readonly SINGLE_DAY_WINDOW_MIN: number = 600;
+  /** 600min 窗口 − 120min 两餐，留给景点停留 + 往返通勤 */
+  static readonly SINGLE_DAY_SIGHT_BUDGET_MIN: number = 480;
+
   /**
    * 选 N = 天数 × 每日上限 个景点：命中所选标签的按热度优先排前面，
    * 其余按热度补齐；前 min(天数, N) 个标「必去」，保证每天至少有一站是强推荐。
+   * 单日请走 pickSpotsForSingleDay：它会把通勤吃掉的时长也算进名额。
    */
   static pickSpots(spots: Spot[], dayCount: number, pace: string, tags: string[]): SelectedSpot[] {
     const days: number = Math.max(1, dayCount);
@@ -31,28 +37,30 @@ export class PlanAutoPick {
     if (want <= 0) {
       return [];
     }
-    const matched: Spot[] = [];
-    const rest: Spot[] = [];
-    for (const s of spots) {
-      if (tags.length > 0 && PlanAutoPick.hasTag(s, tags)) {
-        matched.push(s);
-      } else {
-        rest.push(s);
-      }
+    const ordered: Spot[] = PlanAutoPick.orderedCandidates(spots, tags).slice(0, want);
+    return PlanAutoPick.toSelected(ordered, Math.min(days, ordered.length));
+  }
+
+  /**
+   * 单日预选：先按节奏上限取候选，再以住宿区为起点估算「停留 + 往返通勤」，
+   * 超 480min 就从低优先级端往回砍（至少保留 1 站）。首站仍是必去，
+   * 这样 1 天行程不会因为「标准 4 站」的名额把远郊景点硬塞成 14 小时。
+   */
+  static pickSpotsForSingleDay(spots: Spot[], pace: string, tags: string[],
+    area: Area | null): SelectedSpot[] {
+    const cap: number = PlanAutoPick.dailyCap(pace);
+    const ordered: Spot[] = PlanAutoPick.orderedCandidates(spots, tags)
+      .slice(0, Math.min(spots.length, cap));
+    if (ordered.length <= 1) {
+      return PlanAutoPick.toSelected(ordered, 1);
     }
-    PlanAutoPick.sortByPopularity(matched);
-    PlanAutoPick.sortByPopularity(rest);
-    const ordered: Spot[] = matched.concat(rest).slice(0, want);
-    const mustCount: number = Math.min(days, ordered.length);
-    const picked: SelectedSpot[] = [];
-    for (let i = 0; i < ordered.length; i++) {
-      const p: SelectedSpot = {
-        spotId: ordered[i].id,
-        priority: i < mustCount ? SpotPriority.MUST : SpotPriority.WANT
-      };
-      picked.push(p);
+    const origin: GeoPoint | null = area !== null && Geo.usable(area.latitude, area.longitude)
+      ? { latitude: area.latitude, longitude: area.longitude } : null;
+    while (ordered.length > 1 &&
+      PlanAutoPick.routeMinutes(ordered, origin) > PlanAutoPick.SINGLE_DAY_SIGHT_BUDGET_MIN) {
+      ordered.pop();
     }
-    return picked;
+    return PlanAutoPick.toSelected(ordered, 1);
   }
 
   /**
@@ -104,7 +112,79 @@ export class PlanAutoPick {
     }
     const cap: number = PlanAutoPick.dailyCap(pace);
     const areaName: string = area !== null ? area.name : '未定';
+    if (dayCount === 1) {
+      return `按单日 ${PlanAutoPick.SINGLE_DAY_WINDOW_MIN / 60} 小时窗口预选 ` +
+        `${picked.length} 个景点 · 住宿区 ${areaName}`;
+    }
     return `按每天 ${cap} 站预选 ${picked.length} 个景点 · 住宿区 ${areaName}`;
+  }
+
+  /** 标签命中的按热度优先，其余按热度补齐 */
+  private static orderedCandidates(spots: Spot[], tags: string[]): Spot[] {
+    const matched: Spot[] = [];
+    const rest: Spot[] = [];
+    for (const s of spots) {
+      if (tags.length > 0 && PlanAutoPick.hasTag(s, tags)) {
+        matched.push(s);
+      } else {
+        rest.push(s);
+      }
+    }
+    PlanAutoPick.sortByPopularity(matched);
+    PlanAutoPick.sortByPopularity(rest);
+    return matched.concat(rest);
+  }
+
+  private static toSelected(ordered: Spot[], mustCount: number): SelectedSpot[] {
+    const picked: SelectedSpot[] = [];
+    for (let i = 0; i < ordered.length; i++) {
+      const p: SelectedSpot = {
+        spotId: ordered[i].id,
+        priority: i < mustCount ? SpotPriority.MUST : SpotPriority.WANT
+      };
+      picked.push(p);
+    }
+    return picked;
+  }
+
+  /** 估算「住宿区 → 各站 → 住宿区」的停留 + 通勤总分钟数 */
+  private static routeMinutes(ordered: Spot[], origin: GeoPoint | null): number {
+    let total: number = 0;
+    let prev: GeoPoint | null = origin;
+    for (const s of ordered) {
+      total += s.suggestedDuration;
+      const point: GeoPoint | null = PlanAutoPick.pointOf(s);
+      total += PlanAutoPick.legMinutes(prev, point);
+      prev = point;
+    }
+    total += PlanAutoPick.legMinutes(prev, origin);
+    return total;
+  }
+
+  private static pointOf(s: Spot): GeoPoint | null {
+    if (!Geo.usable(s.latitude, s.longitude)) {
+      return null;
+    }
+    const p: GeoPoint = { latitude: s.latitude, longitude: s.longitude };
+    return p;
+  }
+
+  /**
+   * 直线距离 * 1.2 道路系数 / 30km/h 平均时速 + 8min 等车；
+   * 缺坐标的腿按 15min 估，宁可多算不漏算。
+   */
+  private static legMinutes(a: GeoPoint | null, b: GeoPoint | null): number {
+    if (a === null && b === null) {
+      return 0;
+    }
+    if (a === null || b === null) {
+      return 15;
+    }
+    if (!Geo.usable(a.latitude, a.longitude) || !Geo.usable(b.latitude, b.longitude)) {
+      return 15;
+    }
+    const km: number = Geo.distanceKm(a, b);
+    return Math.round(km * 1.2 / 30 * 60) + 8;
   }
 
   private static hasTag(s: Spot, tags: string[]): boolean {

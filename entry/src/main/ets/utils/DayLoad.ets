@@ -6,8 +6,10 @@
  * 跨度会把「上午两小时 + 晚上两小时」算成 12 小时，用户读到的「今日 12h」就不成立；
  * 这里只累加**真正被占用**的两段——
  *   · 停留 = 非交通节点的 endTime − time；
- *   · 通勤 = 每个节点的 transport.duration（交通类节点自身的时段也算通勤，避免它整段消失）。
- * 两者相加超过窗口就是排太满。方向上宁可多算不少算：多算会让用户早一点看到「今天太挤」。
+ *   · 通勤 = 非交通节点到达该站的 transport.duration；
+ *     交通节点本身就是一段路，只取「节点时段」或「自带 duration」其中一个，
+ *     同一条腿算两次会把 10 小时的一天报成 13.4 小时。
+ * 两者相加超过窗口就是排太满。
  */
 
 import { ActivityCategory, TransportInfo, TripDay } from '../model/Trip';
@@ -44,17 +46,19 @@ export class DayLoadCalc {
       const start: number = DateUtils.minutesOf(act.time);
       const end: number = DateUtils.minutesOf(act.endTime);
       const span: number = start >= 0 && end > start ? end - start : 0;
+      const t: TransportInfo | undefined = act.transport;
       if (act.category === ActivityCategory.TRANSPORT) {
-        // 交通节点本身就是一段路：有时段按时段，没时段就靠它自己的 transport.duration 兜
+        // 交通节点本身就是一段路：有时段按时段，没时段才用自带 duration 兜，二者不叠加
         if (span > 0) {
           transit += span;
+        } else if (t !== undefined && t.duration > 0) {
+          transit += t.duration;
         }
       } else {
         stay += span;
-      }
-      const t: TransportInfo | undefined = act.transport;
-      if (t !== undefined && t.duration > 0) {
-        transit += t.duration;
+        if (t !== undefined && t.duration > 0) {
+          transit += t.duration;
+        }
       }
     }
     const minutes: number = stay + transit;

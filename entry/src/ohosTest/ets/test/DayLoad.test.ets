@@ -86,7 +86,7 @@ export default function dayLoadTest(): void {
     });
 
     it('transport_node_counts_once', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
-      // 交通节点自身时段算通勤，不进停留；再叠自己的 transport.duration 属正常（保守方向）
+      // 交通节点本身就是一段路：节点时段与自带 duration 只能取其一，不能把同一条腿算两次
       const load: DayLoad = DayLoadCalc.of(day([
         act('t', '08:00', '09:30', ActivityCategory.TRANSPORT)
       ]));
@@ -95,7 +95,12 @@ export default function dayLoadTest(): void {
       const both: DayLoad = DayLoadCalc.of(day([
         act('t', '08:00', '09:30', ActivityCategory.TRANSPORT, ride(20))
       ]));
-      expect(both.transitMinutes).assertEqual(110);
+      expect(both.transitMinutes).assertEqual(90);
+      // 没有时段时才用自带 duration 兜底
+      const durationOnly: DayLoad = DayLoadCalc.of(day([
+        act('t', '', '', ActivityCategory.TRANSPORT, ride(20))
+      ]));
+      expect(durationOnly.transitMinutes).assertEqual(20);
     });
 
     it('bad_time_is_skipped', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {

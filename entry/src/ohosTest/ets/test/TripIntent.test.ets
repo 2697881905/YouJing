@@ -137,6 +137,35 @@ export default function tripIntentTest(): void {
       expect(twoDays[2].priority).assertEqual(SpotPriority.WANT);
     });
 
+    it('single_day_pick_trims_for_commute_and_meals',
+      TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+        // 同城 4 站：停留 480 + 通勤超预算 → 收到 3 站；远郊首站再压到 2 站
+        const home: Area = area('home', AreaPriceTier.COMFORT, 34.27, 108.07);
+        const nearSpots: Spot[] = [
+          spot('n1', 100, [SpotTag.CLASSIC], 34.27, 108.07),
+          spot('n2', 90, [], 34.28, 108.08),
+          spot('n3', 80, [], 34.29, 108.09),
+          spot('n4', 70, [], 34.30, 108.10)
+        ];
+        const near: SelectedSpot[] = PlanAutoPick.pickSpotsForSingleDay(
+          nearSpots, 'standard', [], home);
+        expect(near.length).assertEqual(3);
+        expect(near[0].priority).assertEqual(SpotPriority.MUST);
+        const farSpots: Spot[] = [
+          spot('f1', 100, [SpotTag.CLASSIC], 34.34, 108.35),
+          spot('f2', 90, [], 34.28, 108.08),
+          spot('f3', 80, [], 34.29, 108.09),
+          spot('f4', 70, [], 34.30, 108.10)
+        ];
+        const far: SelectedSpot[] = PlanAutoPick.pickSpotsForSingleDay(
+          farSpots, 'standard', [], home);
+        expect(far.length).assertEqual(2);
+        expect(far[0].spotId).assertEqual('f1');
+        expect(PlanAutoPick.pickSpotsForSingleDay([], 'standard', [], home).length).assertEqual(0);
+        expect(PlanAutoPick.describe(near, home, 1, 'standard')
+          .indexOf('按单日 10 小时窗口预选 3 个景点') >= 0).assertTrue();
+      });
+
     it('auto_pick_area_by_tier_and_distance', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
       const spots: Spot[] = [spot('s6', 40, [], 34.32, 108.12)];
       const areas: Area[] = [

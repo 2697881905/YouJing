@@ -319,8 +319,13 @@ export struct TripInputPage {
           : `「${targetCity}」的数据还不完整，换座城市或用下面的字段选择`;
         return;
       }
-      const picked: SelectedSpot[] = PlanAutoPick.pickSpots(spots, days, pace, intent.tags);
-      const area: Area | null = PlanAutoPick.pickArea(areas, spots, picked, stayTier);
+      let picked: SelectedSpot[] = PlanAutoPick.pickSpots(spots, days, pace, intent.tags);
+      let area: Area | null = PlanAutoPick.pickArea(areas, spots, picked, stayTier);
+      if (days === 1) {
+        // 单日名额要扣掉往返通勤：先用候选定住宿区，再按 10h 窗口收口并复核区域
+        picked = PlanAutoPick.pickSpotsForSingleDay(spots, pace, intent.tags, area);
+        area = PlanAutoPick.pickArea(areas, spots, picked, stayTier);
+      }
       intent.city = targetCity;
       if (viaMap) {
         intent.notes.push(`${targetCity}未内置，景点与住宿区来自地图服务；开放时间与预约以官方为准`);
