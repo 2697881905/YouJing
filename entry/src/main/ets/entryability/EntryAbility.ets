@@ -24,6 +24,8 @@ export default class EntryAbility extends UIAbility {
   /** darkprobe 生效时**不能**再在 onWindowStageCreate 把 colorMode 复位成 NOT_SET，
    *  否则那次复位会把 App 级深色档又翻回跟随系统——实测过：日志 isDarkMode=true、界面却仍是浅色 */
   private darkProbe: boolean = false;
+  /** 主窗口句柄：上下两条系统栏带区的底色要在配置切换后重设一次 */
+  private mainWin: window.Window | null = null;
 
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     Logger.info('EntryAbility', 'Ability onCreate');
@@ -194,9 +196,47 @@ export default class EntryAbility extends UIAbility {
     Logger.info('EntryAbility', `isDarkMode=${dark}（config.colorMode=${cm}）`);
   }
 
+  /**
+   * 上下两条系统栏带区的底色。
+   *
+   * 这一屏窗口不是全屏布局（契约 §4「状态栏不许玻璃化」把状态栏当设备 chrome，
+   * 内容只让位、不铺进去），于是上下各留一条带区：顶部按 `statusBarColor`、
+   * 底部在手势导航下**不透传系统栏色而透传窗口背景色**（官方论坛确认
+   * `navigationBarColor` 手势导航下不生效，同族工程实测过）。两者默认都是纯黑，
+   * 而深色档画布是 #121212 —— 差一档亮度，用户读到的就是"每屏上下都有黑边"。
+   * 浅色档画布 #FFFFFF 与默认白条看不出差别，所以这条缺陷只在深色档暴露。
+   *
+   * 色值不硬编码：走资源管线按**当前生效配置**解 `app.color.canvas`，
+   * 与 `seedDarkMode` 同一手法，深浅两档一次实现覆盖。
+   */
+  private applySystemBarSurface(): void {
+    const win: window.Window | null = this.mainWin;
+    if (win === null) {
+      return;
+    }
+    let canvas: string = '#FFFFFFFF';
+    try {
+      const argb: number = this.context.resourceManager.getColorSync($r('app.color.canvas').id);
+      canvas = `#${argb.toString(16).padStart(8, '0')}`;
+    } catch (err) {
+      Logger.warn('EntryAbility', `解画布色失败，系统栏带区按白色处理: ${(err as Error).message}`);
+    }
+    try {
+      win.setWindowBackgroundColor(canvas);
+    } catch (e) {
+      Logger.warn('EntryAbility', `setWindowBackgroundColor 失败: ${(e as Error).message}`);
+    }
+    const props: window.SystemBarProperties = { statusBarColor: canvas, navigationBarColor: canvas };
+    win.setWindowSystemBarProperties(props).catch((err: Error): void => {
+      Logger.warn('EntryAbility', `setWindowSystemBarProperties 失败: ${err.message}`);
+    });
+  }
+
   onConfigurationUpdate(newConfig: Configuration): void {
     // 深色零阴影门控（契约 §4）：页面用 @StorageProp('isDarkMode') 决定是否挂 elevation
     this.seedDarkMode();
+    // 深浅档切换后画布色跟着换，带区不重设就会又露出另一档的颜色
+    this.applySystemBarSurface();
   }
 
   onDestroy(): void {
@@ -217,6 +257,18 @@ export default class EntryAbility extends UIAbility {
       }
       Logger.info('EntryAbility', 'Succeeded in loading the content.');
       this.registerSerifFont(windowStage);
+      // 窗口句柄只能在 loadContent 回调里取：回调之前 getMainWindowSync 会抛 1300002
+      try {
+        this.mainWin = windowStage.getMainWindowSync();
+      } catch (e) {
+        Logger.error('EntryAbility', `取主窗口失败，上下带区底色无法设置: ${(e as Error).message}`);
+      }
+      this.applySystemBarSurface();
+      // HDS 标题栏/系统层在挂载期会回写系统栏属性，把首帧的设置盖掉（同族工程真机实证），
+      // 所以首帧之后再补设一次
+      setTimeout((): void => {
+        this.applySystemBarSurface();
+      }, 3000);
       this.bootstrap();
     });
 
@@ -239,6 +291,8 @@ export default class EntryAbility extends UIAbility {
   onForeground(): void {
     // 页面可见后才消费预填，与 bootstrap 双路覆盖冷/热启动
     this.visible = true;
+    // 后台期间别的窗口可能把系统栏属性改回去，回前台重设一次
+    this.applySystemBarSurface();
     this.routePending();
   }
 
