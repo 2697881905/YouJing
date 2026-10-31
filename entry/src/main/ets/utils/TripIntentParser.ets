@@ -7,7 +7,7 @@
  */
 
 import { BudgetConfig } from '../common/constants/BudgetConfig';
-import { CITY_ALIASES, SUPPORTED_CITIES, UNSUPPORTED_CITIES } from '../common/constants/Cities';
+import { CITY_ALIASES, MAP_CITY_ALIASES, SUPPORTED_CITIES, UNSUPPORTED_CITIES } from '../common/constants/Cities';
 import { SpotTag } from '../model/Spot';
 import { DateUtils } from './DateUtils';
 
@@ -146,6 +146,12 @@ export class TripIntentParser {
   }
 
   private static matchUnsupported(text: string): string {
+    // 先认别称（蓉城/山城…），再扫常见城市名；两者都交给 Map Kit
+    for (const a of MAP_CITY_ALIASES) {
+      if (text.indexOf(a.alias) >= 0) {
+        return a.city;
+      }
+    }
     for (const city of UNSUPPORTED_CITIES) {
       if (text.indexOf(city) >= 0) {
         return city;

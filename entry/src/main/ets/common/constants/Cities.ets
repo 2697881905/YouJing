@@ -27,6 +27,25 @@ export const POPULAR_MAP_CITIES: string[] = [
   '西安', '成都', '杭州', '重庆', '南京', '武汉', '长沙', '厦门'
 ];
 
+export interface MapCityAlias {
+  alias: string;
+  city: string;
+}
+
+/** 一句话里的常见城市别称 → Map Kit 城市；只收不易误伤的词 */
+export const MAP_CITY_ALIASES: MapCityAlias[] = [
+  { alias: '蓉城', city: '成都' },
+  { alias: '山城', city: '重庆' },
+  { alias: '金陵', city: '南京' },
+  { alias: '江城', city: '武汉' },
+  { alias: '星城', city: '长沙' },
+  { alias: '鹭岛', city: '厦门' },
+  { alias: '春城', city: '昆明' },
+  { alias: '冰城', city: '哈尔滨' },
+  { alias: '泉城', city: '济南' },
+  { alias: '岛城', city: '青岛' }
+];
+
 /**
  * 是否走 Map Kit 任意城市检索：内置五城与京都 mock 之外的都算。
  * 只决定「种子库为空时要不要联网取数」，不校验城市名是否真实；取不到会走 1004 失败出口。

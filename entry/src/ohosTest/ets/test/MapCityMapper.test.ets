@@ -45,6 +45,11 @@ export default function mapCityMapperTest(): void {
       expect(deduped[1].siteId).assertEqual('c');
       expect(deduped[2].siteId).assertEqual('e');
       expect(deduped[3].siteId).assertEqual('f');
+      const sameNameFar: MapSiteInput[] = dedupeSites([
+        site('x', '同名地点', 34.2, 108.9, '甲区', ['TOURIST_ATTRACTION'], 0),
+        site('y', '同名地点', 34.5, 109.5, '乙区', ['TOURIST_ATTRACTION'], 1)
+      ]);
+      expect(sameNameFar.length).assertEqual(2);
     });
 
     it('spots_carry_rank_provenance_and_no_fake_booking',

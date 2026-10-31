@@ -75,10 +75,11 @@ function isDuplicate(site: MapSiteInput, kept: MapSiteInput[]): boolean {
   const n1: string = norm(site.name);
   for (const k of kept) {
     const n2: string = norm(k.name);
-    if (n1 === n2) {
-      return true;
-    }
     const km: number = Geo.distanceKm(pointOf(site), pointOf(k));
+    // 同名但相距 >3km 视为不同地点（如两座「万达广场」），不能只按名字合并
+    if (n1 === n2) {
+      return km <= 3;
+    }
     // 一个名字包含另一个且相距 3km 内：西安城墙 / 城墙·碑林、大雁塔 / 大雁塔文化休闲景区
     if ((n1.indexOf(n2) >= 0 || n2.indexOf(n1) >= 0) && km <= 3) {
       return true;

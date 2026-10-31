@@ -7,7 +7,7 @@ import {
   MapSiteInput, addressMatchesCity, buildAreas, buildSpots, commonHours, dedupeSites,
   groupDistricts, isMapArea, tagsOfTypes, durationOf, typeLabelOf
 } from '../entry/src/main/ets/utils/MapCityMapper';
-import { isMapCity, POPULAR_MAP_CITIES } from '../entry/src/main/ets/common/constants/Cities';
+import { isMapCity, MAP_CITY_ALIASES, POPULAR_MAP_CITIES, UNSUPPORTED_CITIES } from '../entry/src/main/ets/common/constants/Cities';
 import { Spot, SpotTag } from '../entry/src/main/ets/model/Spot';
 import { Area } from '../entry/src/main/ets/model/Area';
 
@@ -55,6 +55,11 @@ eq(deduped[0].siteId, 'a', 'dedupe.keepFirstWall');
 eq(deduped[1].siteId, 'c', 'dedupe.keepFirstTerracotta');
 eq(deduped[2].siteId, 'e', 'dedupe.keepPagoda');
 eq(deduped[3].siteId, 'f', 'dedupe.keepMuseum');
+const sameNameFar: MapSiteInput[] = dedupeSites([
+  site('x', '同名地点', 34.2, 108.9, '甲区', ['TOURIST_ATTRACTION'], 0),
+  site('y', '同名地点', 34.5, 109.5, '乙区', ['TOURIST_ATTRACTION'], 1)
+]);
+eq(sameNameFar.length, 2, 'dedupe.sameNameFar');
 
 // ---------- Spot 映射 ----------
 const spots: Spot[] = buildSpots(deduped, '西安', '2026-10-31');
@@ -137,6 +142,9 @@ eq(isMapCity('京都（示例数据）'), false, 'city.mockLabel');
 eq(isMapCity(''), false, 'city.empty');
 eq(POPULAR_MAP_CITIES.length, 8, 'city.popularCount');
 ok(POPULAR_MAP_CITIES.every((c: string): boolean => isMapCity(c)), 'city.popularAllMap');
+eq(MAP_CITY_ALIASES.length, 10, 'city.aliasCount');
+ok(MAP_CITY_ALIASES.every((a): boolean => isMapCity(a.city) &&
+  UNSUPPORTED_CITIES.indexOf(a.city) >= 0), 'city.aliasMapCities');
 
 // ---------- POI 归属校验（无效 cityId 会返回全国结果的兜底） ----------
 eq(addressMatchesCity('西安市', '陕西省', '雁塔区', '西安'), true, 'match.xian');

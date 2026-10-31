@@ -75,6 +75,12 @@ export default function tripIntentTest(): void {
       expect(intent.dayCount).assertEqual(4);
       const fromTo: TripIntent = TripIntentParser.parse('从北京去西安玩三天', TODAY);
       expect(fromTo.unsupportedCity).assertEqual('西安');
+      const alias: TripIntent = TripIntentParser.parse('去蓉城玩三天，两个人', TODAY);
+      expect(alias.unsupportedCity).assertEqual('成都');
+      expect(alias.dayCount).assertEqual(3);
+      expect(alias.people).assertEqual(2);
+      const aliasFrom: TripIntent = TripIntentParser.parse('从北京去山城吃火锅', TODAY);
+      expect(aliasFrom.unsupportedCity).assertEqual('重庆');
       const full: TripIntent =
         TripIntentParser.parse('下周五去西安玩三天，两个人，预算一万', TODAY);
       expect(full.unsupportedCity).assertEqual('西安');

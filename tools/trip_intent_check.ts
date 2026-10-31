@@ -107,6 +107,13 @@ eq(unsupportedFull.budgetAmount, 10000, '西安整句解析预算');
 const fromTo: TripIntent = TripIntentParser.parse('从北京去西安玩三天', TODAY);
 eq(fromTo.unsupportedCity, '西安', '「从北京去西安」目的地取西安');
 
+const aliasMap: TripIntent = TripIntentParser.parse('去蓉城玩三天，两个人', TODAY);
+eq(aliasMap.unsupportedCity, '成都', '蓉城 → 成都');
+eq(aliasMap.dayCount, 3, '蓉城句仍解析天数');
+eq(aliasMap.people, 2, '蓉城句仍解析人数');
+const aliasFrom: TripIntent = TripIntentParser.parse('从北京去山城吃火锅', TODAY);
+eq(aliasFrom.unsupportedCity, '重庆', '山城 → 重庆');
+
 const alias: TripIntent = TripIntentParser.parse('下周去魔都玩三天', TODAY);
 eq(alias.city, '上海', '魔都 → 上海');
 
