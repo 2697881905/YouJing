@@ -14,8 +14,15 @@ import {
 } from '../model/Trip';
 import { AppError } from '../common/error/AppError';
 import { ErrorCode } from '../common/error/ErrorCode';
+import { DateUtils } from '../utils/DateUtils';
 
 type Obj = Record<string, Object>;
+
+/** 调用方声明的行程窗口：天数与出发日以用户输入为准，不以模型自述为准 */
+export interface TripExpect {
+  days: number;
+  startDate: string;
+}
 
 export class TripParser {
   /** 从 LLM 文本中剥出 JSON 主体（容忍 ```json 围栏与前后说明文字） */
@@ -28,7 +35,7 @@ export class TripParser {
     return text.substring(start, end + 1);
   }
 
-  static parseTrip(text: string): Trip {
+  static parseTrip(text: string, expect?: TripExpect): Trip {
     let raw: Object | null = null;
     try {
       raw = JSON.parse(TripParser.extractJson(text)) as Object;
@@ -36,9 +43,12 @@ export class TripParser {
       throw new AppError(ErrorCode.JSON_PARSE_FAILED, `JSON 解析失败: ${(err as Error).message}`);
     }
     const root: Obj = TripParser.asObj(raw, '$');
-    const days: Object[] = TripParser.asArray(root['days'], 'days');
+    let days: Object[] = TripParser.asArray(root['days'], 'days');
     if (days.length === 0) {
       throw new AppError(ErrorCode.SCHEMA_VALIDATION_FAILED, 'days 不能为空数组');
+    }
+    if (expect !== undefined) {
+      days = TripParser.normalizeDays(days, root, expect);
     }
     const trip: Trip = {
       id: TripParser.reqStr(root['id'], 'id'),
@@ -56,6 +66,31 @@ export class TripParser {
       throw new AppError(ErrorCode.SCHEMA_VALIDATION_FAILED, 'startDate 晚于 endDate');
     }
     return trip;
+  }
+
+  /**
+   * 用户给定的行程窗口优先于模型自述：多出来的天截掉、缺天判失败，
+   * dayIndex/date 按数组位置重排。1 天行程被模型拆成两天时，重复的 dayIndex
+   * 不该把整份能用的一日行程打回；缺失的天数无法可靠补造，只能失败重试。
+   */
+  private static normalizeDays(days: Object[], root: Obj, expect: TripExpect): Object[] {
+    const kept: Object[] = days.slice(0, expect.days);
+    if (kept.length < expect.days) {
+      throw new AppError(ErrorCode.SCHEMA_VALIDATION_FAILED,
+        `days 只有 ${kept.length} 天，本次行程要求 ${expect.days} 天`);
+    }
+    for (let i = 0; i < kept.length; i++) {
+      const d: Obj = TripParser.asObj(kept[i], `days[${i}]`);
+      // 先校验字段存在与类型，再按数组位置归一，避免把缺字段的坏天洗成合法天
+      TripParser.reqInt(d['dayIndex'], `days[${i}].dayIndex`);
+      TripParser.reqStr(d['date'], `days[${i}].date`);
+      d['dayIndex'] = i + 1;
+      d['date'] = DateUtils.addDays(expect.startDate, i);
+    }
+    root['days'] = kept;
+    root['startDate'] = expect.startDate;
+    root['endDate'] = DateUtils.addDays(expect.startDate, expect.days - 1);
+    return kept;
   }
 
   private static readOverview(o: Obj): TripOverview {

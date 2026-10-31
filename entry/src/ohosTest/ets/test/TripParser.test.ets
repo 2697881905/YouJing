@@ -88,6 +88,45 @@ export default function tripParserTest(): void {
         .assertEqual(`${ErrorCode.SCHEMA_VALIDATION_FAILED}`);
     });
 
+    it('normalize_duplicate_day_index_against_expected_window',
+      TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+        const bad: string = mutateJson((o: Obj): void => {
+          const days: Object[] = o['days'] as Object[];
+          (days[1] as Obj)['dayIndex'] = 1;
+          (days[1] as Obj)['date'] = '2026-06-10';
+        });
+        const t: Trip = TripParser.parseTrip(bad, { days: 3, startDate: '2026-06-10' });
+        expect(t.days.length).assertEqual(3);
+        expect(t.days[1].dayIndex).assertEqual(2);
+        expect(t.days[1].date).assertEqual('2026-06-11');
+        expect(t.startDate).assertEqual('2026-06-10');
+        expect(t.endDate).assertEqual('2026-06-12');
+      });
+
+    it('normalize_single_day_drops_extra_day', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+      // 2026-10-31 真机失败形态：1 天行程被模型拆成两天，且两天 dayIndex 都是 1
+      const bad: string = mutateJson((o: Obj): void => {
+        o['startDate'] = '2026-10-31';
+        o['endDate'] = '2026-10-31';
+        const days: Object[] = o['days'] as Object[];
+        (days[1] as Obj)['dayIndex'] = 1;
+        (days[1] as Obj)['date'] = '2026-10-31';
+      });
+      const t: Trip = TripParser.parseTrip(bad, { days: 1, startDate: '2026-10-31' });
+      expect(t.days.length).assertEqual(1);
+      expect(t.days[0].dayIndex).assertEqual(1);
+      expect(t.days[0].date).assertEqual('2026-10-31');
+      expect(t.startDate).assertEqual('2026-10-31');
+      expect(t.endDate).assertEqual('2026-10-31');
+    });
+
+    it('guard_fewer_days_than_expected', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+      // 缺天不能靠截断修：没有内容可补，必须失败重试
+      expect(expectErrCode(() => TripParser.parseTrip(validJson(),
+        { days: 4, startDate: '2026-06-10' }), 0))
+        .assertEqual(`${ErrorCode.SCHEMA_VALIDATION_FAILED}`);
+    });
+
     it('guard_bad_time_format', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
       const bad: string = mutateJson((o: Obj): void => {
         const days: Object[] = o['days'] as Object[];

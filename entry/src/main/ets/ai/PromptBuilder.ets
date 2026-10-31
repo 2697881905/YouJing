@@ -8,6 +8,7 @@ import { TripSchema } from './TripSchema';
 import { PlanParams, SelectedSpot } from '../model/PlanParams';
 import { Spot } from '../model/Spot';
 import { Area } from '../model/Area';
+import { DateUtils } from '../utils/DateUtils';
 
 export interface LlmRequest {
   system: string;
@@ -30,7 +31,8 @@ export class PromptBuilder {
     const days: string[] = [];
     days.push('你是旅行行程规划引擎。只输出一个符合给定 JSON Schema 的 JSON 对象，禁止输出任何其他文字、注释或代码围栏。');
     days.push('规则：');
-    days.push('1. days 数组长度必须等于用户给定的天数，dayIndex 从 1 连续递增；date 按 startDate 逐日 +1。');
+    days.push('1. days 数组长度必须等于用户消息里的「计划天数」，dayIndex 从 1 连续递增；' +
+      'date 第一天等于 startDate，逐日 +1，最后一天等于 endDate。');
     days.push('2. 每个活动 time/endTime 为 HH:mm；相邻活动间如有通勤，写入后一活动的 transport（mode/duration分钟/detail）。');
     days.push('3. status 只能取 booked|not_booked|full|pending|no_need；category 只能取 transport|sight|food|shop|rest|hotel|other。');
     days.push('4. 必须覆盖用户标记为 must 的全部景点；want 尽量覆盖；optional 视时间取舍。餐饮每天至少午餐、晚餐各一条（meals）。');
@@ -52,6 +54,9 @@ export class PromptBuilder {
     days.push('13. 每个 day 必须同时给出 dayIndex、date、theme、intensity、dailyCost、activities、meals 七个键，一个都不能省；某天没有用餐安排时 meals 写空数组 []（按第 4 条正常每天都有午/晚两餐）。');
     days.push('14. 若景点给出「开放」时段，排期必须落在该时段内；没有开放信息时不要编造开放时间。');
     days.push('15. 景点预约信息为「未获取」时，禁止编造预约方式/提前天数，写「以官方为准」即可。');
+    // 真机实测（2026-10-31）：1 天行程只给「同一天至同一天」时，模型拆成两天且 dayIndex 重复
+    days.push('16. 计划天数为 1 时，days 必须恰好包含 1 个元素（dayIndex=1，date 等于 startDate 和 endDate）；' +
+      '不得把行程拆成「抵达日 + 游玩日」两天，也不得输出第 2 天。');
     days.push('JSON Schema:');
     days.push(TripSchema.TRIP_JSON_SCHEMA);
     return days.join('\n');
@@ -60,7 +65,9 @@ export class PromptBuilder {
   static userPrompt(params: PlanParams, spots: Spot[], area: Area): string {
     const lines: string[] = [];
     const b = params.basic;
-    lines.push(`目的地：${b.destination}；日期：${b.startDate} 至 ${b.endDate}；人数：${b.people}；预算：${b.budget} 元/人。`);
+    const dayCount: number = DateUtils.spanDays(b.startDate, b.endDate);
+    lines.push(`目的地：${b.destination}；日期：${b.startDate} 至 ${b.endDate}；` +
+      `计划天数：${dayCount} 天；人数：${b.people}；预算：${b.budget} 元/人。`);
     lines.push(`风格：${params.style}；住宿档位：${params.stayTier}；交通偏好：${params.transit}；节奏：${params.paces.join('/') || 'standard'}。`);
     if (area.source.indexOf('MapKit') >= 0) {
       // 地图服务区县没有档位/通勤/地铁字段；不能把 0 分钟、空线路喂给模型

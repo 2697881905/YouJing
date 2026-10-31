@@ -11,8 +11,11 @@ import { PlanParams, SelectedSpot, TravelStyle, TransitPreference, TripBasicInpu
 import { Spot, SpotTag } from '../../../main/ets/model/Spot';
 import { Area, AreaGroup, AreaPriceTier } from '../../../main/ets/model/Area';
 import { Trip, IntensityLevel } from '../../../main/ets/model/Trip';
+import { MockTrip } from '../../../main/ets/mock/MockTrip';
 import { AppError } from '../../../main/ets/common/error/AppError';
 import { ErrorCode } from '../../../main/ets/common/error/ErrorCode';
+
+type Obj = Record<string, Object>;
 
 function makeSpots(): Spot[] {
   const s1: Spot = {
@@ -38,6 +41,19 @@ function makeArea(): Area {
     priceTier: AreaPriceTier.COMFORT, group: AreaGroup.CORE, source: 'test', updatedAt: '2026-10-23'
   };
   return a;
+}
+
+function makeOneDayParams(): PlanParams {
+  const basic: TripBasicInput = {
+    destination: '西安', startDate: '2026-10-31', endDate: '2026-10-31', people: 2, budget: 2000
+  };
+  const sel: SelectedSpot = { spotId: 't-s1', priority: SpotPriority.MUST };
+  const p: PlanParams = {
+    basic: basic, style: TravelStyle.CULTURE, stayTier: 'comfort',
+    transit: TransitPreference.PUBLIC, paces: [PaceOption.STANDARD],
+    selectedSpots: [sel], selectedArea: { areaId: 't-a1' }
+  };
+  return p;
 }
 
 function makeParams(): PlanParams {
@@ -91,6 +107,19 @@ class BrokenTransport implements LlmTransport {
   complete(req: LlmRequest): Promise<string> {
     this.calls += 1;
     return Promise.resolve('这不是 JSON');
+  }
+}
+
+/** 1 天请求却被模型拆成两天、dayIndex 重复——2026-10-31 真机失败形态 */
+class TwoDaysForOneDayTransport implements LlmTransport {
+  complete(req: LlmRequest): Promise<string> {
+    const o: Obj = JSON.parse(JSON.stringify(MockTrip.TRIP)) as Obj;
+    o['startDate'] = '2026-10-31';
+    o['endDate'] = '2026-10-31';
+    const days: Object[] = o['days'] as Object[];
+    (days[1] as Obj)['dayIndex'] = 1;
+    (days[1] as Obj)['date'] = '2026-10-31';
+    return Promise.resolve(JSON.stringify(o));
   }
 }
 
@@ -160,6 +189,18 @@ export default function llmPipelineTest(): void {
       expect(single.days[0].activities.length).assertEqual(4);
       expect(single.days[2].activities.length).assertEqual(4);
     });
+
+    it('one_day_request_trims_extra_day_and_renumbers',
+      TestType.FUNCTION | Size.MEDIUMTEST | Level.LEVEL1, async () => {
+        const params: PlanParams = makeOneDayParams();
+        const trip: Trip = await LlmClient.generateTrip(params, makeSpots(), makeArea(),
+          new TwoDaysForOneDayTransport());
+        expect(trip.days.length).assertEqual(1);
+        expect(trip.days[0].dayIndex).assertEqual(1);
+        expect(trip.days[0].date).assertEqual('2026-10-31');
+        expect(trip.startDate).assertEqual('2026-10-31');
+        expect(trip.endDate).assertEqual('2026-10-31');
+      });
 
     it('retry_exhausted', TestType.FUNCTION | Size.MEDIUMTEST | Level.LEVEL1, async () => {
       const broken: BrokenTransport = new BrokenTransport();

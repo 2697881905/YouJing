@@ -63,6 +63,7 @@ export default function promptContractTest(): void {
           selectedArea: { areaId: area.id }
         };
         const text: string = PromptBuilder.userPrompt(params, [spot], area);
+        expect(text.indexOf('计划天数：3 天') >= 0).assertTrue();
         expect(text.indexOf('预约信息未获取，以官方为准') >= 0).assertTrue();
         expect(text.indexOf('无需预约') >= 0).assertFalse();
         expect(text.indexOf('开放:8:30–17:00') >= 0).assertTrue();
@@ -70,6 +71,29 @@ export default function promptContractTest(): void {
         expect(text.indexOf('地图服务区县') >= 0).assertTrue();
         expect(PromptBuilder.systemPrompt().indexOf('排期必须落在该时段内') >= 0).assertTrue();
         expect(PromptBuilder.systemPrompt().indexOf('禁止编造预约方式') >= 0).assertTrue();
+      });
+
+    it('single_day_prompt_states_one_day_and_bans_split',
+      TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+        // 2026-10-31 真机：1 天行程模型拆成「抵达日 + 游玩日」两天，dayIndex 重复
+        const area: Area = {
+          id: 't-area', name: '碑林区', city: '西安', longitude: 108.94, latitude: 34.26,
+          description: '', anchorStations: [], metroLines: [], airportMinutes: 0,
+          trainStationMinutes: 0, commerceTags: [], diningDensity: '', suitableCrowds: [],
+          priceTier: AreaPriceTier.COMFORT, group: AreaGroup.CORE, source: 'test',
+          updatedAt: '2026-10-31'
+        };
+        const params: PlanParams = {
+          basic: { destination: '西安', startDate: '2026-10-31', endDate: '2026-10-31',
+            people: 2, budget: 2000 },
+          style: TravelStyle.LEISURE, stayTier: 'comfort', transit: TransitPreference.PUBLIC,
+          paces: [PaceOption.STANDARD], selectedSpots: [], selectedArea: { areaId: area.id }
+        };
+        const text: string = PromptBuilder.userPrompt(params, [], area);
+        expect(text.indexOf('计划天数：1 天') >= 0).assertTrue();
+        const sp: string = PromptBuilder.systemPrompt();
+        expect(sp.indexOf('不得把行程拆成') >= 0).assertTrue();
+        expect(sp.indexOf('最后一天等于 endDate') >= 0).assertTrue();
       });
 
     it('schema_enums_match_model_enums_both_ways',

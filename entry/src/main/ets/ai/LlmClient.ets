@@ -15,13 +15,14 @@ import { http } from '@kit.NetworkKit';
 import { buffer } from '@kit.ArkTS';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { LlmRequest, PromptBuilder } from './PromptBuilder';
-import { TripParser } from './TripParser';
+import { TripExpect, TripParser } from './TripParser';
 import { TripSchema } from './TripSchema';
 import { Trip, TripDay, Activity, Meal, MealType, ActivityCategory, ActivityStatus, IntensityLevel, TransportInfo } from '../model/Trip';
 import { PlanParams, SelectedSpot, TripBasicInput, PaceOption } from '../model/PlanParams';
 import { Spot } from '../model/Spot';
 import { Area } from '../model/Area';
 import { backfillActivityPlaces, backfillOpeningHours } from '../utils/TripEnrich';
+import { DateUtils } from '../utils/DateUtils';
 import { ApiConfig } from '../common/config/ApiConfig';
 import { MockConfig } from '../common/config/MockConfig';
 import { Logger } from '../common/logger/Logger';
@@ -363,11 +364,17 @@ export class LlmClient {
     const t: LlmTransport = transport !== undefined ? transport
       : (MockConfig.USE_MOCK_DATA ? new MockLlmTransport(params, spots, area) : new HttpLlmTransport());
     const req: LlmRequest = PromptBuilder.buildRequest(params, spots, area);
+    // 天数与出发日以用户输入为准：模型多吐一天时按窗口截断，少吐则失败重试
+    const expect: TripExpect = {
+      days: DateUtils.spanDays(params.basic.startDate, params.basic.endDate),
+      startDate: params.basic.startDate
+    };
     let lastErr: Error | null = null;
     for (let attempt = 0; attempt < 2; attempt++) {
+      let raw: string = '';
       try {
-        const raw: string = await t.complete(req);
-        const trip: Trip = TripParser.parseTrip(raw);
+        raw = await t.complete(req);
+        const trip: Trip = TripParser.parseTrip(raw, expect);
         // 地址/坐标以景点库为准回填（提示词第 12 条要求模型留空，省输出 token 也免幻觉）
         const filled: number = backfillActivityPlaces(trip, spots);
         const hours: number = backfillOpeningHours(trip, spots);
@@ -377,9 +384,18 @@ export class LlmClient {
       } catch (err) {
         lastErr = err as Error;
         Logger.warn(TAG, `第 ${attempt + 1} 次生成失败: ${lastErr.message}`);
+        // 失败时模型原文不落库；不留片段就无法判断是非法 JSON、多吐一天还是缺字段
+        if (raw.length > 0) {
+          Logger.warn(TAG, `原始输出前 240 字: ${LlmClient.excerpt(raw)}`);
+        }
       }
     }
     throw new AppError(ErrorCode.TRIP_GENERATE_RETRY_EXHAUSTED,
       `两次生成均失败: ${lastErr !== null ? lastErr.message : ''}`);
+  }
+
+  private static excerpt(raw: string): string {
+    const flat: string = raw.replace(/\s+/g, ' ').trim();
+    return flat.length <= 240 ? flat : `${flat.slice(0, 240)}…`;
   }
 }

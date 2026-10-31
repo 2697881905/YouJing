@@ -4111,3 +4111,45 @@ Map Kit 地点检索真机探针（任意城市数据管线的 Stage 1），以�
 - 成本：成功调用 `in=2003(缓存1152) out=2412`，半价约 **¥0.0053**；连同此前两次失败
   ¥0.0066，本轮开放时间链路共约 **¥0.0119**。
 - 数据副作用：新增并保留 3 天西安测试行程 `xian-20261031-2`。
+
+### §5ci 续 57：1 天行程 LLM 输出稳定化（真机复验待设备解锁）
+
+**证据与根因**
+
+- 2026-10-31「西安 1 天」两次失败：第 1 次 `days[1].dayIndex=1 应为 2`，第 2 次
+  `JSON 解析失败: Unexpected Object in JSON`。
+- 用户消息只写「日期：X 至 X」，没有数字天数；系统规则 1 也只说「等于用户给定的天数」。
+  单日窗口下模型把行程拆成「抵达日 + 游玩日」，两天 `dayIndex` 都写 1；
+  解析器按数组位置硬校验后整份打回。JSON 非法那次没有原文，无法归因——
+  本轮补了失败原文片段日志，后续再出现时可直接看形态。
+
+**修改**
+
+- `PromptBuilder.userPrompt` 首行写 `计划天数：N 天`；规则 1 明确首日等于 `startDate`、
+  末日等于 `endDate`；新增规则 16：计划 1 天时 `days` 恰好 1 个元素，禁止拆成
+  「抵达日 + 游玩日」两天。
+- `TripParser.parseTrip(text, expect?)` 新增可选窗口：多出的天按窗口截断，
+  `dayIndex/date` 按数组位置重写；少于窗口仍抛 `SCHEMA_VALIDATION_FAILED` 重试。
+  不传 `expect` 时保持原有严格 `dayIndex` 校验，既有守卫语义不变。
+- `LlmClient.generateTrip` 用 `DateUtils.spanDays` 传入窗口；失败时打印模型原文前
+  240 字（压缩空白），补上此前「解析失败却没有原文」的盲区。
+
+**验证（本轮已做）**
+
+- 离线：DevEco 自带 tsc `--strict` 零诊断；断言 `PASS 7/7`（重复 `dayIndex` 归一、
+  单日多吐一天截断、缺天失败、无窗口仍严格、缺 `dayIndex` 不可修复、
+  1 天提示词天数与规则 16）。
+- 主/测试 HAP 均 `BUILD SUCCESSFUL`（仓库根 hvigor CLI）；产物 15:18/15:19，
+  `ets/modules.abc` 内已 grep 到「计划天数」「不得把行程拆成」「本次行程要求」。
+- 十二把尺 0；离线 `MAP_CITY 66` / `TRIP_INTENT 80` / `TRIP_REVIEW 57`；
+  `REPLAN 74+26` / `WEATHER 102` 全绿。
+- 花费：本轮 **0 LLM**（未调用真模型）。
+
+**真机边界**
+
+- 主/测试 HAP 已安装成功，但设备处于锁屏；`aa test` 启动报
+  `10106102 The device screen is locked...`。按规矩未解锁、未绕过：
+  全量 hypium 与 1 天真实生成待设备空出后补验。
+- 环境坑：DevEco MCP `build_project` 实际构建了 IDE 当前打开的 HarmonyProject1
+  （其 ohosTest HAP 15:17 更新），不是本仓库；本轮改用仓库根 hvigor CLI 构建并
+  用 abc 字符串核产物，避免把别的项目装到真机。
