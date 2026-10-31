@@ -4,10 +4,11 @@
  * 顶部地图卡：v2 起区域库有逐片坐标，上真实底图（三片互斥、不连线）；
  * 三列通勤取 Area 真字段（到机场/到火车站/餐饮密度），底稿的「到首个景点/日均通勤/房源数」
  * 要的是路径规划与住宿库存，本项目两者都没有。详见 Docs/INIT_REPORT.md §4b-7/8。
- * 候选收敛（§3.3 住宿区域同理）：App 端先按与屏4 所选景点的平均直线距离排序，
- * 取前 12 片做候选，再展示前 3 片；没有可用坐标时退回种子库顺序，不谎报距离。
- * 「帮我选」：底稿写「按通勤最短」，无路径规划时能算的最近似是与屏4 所选景点的平均
- * 直线距离（utils/Geo），按钮按这个口径写成「离景点最近」，不谎报成导航里程。
+ * 候选收敛（§3.3 住宿区域同理）：排序统一走 `PlanAutoPick.rankAreas`——
+ * 地图区县按酒店供给（`buildAreas` 的入参顺序）、种子片区按与屏4 所选景点的平均
+ * 直线距离，取前 12 片做候选再展示前 3 片；没有可用坐标时退回原顺序，不谎报距离。
+ * 「帮我选」：底稿写「按通勤最短」，本项目没有路径规划，按钮文案按各自的真实判据写
+ * （住得最方便 / 离景点最近），toast 报平均直线距离，不谎报成导航里程。
  */
 
 import { APP_NAV, markDraftDirty } from '../common/constants/AppNav';
@@ -56,7 +57,7 @@ export struct StayPickPage {
   /** 候选片区落点：坐标可用时才上真实底图，否则保留图例 */
   @State private areaStops: MapStop[] = [];
   @State private areaSig: string = '';
-  /** 屏4 已选景点的坐标，「帮我选」按到这些点的平均距离取最小 */
+  /** 屏4 已选景点的坐标，供 rankAreas 排序与「帮我选」使用 */
   private spotPoints: GeoPoint[] = [];
   /** 任意城市：住宿区按区县聚合，档位/通勤未校准 */
   private mapCity: boolean = false;
@@ -120,8 +121,9 @@ export struct StayPickPage {
   }
 
   /**
-   * 底稿屏5 的「帮我选（按通勤最短）」：本项目没有路径规划，规则改成「最多已选景点
-   * 离哪片最近」，toast 里报的是该片到所选景点的平均直线距离，不谎报成导航里程。
+   * 底稿屏5 的「帮我选（按通勤最短）」：本项目没有路径规划，规则按数据源分——
+   * 地图区县按酒店供给（住宿最集中）、种子片区按到所选景点的平均直线距离，
+   * 与屏2 预选共用 `PlanAutoPick.rankAreas`。toast 报的是平均直线距离，不谎报成导航里程。
    */
   private autoPickArea(): void {
     if (this.picks.length === 0) {
@@ -129,7 +131,7 @@ export struct StayPickPage {
     }
     const targets: GeoPoint[] = this.spotPoints;
     const areas: Area[] = this.picks.map((p: AreaPick): Area => p.area);
-    // 与屏2 一句话「直接生成」共用同一条最近区规则（utils/PlanAutoPick），
+    // 与屏2 一句话「直接生成」共用同一条排序（utils/PlanAutoPick），
     // 免得手工走屏5 与自动生成得到两套不同的住宿区
     const pick: Area | null = PlanAutoPick.nearestArea(areas, targets);
     if (pick === null) {
@@ -143,7 +145,8 @@ export struct StayPickPage {
     const g: GeoPoint = { latitude: pick.latitude, longitude: pick.longitude };
     const km: number = Geo.meanDistanceKm(g, targets);
     Logger.info('Ui.StayPick', `帮我选 ${pick.name} 平均 ${km.toFixed(2)}km targets=${targets.length}`);
-    this.toast(`${pick.name} · 到 ${targets.length} 个所选景点平均约 ${km.toFixed(1)} km`);
+    const lead: string = this.mapCity ? '住宿最集中的片区' : '离所选景点最近';
+    this.toast(`${pick.name} · ${lead}；到 ${targets.length} 个所选景点平均约 ${km.toFixed(1)} km`);
   }
 
   /** 理由与三列只拼区域库里真有的字段：到首个景点耗时/日均通勤/房源数
@@ -505,7 +508,8 @@ export struct StayPickPage {
           Row({ space: SpaceTokens.md }) {
             YoujingButton({
               variant: YoujingButtonVariant.SECONDARY,
-              label: '帮我选（离景点最近）',
+              // 地图区县按住宿供给、种子片区按距离——按钮文案跟着判据走，不说假话
+              label: this.mapCity ? '帮我选（住得最方便）' : '帮我选（离景点最近）',
               buttonWidth: 200,
               onAction: (): void => {
                 this.autoPickArea();
