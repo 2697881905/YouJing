@@ -33,6 +33,15 @@ import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit'
 import type { HdsNavigationMenuItemOptions, HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
 
+/**
+ * 六点把手的几何（帧 ebe57eac：viewBox 24 里 r=2 的圆点，画在 22×22 盒内）。
+ * 换算到 22vp：直径 ≈ 3.7vp 取 4；行间距（同列两圆边缘）≈ 1.5vp 取 2；
+ * 列间距 ≈ 3.7vp 取 4 —— 行比列紧是帧自己的比例。
+ */
+const GRIP_DOT_VP: number = 4;
+const GRIP_ROW_GAP_VP: number = 2;
+const GRIP_COL_GAP_VP: number = 4;
+
 @Component
 export struct EditItineraryPage {
   private pathStack: NavPathStack = APP_NAV;
@@ -261,16 +270,43 @@ export struct EditItineraryPage {
     });
   }
 
+  /**
+   * 拖拽把手（帧 ebe57eac：22×22 盒内 2 列 × 3 行 r=2 圆点，fill `#69696E`）。
+   *
+   * 官方符号表里没有六点把手（最接近的 `dot_grid_2x2` 是四个点），所以按帧画。
+   * 颜色取 `muted` 而不是 `faint`：帧给的 `#69696E` 就是浅色档的 muted；
+   * 抄成 faint 后浅色档对行底只有 **2.49:1**（非文本控件要求 3:1），这个把手基本是隐形的。
+   *
+   * 命中区收窄不到把手上 —— `onItemDragStart` 只能挂在 List 级做整行长按，
+   * 所以它是「这一行可重排」的提示，不是「拖我」的靶子；手势本身靠 accessibilityText 念出来。
+   */
   @Builder
   handle() {
-    Column({ space: SpaceTokens.xs }) {
-      Row().width(14).height(2).borderRadius(RadiusTokens.pill).backgroundColor(ColorTokens.faint)
-      Row().width(14).height(2).borderRadius(RadiusTokens.pill).backgroundColor(ColorTokens.faint)
-      Row().width(14).height(2).borderRadius(RadiusTokens.pill).backgroundColor(ColorTokens.faint)
+    Column({ space: GRIP_ROW_GAP_VP }) {
+      Row({ space: GRIP_COL_GAP_VP }) {
+        this.gripDot()
+        this.gripDot()
+      }
+      Row({ space: GRIP_COL_GAP_VP }) {
+        this.gripDot()
+        this.gripDot()
+      }
+      Row({ space: GRIP_COL_GAP_VP }) {
+        this.gripDot()
+        this.gripDot()
+      }
     }
     .width(24)
     .height(LayoutTokens.minTouchTarget)
     .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
+    .accessibilityText('长按拖动调整顺序')
+  }
+
+  @Builder
+  gripDot() {
+    Circle({ width: GRIP_DOT_VP, height: GRIP_DOT_VP })
+      .fill(ColorTokens.muted)
   }
 
   @Builder
