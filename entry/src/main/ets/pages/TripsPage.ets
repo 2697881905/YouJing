@@ -474,7 +474,12 @@ export struct TripsPage {
             .scrollBar(BarState.Off)
             .edgeEffect(EdgeEffect.Spring)
             .cachedCount(4)
-            // 同上：这一页的最后一张卡也住在浮动 dock 底下，按实测净空让位
+            // 这一页的最后一张卡住在浮动 dock 底下，按实测净空让位。
+            // ⚠ 2026-11-01 真机量：这条 padding 只生效 63.7vp（写的是 112），
+            //   末卡「已结束/总花费/进度条」有 48.3vp 永久压在 dock 玻璃下、滚不出来；
+            //   换成 List.contentEndOffset(112) 量到的是同一个 63.7vp —— 说明这段缺口
+            //   不是这两者给的，机制未定。缺陷与两种候选都由 tools/audit_scroll_clearance.py
+            //   复现，修它之前先用那把尺立据。
             .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.floatingDockClearance })
           }
           .onRefreshing((): void => {

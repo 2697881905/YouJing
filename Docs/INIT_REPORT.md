@@ -4902,3 +4902,45 @@ Map Kit 地点检索真机探针（任意城市数据管线的 Stage 1），以�
   在 token 里躺着没人用，页面用的是字面量（`Index` 的 dock 宽写死 300、三处 `barHeight: 64`）。
 
 闸门：十二把尺退出码全 0；真机 hypium **191/191**；双 HAP BUILD SUCCESSFUL。
+
+### §5ci 续 77：立了第 14 把尺（真机滚到底净空），它抓到的那条我没敢瞎修
+
+补的就是续 76 点出的那个缺口 —— "padding 写了 ≠ 净空生效"，静态尺看不见这一类。
+新尺 [tools/verify_scroll_clearance.py](../tools/verify_scroll_clearance.py)：
+逐屏进屏 → 反复甩到"连续 3 次末边同值且至少甩 6 次" → 拿**本次 dump 实测的 dock 顶**
+与末边比。不写死像素、点 dock 前重新 dump 取中心（dock 位置这轮改过两次，写死 y 会点到外面）。
+
+**先按 [[verify-the-scanner-before-trusting-a-zero]] 自证它抓得到阳性**，过程里尺子自己错了两次：
+
+1. 第一版把所有节点取 max，根容器/Column 这些铺满整屏的框先命中，
+   每屏末边都读成 860.8vp、净空一律 −112.0vp —— **尺子自己造出 112vp 假遮挡**。
+   限定"只取有文字的节点 + ListItem 这一级"后才对。
+2. 稳定判据太松（只比两次），在行程格停在半路，把 797.1 读成 860.8。
+   改成"连续 3 次同值 + 至少 6 次"。
+3. 另外它要求"上一轮刚好停在有径上"才肯跑，装机后前台是 launcher 就误判成"人在用手机"。
+   改成尺子自己 `aa start` 再断言，且断言前先删本地旧 dump —— 否则 recv 失败会拿
+   上一轮的证据放行，那道保护就形同虚设。
+
+校准结果：新尺对行程格读 **797.1vp / 净空 −48.3vp**，与手动量（30 次甩动 + 再甩 6 次不变）
+完全一致。全量 17 屏基线：
+
+| 净空 | 屏 |
+|---|---|
+| **−48.3vp（遮挡）** | 行程 |
+| 0.0vp（贴平） | Itinerary、Share |
+| 12.2–12.5vp | 地图、屏2、屏3、屏4、屏5、屏7 |
+| 173–395vp | AreaMore、Badges、EditItinerary、OnTrip、Review、我的、费用、规划 |
+
+**试修没成，撤了。** 换 `List.contentEndOffset(112)`（SDK `list.d.ts:1090`）后
+读数**一点没动**，还是 797.1 —— 而产物自证 `contentEndOffset` 确实在 `modules.abc` 里
+（不是 hvigor 复用旧产物的假象）。两种机制量出同一个 63.7vp 残差，
+说明这段缺口不是 `padding.bottom` 也不是 `contentEndOffset` 给的，**机制未定**。
+按 [[verify-batch-edits-by-measuring]] "数值没动就回退、别叠第三种猜测"，
+把改动回退成原样，只在原处留一条写明"这条 padding 只生效 63.7vp、
+换 contentEndOffset 同样是 63.7、机制未定"的注释，不留带错误结论的死代码。
+
+肉眼可证的后果（`/tmp/now.jpeg`）：行程格滚到真底部后，末张卡的
+「已结束 · 100%」「总花费 ¥1,540」和进度条整段在玻璃 dock 底下，滚不出来。
+
+闸门：静态十二把尺退出码全 0；HAP BUILD SUCCESSFUL；零 LLM、未动行程/打卡数据。
+README 质量闸门表加了这一行，状态如实写"1 屏遮挡、未修"。

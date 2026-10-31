@@ -73,6 +73,7 @@ tools/                十二把静态尺 + 离线断言脚本
 | 纯逻辑离线断言 | `bash tools/verify_map_city.sh` / `verify_trip_intent.sh` / `verify_trip_review.sh` / `verify_replan_logic.sh` / `verify_weather_logic.sh` | 66 / 104 / 57 / 74+26 / 116 全绿 |
 | 设计契约静态尺 | `python3 tools/audit_colors.py`（另有 type / geometry / material / fontfamily / tnum / elevation / button_width / scroll_actions / label_fit / a11y_name / layout_patterns） | 十二把尺 0 偏差 |
 | 真机对比度 | `python3 tools/audit_contrast.py <dump.json> <screenshot>` | 逐屏 0 低（浅/深两档） |
+| 真机滚到底净空 | `python3 tools/verify_scroll_clearance.py` | 17 屏里 **1 屏遮挡**：行程格末卡 48.3vp 压在 dock 下（未修，机制未定） |
 
 取证约定：**结论要能被复现**。UI 问题必须同机位实拍复拍，布局争议用 `uitest dumpLayout`
 读真实 bounds，颜色争议用像素量化，不接受「看代码应该没问题」。
