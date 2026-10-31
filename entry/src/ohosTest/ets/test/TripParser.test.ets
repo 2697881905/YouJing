@@ -88,6 +88,17 @@ export default function tripParserTest(): void {
         .assertEqual(`${ErrorCode.SCHEMA_VALIDATION_FAILED}`);
     });
 
+    it('parse_empty_activity_location_allowed', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+      // 提示词第 9 条允许无入口信息时留空串；旧解析器要求非空，MapKit 城市首发即撞
+      const raw: string = mutateJson((o: Obj): void => {
+        const days: Object[] = o['days'] as Object[];
+        const acts: Object[] = (days[0] as Obj)['activities'] as Object[];
+        (acts[0] as Obj)['location'] = '';
+      });
+      const t: Trip = TripParser.parseTrip(raw);
+      expect(t.days[0].activities[0].location).assertEqual('');
+    });
+
     it('normalize_duplicate_day_index_against_expected_window',
       TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
         const bad: string = mutateJson((o: Obj): void => {

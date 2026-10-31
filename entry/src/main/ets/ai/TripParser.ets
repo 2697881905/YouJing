@@ -133,7 +133,8 @@ export class TripParser {
       time: TripParser.reqTime(o['time'], `${p}.time`),
       endTime: TripParser.reqTime(o['endTime'], `${p}.endTime`),
       title: TripParser.reqStr(o['title'], `${p}.title`),
-      location: TripParser.reqStr(o['location'], `${p}.location`),
+      // 提示词第 9 条允许「没有入口信息时留空串」；键仍必须存在
+      location: TripParser.reqStrAllowEmpty(o['location'], `${p}.location`),
       address: TripParser.strOrEmpty(o['address'], `${p}.address`),
       longitude: TripParser.reqNum(o['longitude'], `${p}.longitude`),
       latitude: TripParser.reqNum(o['latitude'], `${p}.latitude`),
@@ -220,6 +221,17 @@ export class TripParser {
     }
     if (typeof v !== 'string' || (v as string).length === 0) {
       throw new AppError(ErrorCode.TYPE_GUARD_FAILED, `${p}: 期望非空 string`);
+    }
+    return v as string;
+  }
+
+  /** 允许空串但键必须存在：location 在无入口信息时按提示词留空 */
+  private static reqStrAllowEmpty(v: Object | undefined, p: string): string {
+    if (v === undefined) {
+      throw new AppError(ErrorCode.SCHEMA_VALIDATION_FAILED, `${p}: 缺字段`);
+    }
+    if (typeof v !== 'string') {
+      throw new AppError(ErrorCode.TYPE_GUARD_FAILED, `${p}: 期望 string`);
     }
     return v as string;
   }

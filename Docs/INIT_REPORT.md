@@ -4133,23 +4133,47 @@ Map Kit 地点检索真机探针（任意城市数据管线的 Stage 1），以�
   不传 `expect` 时保持原有严格 `dayIndex` 校验，既有守卫语义不变。
 - `LlmClient.generateTrip` 用 `DateUtils.spanDays` 传入窗口；失败时打印模型原文前
   240 字（压缩空白），补上此前「解析失败却没有原文」的盲区。
+- 真实调用补验时又抓到第二处契约冲突：提示词规则 9 允许 `location`
+  「没有入口信息时留空串」，`TripSchema.str(true)` 也只约束 string，但
+  `TripParser` 用 `reqStr` 要求非空。解析器改为 `reqStrAllowEmpty`（键仍必须存在），
+  与提示词/Schema 对齐。
 
 **验证（本轮已做）**
 
-- 离线：DevEco 自带 tsc `--strict` 零诊断；断言 `PASS 7/7`（重复 `dayIndex` 归一、
+- 离线：DevEco 自带 tsc `--strict` 零诊断；断言 `PASS 8/8`（重复 `dayIndex` 归一、
   单日多吐一天截断、缺天失败、无窗口仍严格、缺 `dayIndex` 不可修复、
-  1 天提示词天数与规则 16）。
-- 主/测试 HAP 均 `BUILD SUCCESSFUL`（仓库根 hvigor CLI）；产物 15:18/15:19，
-  `ets/modules.abc` 内已 grep 到「计划天数」「不得把行程拆成」「本次行程要求」。
+  1 天提示词天数与规则 16、空 `location` 可解析）。
+- 主/测试 HAP 均 `BUILD SUCCESSFUL`（仓库根 hvigor CLI；15:36 重装版），
+  `ets/modules.abc` 内已 grep 到「计划天数」「不得把行程拆成」「本次行程要求」
+  `reqStrAllowEmpty`。
+- hypium **185/185**（新增 6 例：重复 `dayIndex` 归一、单日多吐一天截断、缺天失败、
+  空 `location` 可解析、1 天提示词天数与规则 16、LlmClient 窗口接线）。
 - 十二把尺 0；离线 `MAP_CITY 66` / `TRIP_INTENT 80` / `TRIP_REVIEW 57`；
   `REPLAN 74+26` / `WEATHER 102` 全绿。
-- 花费：本轮 **0 LLM**（未调用真模型）。
+- **真实模型补验**（2026-10-31 15:30，周六非高峰；离线副本复用同一份
+  `PromptBuilder`/`TripParser`，夹具为 2 个 MapKit 风格西安景点 + 碑林区）：
+  - 第 1 次：`rawDays=1`，但解析在 `activities[0].location` 空串处失败——
+    模型遵守规则 9 留空，解析器却要求非空，遂做上面的 `reqStrAllowEmpty` 修正。
+  - 第 2 次：`rawDays=1`，`parseTrip` 成功得到 `days=1 dayIndex=1
+    date=2026-11-01 start=end=2026-11-01`，11 个活动 / 3 餐。
+  - 用量：第 1 次 `in=1555(cache 0) out=1193`；第 2 次
+    `in=1555(cache 命中 1408) out=1407`。
+- **真机 App 端到端**（2026-10-31 15:44）：一句话「西安 1 天」→ 直接生成；
+  日志 `LLM 用量 in=1662(cache 命中 1152) out=1434 结束=stop`、
+  `生成成功 attempt=1 days=1 回填地址 6 条、开放时间 0 条`；
+  屏8 显示「西安 · 1天0晚 / Day 1 · 10月31日」；DB 新增
+  `xian-20261031-daytrip`（start=end=2026-10-31），trip_day 恰好 1 行
+  （day_index=1）、11 条活动。
+- 成本：两次离线副本真实调用 + App 端一次，按 Flash 周六半价
+  （命中 ¥0.01/M、未命中 ¥0.50/M、输出 ¥2.00/M）合计约 **¥0.0092**。
+- 数据副作用：新增并保留 1 天西安测试行程 `xian-20261031-daytrip`。
 
 **真机边界**
 
-- 主/测试 HAP 已安装成功，但设备处于锁屏；`aa test` 启动报
-  `10106102 The device screen is locked...`。按规矩未解锁、未绕过：
-  全量 hypium 与 1 天真实生成待设备空出后补验。
+- 设备解锁后已安装主/测试 HAP、跑完全量 hypium，并完成真机 1 天生成闭环。
+- 历史第 2 次失败（JSON 非法）没有复现；现在失败会打印模型原文前 240 字，
+  再出现可直接定位是围栏、多对象还是未转义引号。
 - 环境坑：DevEco MCP `build_project` 实际构建了 IDE 当前打开的 HarmonyProject1
   （其 ohosTest HAP 15:17 更新），不是本仓库；本轮改用仓库根 hvigor CLI 构建并
   用 abc 字符串核产物，避免把别的项目装到真机。
+- 真机同步检测到锁屏（`10106102`）时按规矩未解锁、未绕过，等设备空出后才继续。
