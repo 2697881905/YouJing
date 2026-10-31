@@ -213,6 +213,21 @@ const farSingle: SelectedSpot[] = PlanAutoPick.pickSpotsForSingleDay(
   farSpots, 'standard', [], home);
 eq(farSingle.length, 2, '远郊首站把单日名额压到 2');
 eq(farSingle[0].spotId, 'f1', '高优先级远郊首站保留');
+// 重庆 1 天真机形态：首候选是 120km 外的大足石刻，单站就吃掉整天预算
+// ——从尾部砍会把同城的洪崖洞/磁器口全砍光，正确做法是跳过这一站
+const cqHome: Area = area('渝中区', AreaPriceTier.COMFORT, 29.56, 106.55);
+const cqSpots: Spot[] = [
+  spot('cq1', 100, [SpotTag.CLASSIC], 29.70, 105.72),
+  spot('cq2', 95, [], 29.562, 106.578),
+  spot('cq3', 90, [], 29.58, 106.45),
+  spot('cq4', 80, [], 30.30, 105.90)
+];
+const cqSingle: SelectedSpot[] = PlanAutoPick.pickSpotsForSingleDay(
+  cqSpots, 'standard', [], cqHome);
+eq(cqSingle.length, 2, '重庆 1 天：跳过远郊首站后留下 2 个同城站');
+eq(cqSingle[0].spotId, 'cq2', '远郊首站被跳过，同城最高优先级排第一');
+ok(cqSingle.find((s: SelectedSpot): boolean => s.spotId === 'cq1') === undefined,
+  '装不下的大足石刻不占单日名额');
 eq(PlanAutoPick.pickSpotsForSingleDay([], 'standard', [], home).length, 0, '单日无景点返回空');
 ok(PlanAutoPick.describe(nearSingle, home, 1, 'standard')
   .indexOf('按单日 10 小时窗口预选 3 个景点') >= 0, '单日预览说明窗口与站数');

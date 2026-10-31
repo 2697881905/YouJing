@@ -51,8 +51,11 @@ export class PlanAutoPick {
 
   /**
    * 单日预选：先按节奏上限取候选，再以住宿区为起点估算「停留 + 往返通勤」，
-   * 超 480min 就从低优先级端往回砍（至少保留 1 站）。首站仍是必去，
-   * 这样 1 天行程不会因为「标准 4 站」的名额把远郊景点硬塞成 14 小时。
+   * 按优先级逐个试装——**装不下就跳过这一站继续看下一站**，全装不下时才保留首站。
+   *
+   * 不能从尾部砍：重庆 1 天实测（2026-10-31）首候选是大足石刻（离渝中区约 120km，
+   * 单站吃掉 490min），从尾部砍会把洪崖洞/磁器口这些同城景点全砍光，只剩一个远郊站。
+   * 一天的行程该是一个片区，不是「全国最出名的那个 POI 在哪就去哪」。
    */
   static pickSpotsForSingleDay(spots: Spot[], pace: string, tags: string[],
     area: Area | null): SelectedSpot[] {
@@ -64,11 +67,17 @@ export class PlanAutoPick {
     }
     const origin: GeoPoint | null = area !== null && Geo.usable(area.latitude, area.longitude)
       ? { latitude: area.latitude, longitude: area.longitude } : null;
-    while (ordered.length > 1 &&
-      PlanAutoPick.routeMinutes(ordered, origin) > PlanAutoPick.SINGLE_DAY_SIGHT_BUDGET_MIN) {
-      ordered.pop();
+    const kept: Spot[] = [];
+    for (const c of ordered) {
+      const trial: Spot[] = kept.concat([c]);
+      if (PlanAutoPick.routeMinutes(trial, origin) <= PlanAutoPick.SINGLE_DAY_SIGHT_BUDGET_MIN) {
+        kept.push(c);
+      }
     }
-    return PlanAutoPick.toSelected(ordered, 1);
+    if (kept.length === 0) {
+      kept.push(ordered[0]);
+    }
+    return PlanAutoPick.toSelected(kept, 1);
   }
 
   /**
@@ -179,6 +188,18 @@ export class PlanAutoPick {
   }
 
   /** 估算「住宿区 → 各站 → 住宿区」的停留 + 通勤总分钟数 */
+  static routeMinutesOf(ordered: Spot[], area: Area | null): number {
+    const origin: GeoPoint | null = area !== null && Geo.usable(area.latitude, area.longitude)
+      ? { latitude: area.latitude, longitude: area.longitude } : null;
+    return PlanAutoPick.routeMinutes(ordered, origin);
+  }
+
+  /** 单日收口的候选清单（未截断），供调用方打「丢了几站、为什么」的轨迹日志 */
+  static singleDayCandidates(spots: Spot[], pace: string, tags: string[]): Spot[] {
+    return PlanAutoPick.orderedCandidates(spots, tags)
+      .slice(0, Math.min(spots.length, PlanAutoPick.dailyCap(pace)));
+  }
+
   private static routeMinutes(ordered: Spot[], origin: GeoPoint | null): number {
     let total: number = 0;
     let prev: GeoPoint | null = origin;

@@ -168,6 +168,20 @@ export default function tripIntentTest(): void {
         expect(far.length).assertEqual(2);
         expect(far[0].spotId).assertEqual('f1');
         expect(PlanAutoPick.pickSpotsForSingleDay([], 'standard', [], home).length).assertEqual(0);
+        // 重庆 1 天真机形态：首候选是 120km 外的大足石刻，单站吃掉整天预算；
+        // 从尾部砍会把同城的洪崖洞/磁器口全砍光，正确做法是跳过这一站
+        const cqHome: Area = area('渝中区', AreaPriceTier.COMFORT, 29.56, 106.55);
+        const cqSpots: Spot[] = [
+          spot('cq1', 100, [SpotTag.CLASSIC], 29.70, 105.72),
+          spot('cq2', 95, [], 29.562, 106.578),
+          spot('cq3', 90, [], 29.58, 106.45),
+          spot('cq4', 80, [], 30.30, 105.90)
+        ];
+        const cq: SelectedSpot[] = PlanAutoPick.pickSpotsForSingleDay(
+          cqSpots, 'standard', [], cqHome);
+        expect(cq.length).assertEqual(2);
+        expect(cq[0].spotId).assertEqual('cq2');
+        expect(cq.find((s: SelectedSpot): boolean => s.spotId === 'cq1') === undefined).assertTrue();
         expect(PlanAutoPick.describe(near, home, 1, 'standard')
           .indexOf('按单日 10 小时窗口预选 3 个景点') >= 0).assertTrue();
       });

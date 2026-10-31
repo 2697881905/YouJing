@@ -323,8 +323,26 @@ export struct TripInputPage {
       let area: Area | null = PlanAutoPick.pickArea(areas, spots, picked, stayTier);
       if (days === 1) {
         // 单日名额要扣掉往返通勤：先用候选定住宿区，再按 10h 窗口收口并复核区域
+        const before: Spot[] = PlanAutoPick.singleDayCandidates(spots, pace, intent.tags);
+        const originArea: Area | null = area;
         picked = PlanAutoPick.pickSpotsForSingleDay(spots, pace, intent.tags, area);
         area = PlanAutoPick.pickArea(areas, spots, picked, stayTier);
+        const keptIds: string[] = picked.map((s: SelectedSpot): string => s.spotId);
+        const keptSpots: Spot[] = [];
+        const dropped: string[] = [];
+        for (const c of before) {
+          if (keptIds.indexOf(c.id) >= 0) {
+            keptSpots.push(c);
+          } else {
+            dropped.push(c.name);
+          }
+        }
+        // 收口轨迹：重庆 1 天实测只剩 1 站，没有这行就判不出是「首站太远吃掉预算」还是「候选本来就少」
+        Logger.info('Ui.TripInput', `单日收口 候选${before.length}→${keptSpots.length} ` +
+          `留${keptSpots.map((s: Spot): string => s.name).join('/')} ` +
+          `弃${dropped.join('/') || '无'} 停留+通勤` +
+          `${PlanAutoPick.routeMinutesOf(keptSpots, originArea)}min/` +
+          `预算${PlanAutoPick.SINGLE_DAY_SIGHT_BUDGET_MIN}min 起点${originArea !== null ? originArea.name : '无'}`);
       }
       intent.city = targetCity;
       if (viaMap) {
