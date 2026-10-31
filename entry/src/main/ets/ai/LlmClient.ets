@@ -18,7 +18,7 @@ import { LlmRequest, PromptBuilder } from './PromptBuilder';
 import { TripExpect, TripParser } from './TripParser';
 import { TripSchema } from './TripSchema';
 import { Trip, TripDay, Activity, Meal, MealType, ActivityCategory, ActivityStatus, IntensityLevel, TransportInfo } from '../model/Trip';
-import { PlanParams, SelectedSpot, TripBasicInput, PaceOption } from '../model/PlanParams';
+import { PlanParams, SelectedSpot, TripBasicInput, PaceOption, PaceRule } from '../model/PlanParams';
 import { Spot } from '../model/Spot';
 import { Area } from '../model/Area';
 import { backfillActivityPlaces, backfillOpeningHours } from '../utils/TripEnrich';
@@ -52,13 +52,6 @@ export class MockLlmTransport implements LlmTransport {
     return Promise.resolve(this.synthesize());
   }
 
-  private static capOf(pace: PaceOption): number {
-    if (pace === PaceOption.RELAXED) {
-      return 3;
-    }
-    return pace === PaceOption.PACKED ? 6 : 4;
-  }
-
   /**
    * 屏3b 的 helper 写「可多选，按天段分别排布」：多选时把整趟按所选档位数切成等长天段，
    * 顺序固定走 轻松→标准→紧凑（与底稿选项顺序一致），不跟用户点选的先后走——
@@ -72,7 +65,7 @@ export class MockLlmTransport implements LlmTransport {
     const caps: number[] = [];
     for (let d = 0; d < dayCount; d++) {
       const seg: number = Math.min(list.length - 1, Math.floor(d * list.length / dayCount));
-      caps.push(MockLlmTransport.capOf(list[seg]));
+      caps.push(PaceRule.dailyCap(list[seg]));
     }
     return caps;
   }

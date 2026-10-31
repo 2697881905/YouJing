@@ -4478,3 +4478,19 @@ Map Kit 地点检索真机探针（任意城市数据管线的 Stage 1），以�
   而屏2 既然不预检，MapKit 失败就到不了屏7，只能停在屏4。
   要拿到真错误码得让生成阶段真的失败一次 —— 那是花模型额度的事，留到下次顺路验。
   `FailureCopy` 两个映射函数本身有 hypium 覆盖（`FailureCopy.test.ets` 4 例全过）。
+
+### §5ci 续 67：顺着「同源」二字扫了一遍，又抓到一处逐字重复的实现
+
+- 续 66 修的那类缺陷（两处各写一个 `600`，注释互相指认「同源」，改一边不会让另一边失败）
+  不是孤例，所以按「同源」二字全库 grep 了一遍。`TripSchema` / `TripParser` / `model/Trip`
+  那几处是真的共用常量，没问题；**`PlanAutoPick.dailyCap` 和 `LlmClient` 里
+  `MockLlmTransport.capOf` 是逐字相同的两份实现**，注释写着「与 LlmClient 的 capOf 同源口径」。
+- 危害和 600 那条同型：屏2 按 A 个数预选景点、生成侧按 B 个数排每天，
+  用户读到「预选 4 个景点」而实际每天排 3 站，两边都能自圆其说、没有一处会报错。
+- 收法：唯一实现挪到 `model/PlanParams.ets` 的 `PaceRule.dailyCap(pace: string)`。
+  不放 utils 也不放 ai 是有原因的——`ai/` 侧带 `@kit`，抽进离线取证脚本会直接判死；
+  而 `PlanAutoPick` 反向 import `LlmClient` 会成环。`PlanParams` 是两边都已经依赖、
+  且已在离线脚本拷贝清单里的唯一落点。`PlanAutoPick.dailyCap` 保留成转发（调用方和
+  `TripIntent.test.ets` 4 条断言都不用改），`capOf` 删掉。
+- 补 2 条离线断言（`PaceRule` 与 `dailyCap` 同值、空档/未知档按标准 4 兜底）：
+  TRIP_INTENT 102 → **104**。

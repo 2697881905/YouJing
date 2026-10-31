@@ -25,6 +25,11 @@
   - **「10 小时」现在只有一处**：`PlanAutoPick.SINGLE_DAY_WINDOW_MIN` 与
     `DayLoadCalc.WINDOW_MINUTES` 原本各写一份 `600` 却在注释里互认同源，改一边不会让另一边失败；
     现在前者直接取后者，景点预算写成 `窗口 − 两餐`，并补两条离线断言钉住等式。
+  - 顺着「同源」二字全库扫了一遍，又抓到一处逐字重复：`PlanAutoPick.dailyCap` 与
+    `LlmClient` 内 `MockLlmTransport.capOf` 是两份一模一样的 3/4/6。唯一实现挪到
+    `model/PlanParams.ets` 的 `PaceRule.dailyCap`（`ai/` 带 @kit 抽不进离线脚本、
+    反向 import 会成环，`PlanParams` 是两边都依赖且已在拷贝清单里的唯一落点），
+    `dailyCap` 留成转发、`capOf` 删掉。离线断言 102 → **104**。
   - 浅色档补走完登录 / 隐私同意 / 生成失败三页，登录页主按钮禁用态文字对底 **1.26:1** 已修
     （改成 `ColorTokens.muted`，不再靠透明度）。
   - 门禁实跑值：真机 hypium **187/187**、离线断言 66 / **102** / 57 / 74+26 / 102、

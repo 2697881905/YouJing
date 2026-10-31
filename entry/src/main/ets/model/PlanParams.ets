@@ -107,3 +107,22 @@ export interface FlowQuestion {
   /** 默认兜底答案（用户不操作也能生成，§4.2） */
   defaultValues: string[];
 }
+
+/**
+ * 节奏 → 每天景点上限的唯一实现。
+ *
+ * 放在 model 层而不是 utils：屏2 预选（utils/PlanAutoPick）、mock 生成器（ai/LlmClient）
+ * 和屏3b 分段都要吃同一个数，而 ai 侧带 @kit 抽不进离线取证脚本，两边互相 import 又会成环。
+ * 之前它在 PlanAutoPick 与 LlmClient 各有一份逐字相同的实现，注释写着「同源口径」但改一边
+ * 不会让另一边失败——上限一旦不一致，屏2 按 A 个数预选、生成侧按 B 个数排，用户看到的
+ * 「预选 4 个景点」和实际每天 3 站就对不上。
+ */
+export class PaceRule {
+  /** 空档或未知档按标准（4）处理，与屏3 的默认兜底答案一致 */
+  static dailyCap(pace: string): number {
+    if (pace === PaceOption.RELAXED) {
+      return 3;
+    }
+    return pace === PaceOption.PACKED ? 6 : 4;
+  }
+}

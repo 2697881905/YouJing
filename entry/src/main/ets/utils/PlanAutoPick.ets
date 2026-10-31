@@ -10,7 +10,7 @@
 
 import { Spot, SpotTag } from '../model/Spot';
 import { Area, AreaPriceTier } from '../model/Area';
-import { SelectedSpot, SpotPriority, PaceOption } from '../model/PlanParams';
+import { SelectedSpot, SpotPriority, PaceRule } from '../model/PlanParams';
 import { Geo, GeoPoint } from './Geo';
 import { isMapArea } from './MapCityMapper';
 import { DayLoadCalc } from './DayLoad';
@@ -27,12 +27,9 @@ interface AreaDistance {
 }
 
 export class PlanAutoPick {
-  /** 节奏 → 每天景点上限；与 LlmClient 的 capOf 同源口径 */
+  /** 节奏 → 每天景点上限：唯一实现在 model/PlanParams 的 PaceRule，这里只是转发给调用方 */
   static dailyCap(pace: string): number {
-    if (pace === PaceOption.RELAXED) {
-      return 3;
-    }
-    return pace === PaceOption.PACKED ? 6 : 4;
+    return PaceRule.dailyCap(pace);
   }
 
   /**

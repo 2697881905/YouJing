@@ -6,7 +6,7 @@
 
 import { Area, AreaGroup, AreaPriceTier } from '../model/Area';
 import { Spot, SpotTag } from '../model/Spot';
-import { SelectedSpot, SpotPriority } from '../model/PlanParams';
+import { SelectedSpot, SpotPriority, PaceRule } from '../model/PlanParams';
 import { TripIntent, TripIntentParser } from '../utils/TripIntentParser';
 import { PlanAutoPick } from '../utils/PlanAutoPick';
 import { Geo, GeoPoint } from '../utils/Geo';
@@ -328,5 +328,8 @@ ok(PlanAutoPick.describe([], null, 1, 'standard').indexOf('没有可预选') >= 
 eq(PlanAutoPick.SINGLE_DAY_WINDOW_MIN, DayLoadCalc.WINDOW_MINUTES, '单日窗口与当日负载窗口同源');
 eq(PlanAutoPick.SINGLE_DAY_SIGHT_BUDGET_MIN,
   PlanAutoPick.SINGLE_DAY_WINDOW_MIN - 120, '景点预算 = 窗口 − 两餐');
+// 每天上限也只剩一处实现：屏2 预选与 mock 生成器不能再各写一份 3/4/6
+eq(PaceRule.dailyCap('relaxed'), PlanAutoPick.dailyCap('relaxed'), 'PaceRule 与预选转发同值');
+eq(PaceRule.dailyCap(''), 4, '空档/未知档按标准 4 兜底');
 
 console.log(`PASS ${cases}/${cases}`);

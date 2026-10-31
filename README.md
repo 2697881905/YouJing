@@ -70,7 +70,7 @@ tools/                十二把静态尺 + 离线断言脚本
 |---|---|---|
 | ArkTS 编译 | `hvigorw … assembleHap`（主 + `entry@ohosTest`） | 零 error，pre-commit 强制 |
 | 真机单测 | `hdc shell "aa test -b com.youjing.app -m entry_test -s unittest OpenHarmonyTestRunner -s timeout 300000"` | 187/187 |
-| 纯逻辑离线断言 | `bash tools/verify_map_city.sh` / `verify_trip_intent.sh` / `verify_trip_review.sh` / `verify_replan_logic.sh` / `verify_weather_logic.sh` | 66 / 102 / 57 / 74+26 / 102 全绿 |
+| 纯逻辑离线断言 | `bash tools/verify_map_city.sh` / `verify_trip_intent.sh` / `verify_trip_review.sh` / `verify_replan_logic.sh` / `verify_weather_logic.sh` | 66 / 104 / 57 / 74+26 / 102 全绿 |
 | 设计契约静态尺 | `python3 tools/audit_colors.py`（另有 type / geometry / material / fontfamily / tnum / elevation / button_width / scroll_actions / label_fit / a11y_name / layout_patterns） | 十二把尺 0 偏差 |
 | 真机对比度 | `python3 tools/audit_contrast.py <dump.json> <screenshot>` | 逐屏 0 低（浅/深两档） |
 
