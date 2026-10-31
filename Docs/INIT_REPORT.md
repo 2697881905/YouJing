@@ -4064,3 +4064,37 @@ Map Kit 地点检索真机探针（任意城市数据管线的 Stage 1），以�
 - 零 LLM；没有新建/修改/删除行程、打卡、费用、spot；MapKit 只读。
 - 边界：浅色探针未提交；登录/隐私同意/生成失败页未在浅色下走查；md/宽屏仍未验；
   试走查时曾发现设备在系统天气/锁屏页，按规矩未解锁、未点击，等设备空出后才继续。
+
+### §5ci 续 56：MapKit 开放时间回填到 sight 活动 note（端到端待复验）
+
+**做了什么**
+
+- `TripEnrich.backfillOpeningHours(trip, spots)`：只处理 `category=sight`，按现有
+  `matchSpot`（精确同名/包含）找景点；景点有 `openingHours` 时把 `开放 8:30–17:00`
+  追加到活动 `note`（已有同一时段不重复）。餐次/交通/酒店不写。
+- `LlmClient.generateTrip` 在地址回填后调用，日志增加「开放时间 N 条」；屏10 详情面板
+  本来就会显示活动 note，因此不需要新 UI/表结构。
+
+**验证**
+
+- hypium **179/179**（新增 `opening_hours_go_to_sight_note_once_only`：只写 sight、
+  已有 note 用 `·` 追加、二次回填不重复、food 不写）；主/测试 HAP 成功；
+  离线 `MAP_CITY_OK 66` / `TRIP_INTENT_OK 80` / `TRIP_REVIEW_OK 57` 保持；十二把尺 0。
+- **端到端没拿到**：先试「西安 1 天」真实生成，两次均失败——
+  第 1 次 `days[1].dayIndex=1 应为 2`（模型重复 dayIndex），第 2 次
+  `JSON 解析失败: Unexpected Object in JSON`；两次都在解析阶段，`backfillOpeningHours` 未执行。
+  随后改试 3 天，MapKit 检索返回 `1002600002 Failed to connect to the Map Kit server`，
+  识别入口直接失败，未走到 LLM。
+- **成本**：两次失败调用均为 Flash：
+  `in=1584(缓存384) out=1303` 与 `in=1584(缓存1408) out=1624`，半价约 **¥0.0066**；
+  没有成功生成、没有新建行程（trip 仍 11 条）。
+- 因此本轮只有纯逻辑/hypium 证据；屏10 显示 note 的槽位是既有能力（此前已验），
+  但「生成后 note 真的出现开放时间」没有真机画面。
+
+**边界**
+
+1. 1 天行程的 LLM 输出稳定性差（dayIndex 重复/JSON 非法），不是本轮 enrichment 引入；
+   需要单独排查提示词或解析容错。
+2. MapKit 连接 `1002600002` 是服务/网络层，恢复后可重跑 3 天路径补屏10 证据。
+3. 只有「各天一致开放时段」的 MapKit 景点会被写入；闭馆/午休/不一致仍无。
+4. 种子景点没有 openingHours，行为不变。

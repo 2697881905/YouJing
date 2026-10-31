@@ -21,7 +21,7 @@ import { Trip, TripDay, Activity, Meal, MealType, ActivityCategory, ActivityStat
 import { PlanParams, SelectedSpot, TripBasicInput, PaceOption } from '../model/PlanParams';
 import { Spot } from '../model/Spot';
 import { Area } from '../model/Area';
-import { backfillActivityPlaces } from '../utils/TripEnrich';
+import { backfillActivityPlaces, backfillOpeningHours } from '../utils/TripEnrich';
 import { ApiConfig } from '../common/config/ApiConfig';
 import { MockConfig } from '../common/config/MockConfig';
 import { Logger } from '../common/logger/Logger';
@@ -370,7 +370,9 @@ export class LlmClient {
         const trip: Trip = TripParser.parseTrip(raw);
         // 地址/坐标以景点库为准回填（提示词第 12 条要求模型留空，省输出 token 也免幻觉）
         const filled: number = backfillActivityPlaces(trip, spots);
-        Logger.info(TAG, `生成成功 attempt=${attempt + 1} days=${trip.days.length} 回填地址 ${filled} 条`);
+        const hours: number = backfillOpeningHours(trip, spots);
+        Logger.info(TAG, `生成成功 attempt=${attempt + 1} days=${trip.days.length} ` +
+          `回填地址 ${filled} 条、开放时间 ${hours} 条`);
         return trip;
       } catch (err) {
         lastErr = err as Error;

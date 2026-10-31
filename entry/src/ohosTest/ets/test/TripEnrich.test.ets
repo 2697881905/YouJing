@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, TestType, Size, Level } from '@ohos/hypium';
-import { backfillActivityPlaces } from '../../../main/ets/utils/TripEnrich';
+import { backfillActivityPlaces, backfillOpeningHours } from '../../../main/ets/utils/TripEnrich';
 import { Activity, ActivityCategory, IntensityLevel, Trip, TripDay } from '../../../main/ets/model/Trip';
 import { Spot } from '../../../main/ets/model/Spot';
 
@@ -56,6 +56,23 @@ export default function tripEnrichTest(): void {
         backfillActivityPlaces(t, spots);
         expect(t.days[0].activities[0].address).assertEqual('杨凌 杨陵区');
         expect(t.days[0].activities[0].longitude).assertEqual(108.072);
+      });
+
+    it('opening_hours_go_to_sight_note_once_only',
+      TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+        const withHours: Spot = spot('s2', '西安城墙', '西安', '碑林区', 108.94, 34.26);
+        withHours.openingHours = '8:00–22:00';
+        const sight: Activity = act('西安城墙', '', 0);
+        sight.note = '已预约';
+        const food: Activity = act('西安城墙', '', 0);
+        food.category = ActivityCategory.FOOD;
+        const t: Trip = tripOf([sight, food]);
+        expect(backfillOpeningHours(t, [withHours])).assertEqual(1);
+        expect(sight.note).assertEqual('已预约 · 开放 8:00–22:00');
+        expect(food.note === undefined).assertTrue();
+        // 二次回填不重复
+        expect(backfillOpeningHours(t, [withHours])).assertEqual(0);
+        expect(sight.note).assertEqual('已预约 · 开放 8:00–22:00');
       });
 
     it('name_with_suffix_still_matches', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {

@@ -10,7 +10,7 @@
  */
 
 import { Spot } from '../model/Spot';
-import { Activity, Trip } from '../model/Trip';
+import { Activity, ActivityCategory, Trip } from '../model/Trip';
 
 /** 名称归一：去掉空白与常见连接符，让「八达岭长城景区」能对上「八达岭长城」 */
 function normalize(name: string): string {
@@ -72,6 +72,33 @@ export function backfillActivityPlaces(trip: Trip, spots: Spot[]): number {
       if (act.address.length === 0 && city.length > 0) {
         act.address = city;
       }
+    }
+  }
+  return filled;
+}
+
+/**
+ * 把 MapKit 景点的「每日一致开放时段」写进对应 sight 活动的 note。
+ * 只处理 category=sight；餐次/交通/酒店不写。note 已有同一时段时不重复追加。
+ * 返回被写入的活动条数。
+ */
+export function backfillOpeningHours(trip: Trip, spots: Spot[]): number {
+  let filled: number = 0;
+  for (const day of trip.days) {
+    for (const act of day.activities) {
+      if (act.category !== ActivityCategory.SIGHT) {
+        continue;
+      }
+      const spot: Spot | undefined = matchSpot(act, spots);
+      if (spot === undefined || spot.openingHours === undefined || spot.openingHours.length === 0) {
+        continue;
+      }
+      if (act.note !== undefined && act.note.indexOf(spot.openingHours) >= 0) {
+        continue;
+      }
+      const hours: string = `开放 ${spot.openingHours}`;
+      act.note = act.note !== undefined && act.note.length > 0 ? `${act.note} · ${hours}` : hours;
+      filled += 1;
     }
   }
   return filled;
