@@ -262,7 +262,7 @@ export struct TripReviewPage {
       Text('有径 · 去过的地方都算数')
         .fontSize(TypeTokens.overline.size)
         .fontWeight(450)
-        .fontColor(ColorTokens.faint)
+        .fontColor(ColorTokens.muted)
         .margin({ top: SpaceTokens.md })
     }
     .width(fixedWidth ? 320 : '100%')
@@ -374,7 +374,7 @@ export struct TripReviewPage {
         Text(day.theme)
           .fontSize(TypeTokens.overline.size)
           .fontWeight(450)
-          .fontColor(ColorTokens.faint)
+          .fontColor(ColorTokens.muted)
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
@@ -426,7 +426,7 @@ export struct TripReviewPage {
     Text('这天没有打卡记录')
       .fontSize(TypeTokens.caption.size)
       .fontWeight(450)
-      .fontColor(ColorTokens.faint)
+      .fontColor(ColorTokens.muted)
       .width('100%')
       .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
   }
@@ -542,7 +542,7 @@ export struct TripReviewPage {
         Text('回顾在本机生成，不上传服务器、不含账号信息')
           .fontSize(TypeTokens.caption.size)
           .fontWeight(450)
-          .fontColor(ColorTokens.faint)
+          .fontColor(ColorTokens.muted)
           .width('100%')
           .textAlign(TextAlign.Center)
           .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })

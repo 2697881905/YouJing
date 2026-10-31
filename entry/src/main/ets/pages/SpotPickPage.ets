@@ -262,7 +262,8 @@ export struct SpotPickPage {
           .margin({ top: SpaceTokens.xs })
         if (sp.openingHours !== undefined && sp.openingHours.length > 0) {
           // 只展示各天一致的时段；不一致/闭馆/没有数据时这里不出现，统一以官方为准
-          Text(`开放 ${sp.openingHours} · 地图服务`)
+          Text(sp.openingHours === '全天开放' ? '全天开放 · 地图服务'
+            : `开放 ${sp.openingHours} · 地图服务`)
             .fontSize(TypeTokens.caption.size)
             .fontWeight(450)
             .fontColor(ColorTokens.body)

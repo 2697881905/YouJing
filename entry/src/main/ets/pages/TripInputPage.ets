@@ -487,7 +487,8 @@ export struct TripInputPage {
         })
       }
       .width('100%')
-      .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+      // 往下让出系统半模态关闭 ✕ 的高度，否则「使用」按钮会被 ✕ 压住/切掉右缘
+      .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.xl })
       Text('未内置城市会用地图服务检索；开放时间与预约以官方为准')
         .fontSize(TypeTokens.caption.size)
         .fontWeight(450)
