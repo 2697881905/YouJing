@@ -6,6 +6,58 @@
 
 ### Changed
 
+- 2026-11-01（§5ci 续 71–72）：**底部 dock 四格 → 五格**（地图 / 行程 / 规划 / 费用 / 我的）。
+  - 动因是分工对不上用户心智：历史行程列表 `TripsPage` 一直挂在**「我的」页签**上
+    （看自己的行程得点「我的」）；「规划」这个主功能在 dock 上没有位置；
+    地图跟的是"最后打开的那条"而不是"进行中的那条"。
+  - **四张表收成一处**：`DOCK_TABS`（label+symbol）从 `Index` 搬进 `common/constants/AppNav.ets`，
+    与 `TAB_*` 序号、`stackOfTab`、`tabOfRoute`、`stackOfRoute` 同文件。
+    之前分写两处，四格改五格要同步五处，**漏一处不崩、只静默错位**。
+    `MINE_NAV` 改名 `TRIPS_NAV`（它现在服务「行程」格，留着会指反义）。
+  - **深链改了机制**：`routeTo` 原来写 `if (tab === TAB_ITINERARY) push`，那是四栈时代
+    "只有 tab 0 的栈首帧就建好"的将就；重排后规划链在 2 号，照抄会把页面 push 进
+    还没绑 Navigation 的懒建栈（§4k ④ 实测过 routerMap 收到空名）。
+    改法是**初始页签提前到 `applyWant` 写**（`onCreate` 早于 `loadContent`，
+    `Index` 的 `@StorageLink wantTab` 初值才是目标页签），判据换成 `isTabRoot(name)`。
+    真机三条冷启逐一验通：`Itinerary`→屏8、`Badges`→我的勋章（这条最关键，要 push 进懒建栈）、
+    `TripInput`→屏2。
+  - **地图格改为只看在途行程**：新增 `utils/TripWindow.isActiveOn()` 把
+    `YoujingStartPage` 与 `TripsPage` 两处内联的 `today >= start && today <= end` 收成一处
+    （第三份马上要出现在地图页）；地图根页按它挑行程、自动停在**今天那一天**、
+    标题栏给「旅行中」入口到屏15；无在途行程出可点官方按钮的空态，不悄悄拿历史行程顶上。
+    `ACTIVE_TRIP_KEY` 收敛为"最后打开的那条"、**只服费用页**。
+    真机：丽江那条（10-31–11-02）在 11-01 进地图自动停在 Day 2（束河古镇 / 白沙古镇）。
+  - **新 `MinePage`（第五格）**：个人信息区 → 勋章卡（从标题栏菜单项升级成独立卡片）→
+    设置区（隐私政策 / 用户协议 / 关于，就地展开 `LegalDocReader`，不 push 路由）→ 退出登录。
+    真机读到真数据：脱敏 ID `AABKND***`、「已收 3 枚勋章」、「走过 1 座城市」。
+  - **头像留接缝不做同步**：页面不写死符号，改问 `data/ProfileStore.avatarOf(uid)` 要
+    `AvatarSpec`（`kind: 'symbol' | 'image'`）。本轮恒返回 symbol 占位，但 `image` 分支的
+    渲染代码这轮就在、只是永不命中 —— 将来接真头像只改返回值 + 加写入点，UI 一行不动。
+    为什么不能照搬「有据」：它的头像来自自己后端的 COS URL（`user.avatar`），
+    而有径 Account Kit 走 `authentication` 直取 `unionID`，
+    `LoginWithHuaweiIDCredential` 的字段里**没有昵称也没有头像**；
+    要拿得换 `scopes:['profile']`，那会弹系统授权框、破坏静默登录。
+  - **三条被核实推翻的直觉**：① 契约从没钉 dock 格数（`DESIGN.md` 只钉 `300×64` 几何，
+    而几何没变，所以**两份 DESIGN.md 都没动** —— 为一条契约本来不带的信息去改其中一份，
+    只会让两份"权威契约"互相漂移）；② 300vp 装 5 格不用加宽（真机实测格心间距
+    190px = 60.8vp，label 20.2vp 无截断）；③ `floatingDockClearance=112` 由 dock 高度决定、
+    **与格数无关**，17 个用它的屏一行没动。
+  - **原计划有两处站不住，当场改了**：Step 1「加第 5 格」与 Step 2「重排编号」分不开
+    （加完会有两格都叫「我的」，只改编号会把深链指错 tab，中间态必然坏），合并成一个原子步；
+    「`SharePage` 缺 `onReady`」是转述结论，读文件发现它**没有任何 push/pop/`pathStack`**，
+    返回全靠 `HdsNavDestination` 自带，没有东西可修。
+  - 三把尺各抓到一条写进新文件的真缺陷：serif 档 `title` 用在脱敏 ID 上却漏 `.fontFamily`
+    （改 sans 的 `headline`，契约里 serif 只给编辑性标题）、`Column({ space: 2 })` 不在
+    4vp 基线网格上、「退出登录」同屏三份。另自引入一个重复 `@Builder`，
+    hvigor 报错**但退出码仍 SUCCESS**（同续 68 那条坑）。
+  - 闸门：十二把尺 0 偏差；双 HAP BUILD SUCCESSFUL；真机 hypium **191/191**
+    （`NavStackRouting` 4 例 → 7 例，新增「五个序号互不相同且铺满 0..4」与
+    `stackOfTab(tabOfRoute(n)) === stackOfRoute(n)` 不变量 —— 后者是重编号错位的唯一程序化闸门）。
+    零 LLM、未动任何行程/打卡数据。
+  - **本批未做**：Step 3「规划格摘掉最近行程」刻意推后 —— 那等于重做 App 第一屏，
+    和导航重构混在一起出问题时归不了因，要单独一轮带前后对比拍；
+    新「我的」页与第 5 格的对比度两档复拍未做。
+
 - 2026-10-31 一轮（§5ci 续 61–66）：行前链路的口径收口 + 失败出口首次真机验完。
   - **住宿区排序收成一个函数**：屏5 列表和「帮我选」原先各排一次，丽江实测出预选跑到
     玉龙纳西族自治县、列表首行却是古城区。现在两处共用 `PlanAutoPick.rankAreas`

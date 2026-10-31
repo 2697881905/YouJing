@@ -4684,3 +4684,39 @@ Map Kit 地点检索真机探针（任意城市数据管线的 Stage 1），以�
 - **本批未做（继续推进中）**：Step 3 规划 tab 瘦身（`YoujingStartPage:357-438` 的最近行程块
   与「行程」格现在重复展示）、Step 4 地图改吃"进行中行程"（`utils/TripWindow.isActiveOn`
   收掉 `YoujingStartPage:86` 与 `TripsPage:82` 两处内联谓词）、DESIGN.md 补格数、README 计数。
+
+### §5ci 续 72：地图格改吃「在途行程」，`DESIGN.md` 一份都没动
+
+- 新增 `utils/TripWindow.isActiveOn(start, end, today)`，把 `YoujingStartPage:93`
+  与 `TripsPage:88` 两处内联的 `today >= start && today <= end` 收成一处 ——
+  地图格要吃"进行中"就是第三份要出现的时候，先收再写。
+  注释里搬过来一条重要口径：**不能用 `spanDays` 的差值判在途**，它含首尾且下限为 1，
+  会把还没出发的未来行程算成旅行中（`TripsPage` 原注释记的）。
+- `MapPage` 根页不再读 `activeTripId()`：那个键的语义是"最后打开的那条"，
+  点开一条历史行程去编辑、切回地图就跟着变成那条历史行程 —— 而这一格承诺的是
+  "看我现在走到哪"。`ACTIVE_TRIP_KEY` 现在**只服费用页**（记账跟着刚看的那条走才对）。
+  改成 `resolveAndReload()`：`listSummaries` → 取首条 `isActiveOn` → 展示；
+  一条都没有就出空态。push 形态（带 tripId）不受影响。
+- 两个新状态位而不是复用 `loaded`：`noOnTrip`（今天没有在途）与 `onTripShown`
+  （当前展示的就是在途那条，决定标题栏给不给「旅行中」入口）。
+  "没有在途"和"还没加载完"不是一回事，共用一个标志位会让空态在加载瞬间闪出来。
+- 自动停在**今天那一天**而不是「全程」：`applySel` 前先在 `trip.days` 里找 `date === today`。
+  19 个落点缩在一张全程视图里反而看不清，而开地图的问题通常是"我现在在哪一段"。
+- 空态用官方 `Button` 而不是 `Text.onClick` —— 后者会被第 8 把尺 R4 判成自绘按钮。
+  落点 `enterPlanningFlow('TripInput')`（它会 `requestTab(TAB_PLAN)` 再 push，跨页签一条路）。
+- **`DESIGN.md` 两份都没改**（计划里原写"补一句格数"）。核实过才发现
+  `Docs/design-v1/DESIGN.md` 与 `~/Pictures/有径/有径-设计底稿-v1/docs/DESIGN.md` 是
+  **同一份文件的两个副本（md5 一致）**，而 `audit_colors.py` 读的是 `~/Pictures` 那份 ——
+  后者是用户的设计定稿、不可为过闸而改。契约里 dock 只钉几何
+  （`floating-dock-width 300px`、`300×64`、`tab_item_width 58`、`nav-label` 10/400），
+  **从没钉格数**，而这次几何一个都没变。为一条契约本来不带的信息去改其中一份副本，
+  只会让两份"权威契约"互相漂移 —— 正是本晚一直在消的那类缺陷（两处各写 600、两份 3/4/6）。
+  计划里那条"同步 DESIGN.md 格数"因此作废。
+- 真机取证（11-01，丽江那条 10-31–11-02 仍在区间内）：进「地图」格标题
+  `丽江 · 3天2晚`，站点条是 `束河古镇 09:00–10:30` / `白沙古镇与午餐 11:30–13:00`
+  —— 不是 Day 1 的入住办理与丽江古城，说明自动选到了 Day 2。
+- 闸门：十二把尺 0 偏差；双 HAP BUILD SUCCESSFUL；真机 hypium **191/191**。零 LLM、未动数据。
+- **Step 3 刻意推后**：规划格摘「最近行程」等于重做 App 第一屏，
+  和导航重构混在一起出问题时归不了因；单独一轮带前后对比拍再做。
+  另外 `recent` 那个状态现在还兼着"本机有没有行程"的判据（`:296` 的预览卡分支），
+  摘列表不能顺手删状态，得先想清楚空态判据换用什么。

@@ -6,10 +6,12 @@
  * 底图铺满、浮层透明穿透（hitTestBehavior Transparent），不遮地图手势。
  */
 
-import { MAP_NAV, TAB_SHOWN_KEY, isTabShownTick, activeTripId, TAB_MAP } from '../common/constants/AppNav';
+import { MAP_NAV, TAB_SHOWN_KEY, isTabShownTick, enterPlanningFlow, TAB_MAP } from '../common/constants/AppNav';
 import { TripDao, TripSummary } from '../data/TripDao';
 import { Trip, TripDay } from '../model/Trip';
 import { MapStop, MapStops } from '../utils/MapStops';
+import { TripWindow } from '../utils/TripWindow';
+import { DateUtils } from '../utils/DateUtils';
 import { TripMapView } from '../components/TripMapView';
 import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
@@ -43,12 +45,10 @@ export struct MapPage {
     if (!isTabShownTick(this.dockTick, TAB_MAP)) {
       return;
     }
-    // 根页的行程上下文跟着「最后打开的那条」走（见 AppNav.activeTripId）
-    const active: string = activeTripId();
-    if (this.rootMode && active.length > 0 && active !== this.tripId) {
-      this.tripId = active;
-    }
-    this.reload();
+    // 切回这一格时重新判一次在途行程：可能刚出发、也可能刚结束
+    this.tripId = '';
+    this.noOnTrip = false;
+    this.resolveAndReload();
   }
   @Prop tripId: string = '';
   @StorageProp('isDarkMode') isDark: boolean = false;
@@ -60,6 +60,10 @@ export struct MapPage {
   @State private request: string = '';
   @State private titleText: string = '地图';
   @State private loaded: boolean = false;
+  /** 根页模式下的判定结果：本机没有在途行程（与"还没加载完"不是一回事，不能共用 loaded） */
+  @State private noOnTrip: boolean = false;
+  /** 当前展示的就是这趟在途行程 —— 决定标题栏要不要给「旅行中」入口 */
+  @State private onTripShown: boolean = false;
   private seq: number = 0;
   /** 站点条滚动器：点地图气泡时把对应站点卡带回视野（切片1 A） */
   private stripScroller: Scroller = new Scroller();
@@ -72,7 +76,44 @@ export struct MapPage {
    * onShown 保留给「从编辑页/屏8 返回要吃到回写数据」这一路。
    */
   aboutToAppear(): void {
-    this.reload();
+    this.resolveAndReload();
+  }
+
+  /**
+   * 根页（dock「地图」格）挑哪条行程：**只看今天落在日期区间内的那条**。
+   *
+   * 原来这里读 `activeTripId()`（"最后打开的那条"）：点开一条历史行程去编辑，
+   * 切回地图就跟着变成那条历史行程了 —— 而这一格的职责是"看我现在走到哪"。
+   * `ACTIVE_TRIP_KEY` 现在只服费用页（记账跟着刚看的那条走才对）。
+   * push 形态（带 tripId 参数）不受影响，照旧显示传进来的那条。
+   */
+  private resolveAndReload(): void {
+    if (!this.rootMode || this.tripId.length > 0) {
+      this.reload();
+      return;
+    }
+    const ctx: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    TripDao.listSummaries(ctx).then((rows: TripSummary[]): void => {
+      const today: string = DateUtils.todayIso();
+      for (const r of rows) {
+        if (TripWindow.isActiveOn(r.startDate, r.endDate, today)) {
+          this.noOnTrip = false;
+          this.onTripShown = true;
+          this.tripId = r.id;
+          this.reload();
+          return;
+        }
+      }
+      // 没有在途行程：给一张空底图 + 一条能点的出路，不悄悄拿历史行程顶上
+      this.onTripShown = false;
+      this.noOnTrip = true;
+      this.loaded = true;
+      Logger.info('Ui.MapPage', '本机没有在途行程，地图页出引导空态');
+    }).catch((err: Error): void => {
+      this.noOnTrip = true;
+      this.loaded = true;
+      Logger.warn('Ui.MapPage', `取在途行程失败: ${err.message}`);
+    });
   }
 
   /** 编辑页/屏8 返回后要吃到回写的库数据，统一挂 onShown（首帧也会触发） */
@@ -82,6 +123,13 @@ export struct MapPage {
       $r('sys.symbol.arrow_2_circlepath'), '全览', (): void => {
         this.fitAll();
       })];
+    if (this.onTripShown && this.tripId.length > 0) {
+      // 到站检测、打卡、欠站、天气建议都在屏15，地图只做空间呈现——
+      // 但既然这一格承诺"看进行中的行程"，就得有一条路走到那屏，不能只给看
+      items.push(HdsChrome.item($r('sys.symbol.map_badge_local'), '旅行中', (): void => {
+        this.pathStack.pushPath({ name: 'OnTrip', param: this.tripId });
+      }));
+    }
     const sub: string = this.stops.length > 0 ? `${this.stops.length} 站` : '';
     return HdsChrome.bar({ mainTitle: this.titleText, subTitle: sub, menu: items });
   }
@@ -116,7 +164,19 @@ export struct MapPage {
       this.days = trip.days;
       const nights: number = trip.days.length - 1;
       this.titleText = `${trip.destination} · ${trip.days.length}天${nights}晚`;
-      this.applySel(this.daySel);
+      // 在途行程默认停在"今天那一天"而不是全程：用户开地图要的是我现在在哪一段，
+      // 全程视图 19 个落点缩在一起反而看不清
+      let sel: number = this.daySel;
+      if (this.rootMode && this.onTripShown) {
+        const today: string = DateUtils.todayIso();
+        for (let i = 0; i < trip.days.length; i++) {
+          if (trip.days[i].date === today) {
+            sel = i;
+            break;
+          }
+        }
+      }
+      this.applySel(sel);
     }).catch((err: Error) => {
       this.loaded = true;
       Logger.error('Ui.MapPage', `加载行程失败: ${err.message}`);
@@ -289,13 +349,31 @@ export struct MapPage {
             .border({ width: LayoutTokens.hairlineWidth, color: ColorTokens.borderSubtle })
             .shadow(this.isDark ? { radius: 0 } : ShadowTokens.floating)
           } else if (this.loaded) {
-            Text(this.tripId.length === 0 ? '先从「我的行程」选一条行程' : '这条行程里没有可显示的坐标')
-              .fontSize(TypeTokens.caption.size)
-              .fontColor(ColorTokens.muted)
+            if (this.rootMode && this.noOnTrip) {
+              // 「今天没有在途行程」是状态不是错误，说清并给一条出路；
+              // 裸 Text 挂 onClick 会被第 8 把尺 R4 判成自绘按钮，这里用官方 Button
+              Button({ type: ButtonType.Normal, stateEffect: true }) {
+                Text('今天没有在途行程 · 去规划一趟')
+                  .fontSize(TypeTokens.caption.size)
+                  .fontWeight(600)
+                  .fontColor(ColorTokens.primary)
+              }
               .height(36)
               .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
-              .borderRadius(RadiusTokens.pill)
               .backgroundColor(ColorTokens.surfaceElevated)
+              .borderRadius(RadiusTokens.pill)
+              .onClick((): void => {
+                enterPlanningFlow('TripInput');
+              })
+            } else {
+              Text(this.tripId.length === 0 ? '先从「行程」页签选一条行程' : '这条行程里没有可显示的坐标')
+                .fontSize(TypeTokens.caption.size)
+                .fontColor(ColorTokens.muted)
+                .height(36)
+                .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+                .borderRadius(RadiusTokens.pill)
+                .backgroundColor(ColorTokens.surfaceElevated)
+            }
           }
 
         }

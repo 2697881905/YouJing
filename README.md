@@ -20,7 +20,7 @@
 - 数据：`@kit.ArkData` RDB（当前 `DB_VERSION = 9`，带级联清理与版本迁移）、`preferences` 存账号/同意态。
 - 能力：Account Kit（华为账号，仅用于本机区分使用者）、Map Kit（地点检索 / 逆地理）、Calendar Kit、ShareKit、桌面卡片 FormKit、小艺 Skill。
 - 生成：`ai/` 三层防线——提示词内嵌 Schema → `response_format` → `TripParser` 逐字段守卫；Schema、接口、守卫同源（`ai/TripSchema.ets`）。
-- 测试：hypium（真机 187 例）+ 纯逻辑离线断言 + 十二把静态尺。
+- 测试：hypium（真机 191 例）+ 纯逻辑离线断言 + 十二把静态尺。
 
 ## 仓库结构
 
@@ -69,7 +69,7 @@ tools/                十二把静态尺 + 离线断言脚本
 | 闸门 | 命令 | 当前状态 |
 |---|---|---|
 | ArkTS 编译 | `hvigorw … assembleHap`（主 + `entry@ohosTest`） | 零 error，pre-commit 强制 |
-| 真机单测 | `hdc shell "aa test -b com.youjing.app -m entry_test -s unittest OpenHarmonyTestRunner -s timeout 300000"` | 187/187 |
+| 真机单测 | `hdc shell "aa test -b com.youjing.app -m entry_test -s unittest OpenHarmonyTestRunner -s timeout 300000"` | 191/191 |
 | 纯逻辑离线断言 | `bash tools/verify_map_city.sh` / `verify_trip_intent.sh` / `verify_trip_review.sh` / `verify_replan_logic.sh` / `verify_weather_logic.sh` | 66 / 104 / 57 / 74+26 / 116 全绿 |
 | 设计契约静态尺 | `python3 tools/audit_colors.py`（另有 type / geometry / material / fontfamily / tnum / elevation / button_width / scroll_actions / label_fit / a11y_name / layout_patterns） | 十二把尺 0 偏差 |
 | 真机对比度 | `python3 tools/audit_contrast.py <dump.json> <screenshot>` | 逐屏 0 低（浅/深两档） |
