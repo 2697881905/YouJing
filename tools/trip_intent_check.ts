@@ -228,6 +228,42 @@ eq(cqSingle.length, 2, '重庆 1 天：跳过远郊首站后留下 2 个同城�
 eq(cqSingle[0].spotId, 'cq2', '远郊首站被跳过，同城最高优先级排第一');
 ok(cqSingle.find((s: SelectedSpot): boolean => s.spotId === 'cq1') === undefined,
   '装不下的大足石刻不占单日名额');
+
+// 候选池放宽到 2 倍（标准档 8 个）：远郊站占位不再把同城站挤光
+function spotDur(id: string, popularity: number, minutes: number, lat: number, lng: number): Spot {
+  const s: Spot = spot(id, popularity, [], lat, lng);
+  s.suggestedDuration = minutes;
+  return s;
+}
+const cqPoolSpots: Spot[] = [
+  spotDur('p1', 100, 120, 29.70, 105.72),
+  spotDur('p2', 95, 120, 29.562, 106.578),
+  spotDur('p3', 90, 120, 29.58, 106.45),
+  spotDur('p4', 85, 120, 30.30, 105.90),
+  spotDur('p5', 80, 120, 29.553, 106.583),
+  spotDur('p6', 75, 120, 29.565, 106.535),
+  spotDur('p7', 70, 120, 29.540, 106.600),
+  spotDur('p8', 65, 120, 29.40, 107.76)
+];
+eq(PlanAutoPick.singleDayCandidates(cqPoolSpots, 'standard', []).length, 8,
+  '标准档单日候选池取 8 个（上限 4 的 2 倍）');
+const cqPool: SelectedSpot[] = PlanAutoPick.pickSpotsForSingleDay(
+  cqPoolSpots, 'standard', [], cqHome);
+eq(cqPool.map((s: SelectedSpot): string => s.spotId).join('/'), 'p2/p3/p5',
+  '候选池放宽后同城三站补进来（旧池只有 4 个候选时只剩 2 站）');
+ok(cqPool.length <= PlanAutoPick.dailyCap('standard'),
+  `挑中的站数不超过节奏档上限（实际 ${cqPool.length}）`);
+ok(cqPool.find((s: SelectedSpot): boolean => s.spotId === 'p1' || s.spotId === 'p4'
+  || s.spotId === 'p8') === undefined, '两个远郊站与武隆都不进单日');
+// 预算装得下更多时，也不替用户改节奏
+const denseSpots: Spot[] = [];
+for (let i = 1; i <= 8; i++) {
+  denseSpots.push(spotDur(`d${i}`, 100 - i, 30, 29.56 + i * 0.001, 106.55 + i * 0.001));
+}
+eq(PlanAutoPick.pickSpotsForSingleDay(denseSpots, 'standard', [], cqHome).length, 4,
+  '标准档 4 站封顶，池子放宽不等于加站');
+eq(PlanAutoPick.pickSpotsForSingleDay(denseSpots, 'relaxed', [], cqHome).length, 3,
+  '轻松档仍按 3 站封顶');
 eq(PlanAutoPick.pickSpotsForSingleDay([], 'standard', [], home).length, 0, '单日无景点返回空');
 ok(PlanAutoPick.describe(nearSingle, home, 1, 'standard')
   .indexOf('按单日 10 小时窗口预选 3 个景点') >= 0, '单日预览说明窗口与站数');

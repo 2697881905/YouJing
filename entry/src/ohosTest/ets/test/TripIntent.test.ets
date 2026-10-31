@@ -24,6 +24,12 @@ function spot(id: string, popularity: number, tags: SpotTag[], lat: number, lng:
   return s;
 }
 
+function spotDur(id: string, popularity: number, minutes: number, lat: number, lng: number): Spot {
+  const s: Spot = spot(id, popularity, [], lat, lng);
+  s.suggestedDuration = minutes;
+  return s;
+}
+
 function area(id: string, tier: AreaPriceTier, lat: number, lng: number): Area {
   const a: Area = {
     id: id, name: id, city: '测试', longitude: lng, latitude: lat, description: '',
@@ -182,6 +188,26 @@ export default function tripIntentTest(): void {
         expect(cq.length).assertEqual(2);
         expect(cq[0].spotId).assertEqual('cq2');
         expect(cq.find((s: SelectedSpot): boolean => s.spotId === 'cq1') === undefined).assertTrue();
+        // 池子只有 4 个候选时，远郊站一占位就只剩 2 站；放宽到 8 个才补得出 3 个同城站
+        const cqPool: Spot[] = [
+          spotDur('p1', 100, 120, 29.70, 105.72), spotDur('p2', 95, 120, 29.562, 106.578),
+          spotDur('p3', 90, 120, 29.58, 106.45), spotDur('p4', 85, 120, 30.30, 105.90),
+          spotDur('p5', 80, 120, 29.553, 106.583), spotDur('p6', 75, 120, 29.565, 106.535),
+          spotDur('p7', 70, 120, 29.540, 106.600), spotDur('p8', 65, 120, 29.40, 107.76)
+        ];
+        expect(PlanAutoPick.singleDayCandidates(cqPool, 'standard', []).length).assertEqual(8);
+        const picked: SelectedSpot[] = PlanAutoPick.pickSpotsForSingleDay(
+          cqPool, 'standard', [], cqHome);
+        expect(picked.map((s: SelectedSpot): string => s.spotId).join('/')).assertEqual('p2/p3/p5');
+        // 预算装得下更多时也不替用户改节奏
+        const dense: Spot[] = [];
+        for (let i = 1; i <= 8; i++) {
+          dense.push(spotDur(`d${i}`, 100 - i, 30, 29.56 + i * 0.001, 106.55 + i * 0.001));
+        }
+        expect(PlanAutoPick.pickSpotsForSingleDay(dense, 'standard', [], cqHome).length)
+          .assertEqual(4);
+        expect(PlanAutoPick.pickSpotsForSingleDay(dense, 'relaxed', [], cqHome).length)
+          .assertEqual(3);
         expect(PlanAutoPick.describe(near, home, 1, 'standard')
           .indexOf('按单日 10 小时窗口预选 3 个景点') >= 0).assertTrue();
       });

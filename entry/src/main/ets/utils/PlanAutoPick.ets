@@ -33,6 +33,8 @@ export class PlanAutoPick {
   static readonly SINGLE_DAY_WINDOW_MIN: number = 600;
   /** 600min 窗口 − 120min 两餐，留给景点停留 + 往返通勤 */
   static readonly SINGLE_DAY_SIGHT_BUDGET_MIN: number = 480;
+  /** 单日候选池下限：一个远郊站就可能白占一个名额，池子要比上限宽 */
+  static readonly SINGLE_DAY_POOL_MIN: number = 8;
 
   /**
    * 选 N = 天数 × 每日上限 个景点：命中所选标签的按热度优先排前面，
@@ -50,18 +52,20 @@ export class PlanAutoPick {
   }
 
   /**
-   * 单日预选：先按节奏上限取候选，再以住宿区为起点估算「停留 + 往返通勤」，
-   * 按优先级逐个试装——**装不下就跳过这一站继续看下一站**，全装不下时才保留首站。
+   * 单日预选：从比上限更宽的候选池里，以住宿区为起点按「停留 + 往返通勤」预算
+   * 逐个试装——**装不下就跳过这一站继续看下一站**，装够节奏档上限就停；
+   * 全装不下时才保留首站。
    *
-   * 不能从尾部砍：重庆 1 天实测（2026-10-31）首候选是大足石刻（离渝中区约 120km，
-   * 单站吃掉 490min），从尾部砍会把洪崖洞/磁器口这些同城景点全砍光，只剩一个远郊站。
-   * 一天的行程该是一个片区，不是「全国最出名的那个 POI 在哪就去哪」。
+   * 两件事都是真机逼出来的（重庆 1 天，2026-10-31）：
+   * · 不能从尾部砍——首候选是大足石刻（离渝中区约 120km，单站吃掉 490min），
+   *   从尾部砍会把洪崖洞/磁器口这些同城景点全砍光，只剩一个远郊站；
+   * · 池子不能只取上限——池子只有 4 个候选时，远郊站一占位就只剩 2 站；
+   *   放宽到 8 个才排得出更多同城站。挑中的站数仍不超过节奏档，不替用户改节奏。
    */
   static pickSpotsForSingleDay(spots: Spot[], pace: string, tags: string[],
     area: Area | null): SelectedSpot[] {
     const cap: number = PlanAutoPick.dailyCap(pace);
-    const ordered: Spot[] = PlanAutoPick.orderedCandidates(spots, tags)
-      .slice(0, Math.min(spots.length, cap));
+    const ordered: Spot[] = PlanAutoPick.singleDayCandidates(spots, pace, tags);
     if (ordered.length <= 1) {
       return PlanAutoPick.toSelected(ordered, 1);
     }
@@ -69,6 +73,9 @@ export class PlanAutoPick {
       ? { latitude: area.latitude, longitude: area.longitude } : null;
     const kept: Spot[] = [];
     for (const c of ordered) {
+      if (kept.length >= cap) {
+        break;
+      }
       const trial: Spot[] = kept.concat([c]);
       if (PlanAutoPick.routeMinutes(trial, origin) <= PlanAutoPick.SINGLE_DAY_SIGHT_BUDGET_MIN) {
         kept.push(c);
@@ -194,10 +201,14 @@ export class PlanAutoPick {
     return PlanAutoPick.routeMinutes(ordered, origin);
   }
 
-  /** 单日收口的候选清单（未截断），供调用方打「丢了几站、为什么」的轨迹日志 */
+  /**
+   * 单日候选池：`max(8, 2×节奏上限)` 个，按优先级排好。
+   * 既是要装的名的 2 倍，也是给调用方打「丢了几站、为什么」轨迹日志的同一份清单。
+   */
   static singleDayCandidates(spots: Spot[], pace: string, tags: string[]): Spot[] {
-    return PlanAutoPick.orderedCandidates(spots, tags)
-      .slice(0, Math.min(spots.length, PlanAutoPick.dailyCap(pace)));
+    const pool: number = Math.max(PlanAutoPick.SINGLE_DAY_POOL_MIN,
+      PlanAutoPick.dailyCap(pace) * 2);
+    return PlanAutoPick.orderedCandidates(spots, tags).slice(0, Math.min(spots.length, pool));
   }
 
   private static routeMinutes(ordered: Spot[], origin: GeoPoint | null): number {
