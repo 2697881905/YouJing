@@ -9,7 +9,7 @@ import { Spot, SpotTag } from '../model/Spot';
 import { SelectedSpot, SpotPriority } from '../model/PlanParams';
 import { TripIntent, TripIntentParser } from '../utils/TripIntentParser';
 import { PlanAutoPick } from '../utils/PlanAutoPick';
-import { GeoPoint } from '../utils/Geo';
+import { Geo, GeoPoint } from '../utils/Geo';
 
 let cases = 0;
 
@@ -210,6 +210,34 @@ eq(farSingle[0].spotId, 'f1', '高优先级远郊首站保留');
 eq(PlanAutoPick.pickSpotsForSingleDay([], 'standard', [], home).length, 0, '单日无景点返回空');
 ok(PlanAutoPick.describe(nearSingle, home, 1, 'standard')
   .indexOf('按单日 10 小时窗口预选 3 个景点') >= 0, '单日预览说明窗口与站数');
+
+// ---------- 住宿区：多数景点投票，平票按列表顺序 ----------
+
+// 丽江真机形态：古城区 467 店排列表第一、玉龙纳西族自治县 139 店排第二，
+// 但玉龙县那颗卫星景点会把「平均距离」拉向县城
+const ljAreas: Area[] = [
+  area('古城区', AreaPriceTier.COMFORT, 26.87, 100.23),
+  area('玉龙纳西族自治县', AreaPriceTier.COMFORT, 27.12, 100.24)
+];
+const ljTargets: GeoPoint[] = [
+  { latitude: 26.98, longitude: 100.23 },
+  { latitude: 26.76, longitude: 100.23 },
+  { latitude: 27.122, longitude: 100.245 },
+  { latitude: 27.135, longitude: 100.26 }
+];
+ok(Geo.meanDistanceKm({ latitude: 27.12, longitude: 100.24 }, ljTargets) <
+  Geo.meanDistanceKm({ latitude: 26.87, longitude: 100.23 }, ljTargets),
+  '丽江这组点位的平均距离确实偏向玉龙县（旧口径会选错）');
+const tie: Area | null = PlanAutoPick.nearestArea(ljAreas, ljTargets);
+ok(tie !== null && tie.name === '古城区', '2/2 平票按列表顺序（酒店供给）取古城区');
+const majority: GeoPoint[] = [
+  { latitude: 27.122, longitude: 100.245 },
+  { latitude: 27.135, longitude: 100.26 },
+  { latitude: 27.11, longitude: 100.24 },
+  { latitude: 26.87, longitude: 100.23 }
+];
+const voted: Area | null = PlanAutoPick.nearestArea(ljAreas, majority);
+ok(voted !== null && voted.name === '玉龙纳西族自治县', '多数景点在玉龙县时仍按多数选玉龙县');
 
 // ---------- 自动住宿区 ----------
 

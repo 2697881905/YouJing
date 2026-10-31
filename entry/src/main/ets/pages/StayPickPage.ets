@@ -142,8 +142,8 @@ export struct StayPickPage {
   }
 
   /**
-   * 底稿屏5 的「帮我选（按通勤最短）」：本项目没有路径规划，能算的最近似是与所选景点的
-   * 平均直线距离，所以按钮文案按这个口径写，不谎报成导航里程。
+   * 底稿屏5 的「帮我选（按通勤最短）」：本项目没有路径规划，规则改成「最多已选景点
+   * 离哪片最近」，toast 里报的是该片到所选景点的平均直线距离，不谎报成导航里程。
    */
   private autoPickArea(): void {
     if (this.picks.length === 0) {
@@ -176,7 +176,7 @@ export struct StayPickPage {
         area: a,
         badgeLabel: rank === 0 ? '精选 1' : '地图区县',
         aiRank: rank + 1,
-        reason: '按到所选景点的平均直线距离推荐；住宿档与通勤未校准'
+        reason: '按酒店供给多少排序；住宿档与通勤未校准'
       };
       return mapPick;
     }

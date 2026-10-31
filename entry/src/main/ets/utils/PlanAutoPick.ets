@@ -3,7 +3,8 @@
  *
  * 自动选点不是新规则：名额与屏3b 的节奏档一一对应（轻松3/标准4/紧凑6），
  * 排序退回屏4 的默认口径（热度降序），兴趣标签只做前置加权；
- * 住宿区退回屏5「帮我选」的平均直线距离口径。这样「直接生成」得到的行程
+ * 住宿区与屏5「帮我选」共用同一条最近区规则（多数景点投票，平票按列表顺序）。
+ * 这样「直接生成」得到的行程
  * 与用户手工走完四屏选出来的是同一套规则，不会出现第二条暗规则。
  */
 
@@ -64,7 +65,7 @@ export class PlanAutoPick {
   }
 
   /**
-   * 按价格档位收候选，再取到景点平均直线距离最近的一片。
+   * 按价格档位收候选，再取「最多已选景点离它最近」的一片（平票按列表顺序）。
    * 档位无候选时退回全量（不因为「舒适」没铺满而让用户无区可选）；
    * 片区或景点都缺坐标时退回候选首位，保持种子库顺序。
    */
@@ -84,7 +85,14 @@ export class PlanAutoPick {
     return nearest !== null ? nearest : candidates[0];
   }
 
-  /** 候选里到 targets 平均距离最近的一片；无可算候选返回 null */
+  /**
+   * 候选里「最多已选景点离它最近」的一片；平票按传入顺序——屏5 的候选顺序
+   * 本身就是酒店供给降序，所以平票等于「让更适合住的一片赢」。无可算候选返回 null。
+   *
+   * 不用平均距离当主键：丽江实测已选景点古城区 2 / 玉龙纳西族自治县 2，
+   * 平均距离被玉龙雪山那颗卫星点拖到玉龙县，而屏5 列表把古城区排在第一
+   * （467 家酒店 vs 139 家）——预选与列表自相矛盾，用户看到的是「首屏推荐我住县城」。
+   */
   static nearestArea(areas: Area[], targets: GeoPoint[]): Area | null {
     if (areas.length === 0) {
       return null;
@@ -101,8 +109,31 @@ export class PlanAutoPick {
     if (targets.length === 0 || usable.length === 0) {
       return null;
     }
-    const at: number = Geo.argminMean(points, targets);
-    return at < 0 ? null : usable[at];
+    const votes: number[] = [];
+    for (let i = 0; i < usable.length; i++) {
+      votes.push(0);
+    }
+    for (const t of targets) {
+      let best: number = -1;
+      let bestKm: number = Number.MAX_VALUE;
+      for (let i = 0; i < points.length; i++) {
+        const km: number = Geo.distanceKm(points[i], t);
+        if (km < bestKm) {
+          bestKm = km;
+          best = i;
+        }
+      }
+      if (best >= 0) {
+        votes[best] += 1;
+      }
+    }
+    let winner: number = 0;
+    for (let i = 1; i < usable.length; i++) {
+      if (votes[i] > votes[winner]) {
+        winner = i;
+      }
+    }
+    return usable[winner];
   }
 
   /** 预选结果的一句理由；空结果也要说明为什么空 */

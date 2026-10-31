@@ -9,7 +9,7 @@ import { PlanAutoPick } from '../../../main/ets/utils/PlanAutoPick';
 import { Spot, SpotTag } from '../../../main/ets/model/Spot';
 import { Area, AreaGroup, AreaPriceTier } from '../../../main/ets/model/Area';
 import { SelectedSpot, SpotPriority } from '../../../main/ets/model/PlanParams';
-import { GeoPoint } from '../../../main/ets/utils/Geo';
+import { Geo, GeoPoint } from '../../../main/ets/utils/Geo';
 
 const TODAY: string = '2026-10-30'; // 周五
 
@@ -164,6 +164,34 @@ export default function tripIntentTest(): void {
         expect(PlanAutoPick.pickSpotsForSingleDay([], 'standard', [], home).length).assertEqual(0);
         expect(PlanAutoPick.describe(near, home, 1, 'standard')
           .indexOf('按单日 10 小时窗口预选 3 个景点') >= 0).assertTrue();
+      });
+
+    it('auto_pick_area_votes_by_majority_then_list_order',
+      TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+        // 丽江真机形态：古城区（列表第一，酒店供给最高）与玉龙县 2/2 平票，
+        // 但玉龙雪山那颗卫星点会把「平均距离」拉向县城——预选不该和屏5 列表打架
+        const ljAreas: Area[] = [
+          area('古城区', AreaPriceTier.COMFORT, 26.87, 100.23),
+          area('玉龙纳西族自治县', AreaPriceTier.COMFORT, 27.12, 100.24)
+        ];
+        const ljTargets: GeoPoint[] = [
+          { latitude: 26.98, longitude: 100.23 },
+          { latitude: 26.76, longitude: 100.23 },
+          { latitude: 27.122, longitude: 100.245 },
+          { latitude: 27.135, longitude: 100.26 }
+        ];
+        expect(Geo.meanDistanceKm({ latitude: 27.12, longitude: 100.24 }, ljTargets) <
+          Geo.meanDistanceKm({ latitude: 26.87, longitude: 100.23 }, ljTargets)).assertTrue();
+        const tie: Area | null = PlanAutoPick.nearestArea(ljAreas, ljTargets);
+        expect(tie !== null && tie.name === '古城区').assertTrue();
+        const majority: GeoPoint[] = [
+          { latitude: 27.122, longitude: 100.245 },
+          { latitude: 27.135, longitude: 100.26 },
+          { latitude: 27.11, longitude: 100.24 },
+          { latitude: 26.87, longitude: 100.23 }
+        ];
+        const voted: Area | null = PlanAutoPick.nearestArea(ljAreas, majority);
+        expect(voted !== null && voted.name === '玉龙纳西族自治县').assertTrue();
       });
 
     it('auto_pick_area_by_tier_and_distance', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
