@@ -3,7 +3,7 @@ import { window } from '@kit.ArkUI';
 import { resourceManager } from '@kit.LocalizationKit';
 import { initBreakpointCenter } from '../utils/breakpointCenter';
 import { Logger } from '../common/logger/Logger';
-import { stackOfRoute, tabOfRoute, requestTab, TAB_INDEX_KEY, TAB_ITINERARY, ACTIVE_TRIP_KEY } from '../common/constants/AppNav';
+import { stackOfRoute, tabOfRoute, isTabRoot, requestTab, TAB_INDEX_KEY, ACTIVE_TRIP_KEY } from '../common/constants/AppNav';
 import { DataSeeder } from '../data/DataSeeder';
 import { AccountStore } from '../data/AccountStore';
 import { PlanDraft } from '../data/PlanDraft';
@@ -90,6 +90,17 @@ export default class EntryAbility extends UIAbility {
       this.pendingRoute = params['route'] as string;
       this.pendingParam = EntryAbility.wantString(params, 'param');
       touched = true;
+      /**
+       * 冷启就要落对页签：`onCreate` 早于 `onWindowStageCreate` 的 `loadContent`，
+       * 这里先写 `TAB_INDEX_KEY`，`Index` 的 `@StorageLink wantTab` 初值才是目标页签。
+       *
+       * 为什么必须提前写：`Tabs` 懒建 TabContent，只有**初始那个**页签的内容与它的
+       * `HdsNavigation` 在首帧就绑上栈。等 `routePending()` 再写就来不及了 ——
+       * `wantTab` 已经按默认值建完，HdsTabs 的初始 index 改不动（真机实测：
+       * 三条路径调 `changeIndex()` 全停在 tab 0），而那会儿 push 进未绑定的栈会丢
+       * （§4k ④ 探针实测 routerMap 收到空名）。
+       */
+      AppStorage.setOrCreate(TAB_INDEX_KEY, tabOfRoute(this.pendingRoute));
     }
     const draft: PlanDraft = PlanDraft.get();
     const basic: TripBasicInput = {
@@ -279,6 +290,17 @@ export default class EntryAbility extends UIAbility {
    * 行程 tab 的栈启动时就存在，直接推；其余 tab 的栈要等 TabContent 首次可见才绑上
    * Navigation，改写成待路由由该 tab 的宿主消费。
    */
+  /**
+   * 深链落点：先定页签（`applyWant` 冷启已写过一次，这里覆盖运行期的目标），
+   * 再把子页 push 到它所属那条栈上。
+   *
+   * 判据是「这个路由是不是某个页签的根页」，不是「它属于哪个页签」：
+   * 根页（地图/行程/费用/我的）内联在各自 TabContent 里（有据路线 B），
+   * 切过去就是它，再 push 会多叠一层；而 Badges / Itinerary / TripInput 这些子页
+   * 必须 push，否则切到页签只看到根页。
+   * 旧写法是 `if (tab === TAB_ITINERARY) push` —— 那是四栈时代"只有 tab 0 的栈首帧就建好"
+   * 的将就，五格重排后规划链不在 0 号了，照抄就会丢 push（现由 applyWant 提前定初始页签兜住）。
+   */
   private routeTo(name: string, param: string): void {
     const tab: number = tabOfRoute(name);
     AppStorage.setOrCreate(TAB_INDEX_KEY, tab);
@@ -289,13 +311,9 @@ export default class EntryAbility extends UIAbility {
     if (param.length > 0) {
       AppStorage.setOrCreate(ACTIVE_TRIP_KEY, param);
     }
-    if (tab === TAB_ITINERARY) {
+    if (!isTabRoot(name)) {
       stackOfRoute(name).pushPath({ name: name, param: param });
     }
-    // 地图/费用/我的三个 tab 的根页现在内联在各自 TabContent 里（有据路线 B）：
-    // 切过去就是它，不再 push。原先那条「写待路由 → 宿主 push」的路，
-    // 宿主是在自己的 Navigation 绑上栈之前推的，落点解析不出来
-    // （真机探针实测 routerMap 收到的是空名，§4k ④）。
   }
 
   private routePending(): void {

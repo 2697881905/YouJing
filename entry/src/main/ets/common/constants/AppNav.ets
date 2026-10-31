@@ -9,14 +9,52 @@ export const APP_NAV: NavPathStack = new NavPathStack();
 export const MAP_NAV: NavPathStack = new NavPathStack();
 /** 费用 tab 的栈 */
 export const EXPENSE_NAV: NavPathStack = new NavPathStack();
-/** 我的（行程列表）tab 的栈 */
-export const MINE_NAV: NavPathStack = new NavPathStack();
+/**
+ * 「行程」格（`TripsPage` 历史/最近列表）的栈。
+ * 原名 `TRIPS_NAV`：那之前它挂在「我的」页签上。五格分工后它归「行程」，
+ * 名字跟着改——留着会指反义（`TAB_MINE` 现在指新「我的」页，不是这条栈）。
+ */
+export const TRIPS_NAV: NavPathStack = new NavPathStack();
+/** 新「我的」页（个人信息 + 勋章卡 + 设置）的栈 */
+export const PROFILE_NAV: NavPathStack = new NavPathStack();
 
-/** tab 序号，与 Index 里 TabContent 的顺序一致 */
-export const TAB_ITINERARY: number = 0;
-export const TAB_MAP: number = 1;
-export const TAB_EXPENSE: number = 2;
-export const TAB_MINE: number = 3;
+/**
+ * tab 序号，与 `Index` 里 TabContent 的顺序、以及 `DOCK_TABS` 的下标**必须同时改**。
+ * 三者错位不会崩，只会让某个根页的 `isTabShownTick` 永远对不上而静默不刷新，
+ * 或让深链落错页签 —— `NavStackRouting.test` 里有穷举断言拦这件事。
+ */
+export const TAB_MAP: number = 0;
+/** 「行程」= 历史/最近行程的查看与编辑（`TripsPage`） */
+export const TAB_ITINERARY: number = 1;
+/** 「规划」= 主功能入口（`YoujingStartPage` 门面 + 屏2→屏6 向导链），五格里居中最顺手位 */
+export const TAB_PLAN: number = 2;
+export const TAB_EXPENSE: number = 3;
+/** 「我的」= 个人信息 / 勋章 / 设置（`MinePage`） */
+export const TAB_MINE: number = 4;
+
+/**
+ * dock 每一格长什么样。**这里是格数与顺序的唯一真值来源**，
+ * `Index` 的 `TabContent`、`.tabBar(this.tabLabel(i))`、运行期切页签的越界判定
+ * 全部读它，不再各写一份。
+ *
+ * 为什么值得收到一处：上一版格数与 label 只写在 `Index:43-48`，
+ * 而 `TAB_*` 序号、`stackOfTab`、`tabOfRoute` 是另外三张手写的表。
+ * 四格改五格时它们必须同步变，漏一处不会崩，只会让深链落错 tab、
+ * 或让某个根页的 `isTabShownTick` 永远对不上而**静默不刷新**——
+ * 这类缺陷本仓已经返工过多次（§4j 的"push 到看不见的栈"同族）。
+ */
+export interface DockTab {
+  label: string;
+  symbol: Resource;
+}
+
+export const DOCK_TABS: DockTab[] = [
+  { label: '地图', symbol: $r('sys.symbol.map') },
+  { label: '行程', symbol: $r('sys.symbol.calendar') },
+  { label: '规划', symbol: $r('sys.symbol.list_bullet_square') },
+  { label: '费用', symbol: $r('sys.symbol.wallet') },
+  { label: '我的', symbol: $r('sys.symbol.person') }
+];
 /** AppStorage 键：外部深链要落到哪个 tab（Index 用它当 HdsTabs 的初始页签） */
 export const TAB_INDEX_KEY: string = 'dockTabIndex';
 /** AppStorage 键：当前活跃行程。2026-10-27 起地图/费用根页真的跟它走（此前只写不读，见 INIT_REPORT §5p） */
@@ -81,16 +119,24 @@ export function activeTripId(): string {
 
 /**
  * 建行程主链的唯一入口。
- * 主链 16 个页面全往 APP_NAV push；从「我的」页签把它 push 到 MINE_NAV 上，
- * 下一跳就会落到看不见的 tab-0 栈里——真机表现为「点开始规划没反应」。
- * 所以入口一律：先切回行程 tab，再把第一页推进 APP_NAV。
+ * 主链 16 个页面全往 APP_NAV push；从别的页签把它 push 到自己那条栈上，
+ * 下一跳就会落到看不见的栈里——真机表现为「点开始规划没反应」（§4j 那条 P0）。
+ * 所以入口一律：先切到规划 tab，再把第一页推进 APP_NAV（规划 tab 的栈）。
  */
 export function enterPlanningFlow(name: string): void {
-  requestTab(TAB_ITINERARY);
+  requestTab(TAB_PLAN);
   APP_NAV.pushPath({ name: name });
 }
 
-/** 路由名 → 归属栈 */
+/**
+ * 路由名 → 归属栈。
+ *
+ * ⚠ 必须与 `tabOfRoute` 逐分支对齐：`EntryAbility.routeTo` 先用 `tabOfRoute` 决定
+ * 初始页签、再用 `stackOfRoute` 决定 push 到哪条栈。两者一旦错位，
+ * 深链就会把页面 push 进**当前不可见**的那条栈 —— 冷启白屏、点了没反应，
+ * 且不报错。`NavStackRouting.test` 里有一条
+ * `stackOfTab(tabOfRoute(n)) === stackOfRoute(n)` 的不变量断言专门锁这件事。
+ */
 export function stackOfRoute(name: string): NavPathStack {
   if (name === 'Map') {
     return MAP_NAV;
@@ -99,7 +145,10 @@ export function stackOfRoute(name: string): NavPathStack {
     return EXPENSE_NAV;
   }
   if (name === 'Trips') {
-    return MINE_NAV;
+    return TRIPS_NAV;
+  }
+  if (name === 'Badges' || name === 'Mine') {
+    return PROFILE_NAV;
   }
   return APP_NAV;
 }
@@ -112,25 +161,46 @@ export function stackOfTab(index: number): NavPathStack {
   if (index === TAB_MAP) {
     return MAP_NAV;
   }
+  if (index === TAB_ITINERARY) {
+    return TRIPS_NAV;
+  }
   if (index === TAB_EXPENSE) {
     return EXPENSE_NAV;
   }
   if (index === TAB_MINE) {
-    return MINE_NAV;
+    return PROFILE_NAV;
   }
   return APP_NAV;
 }
 
-export function tabOfRoute(name: string): number {  if (name === 'Map') {
+/**
+ * 这个路由名是不是某个页签的**根页**。
+ *
+ * 深链要靠它决定"切过去就行"还是"还要 push"：四个根页现在内联在各自 TabContent 里
+ * （路线 B），切到那个页签就是它，再 push 一次会多叠一层。
+ * 而 Badges / Itinerary / TripInput 这些是**子页**，必须 push 到所属栈上。
+ */
+export function isTabRoot(name: string): boolean {
+  return name === 'Map' || name === 'Expense' || name === 'Trips' || name === 'Mine';
+}
+
+/**
+ * 路由名 → 该落在哪个页签（与 `stackOfRoute` 同分支，理由见上）
+ */
+export function tabOfRoute(name: string): number {
+  if (name === 'Map') {
     return TAB_MAP;
   }
   if (name === 'Expense') {
     return TAB_EXPENSE;
   }
   if (name === 'Trips') {
+    return TAB_ITINERARY;
+  }
+  if (name === 'Badges' || name === 'Mine') {
     return TAB_MINE;
   }
-  return TAB_ITINERARY;
+  return TAB_PLAN;
 }
 
 /**

@@ -6,36 +6,85 @@
  * 全推在一条看不见的栈上，点了没反应。修法是全页改走 `ctx.pathStack` /
  * `stackOfTab(index)`。这类缺陷在真机上一屏一屏拍是拍不出"按钮画得好好的但失灵"的，
  * 而映射本身是纯的：给一个页签序号，必须拿到那条**唯一**的栈。
- * 以后谁再加第五个页签或调换顺序，这条会先红。
+ *
+ * 四格改五格之后，这个文件还多担一件事：**页签序号重排**
+ * （地图0/行程1/规划2/费用3/我的4）。错位不会崩，只会让某个根页的
+ * `isTabShownTick` 永远对不上而静默不刷新，或让深链把页面 push 进不可见的栈。
+ * 所以下面三条穷举断言是这类"静默错位"唯一的程序化闸门 —— 真机逐格拍是拍不出
+ * "数据没刷新"和"上一份数据长得一模一样"的区别的。
  */
 
 import { describe, it, expect, TestType, Size, Level } from '@ohos/hypium';
 import {
-  APP_NAV, MAP_NAV, EXPENSE_NAV, MINE_NAV, stackOfTab, tabOfRoute,
-  TAB_ITINERARY, TAB_MAP, TAB_EXPENSE, TAB_MINE
+  APP_NAV, MAP_NAV, EXPENSE_NAV, TRIPS_NAV, PROFILE_NAV,
+  stackOfTab, stackOfRoute, tabOfRoute, isTabRoot,
+  TAB_MAP, TAB_ITINERARY, TAB_PLAN, TAB_EXPENSE, TAB_MINE
 } from '../../../main/ets/common/constants/AppNav';
+
+/** 五个页签序号，按 dock 从左到右 */
+const ALL_TABS: number[] = [TAB_MAP, TAB_ITINERARY, TAB_PLAN, TAB_EXPENSE, TAB_MINE];
+
+/** 深链会用到的全部路由名（与 AppRouter.routerMap 的分支保持人工同步） */
+const ROUTE_NAMES: string[] = [
+  'TripInput', 'PreferenceQA', 'SpotPick', 'StayPick', 'AreaMore', 'Generating',
+  'GenerateFailed', 'Itinerary', 'EditItinerary', 'OnTrip', 'Share', 'Review',
+  'Badges', 'Map', 'Expense', 'Trips'
+];
 
 export default function navStackTest(): void {
   describe('NavStackRouting', () => {
 
     it('each_tab_gets_its_own_stack', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
-      expect(stackOfTab(TAB_ITINERARY) === APP_NAV).assertTrue();
       expect(stackOfTab(TAB_MAP) === MAP_NAV).assertTrue();
+      expect(stackOfTab(TAB_ITINERARY) === TRIPS_NAV).assertTrue();
+      // 规划 tab 复用 APP_NAV：主链 16 个文件的 pathStack 字段不用动
+      expect(stackOfTab(TAB_PLAN) === APP_NAV).assertTrue();
       expect(stackOfTab(TAB_EXPENSE) === EXPENSE_NAV).assertTrue();
-      expect(stackOfTab(TAB_MINE) === MINE_NAV).assertTrue();
+      expect(stackOfTab(TAB_MINE) === PROFILE_NAV).assertTrue();
     });
 
     it('tabs_do_not_share_a_stack', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
-      // 四条栈必须是四个不同实例——共用一条就是"在 A 页签 push，B 页签也跟着变"。
-      // 这里按实例去重，不是按数组长度：长度永远是 4，那样的断言等于没断言。
+      // 五条栈必须是五个不同实例——共用一条就是"在 A 页签 push，B 页签也跟着变"。
+      // 这里按实例去重，不是按数组长度：长度永远是 5，那样的断言等于没断言。
       const distinct: NavPathStack[] = [];
-      [TAB_ITINERARY, TAB_MAP, TAB_EXPENSE, TAB_MINE].forEach((i: number) => {
+      ALL_TABS.forEach((i: number) => {
         const s: NavPathStack = stackOfTab(i);
         if (distinct.indexOf(s) < 0) {
           distinct.push(s);
         }
       });
-      expect(distinct.length).assertEqual(4);
+      expect(distinct.length).assertEqual(5);
+    });
+
+    it('tab_indices_are_five_consecutive_distinct_values',
+      TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+        // 序号重排最容易出的错是两个页签拿到同一个值：那样 changeIndex 只能切到一个。
+        const seen: number[] = [];
+        ALL_TABS.forEach((i: number) => {
+          expect(seen.indexOf(i) < 0).assertTrue();
+          seen.push(i);
+        });
+        expect(seen.length).assertEqual(5);
+        // 且必须正好铺满 0..4，HdsTabs 的 index 与 TabContent 顺序才对得上
+        seen.sort((a: number, b: number): number => a - b);
+        for (let i = 0; i < 5; i++) {
+          expect(seen[i]).assertEqual(i);
+        }
+      });
+
+    it('route_tab_and_stack_never_disagree', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+      /**
+       * 核心不变量：`tabOfRoute(n)` 给出的页签，它的栈必须就是 `stackOfRoute(n)`。
+       *
+       * `EntryAbility.routeTo` 先用前者决定切到哪、再用后者决定 push 到哪。
+       * 两条分支一旦不同步，深链就会把页面推进**当前不可见**的那条栈 ——
+       * 冷启白屏、点了没反应，且不报错。这是本文件最值钱的断言。
+       */
+      ROUTE_NAMES.forEach((n: string) => {
+        const viaTab: NavPathStack = stackOfTab(tabOfRoute(n));
+        const viaRoute: NavPathStack = stackOfRoute(n);
+        expect(viaTab === viaRoute).assertTrue();
+      });
     });
 
     it('unknown_index_falls_back_to_app_stack', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
@@ -47,7 +96,24 @@ export default function navStackTest(): void {
       // 深链进来要先切到归属页签，否则 push 落在当前页签的栈上、用户看不到落点
       expect(tabOfRoute('Map')).assertEqual(TAB_MAP);
       expect(tabOfRoute('Expense')).assertEqual(TAB_EXPENSE);
-      expect(tabOfRoute('Trips')).assertEqual(TAB_MINE);
+      // 「行程」列表从旧的「我的」页签搬走了，这条断言就是那次搬家留下的锚
+      expect(tabOfRoute('Trips')).assertEqual(TAB_ITINERARY);
+      expect(tabOfRoute('Badges')).assertEqual(TAB_MINE);
+      // 规划链与它的产物都归规划 tab（栈是 APP_NAV）
+      expect(tabOfRoute('TripInput')).assertEqual(TAB_PLAN);
+      expect(tabOfRoute('Itinerary')).assertEqual(TAB_PLAN);
     });
+
+    it('tab_roots_are_not_pushed_onto_their_own_stack',
+      TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+        // 根页内联在各自 TabContent 里（路线 B），routeTo 靠这个判定决定要不要 push；
+        // 判错的后果是切到页签后又叠一层同样的根页
+        expect(isTabRoot('Map')).assertTrue();
+        expect(isTabRoot('Trips')).assertTrue();
+        expect(isTabRoot('Expense')).assertTrue();
+        expect(isTabRoot('Mine')).assertTrue();
+        expect(isTabRoot('Badges')).assertFalse();
+        expect(isTabRoot('TripInput')).assertFalse();
+      });
   });
 }

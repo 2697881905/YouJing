@@ -95,6 +95,8 @@ export interface LayoutTokensType {
   composeBodyHeight: number;
   composeFieldHeight: number;
   profileStatWidth: number;
+  /** 「我的」页资料区头像直径（官方符号 + 圆底，不用位图资源） */
+  profileAvatarSize: number;
   tabItemWidth: number;
   tabItemHeight: number;
   tabSideMargin: number;
@@ -157,6 +159,7 @@ export const LayoutTokens: LayoutTokensType = {
   composeBodyHeight: 124,
   composeFieldHeight: 72,
   profileStatWidth: 72,
+  profileAvatarSize: 64,
   tabItemWidth: 58,
   tabItemHeight: 50,
   tabSideMargin: 18,

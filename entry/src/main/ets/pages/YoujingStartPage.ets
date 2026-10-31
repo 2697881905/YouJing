@@ -6,7 +6,7 @@
  * 状态栏 mock 为设备 chrome，不实现。
  */
 
-import { APP_NAV, requestTab, enterPlanningFlow, markDraftDirty, DRAFT_DIRTY_KEY, isDraftDirty, TAB_SHOWN_KEY, isTabShownTick, TAB_ITINERARY, TAB_MINE } from '../common/constants/AppNav';
+import { APP_NAV, requestTab, enterPlanningFlow, markDraftDirty, DRAFT_DIRTY_KEY, isDraftDirty, TAB_SHOWN_KEY, isTabShownTick, TAB_PLAN, TAB_ITINERARY } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
@@ -56,7 +56,7 @@ export struct YoujingStartPage {
   @StorageProp(KEY_WINDOW_WIDTH_VP) windowWidthVp: number = 0;
 
   private onDockShown(): void {
-    if (isTabShownTick(this.dockTick, TAB_ITINERARY)) {
+    if (isTabShownTick(this.dockTick, TAB_PLAN)) {
       this.reloadRecent();
     }
   }
@@ -433,7 +433,7 @@ export struct YoujingStartPage {
         .padding(0)
         .accessibilityText('打开我的行程列表')
         .onClick((): void => {
-          requestTab(TAB_MINE);
+          requestTab(TAB_ITINERARY);
         })
       }
     }

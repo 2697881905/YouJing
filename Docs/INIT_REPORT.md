@@ -4616,3 +4616,71 @@ Map Kit 地点检索真机探针（任意城市数据管线的 Stage 1），以�
 - 闸门：十二把尺 0 偏差（含 `audit_a11y_name` 通过）；双 HAP BUILD SUCCESSFUL；
   真机 hypium **188/188**；`modules.abc` 里 `grep -a` 到「长按拖动调整顺序」反证产物含改动。
   零 LLM、未写任何行程/打卡数据。
+
+### §5ci 续 71：dock 四格 → 五格，导航真值表收成一处
+
+- 用户提的分工：**地图**（地图 + 进行中的行程）· **行程**（历史/最近 + 编辑）·
+  **规划**（主功能）· **费用** · **我的**（勋章卡 + 设置 + 个人信息）。
+  现状对不上的地方比预想严重：`TripsPage`（历史列表）一直挂在**「我的」页签**上，
+  用户要看自己的行程得点「我的」；「规划」在 dock 上根本没有位置；
+  地图跟的是"最后打开的那条"而不是"进行中的那条"。
+- **先纠正三条直觉**：
+  ① **「有据」没有可同步的头像。** 它的头像来自自己后端的 COS URL（`user.avatar`，
+  选图→压缩→直传→回写），全工程 `avatarUri|getAvatar` 零命中；而有径 Account Kit 走
+  `authentication` 直取 `unionID`，`LoginWithHuaweiIDCredential` 的字段只有
+  `authorizationCode/idToken/openID/unionID`，**响应体不含昵称与头像**。
+  要拿必须换 `AuthorizationWithHuaweiIDRequest` + `scopes:['profile']`，那会弹系统授权框、
+  破坏现在的静默登录。所以本轮放占位，但**留了接缝**（见下）。
+  ② **设计契约从没钉格数。** `Docs/design-v1/DESIGN.md`（不是 `docs/`）只钉几何：
+  `floating-dock-width 300px`(:234/363)、`tab_item_width 58`(:266)、`nav-label` 10/400(:169/916)、
+  `300×64`(:1094)。13 帧底稿画的是 4 格，那是视觉参照不是数字约束 —— 加第 5 格不违反契约。
+  ③ **300vp 装 5 格不用加宽 dock。** `Index` 的 builder 只钉 `.height(tabItemHeight=50)`，
+  格宽是 bar 均分的结果。真机实测五格格心间距 **190px = 60.8vp**（预测 60vp），
+  label 宽 63px = 20.2vp 两字 CJK，无截断；`floatingDockClearance=112` 由 dock 高度决定、
+  **与格数无关**，17 个用它的屏一行不用动。
+- **计划里有一步站不住，当场改了**：原计划 Step 1「加第 5 格」与 Step 2「重排编号」
+  分不开 —— 加完第 5 格会有两格都叫「我的」，只改编号会把深链指错 tab，
+  中间态必然是坏的。合并成一个原子步做完。
+- **真值表收口**：`DOCK_TABS`（label + symbol）从 `Index:43-48` 搬进 `common/constants/AppNav.ets`，
+  与 `TAB_*` 序号、`stackOfTab`、`tabOfRoute`、`stackOfRoute` 同处一文件。
+  之前这四张表分写两处，四格改五格要同步改五处，漏一处不崩、只静默错位。
+  `$r()` 在 `common/` 做模块级常量此前无先例（`HdsChrome` 的模式是"共享层声明 `Resource`
+  类型、页面传 `$r`"），实测可编译，且 `AppNav` 本就引用 `NavPathStack` 这类 ArkUI 类型。
+- **`MINE_NAV` 改名 `TRIPS_NAV`**：它以前挂「我的」页签，现在服务「行程」页签。
+  留着会指反义 —— 这正是我否掉「只追加第 5 格、0-3 保号」那个方案的理由，
+  不能自己犯自己批评过的错。只有 3 处代码引用 + 2 处注释。
+- **深链这条是真改了机制，不是搬个号**：`EntryAbility.routeTo` 原来写
+  `if (tab === TAB_ITINERARY) push` —— 那是四栈时代"只有 tab 0 的栈首帧就建好"的将就。
+  重排后规划链在 2 号，照抄就会把页面 push 进**还没绑 Navigation 的栈**（§4k ④ 实测过：
+  routerMap 收到空名）。改法是把初始页签**提前到 `applyWant` 写**：`onCreate` 早于
+  `onWindowStageCreate` 的 `loadContent`，所以 `Index` 的 `@StorageLink wantTab` 初值
+  就是目标页签，那个 TabContent 属于首帧就建的那一个。
+  判据同时换成 `isTabRoot(name)`（是不是页签根页）而不是"属于哪个页签"。
+  **真机三条冷启逐一验通**：`route=Itinerary` → 屏8「丽江 · 3天2晚」；
+  `route=Badges` → 「我的勋章 / 已收集 3 枚」（这条最关键，它要 push 进「我的」那条懒建栈）；
+  `route=TripInput` → 屏2「第 1 / 5 步 · 基础信息」。
+- **新 `MinePage`（第五格）**：`rootMode` 双分支照 `TripsPage`；块序 = 个人信息区 →
+  勋章卡 → 设置区（隐私政策/用户协议/关于，就地展开 `LegalDocReader`，不 push 路由）→
+  退出登录。真机读到真数据：脱敏 ID `AABKND***`、「已收 3 枚勋章」、「走过 1 座城市」。
+- **头像接缝（用户说"后续肯定要做，现在先放放"）**：`MinePage` 不写死 `SymbolGlyph`，
+  改问 `data/ProfileStore.avatarOf(uid): AvatarSpec`（`kind: 'symbol' | 'image'`）。
+  本轮恒返回 symbol 占位，但 `image` 分支的渲染代码这轮就在、只是永不命中；
+  `displayName()` / `displayHint()` 同样收在这层。将来接真头像就是
+  **改 `avatarOf()` 的返回值 + 加一个写入点**，页面结构与 UI 一行不动。
+  两条实现路（profile scope 弹窗 vs 接服务端存 URL）都不是现在该拍的，只留出口不留决定。
+- **三把尺各抓到一条我自己写进新文件的缺陷**（这就是它们存在的意义）：
+  `audit_fontfamily` 抓到 ID 用了 serif 档 `title` 却没带 `.fontFamily` → 改成 sans 的
+  `headline`（脱敏 ID 是操作型文本，契约里 serif 只给编辑性标题）；
+  `audit_geometry` 抓到 `Column({ space: 2 })` 落在 4vp 基线网格外 → 换 `SpaceTokens.xs`；
+  `audit_layout_patterns` R5 抓到「退出登录」同屏三份 → 弹窗标题改问句。
+- **一条差点照方案加错的代码**：Plan agent 判「`SharePage` 缺 `onReady`，
+  从行程/我的 push 会落回不可见的 APP_NAV」。读文件才发现 **`SharePage` 里没有任何
+  `pushPath`/`pop`/`pathStack`**，返回全靠 `HdsNavDestination` 自带的系统返回 —— 没有东西可修。
+  按 [[dont-register-a-defect-from-a-grep-miss]] 同一课：**转述的结论也要自己读到代码才算数。**
+- **闸门**：十二把静态尺 0 偏差；双 HAP BUILD SUCCESSFUL；
+  真机 hypium **191/191**（188 → 191，`NavStackRouting` 由 4 例扩到 7 例，
+  新增「五个序号互不相同且铺满 0..4」与 `stackOfTab(tabOfRoute(n)) === stackOfRoute(n)`
+  不变量断言 —— 后者是重编号错位的唯一程序化闸门）。零 LLM、未动任何行程数据。
+- **本批未做（继续推进中）**：Step 3 规划 tab 瘦身（`YoujingStartPage:357-438` 的最近行程块
+  与「行程」格现在重复展示）、Step 4 地图改吃"进行中行程"（`utils/TripWindow.isActiveOn`
+  收掉 `YoujingStartPage:86` 与 `TripsPage:82` 两处内联谓词）、DESIGN.md 补格数、README 计数。

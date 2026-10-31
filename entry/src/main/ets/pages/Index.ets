@@ -12,7 +12,7 @@
  * 首帧就在目标 tab；运行期（App 已存活时的 onNewWant）才用 changeIndex。
  */
 
-import { APP_NAV, ACTIVE_TRIP_KEY, TAB_INDEX_KEY, TAB_SWITCH_KEY, announceTabShown, stackOfTab, TAB_ITINERARY, TAB_MAP, TAB_EXPENSE, TAB_MINE } from '../common/constants/AppNav';
+import { APP_NAV, ACTIVE_TRIP_KEY, TAB_INDEX_KEY, TAB_SWITCH_KEY, DOCK_TABS, announceTabShown, stackOfTab, TAB_PLAN, TAB_ITINERARY, TAB_MAP, TAB_EXPENSE, TAB_MINE } from '../common/constants/AppNav';
 import { routerMap } from './AppRouter';
 import { TripDao, TripSummary } from '../data/TripDao';
 import { AUTH_STATE_KEY } from '../data/AccountStore';
@@ -26,6 +26,7 @@ import { YoujingStartPage } from './YoujingStartPage';
 import { MapPage } from './MapPage';
 import { ExpensePage } from './ExpensePage';
 import { TripsPage } from './TripsPage';
+import { MinePage } from './MinePage';
 import { HdsNavigation, HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
@@ -35,24 +36,12 @@ import { HDS_MATERIAL_LEVEL_EXQUISITE, HDS_MATERIAL_TYPE_IMMERSIVE } from '../ut
 
 const TAG: string = 'Index';
 
-interface DockTab {
-  label: string;
-  symbol: Resource;
-}
-
-const DOCK_TABS: DockTab[] = [
-  { label: '行程', symbol: $r('sys.symbol.calendar') },
-  { label: '地图', symbol: $r('sys.symbol.map') },
-  { label: '费用', symbol: $r('sys.symbol.wallet') },
-  { label: '我的', symbol: $r('sys.symbol.person') }
-];
-
 @Entry
 @Component
 struct Index {
   /** 外部深链（小艺 / 卡片 / aa start）写这个键；作为 HdsTabs 的**初始页签**消费 */
-  @StorageLink(TAB_INDEX_KEY) wantTab: number = TAB_ITINERARY;
-  @State private currentTab: number = TAB_ITINERARY;
+  @StorageLink(TAB_INDEX_KEY) wantTab: number = TAB_PLAN;
+  @State private currentTab: number = TAB_PLAN;
   /** 运行期切页签的请求（AppNav.enterPlanningFlow 写）；冷启不走这条路 */
   @StorageProp(TAB_SWITCH_KEY) @Watch('applyTabSwitch') tabSwitch: string = '';
   private hdsController: HdsTabsController = new HdsTabsController();
@@ -152,6 +141,18 @@ struct Index {
   @Builder
   mainTabs() {
     HdsTabs({ controller: this.hdsController, index: this.wantTab }) {
+      // 顺序必须与 AppNav 的 TAB_* 常量、DOCK_TABS 下标逐一对齐，三者错位的后果见 AppNav 注释
+      TabContent() {
+        MapPage({ rootMode: true })
+      }
+      .tabBar(this.tabLabel(TAB_MAP))
+
+      TabContent() {
+        TripsPage({ rootMode: true })
+      }
+      .tabBar(this.tabLabel(TAB_ITINERARY))
+
+      // 规划 tab：门面 + 屏2→屏6 向导链都走 APP_NAV（主链 16 个文件的字段不动）
       TabContent() {
         HdsNavigation(APP_NAV) {
           YoujingStartPage()
@@ -161,12 +162,7 @@ struct Index {
         .hideTitleBar(true)
         .backgroundColor($r('app.color.canvas'))
       }
-      .tabBar(this.tabLabel(TAB_ITINERARY))
-
-      TabContent() {
-        MapPage({ rootMode: true })
-      }
-      .tabBar(this.tabLabel(TAB_MAP))
+      .tabBar(this.tabLabel(TAB_PLAN))
 
       TabContent() {
         ExpensePage({ rootMode: true })
@@ -174,7 +170,7 @@ struct Index {
       .tabBar(this.tabLabel(TAB_EXPENSE))
 
       TabContent() {
-        TripsPage({ rootMode: true })
+        MinePage({ rootMode: true })
       }
       .tabBar(this.tabLabel(TAB_MINE))
     }
@@ -195,7 +191,7 @@ struct Index {
     .onChange((index: number): void => {
       this.currentTab = index;
       AppStorage.setOrCreate(TAB_INDEX_KEY, index);
-      // 四个 tab 根页只在 aboutToAppear 取一次数：在别处新建/编辑完行程、记完费用
+      // 五个 tab 根页只在 aboutToAppear 取一次数：在别处新建/编辑完行程、记完费用
       // 再切回页签，看到的还是第一次进入那份。广播一条，根页序号对上才重取
       announceTabShown(index);
     })

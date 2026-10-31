@@ -43,7 +43,7 @@ const LOAD_BAR_STYLE: LinearStyleOptions = { strokeWidth: 3, strokeRadius: 1.5 }
 @Component
 export struct ItineraryPage {
   /**
-   * 这一屏可能被 push 在四条 tab 栈的任意一条上——从「我的行程」点开就走 MINE_NAV。
+   * 这一屏可能被 push 在五条 tab 栈的任意一条上——从「行程」页签点开就走 TRIPS_NAV。
    * 原来硬用 APP_NAV：从「我的」页签进来时，分享/编辑/全图/记一笔全部推到
    * 看不见的 tab-0 栈上，点了没反应（独立复审查出的 P0，与 enterPlanningFlow 同一类，
    * 当时只修了入口没修这两页）。改由 NavDestination.onReady 拿**自己所属**的栈，
