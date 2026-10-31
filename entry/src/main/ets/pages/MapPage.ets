@@ -362,6 +362,9 @@ export struct MapPage {
               .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
               .backgroundColor(ColorTokens.surfaceElevated)
               .borderRadius(RadiusTokens.pill)
+              // 和上面站点条分支同一格净空：这个 Stack 是 alignContent Bottom，
+              // 不给净空整颗药丸就坐在 dock 背后（站点条分支 :343 一直有）
+              .margin({ bottom: LayoutTokens.floatingDockClearance })
               .onClick((): void => {
                 enterPlanningFlow('TripInput');
               })
@@ -373,6 +376,7 @@ export struct MapPage {
                 .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
                 .borderRadius(RadiusTokens.pill)
                 .backgroundColor(ColorTokens.surfaceElevated)
+                .margin({ bottom: LayoutTokens.floatingDockClearance })
             }
           }
 

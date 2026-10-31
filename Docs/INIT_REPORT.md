@@ -4858,3 +4858,47 @@ Map Kit 地点检索真机探针（任意城市数据管线的 Stage 1），以�
 - **未验边界**：① 浅色档没实拍（本机无 `settings` 可切系统深浅，翻用户手机是有改动作）；
   ② 折叠屏展开态（md/707vp）没量——壳层让位读的是实时避让区，理论上跟着走，但没量过；
   ③ `bindSheet` 类半模态在窗口铺满后的高度未逐张复核。
+
+### §5ci 续 76：全路由诊断扫出 3 条，其中一条是我上一条留下的回归
+
+诊断口径：`uitest dumpLayout` 的 bounds + 逐行中位数，19 个路由逐屏量；
+另跑一遍"甩到真·底部再量"（判据 = 再甩 6 次几何不变）。跳过 `Generating`：
+它 `aboutToAppear` 直接打真 LLM，几何探针不该花钱。**零 LLM。**
+
+已当场修掉两条：
+
+1. **上一条（`2c25ad7`）留下的回归**：`barBottomMargin` 是从**容器底**量的，
+   窗口一铺满物理屏，容器底就变成物理屏底，dock 因此从契约钉的
+   「28px above the system nav inset」掉到指示条上沿（实测掉 27.8vp）。
+   改成 `floatingDockBottomMargin + navIndicatorHeight` 后 dock 回到
+   `[55,2340][1081,2515]`，且 **dock 顶到容器底 = 112.0vp**，
+   与 `floatingDockClearance: 112` 精确对上 —— 说明这个 token 本来就是按契约位算的。
+2. **地图格空态药丸零净空**（`MapPage:351-376`，我 2eee85f 加的那颗
+   「今天没有在途行程 · 去规划一趟」）：它和站点条同在 `Stack({alignContent: Bottom})` 里，
+   站点条分支 `:343` 有 112 净空、这两个分支没有 → 整颗坐在 dock 带里。补同一 token。
+   **这条状态今天量不到**（丽江在途），是按同函数兄弟分支的已验证形态对齐的。
+
+扫出来但**没动**的，按严重度：
+
+- **行程格滚到底，末张卡有 48.3vp 压在 dock 底下**（末卡底 797.1vp vs dock 顶 748.8vp，
+  含「已结束·100%」「总花费 ¥1,540」和进度条）。`TripsPage:478` 写的是
+  `List.padding({bottom: 112})`，**实测只生效 63.7vp**。同一个写法在
+  Share（净空正好 112.0）/Itinerary（131.8）/SpotPick·StayPick·TripInput（124.5）
+  都够，所以不是全局问题，是这一页的 `Refresh` + `.lanes()` 组合下的事，机制未定。
+  修法待试 `List.contentEndOffset()`（SDK `list.d.ts:1090`，API 11+，专管末尾可滚延伸）。
+  ⚠ **第 8 把尺 R1「钉底层未让位 dock」对这条报 0** —— 它只看代码里有没有那个 token，
+  不看滚到底是否真让开。静态尺在这一类上给的是假安心。
+- **规划格无 Scroll 兜底**：实测内容底到 1997px，离 dock 顶还有 110vp 余量，
+  今天不溢出；但它是全仓唯一"根 Column + `height('100%')` + 零 `Scroll/List`"的屏，
+  预览卡再加一行或 `meta` 折三行就会顶穿，而顶穿的正是主 CTA 那一段。
+- **钉底条余量为零**：`PreferenceQAPage:198-230` 三颗按钮 96+80+120 实测右缘 348.2vp、
+  内容盒右缘 347.5vp —— `Blank` 已塌到 0，**没有任何余量**。
+  （子代理按"3 个间隙"算出 364>363.5 说主键被顶出屏幕，实测是 2 个间隙、352，
+  结论错，但"余量 0"这件事是真的：`:221` 注释里那次 150→120 已经花光了全部富余。）
+- **三个底部预留 token 里两个是僵尸**：`LayoutTokens.safeAreaFallback: 12`、
+  `SpaceTokens.bottomReserve: 94` 全仓 0 消费（正主是 `bottomScrollReserve: 94`）；
+  另外 `LayoutTokens` 有 28 个字段查不到 `LayoutTokens.<字段>` 形式的消费方，
+  含 `floatingDockWidth`/`titleBarHeight`/`segmentedControlHeight` —— 契约钉的数
+  在 token 里躺着没人用，页面用的是字面量（`Index` 的 dock 宽写死 300、三处 `barHeight: 64`）。
+
+闸门：十二把尺退出码全 0；真机 hypium **191/191**；双 HAP BUILD SUCCESSFUL。

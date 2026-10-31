@@ -51,6 +51,13 @@ struct Index {
    * 20 个页面不用各自读避让区（见 EntryAbility.makeImmersive）。
    */
   @StorageProp('statusBarHeight') statusBarHeight: number = 0;
+  /**
+   * 底部指示条高度（vp）。`barBottomMargin` 是从**容器底**量的，窗口铺满物理屏之后
+   * 容器底就是物理屏底，所以这一格必须自己加回去 —— 不加，dock 会从契约钉的
+   * 「28px above the system nav inset」掉到指示条上沿（真机实测掉 27.8vp，
+   * 连带让 `floatingDockClearance: 112` 多让了 27.8vp）。
+   */
+  @StorageProp('navIndicatorHeight') navIndicatorHeight: number = 0;
   private hdsController: HdsTabsController = new HdsTabsController();
 
   /** 解析 'index:timestamp' 并切到该页签；同页签或解析不出就什么都不做 */
@@ -192,7 +199,7 @@ struct Index {
         materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
         materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE
       },
-      barBottomMargin: LayoutTokens.floatingDockBottomMargin,
+      barBottomMargin: LayoutTokens.floatingDockBottomMargin + this.navIndicatorHeight,
       barSideMargin: LayoutTokens.pagePadding
     })
     .onChange((index: number): void => {
