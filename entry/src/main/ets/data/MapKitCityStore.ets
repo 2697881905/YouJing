@@ -47,6 +47,7 @@ export class MapKitCityStore {
   }
 
   private static async fetch(context: common.Context, city: string): Promise<MapCityData> {
+    const startedAt: number = Date.now();
     try {
       // 「西安市」这类带行政后缀的输入退一层再送 cityId；展示仍用用户原输入
       const cityId: string = city.endsWith('市') ? city.substring(0, city.length - 1) : city;
@@ -75,14 +76,21 @@ export class MapKitCityStore {
       const hotelCounts: Record<string, number> = {};
       // 先给更多区县查供给，映射层再按供给排序取前 8；否则远郊高景点数区县会挤掉市中心
       const districts: DistrictAgg[] = groupDistricts(deduped).slice(0, MAX_DISTRICTS);
+      // 区县之间没有依赖：串行 10 次 nearbySearch 要等约 4–5 秒，并发后取最慢的一条
+      const hotelJobs: Promise<number>[] = [];
       for (const d of districts) {
-        hotelCounts[d.name] = await MapKitCityStore.hotelCount(context, d.latitude, d.longitude);
+        hotelJobs.push(MapKitCityStore.hotelCount(context, d.latitude, d.longitude));
+      }
+      const counts: number[] = await Promise.all(hotelJobs);
+      for (let i = 0; i < districts.length; i++) {
+        hotelCounts[districts[i].name] = counts[i];
       }
       const today: string = DateUtils.todayIso();
       const spots = buildSpots(deduped, city, today);
       const areas = buildAreas(deduped, city, today, hotelCounts);
       Logger.info(TAG, `${city} raw=${inputs.length} deduped=${deduped.length} ` +
-        `spots=${spots.length} areas=${areas.length} districts=${districts.length}`);
+        `spots=${spots.length} areas=${areas.length} districts=${districts.length} ` +
+        `costMs=${Date.now() - startedAt}`);
       const data: MapCityData = { spots: spots, areas: areas };
       return data;
     } catch (err) {
