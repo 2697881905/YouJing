@@ -48,6 +48,12 @@ function area(id: string, tier: AreaPriceTier, lat: number, lng: number): Area {
   return a;
 }
 
+function mapArea(name: string, lat: number, lng: number): Area {
+  const a: Area = area(name, AreaPriceTier.COMFORT, lat, lng);
+  a.source = 'MapKit';
+  return a;
+}
+
 function sel(id: string): SelectedSpot {
   const s: SelectedSpot = { spotId: id, priority: SpotPriority.MUST };
   return s;
@@ -211,13 +217,13 @@ eq(PlanAutoPick.pickSpotsForSingleDay([], 'standard', [], home).length, 0, '单�
 ok(PlanAutoPick.describe(nearSingle, home, 1, 'standard')
   .indexOf('按单日 10 小时窗口预选 3 个景点') >= 0, '单日预览说明窗口与站数');
 
-// ---------- 住宿区：多数景点投票，平票按列表顺序 ----------
+// ---------- 住宿区：地图区县按酒店供给，种子片区按平均距离（列表与预选同源） ----------
 
-// 丽江真机形态：古城区 467 店排列表第一、玉龙纳西族自治县 139 店排第二，
-// 但玉龙县那颗卫星景点会把「平均距离」拉向县城
+// 丽江真机形态：候选顺序即酒店供给降序（古城区 467 店、玉龙县 139 店），
+// 但玉龙雪山那颗卫星点会把平均距离拉向县城——列表与预选都必须按供给说话
 const ljAreas: Area[] = [
-  area('古城区', AreaPriceTier.COMFORT, 26.87, 100.23),
-  area('玉龙纳西族自治县', AreaPriceTier.COMFORT, 27.12, 100.24)
+  mapArea('古城区', 26.87, 100.23),
+  mapArea('玉龙纳西族自治县', 27.12, 100.24)
 ];
 const ljTargets: GeoPoint[] = [
   { latitude: 26.98, longitude: 100.23 },
@@ -227,17 +233,11 @@ const ljTargets: GeoPoint[] = [
 ];
 ok(Geo.meanDistanceKm({ latitude: 27.12, longitude: 100.24 }, ljTargets) <
   Geo.meanDistanceKm({ latitude: 26.87, longitude: 100.23 }, ljTargets),
-  '丽江这组点位的平均距离确实偏向玉龙县（旧口径会选错）');
+  '丽江这组点位的平均距离确实偏向玉龙县（按距离重排必错）');
 const tie: Area | null = PlanAutoPick.nearestArea(ljAreas, ljTargets);
-ok(tie !== null && tie.name === '古城区', '2/2 平票按列表顺序（酒店供给）取古城区');
-const majority: GeoPoint[] = [
-  { latitude: 27.122, longitude: 100.245 },
-  { latitude: 27.135, longitude: 100.26 },
-  { latitude: 27.11, longitude: 100.24 },
-  { latitude: 26.87, longitude: 100.23 }
-];
-const voted: Area | null = PlanAutoPick.nearestArea(ljAreas, majority);
-ok(voted !== null && voted.name === '玉龙纳西族自治县', '多数景点在玉龙县时仍按多数选玉龙县');
+ok(tie !== null && tie.name === '古城区', '地图区县按供给顺序取古城区，不被距离重排');
+ok(PlanAutoPick.rankAreas(ljAreas, ljTargets)[1].name === '玉龙纳西族自治县',
+  '列表第二名仍是玉龙县（供给顺序原样保留）');
 
 // ---------- 自动住宿区 ----------
 
@@ -261,6 +261,10 @@ ok(fallbackTier !== null && fallbackTier.id === 'a3', '档位无候选退回全�
 const noSpotsPick: Area | null = PlanAutoPick.pickArea(areas, spots, [], 'comfort');
 ok(noSpotsPick !== null && noSpotsPick.id === 'a2', '没选景点时退回候选首位');
 ok(PlanAutoPick.pickArea([], spots, [sel('s1')], 'comfort') === null, '无片区返回 null');
+// 种子片区没有住宿库存，只能按到所选景点的平均直线距离升序
+const seededRanked: Area[] = PlanAutoPick.rankAreas(areas, nearA3);
+ok(seededRanked[0].id === 'a3', '种子片区按平均距离升序');
+ok(PlanAutoPick.rankAreas(areas, []).length === areas.length, '没有景点坐标时不重排');
 
 ok(PlanAutoPick.describe(oneDay, comfortPick, 1, 'standard').indexOf('预选 4 个景点') >= 0,
   '预览理由含预选数量');

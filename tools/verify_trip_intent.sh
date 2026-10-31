@@ -22,6 +22,7 @@ copy entry/src/main/ets/utils/Geo.ets utils/Geo.ts
 copy entry/src/main/ets/utils/DateUtils.ets utils/DateUtils.ts
 copy entry/src/main/ets/utils/TripIntentParser.ets utils/TripIntentParser.ts
 copy entry/src/main/ets/utils/PlanAutoPick.ets utils/PlanAutoPick.ts
+copy entry/src/main/ets/utils/MapCityMapper.ets utils/MapCityMapper.ts
 copy entry/src/main/ets/common/constants/BudgetConfig.ets common/constants/BudgetConfig.ts
 copy entry/src/main/ets/common/constants/Cities.ets common/constants/Cities.ts
 copy tools/trip_intent_check.ts tools/trip_intent_check.ts

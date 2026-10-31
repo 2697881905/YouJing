@@ -3,7 +3,7 @@
  *
  * 自动选点不是新规则：名额与屏3b 的节奏档一一对应（轻松3/标准4/紧凑6），
  * 排序退回屏4 的默认口径（热度降序），兴趣标签只做前置加权；
- * 住宿区与屏5「帮我选」共用同一条最近区规则（多数景点投票，平票按列表顺序）。
+ * 住宿区与屏5 列表共用 rankAreas 一条规则（地图区县按酒店供给、种子片区按平均距离），
  * 这样「直接生成」得到的行程
  * 与用户手工走完四屏选出来的是同一套规则，不会出现第二条暗规则。
  */
@@ -12,6 +12,13 @@ import { Spot, SpotTag } from '../model/Spot';
 import { Area, AreaPriceTier } from '../model/Area';
 import { SelectedSpot, SpotPriority, PaceOption } from '../model/PlanParams';
 import { Geo, GeoPoint } from './Geo';
+import { isMapArea } from './MapCityMapper';
+
+/** 片区与到所选景点集合的平均直线距离（km） */
+interface AreaDistance {
+  area: Area;
+  dist: number;
+}
 
 export class PlanAutoPick {
   /** 节奏 → 每天景点上限；与 LlmClient 的 capOf 同源口径 */
@@ -65,7 +72,7 @@ export class PlanAutoPick {
   }
 
   /**
-   * 按价格档位收候选，再取「最多已选景点离它最近」的一片（平票按列表顺序）。
+   * 按价格档位收候选，再取 rankAreas 的第一片。
    * 档位无候选时退回全量（不因为「舒适」没铺满而让用户无区可选）；
    * 片区或景点都缺坐标时退回候选首位，保持种子库顺序。
    */
@@ -86,54 +93,47 @@ export class PlanAutoPick {
   }
 
   /**
-   * 候选里「最多已选景点离它最近」的一片；平票按传入顺序——屏5 的候选顺序
-   * 本身就是酒店供给降序，所以平票等于「让更适合住的一片赢」。无可算候选返回 null。
-   *
-   * 不用平均距离当主键：丽江实测已选景点古城区 2 / 玉龙纳西族自治县 2，
-   * 平均距离被玉龙雪山那颗卫星点拖到玉龙县，而屏5 列表把古城区排在第一
-   * （467 家酒店 vs 139 家）——预选与列表自相矛盾，用户看到的是「首屏推荐我住县城」。
+   * 住宿区统一排序——屏5 列表与屏2 预选共用这一条，避免两边各排一次给出不同第一名。
+   * · 地图区县：入参顺序本身就是酒店供给降序，那是我们最强的「适合住」信号，不再按距离重排。
+   *   丽江实测（2026-10-31）：按平均距离重排会把 139 家酒店的玉龙县城顶到
+   *   467 家酒店的古城区前面，而游客住的是古城区。
+   * · 种子片区：没有住宿库存，只能按到所选景点的平均直线距离升序；缺坐标的排最后。
+   * 没有景点坐标时原样返回——不把「算不出距离」当成「最近」。
    */
-  static nearestArea(areas: Area[], targets: GeoPoint[]): Area | null {
-    if (areas.length === 0) {
-      return null;
+  static rankAreas(areas: Area[], targets: GeoPoint[]): Area[] {
+    if (areas.length === 0 || targets.length === 0 || isMapArea(areas[0])) {
+      return areas;
     }
-    const usable: Area[] = [];
-    const points: GeoPoint[] = [];
+    const withDist: AreaDistance[] = [];
+    const noGeo: Area[] = [];
     for (const a of areas) {
       if (Geo.usable(a.latitude, a.longitude)) {
-        usable.push(a);
-        const p: GeoPoint = { latitude: a.latitude, longitude: a.longitude };
-        points.push(p);
+        const g: GeoPoint = { latitude: a.latitude, longitude: a.longitude };
+        withDist.push({ area: a, dist: Geo.meanDistanceKm(g, targets) });
+      } else {
+        noGeo.push(a);
       }
     }
-    if (targets.length === 0 || usable.length === 0) {
+    withDist.sort((x: AreaDistance, y: AreaDistance): number => x.dist - y.dist);
+    const ranked: Area[] = [];
+    for (const w of withDist) {
+      ranked.push(w.area);
+    }
+    return ranked.concat(noGeo);
+  }
+
+  /** 排序后的第一片；无候选、无坐标或没有景点坐标时返回 null，由调用方决定回退口径 */
+  static nearestArea(areas: Area[], targets: GeoPoint[]): Area | null {
+    if (areas.length === 0 || targets.length === 0) {
       return null;
     }
-    const votes: number[] = [];
-    for (let i = 0; i < usable.length; i++) {
-      votes.push(0);
-    }
-    for (const t of targets) {
-      let best: number = -1;
-      let bestKm: number = Number.MAX_VALUE;
-      for (let i = 0; i < points.length; i++) {
-        const km: number = Geo.distanceKm(points[i], t);
-        if (km < bestKm) {
-          bestKm = km;
-          best = i;
-        }
-      }
-      if (best >= 0) {
-        votes[best] += 1;
+    const ranked: Area[] = PlanAutoPick.rankAreas(areas, targets);
+    for (const a of ranked) {
+      if (Geo.usable(a.latitude, a.longitude)) {
+        return a;
       }
     }
-    let winner: number = 0;
-    for (let i = 1; i < usable.length; i++) {
-      if (votes[i] > votes[winner]) {
-        winner = i;
-      }
-    }
-    return usable[winner];
+    return null;
   }
 
   /** 预选结果的一句理由；空结果也要说明为什么空 */

@@ -34,6 +34,12 @@ function area(id: string, tier: AreaPriceTier, lat: number, lng: number): Area {
   return a;
 }
 
+function mapArea(name: string, lat: number, lng: number): Area {
+  const a: Area = area(name, AreaPriceTier.COMFORT, lat, lng);
+  a.source = 'MapKit';
+  return a;
+}
+
 function sel(id: string): SelectedSpot {
   const s: SelectedSpot = { spotId: id, priority: SpotPriority.MUST };
   return s;
@@ -166,13 +172,13 @@ export default function tripIntentTest(): void {
           .indexOf('按单日 10 小时窗口预选 3 个景点') >= 0).assertTrue();
       });
 
-    it('auto_pick_area_votes_by_majority_then_list_order',
+    it('area_rank_uses_supply_for_map_cities_and_distance_for_seeds',
       TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
-        // 丽江真机形态：古城区（列表第一，酒店供给最高）与玉龙县 2/2 平票，
-        // 但玉龙雪山那颗卫星点会把「平均距离」拉向县城——预选不该和屏5 列表打架
+        // 丽江真机形态：候选顺序即酒店供给降序（古城区 467 店 / 玉龙县 139 店），
+        // 但玉龙雪山那颗卫星点会把平均距离拉向县城——列表与预选都必须按供给说话
         const ljAreas: Area[] = [
-          area('古城区', AreaPriceTier.COMFORT, 26.87, 100.23),
-          area('玉龙纳西族自治县', AreaPriceTier.COMFORT, 27.12, 100.24)
+          mapArea('古城区', 26.87, 100.23),
+          mapArea('玉龙纳西族自治县', 27.12, 100.24)
         ];
         const ljTargets: GeoPoint[] = [
           { latitude: 26.98, longitude: 100.23 },
@@ -184,14 +190,8 @@ export default function tripIntentTest(): void {
           Geo.meanDistanceKm({ latitude: 26.87, longitude: 100.23 }, ljTargets)).assertTrue();
         const tie: Area | null = PlanAutoPick.nearestArea(ljAreas, ljTargets);
         expect(tie !== null && tie.name === '古城区').assertTrue();
-        const majority: GeoPoint[] = [
-          { latitude: 27.122, longitude: 100.245 },
-          { latitude: 27.135, longitude: 100.26 },
-          { latitude: 27.11, longitude: 100.24 },
-          { latitude: 26.87, longitude: 100.23 }
-        ];
-        const voted: Area | null = PlanAutoPick.nearestArea(ljAreas, majority);
-        expect(voted !== null && voted.name === '玉龙纳西族自治县').assertTrue();
+        expect(PlanAutoPick.rankAreas(ljAreas, ljTargets)[1].name)
+          .assertEqual('玉龙纳西族自治县');
       });
 
     it('auto_pick_area_by_tier_and_distance', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {

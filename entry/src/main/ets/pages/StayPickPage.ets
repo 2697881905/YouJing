@@ -44,12 +44,6 @@ const AREA_CANDIDATES: number = 12;
 /** 展示给用户的候选卡片数（AI 精选 2-3 个的呈现档；LLM 通道就绪前按距离取前 3） */
 const AREA_PICKS: number = 3;
 
-/** 片区与到所选景点集合的平均直线距离（km） */
-interface AreaDistance {
-  area: Area;
-  dist: number;
-}
-
 @Component
 export struct StayPickPage {
   /** 断点（唯一来源 utils/breakpointCenter.ets）：宽屏下列表并成多栏，不再被整屏拉宽 */
@@ -75,7 +69,8 @@ export struct StayPickPage {
     this.loadSpotPoints(ctx, city).then((): Promise<Area[]> => {
       return PlanRepository.loadAreas(ctx, city);
     }).then((areas: Area[]) => {
-      const ranked: Area[] = StayPickPage.rankByDistance(areas, this.spotPoints);
+      const ranked: Area[] =
+        PlanAutoPick.rankAreas(areas, this.spotPoints).slice(0, AREA_CANDIDATES);
       const top: Area[] = ranked.slice(0, AREA_PICKS);
       const list: AreaPick[] = [];
       for (let i = 0; i < top.length; i++) {
@@ -90,34 +85,17 @@ export struct StayPickPage {
       this.selectedId = keep !== undefined ? keep.area.id : (list.length > 0 ? list[0].area.id : '');
       this.applyStops(top);
       Logger.info('Ui.StayPick',
-        `候选片区 ${areas.length} → 距离排序取前 ${AREA_CANDIDATES} → 展示 ${list.length}`);
+        `候选片区 ${areas.length} → 统一排序取前 ${AREA_CANDIDATES} → 展示 ${list.length}`);
     }).catch((err: Error) => {
       Logger.error('Ui.StayPick', `区域库加载失败: ${err.message}`);
     });
   }
 
   /**
-   * §3.3 住宿候选收敛：按与所选景点的平均直线距离升序；
-   * 景点/片区任一侧缺坐标的行排最后（保持种子库顺序），不把没坐标的片区当最近。
+   * §3.3 住宿候选收敛已并入 `PlanAutoPick.rankAreas`：
+   * 列表顺序与屏2 预选必须同源，否则「首屏推荐」和「自动帮你选」会各说一套
+   * （2026-10-31 丽江实测：按平均距离重排把玉龙县城顶到了古城区前面）。
    */
-  private static rankByDistance(areas: Area[], spotPoints: GeoPoint[]): Area[] {
-    if (spotPoints.length === 0) {
-      return areas;
-    }
-    const withDist: AreaDistance[] = [];
-    const noGeo: Area[] = [];
-    for (const a of areas) {
-      if (Geo.usable(a.latitude, a.longitude)) {
-        const g: GeoPoint = { latitude: a.latitude, longitude: a.longitude };
-        withDist.push({ area: a, dist: Geo.meanDistanceKm(g, spotPoints) });
-      } else {
-        noGeo.push(a);
-      }
-    }
-    withDist.sort((x: AreaDistance, y: AreaDistance): number => x.dist - y.dist);
-    return withDist.slice(0, AREA_CANDIDATES).map((x: AreaDistance): Area => x.area)
-      .concat(noGeo);
-  }
 
   private loadSpotPoints(ctx: common.UIAbilityContext, city: string): Promise<void> {
     const chosen: string[] = PlanDraft.get().selectedSpots.map((s: SelectedSpot): string => s.spotId);
