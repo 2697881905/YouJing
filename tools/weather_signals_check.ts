@@ -16,6 +16,7 @@ import { SignalAction, SignalContext, SignalKind, TripSignals, TripSuggestion } 
 import { SkipPlanner } from '../data/SkipPlanner';
 import { DateUtils } from '../utils/DateUtils';
 import { Geo, GeoPoint } from '../utils/Geo';
+import { NodeOwe, OweItem } from '../utils/NodeOwe';
 
 let cases = 0;
 
@@ -96,9 +97,22 @@ function weatherOf(rainProb: number): WeatherDay {
   return d;
 }
 
+/**
+ * 三张信号用日程表的公共前缀（a0 09:00 / a2 14:00 / a3 15:30 / a4 19:00）。
+ * ctxOf 用屏15 同一套 NodeOwe.indexOf 反推「你欠着哪一站」再传给信号，
+ * 测试侧不再自己猜节点。
+ */
+const FIXTURE_ITEMS: OweItem[] = [
+  item('a0', 540), item('a2', 840), item('a3', 930), item('a4', 1140)
+];
+
 function ctxOf(nowMin: number, fix: GeoPoint | null, checked: string[],
   weather: WeatherDay | null): SignalContext {
-  const c: SignalContext = { isToday: true, nowMin: nowMin, fix: fix, checkedIds: checked, weather: weather };
+  const i: number = NodeOwe.indexOf(FIXTURE_ITEMS, checked, nowMin);
+  const c: SignalContext = {
+    isToday: true, nowMin: nowMin, fix: fix, checkedIds: checked,
+    currentKey: i >= 0 ? FIXTURE_ITEMS[i].key : '', weather: weather
+  };
   return c;
 }
 
@@ -220,7 +234,7 @@ ok(Geo.distanceM(farFix, targetPoint) > 1000, '远点构造 >1km');
 ok(Geo.distanceM(nearFix, targetPoint) < 1000, '近点构造 <1km');
 
 const notToday: SignalContext = {
-  isToday: false, nowMin: 870, fix: farFix, checkedIds: [], weather: null
+  isToday: false, nowMin: 870, fix: farFix, checkedIds: [], currentKey: 'a2', weather: null
 };
 ok(TripSignals.suggest(signalDay(), notToday) === null, '非今天不出建议');
 ok(TripSignals.suggest(signalDay(), ctxOf(-1, farFix, [], null)) === null, 'nowMin 非法不出建议');
@@ -377,5 +391,37 @@ const transportDay: TripDay = dayOf([
 const transportShift = SkipPlanner.shiftRemaining(transportDay, 845, 30);
 eq(find(transportShift.day, 't1').time, '15:00', '交通段不被顺延');
 eq(find(transportShift.day, 'a3').time, '16:10', '交通之后的活动照常顺延');
+
+// ── NodeOwe：屏15「你欠着的那一站」的唯一规则 ────────────────────────────
+// 喂打卡列表的「进行中」行与建议条。hero 的「现在该在哪」是另一个问题，在页面里另算。
+function item(key: string, startMin: number): OweItem {
+  const i: OweItem = { key: key, startMin: startMin };
+  return i;
+}
+
+const owedList: OweItem[] = [item('a1', 540), item('a2', 600), item('a3', 660)];
+eq(NodeOwe.indexOf(owedList, [], 630), 0, '全没打卡时欠第一站');
+eq(NodeOwe.indexOf(owedList, [], 500), -1, '首站还没开始就不欠（退回时钟规则）');
+eq(NodeOwe.indexOf(owedList, ['a1'], 630), 1, '打过 a1 就欠 a2');
+eq(NodeOwe.indexOf(owedList, ['a1', 'a2'], 630), -1, '已开始的都打完了不欠');
+// 已经走过 a2 再回头说 a1 欠着，会把用户按回过去那一站——a1 不算欠
+eq(NodeOwe.indexOf(owedList, ['a2'], 700), 2, '最后一个已打卡之前的漏站不回头追');
+eq(NodeOwe.indexOf(owedList, ['a1', 'a2', 'a3'], 1200), -1, '全打完工不欠');
+eq(NodeOwe.indexOf(owedList, ['a1'], 700), 1, 'a2 a3 都已开始时仍欠最先那个没打的 a2');
+eq(NodeOwe.indexOf([], ['a1'], 630), -1, '空列表不欠');
+eq(NodeOwe.indexOf(owedList, ['nope'], 630), 0, '打卡集合里的陌生 key 不影响判定');
+
+// 落后时的落点回归：a2 欠着没打卡、a3 也已开始。
+// 钟点规则会说 a3（城墙），建议条必须说「你欠的」a2（博物馆）——
+// 两者回答不同问题，但建议条与「跳过这一站」的动作必须落在同一个站上。
+const divergeCtx: SignalContext = ctxOf(960, null, ['a0'], null);
+eq(divergeCtx.currentKey, 'a2', '落后时欠站是 a2，不是钟点上的 a3');
+const diverge: TripSuggestion | null = TripSignals.suggest(signalDay(), divergeCtx);
+ok(diverge !== null, '落后要出建议');
+if (diverge !== null) {
+  eq(diverge.kind, SignalKind.BEHIND, '落后信号');
+  eq(diverge.targetId, 'a2', '建议条的动作落在欠着的那一站');
+  eq(diverge.detail.indexOf('「博物馆」'), 0, '建议条说的站与 hero 同一站');
+}
 
 console.log(`WEATHER_SIGNALS_OK cases=${cases}`);

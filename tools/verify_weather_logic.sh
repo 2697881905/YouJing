@@ -26,6 +26,7 @@ copy entry/src/main/ets/common/error/ErrorCode.ets common/error/ErrorCode.ts
 copy entry/src/main/ets/common/weather/WeatherParser.ets common/weather/WeatherParser.ts
 copy entry/src/main/ets/data/WeatherAdvisor.ets data/WeatherAdvisor.ts
 copy entry/src/main/ets/data/SkipPlanner.ets data/SkipPlanner.ts
+copy entry/src/main/ets/utils/NodeOwe.ets utils/NodeOwe.ts
 copy entry/src/main/ets/data/TripSignals.ets data/TripSignals.ts
 copy tools/weather_signals_check.ts tools/weather_signals_check.ts
 

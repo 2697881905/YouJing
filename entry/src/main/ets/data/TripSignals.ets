@@ -36,6 +36,16 @@ export interface SignalContext {
   fix: GeoPoint | null;
   /** 当日已打卡的活动/餐次 key；餐次 key 在这里不会命中活动 */
   checkedIds: string[];
+  /**
+   * 屏15 判定好的「当前节点」id（`utils/NodeOwe` 的答复，见 OnTripPage.reload）。
+   * 空串 = 这一屏没有当前节点。
+   *
+   * 本模块**不再自己扫"现在是哪一站"**。之前它内部有一套（落后信号取
+   * 「最后一个已打卡之后第一个没打卡的站」），而 hero 与「完成打卡」取另一套
+   * （「时刻已到的最后一站」），用户一落后两者就分叉 —— 同一屏两颗主按钮
+   * 瞄着两个不同的站。现在判定只有一处，信号跟着它走。
+   */
+  currentKey: string;
   /** 今日天气；取不到为 null */
   weather: WeatherDay | null;
 }
@@ -77,14 +87,12 @@ export class TripSignals {
     if (stops.length === 0) {
       return null;
     }
-    let current: Activity | null = null;
-    for (const a of stops) {
-      if (TripSignals.startOf(a) <= ctx.nowMin) {
-        current = a;
-      }
-    }
+    // 当前节点由屏15 一处判定后传进来。找不到就不出「偏离」与「落后」两条：
+    // 宁可这一屏安静，也不能建议条说的是 A 站、hero 和「完成打卡」瞄的是 B 站。
+    // （餐次与无时刻项不在 timeline 口径里，所以当前节点是餐次时这里天然不命中。）
+    const current: Activity | null = TripSignals.findByKey(stops, ctx.currentKey);
     if (current === null) {
-      return null;
+      return TripSignals.rain(stops, ctx);
     }
 
     const offRoute: TripSuggestion | null = TripSignals.offRoute(current, ctx);
@@ -92,11 +100,10 @@ export class TripSignals {
       return offRoute;
     }
 
-    const late: Activity | null = TripSignals.lagStop(stops, ctx);
-    if (late !== null) {
-      const lag: number = ctx.nowMin - TripSignals.startOf(late);
+    if (!TripSignals.checked(current, ctx.checkedIds)) {
+      const lag: number = ctx.nowMin - TripSignals.startOf(current);
       if (lag >= BEHIND_MIN) {
-        const behind: TripSuggestion | null = TripSignals.behind(late, lag, stops, ctx);
+        const behind: TripSuggestion | null = TripSignals.behind(current, lag, stops, ctx);
         if (behind !== null) {
           return behind;
         }
@@ -104,6 +111,18 @@ export class TripSignals {
     }
 
     return TripSignals.rain(stops, ctx);
+  }
+
+  private static findByKey(stops: Activity[], key: string): Activity | null {
+    if (key.length === 0) {
+      return null;
+    }
+    for (const a of stops) {
+      if (a.id === key) {
+        return a;
+      }
+    }
+    return null;
   }
 
   /** 参与信号判定的一天：剔除交通/住宿/跳过占位/无时刻项，按开始时间排序 */
@@ -156,51 +175,32 @@ export class TripSignals {
     return s;
   }
 
-  /** 最后一次打卡之后的第一个「已开始但未打卡」的活动；没有返回 null */
-  private static lagStop(stops: Activity[], ctx: SignalContext): Activity | null {
-    let from: number = 0;
-    for (let i = 0; i < stops.length; i++) {
-      if (TripSignals.checked(stops[i], ctx.checkedIds)) {
-        from = i + 1;
-      }
-    }
-    for (let i = from; i < stops.length; i++) {
-      if (TripSignals.startOf(stops[i]) > ctx.nowMin) {
-        break;
-      }
-      if (!TripSignals.checked(stops[i], ctx.checkedIds)) {
-        return stops[i];
-      }
-    }
-    return null;
-  }
-
-  private static behind(lagStop: Activity, lag: number, stops: Activity[],
+  private static behind(owed: Activity, lag: number, stops: Activity[],
     ctx: SignalContext): TripSuggestion | null {
     if (TripSignals.hasShiftTargets(stops, ctx.nowMin)) {
       const delta: number = TripSignals.shiftDelta(lag);
       const shifted: TripSuggestion = {
-        key: `behind:${lagStop.id}`,
+        key: `behind:${owed.id}`,
         kind: SignalKind.BEHIND,
         title: `比计划晚 ${lag} 分钟`,
-        detail: `「${lagStop.title}」还没打卡，后续按原时间排`,
+        detail: `「${owed.title}」还没打卡，后续按原时间排`,
         action: SignalAction.SHIFT,
-        targetId: lagStop.id,
+        targetId: owed.id,
         deltaMin: delta,
         actionLabel: `顺延 ${delta} 分钟`
       };
       return shifted;
     }
-    if (!SkipPlanner.isSkippable(lagStop.category, lagStop.status)) {
+    if (!SkipPlanner.isSkippable(owed.category, owed.status)) {
       return null;
     }
     const skipped: TripSuggestion = {
-      key: `behind:${lagStop.id}`,
+      key: `behind:${owed.id}`,
       kind: SignalKind.BEHIND,
       title: `比计划晚 ${lag} 分钟`,
-      detail: `「${lagStop.title}」还没打卡，今天没有可顺延的站`,
+      detail: `「${owed.title}」还没打卡，今天没有可顺延的站`,
       action: SignalAction.SKIP,
-      targetId: lagStop.id,
+      targetId: owed.id,
       deltaMin: 0,
       actionLabel: '跳过这一站'
     };

@@ -17,6 +17,7 @@ import {
 } from '../../../main/ets/data/TripSignals';
 import { SkipPlanner } from '../../../main/ets/data/SkipPlanner';
 import { Geo, GeoPoint } from '../../../main/ets/utils/Geo';
+import { NodeOwe, OweItem } from '../../../main/ets/utils/NodeOwe';
 
 function act(id: string, time: string, endTime: string, title: string,
   category: ActivityCategory = ActivityCategory.SIGHT,
@@ -78,10 +79,22 @@ function weatherOf(rainProb: number): WeatherDay {
   return d;
 }
 
+/**
+ * 三张信号用日程表的公共前缀（a0 09:00 / a2 14:00 / a3 15:30 / a4 19:00）。
+ * ctxOf 用屏15 同一套 NodeOwe.indexOf 反推「你欠着哪一站」再传给信号：
+ * 节点判定只有一处实现，测试侧不自己猜。
+ */
+const FIXTURE_ITEMS: OweItem[] = [
+  { key: 'a0', startMin: 540 }, { key: 'a2', startMin: 840 },
+  { key: 'a3', startMin: 930 }, { key: 'a4', startMin: 1140 }
+];
+
 function ctxOf(nowMin: number, fix: GeoPoint | null, checked: string[],
   weather: WeatherDay | null): SignalContext {
+  const i: number = NodeOwe.indexOf(FIXTURE_ITEMS, checked, nowMin);
   const c: SignalContext = {
-    isToday: true, nowMin: nowMin, fix: fix, checkedIds: checked, weather: weather
+    isToday: true, nowMin: nowMin, fix: fix, checkedIds: checked,
+    currentKey: i >= 0 ? FIXTURE_ITEMS[i].key : '', weather: weather
   };
   return c;
 }
@@ -213,7 +226,7 @@ export default function weatherSignalsTest(): void {
       expect(TripSignals.suggest(signalDay(), ctxOf(880, null, ['a0', 'a2'], null))).assertNull();
       expect(TripSignals.suggest(signalDay(), ctxOf(870, far, ['a0', 'a2'], null))).assertNull();
       const notToday: SignalContext = {
-        isToday: false, nowMin: 870, fix: far, checkedIds: [], weather: null
+        isToday: false, nowMin: 870, fix: far, checkedIds: [], currentKey: 'a2', weather: null
       };
       expect(TripSignals.suggest(signalDay(), notToday)).assertNull();
 
@@ -226,6 +239,23 @@ export default function weatherSignalsTest(): void {
       expect(round.deltaMin).assertEqual(45);
       expect(round.detail).assertEqual('「博物馆」还没打卡，后续按原时间排');
     });
+
+    it('signal_current_node_follows_the_owed_stop',
+      TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+        // 用户落后时（a2 欠着没打卡、a3 也已开始）：hero 按钟点会说 a3，
+        // 建议条必须说「你欠的」a2 而不是跟着钟点走。
+        // 两条规则各自的落点，混成一个「当前」就会两颗主按钮各追一个站。
+        const behind: SignalContext = ctxOf(960, null, ['a0'], null);
+        expect(behind.currentKey).assertEqual('a2');
+        const s: TripSuggestion | null = TripSignals.suggest(signalDay(), behind);
+        expect(s !== null).assertTrue();
+        if (s === null) {
+          return;
+        }
+        expect(s.kind).assertEqual(SignalKind.BEHIND);
+        expect(s.targetId).assertEqual('a2');
+        expect(s.detail.indexOf('「博物馆」')).assertEqual(0);
+      });
 
     it('signal_behind_without_shift_targets',
       TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {

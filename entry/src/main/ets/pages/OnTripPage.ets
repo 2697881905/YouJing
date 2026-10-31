@@ -41,6 +41,7 @@ import { Geo, GeoPoint } from '../utils/Geo';
 import { ArrivalWatcher, LocationFix } from '../common/location/ArrivalWatcher';
 import { WidgetSync } from '../widget/TodayCard';
 import { TransitSymbol } from '../utils/TransitSymbol';
+import { NodeOwe, OweItem } from '../utils/NodeOwe';
 import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
@@ -122,11 +123,11 @@ export struct OnTripPage {
   @State private rows: CheckedRow[] = [];
   @State private current: DayStop | null = null;
   /**
-   * 该在打卡列表里标「进行中」的那一站。`current` 有个兜底：还没到首站时刻时它取第一站，
-   * 那对 hero 是「今天先去哪儿」，对列表却不能说「进行中」——什么都还没开始。
-   * 所以这里只在**时刻已到**时才记键名，两件事分开判。
+   * 「你欠着的那一站」——打卡列表的「进行中」行与建议条共用它。
+   * 与 `current`（hero 的钟点节点）回答的是**两个不同的问题**，所以是两个字段：
+   * 用户准时时两者重合，一落后就分叉。空串 = 没有欠站。
    */
-  private ongoingKey: string = '';
+  private owedKey: string = '';
   @State private next: DayStop | null = null;
   @State private checkedIn: boolean = false;
   @State private elapsedMin: number = 0;
@@ -219,7 +220,7 @@ export struct OnTripPage {
         this.trip = null;
         this.day = null;
         this.current = null;
-        this.ongoingKey = '';
+        this.owedKey = '';
         this.next = null;
         this.rows = [];
         this.stops = [];
@@ -244,7 +245,7 @@ export struct OnTripPage {
       if (day === null || day.activities.length === 0 || stops.length === 0) {
         this.dayLabel = '旅行中';
         this.current = null;
-        this.ongoingKey = '';
+        this.owedKey = '';
         this.next = null;
         this.stops = [];
         this.totalMin = 0;
@@ -272,9 +273,14 @@ export struct OnTripPage {
       this.canUndo = this.skipSnapshot !== null && this.skipSnapshotTripId === trip.id &&
         this.skipSnapshotDayIndex === day.dayIndex;
       this.dayLabel = `进行中 · Day ${day.dayIndex}`;
+      const nowMin: number = DateUtils.minutesOf(now);
+      const marks: Record<string, number> = await CheckinDao.listForTrip(context, trip.id);
+      this.marks = marks;
+      // hero 回答的是「按原计划现在该在哪」：时刻已到的最后一站，一站都还没开始就取第一站。
+      // 「完成打卡」的落点、进度条与到站订阅全都吃它。
       let cur: number = -1;
       for (let i = 0; i < stops.length; i++) {
-        if (stops[i].sortMin <= DateUtils.minutesOf(now)) {
+        if (stops[i].sortMin <= nowMin) {
           cur = i;
         }
       }
@@ -283,14 +289,23 @@ export struct OnTripPage {
       }
       const curStop: DayStop = stops[cur];
       this.current = curStop;
-      this.ongoingKey = curStop.sortMin <= DateUtils.minutesOf(now) ? curStop.key : '';
+      this.checkedIn = marks[curStop.key] !== undefined;
       this.next = cur + 1 < stops.length ? stops[cur + 1] : null;
+      /**
+       * 「哪一站该做而没做」是**另一个问题**，单独算，喂给打卡列表的「进行中」行
+       * 与建议条。用户准时时它和 hero 同一站，一落后就不是 —— 所以两处各自的措辞
+       * 必须分清在回答哪个问题，不能都叫「当前」。
+       * 只在可操作站点上算（`oweItemsOf` 已排除交通与住宿）。
+       */
+      const oweItems: OweItem[] = this.oweItemsOf(stops);
+      const owedIdx: number = NodeOwe.indexOf(oweItems, Object.keys(marks), nowMin);
+      this.owedKey = owedIdx >= 0 ? oweItems[owedIdx].key : '';
       // 进度条只在"这一站有结束时刻"时给：餐次没有 endTime，不拿一小时假装它的窗口
       if (!curStop.isMeal && curStop.endTime.length > 0) {
         const start: number = curStop.sortMin;
         const end: number = Math.max(start + 1, DateUtils.minutesOf(curStop.endTime));
         this.totalMin = end - start;
-        this.elapsedMin = Math.max(0, Math.min(this.totalMin, DateUtils.minutesOf(now) - start));
+        this.elapsedMin = Math.max(0, Math.min(this.totalMin, nowMin - start));
       } else {
         this.totalMin = 0;
         this.elapsedMin = 0;
@@ -299,9 +314,6 @@ export struct OnTripPage {
       this.nextLeg = nx !== null && nx.hasTransport
         ? `${nx.transportMode} ${nx.transportMin}分钟${nx.transportDetail.length > 0 ? ` · ${nx.transportDetail}` : ''}`
         : '';
-      const marks: Record<string, number> = await CheckinDao.listForTrip(context, trip.id);
-      this.marks = marks;
-      this.checkedIn = marks[curStop.key] !== undefined;
       await this.buildRows(marks);
       this.syncArrivalWatcher();
       this.refreshWeather(day);
@@ -483,6 +495,21 @@ export struct OnTripPage {
     });
   }
 
+  /** 喂给 NodeOwe 的当日节点表（`buildStops` 已按 sortMin 升序排好） */
+  private oweItemsOf(stops: DayStop[]): OweItem[] {
+    const items: OweItem[] = [];
+    for (const st of stops) {
+      // 交通与住宿不参与「欠」：它们既不能跳过也不是顺延目标，
+      // 把欠站落在住宿上会让建议条整个哑掉（真机实测过这个失效模式）。
+      if (st.category === ActivityCategory.TRANSPORT || st.category === ActivityCategory.HOTEL) {
+        continue;
+      }
+      const item: OweItem = { key: st.key, startMin: st.sortMin };
+      items.push(item);
+    }
+    return items;
+  }
+
   /** 一餐的稳定身份：一天一餐次唯一，打卡与 ForEach key 都用它，不新增数据库列 */
   private mealKey(dayIndex: number, type: MealType): string {
     return `meal-${dayIndex}-${type}`;
@@ -569,14 +596,14 @@ export struct OnTripPage {
       return Promise.resolve<Record<string, number>>({});
     }
     const day: TripDay | null = this.pickDay(trip);
-    const ongoingKey: string = this.ongoingKey;
+    const owedKey: string = this.owedKey;
     return ExpenseDao.sumGroupedByActivity(this.ctx(), trip.id)
       .then((sums: Record<string, number>): Record<string, number> => {
         const list: CheckedRow[] = [];
         if (day !== null) {
           for (const st of this.buildStops(day)) {
             const checked: boolean = marks[st.key] !== undefined;
-            const ongoing: boolean = !checked && st.key === ongoingKey;
+            const ongoing: boolean = !checked && st.key === owedKey;
             if (!checked && !ongoing) {
               continue;
             }
@@ -709,6 +736,9 @@ export struct OnTripPage {
       nowMin: nowMin,
       fix: point,
       checkedIds: Object.keys(this.marks),
+      // 建议条说的是「你还欠哪一站」，与 hero 的「现在该在哪」不是同一个问题，
+      // 所以喂 owedKey 而不是 current 的键名。两条规则各自只有一处实现。
+      currentKey: this.owedKey,
       weather: this.weather
     };
     const suggestion: TripSuggestion | null = TripSignals.suggest(day, ctx);
