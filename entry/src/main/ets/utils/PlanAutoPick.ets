@@ -13,6 +13,12 @@ import { Area, AreaPriceTier } from '../model/Area';
 import { SelectedSpot, SpotPriority, PaceOption } from '../model/PlanParams';
 import { Geo, GeoPoint } from './Geo';
 import { isMapArea } from './MapCityMapper';
+import { DayLoadCalc } from './DayLoad';
+
+/** 单日在场窗口 = 当日负载窗口（DayLoad 是这个口径的唯一持有者） */
+const DAY_WINDOW_MIN: number = DayLoadCalc.WINDOW_MINUTES;
+/** 两餐固定占用的分钟数，不给景点 */
+const MEAL_MINUTES: number = 120;
 
 /** 片区与到所选景点集合的平均直线距离（km） */
 interface AreaDistance {
@@ -29,10 +35,13 @@ export class PlanAutoPick {
     return pace === PaceOption.PACKED ? 6 : 4;
   }
 
-  /** 单日建议在场窗口，与 utils/DayLoad.WINDOW_MINUTES 同源（600min） */
-  static readonly SINGLE_DAY_WINDOW_MIN: number = 600;
-  /** 600min 窗口 − 120min 两餐，留给景点停留 + 往返通勤 */
-  static readonly SINGLE_DAY_SIGHT_BUDGET_MIN: number = 480;
+  /**
+   * 单日在场窗口：直接取 utils/DayLoad 的当日负载窗口，不再各写一份 600。
+   * 两处数字一旦漂移，屏2 会按 10 小时预选、屏8 却按别的窗口报「排太满」。
+   */
+  static readonly SINGLE_DAY_WINDOW_MIN: number = DAY_WINDOW_MIN;
+  /** 窗口减去两餐固定占用，才是留给景点停留 + 往返通勤的预算 */
+  static readonly SINGLE_DAY_SIGHT_BUDGET_MIN: number = DAY_WINDOW_MIN - MEAL_MINUTES;
   /** 单日候选池下限：一个远郊站就可能白占一个名额，池子要比上限宽 */
   static readonly SINGLE_DAY_POOL_MIN: number = 8;
 

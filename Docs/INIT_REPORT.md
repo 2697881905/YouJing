@@ -4442,3 +4442,39 @@ Map Kit 地点检索真机探针（任意城市数据管线的 Stage 1），以�
 - 338min 没用满 480min：剩下的候选全在远郊（重庆的热门榜混了丰都/武隆/黔江方向），
   不是预算算松了。要那些景点得用户在屏4 自己加，负载条会照常提醒。
 - 通勤仍是直线启发式，山地城市的实际耗时可能更高。
+
+### §5ci 续 66：MapKit 取不到数据的出口真机验完，顺手把「10 小时」收成一处
+
+- 之前只验过成功路径（西安 / 丽江 / 北京 / 重庆），**失败出口一次没在真机上走过**。
+  想造真失败，先试撤本应用的 `ohos.permission.INTERNET`：
+  `atm perm -c -i 537227270 -p ohos.permission.INTERNET` 报
+  `Permission 'ohos.permission.INTERNET' is not requested by the application` ——
+  它是装期授权（`grantFlag 4` = SYSTEM_GRANT），`atm` 只管用户授权类 ACL，撤不动。
+  飞行模式更不行：本机 hdc 就是走 WiFi（`192.168.31.38:46077`），断网等于断自己的手。
+- 换**真实数据缺口**当扳机，零成本也不碰设备网络：在屏2「其他城市」输 `雷克雅未克`。
+  华为地图国内节点没有这座岛的景点列表，走的是 `MapKitCityStore` 那条真链路。
+  实测落点值得记一笔：**屏2 不做联网预检**，输完城市直接放行到下一步，
+  失败一律在屏4「选景点」现形 ——
+  「地图服务没取到雷克雅未克的景点」/「检查网络后重试，或换一座城市」+ 两个出口
+  「重试」`[312,1743][412,1802]`、「换城市」`[700,1743][850,1802]`。
+  不崩、不卡转圈、不拿空列表冒充成功。
+- 「重试」单独量了一次行为边界而不只是看它存在：点下去 3s 后仍是同一空态（说明请求重新发起了），
+  13s 后还是同一空态而不是停在加载壳 —— 按钮是活的，且失败后能落回可操作态。
+- 顺带修掉一处会静默漂移的重复：`PlanAutoPick.SINGLE_DAY_WINDOW_MIN` 和
+  `DayLoadCalc.WINDOW_MINUTES` 各写了一份 `600`，注释还互相指认「与对方同源」。
+  现在 `PlanAutoPick` 直接 `import { DayLoadCalc }`，窗口取 `DayLoadCalc.WINDOW_MINUTES`，
+  景点预算写成 `DAY_WINDOW_MIN - MEAL_MINUTES`（120 是两餐，不再手算成 480）。
+  改一边不会让另一边失败，所以补了两条离线断言把等式钉住
+  （`tools/trip_intent_check.ts` → 100 → **102**）。
+  代价是离线取证脚本要多拷三个文件（`DayLoad` / `model/Trip` / `model/Expense`），已加。
+- 两处工具与文档的账：`tools/verify_dock_tabs.sh` 里写死的 `DEV=192.168.3.2:46077`
+  换成取 `hdc list targets` 首条 + 无设备时明确报错退出（IP 每次重连都变，实测已变成
+  `192.168.31.38`，写死只会让脚本静默跑在错目标上）；README 的 186 例 / 离线 86 条
+  按这次实跑值改成 187 / 102。
+- 门禁（全部本轮实跑）：离线 66 / 102 / 57 / 74+26 / 102 全绿；十二把静态尺 0 偏差；
+  `assembleHap` BUILD SUCCESSFUL；真机 hypium **187/187**。
+- **仍未验**：屏6 → 屏7 带真错误码的降级链。`aa start --ps route GenerateFailed` 这条直入通道
+  只带 `code=0`（`routeTo` 的 param 是行程 id，不是 `FailInfo`），渲染的是兜底文案；
+  而屏2 既然不预检，MapKit 失败就到不了屏7，只能停在屏4。
+  要拿到真错误码得让生成阶段真的失败一次 —— 那是花模型额度的事，留到下次顺路验。
+  `FailureCopy` 两个映射函数本身有 hypium 覆盖（`FailureCopy.test.ets` 4 例全过）。

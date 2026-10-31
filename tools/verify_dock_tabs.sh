@@ -5,7 +5,16 @@
 set -uo pipefail
 
 HDC=${HDC:-/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hdc}
-DEV=${DEV:-192.168.3.2:46077}
+# 设备地址不写死：IP 每次重连都会变（实测 192.168.3.2 → 192.168.31.38），
+# 写死的地址只会让脚本静默跑在错误目标上。取 `hdc list targets` 第一条，
+# 需要指定时用 DEV=... 覆盖。
+if [ -z "${DEV:-}" ]; then
+  DEV="$("$HDC" list targets 2>/dev/null | sed -n '1p')"
+fi
+if [ -z "$DEV" ] || [ "$DEV" = "[Empty]" ]; then
+  echo "没有可用设备：hdc list targets 为空。接上真机或用 DEV=<ip:port> 指定。" >&2
+  exit 2
+fi
 BUNDLE=com.youjing.app
 OUT=${1:-/tmp/docktabs-$(date +%Y%m%d-%H%M%S)}
 DENSITY=3.125   # 实测：真机像素 ÷ vp 一律按 3.125

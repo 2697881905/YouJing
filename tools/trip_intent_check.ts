@@ -10,6 +10,7 @@ import { SelectedSpot, SpotPriority } from '../model/PlanParams';
 import { TripIntent, TripIntentParser } from '../utils/TripIntentParser';
 import { PlanAutoPick } from '../utils/PlanAutoPick';
 import { Geo, GeoPoint } from '../utils/Geo';
+import { DayLoadCalc } from '../utils/DayLoad';
 
 let cases = 0;
 
@@ -321,5 +322,11 @@ ok(PlanAutoPick.describe(oneDay, comfortPick, 1, 'standard').indexOf('预选 4 �
   '预览理由含预选数量');
 ok(PlanAutoPick.describe([], null, 1, 'standard').indexOf('没有可预选') >= 0,
   '空结果也有说明');
+
+// 单日窗口只有一个持有者：屏2 预选用的数必须就是屏8 负载条用的数。
+// 两处各写 600 时改一边不会让另一边失败，这里把它钉成引用同一处。
+eq(PlanAutoPick.SINGLE_DAY_WINDOW_MIN, DayLoadCalc.WINDOW_MINUTES, '单日窗口与当日负载窗口同源');
+eq(PlanAutoPick.SINGLE_DAY_SIGHT_BUDGET_MIN,
+  PlanAutoPick.SINGLE_DAY_WINDOW_MIN - 120, '景点预算 = 窗口 − 两餐');
 
 console.log(`PASS ${cases}/${cases}`);
