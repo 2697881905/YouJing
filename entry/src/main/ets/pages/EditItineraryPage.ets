@@ -638,7 +638,7 @@ export struct EditItineraryPage {
               .fontFamily(TypeTokens.title.family)
               .fontColor(ColorTokens.ink)
               .textAlign(TextAlign.Center)
-            Text(this.tripId.length === 0 ? '从「我的行程」里选一条行程再进来' : '点右上角 ⊕ 可以补选景点')
+            Text(this.tripId.length === 0 ? '从「行程」页选一条行程再进来' : '点右上角 ⊕ 可以补选景点')
               .fontSize(TypeTokens.small.size)
               .fontColor(ColorTokens.body)
               .textAlign(TextAlign.Center)

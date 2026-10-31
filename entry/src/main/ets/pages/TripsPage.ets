@@ -1,11 +1,13 @@
 /**
  * 屏12 我的行程（帧 f037b5c4）+ 屏12b 空状态（按干净版 7991fe5b 抄，不抄 06190639 的 !important）。
+ * 五格导航后它是「行程」格的根页：历史/最近行程的查看与编辑都从这里进，
+ * 勋章与退出登录归「我的」格（`MinePage`），标题栏只留 ＋新建。
  * 卡片：place serif 21 / 日期 meta / 动线 5 节点（必去金）/ 三统计 / 状态行+进度。
  * 状态切换由数据驱动（trips 为空即 12b），生产接 RDB 后自动生效。
  * §7 必改已落：booking-badge padding 2→0、card-footer gap 6→4、dock padding 10→8。
  */
 
-import { TRIPS_NAV, enterPlanningFlow, TAB_SHOWN_KEY, isTabShownTick, TAB_ITINERARY } from '../common/constants/AppNav';
+import { TRIPS_NAV, enterPlanningFlow, TAB_SHOWN_KEY, isTabShownTick, TAB_ITINERARY, ACTIVE_TRIP_KEY, activeTripId } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { MoneyText } from '../utils/MoneyText';
 import { TypeTokens } from '../design/TypeTokens';
@@ -17,12 +19,12 @@ import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton
 import { TripDao, TripSummary } from '../data/TripDao';
 import { PlanDraft } from '../data/PlanDraft';
 import { DateUtils } from '../utils/DateUtils';
+import { TripWindow } from '../utils/TripWindow';
 import { AnniversaryTrip, anniversaryText, findAnniversary } from '../utils/TripReview';
 import { common } from '@kit.AbilityKit';
 import { HdsNavigation, HdsNavigationTitleMode, HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { routerMap } from './AppRouter';
 import { HdsChrome } from '../design/HdsChrome';
-import { AccountStore } from '../data/AccountStore';
 import { Logger } from '../common/logger/Logger';
 import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
 import { listLanesForBreakpoint } from '../utils/responsive';
@@ -83,9 +85,8 @@ export struct TripsPage {
       const anniversaries: AnniversaryTrip[] = [];
       for (const r of rows) {
         const span: number = DateUtils.spanDays(r.startDate, r.endDate);
-        // ISO 串可直接比大小；不能用 spanDays 的差值判在途——它含首尾且下限为 1，
-        // 会把「还没出发」的未来行程误判成旅行中
-        const onTrip: boolean = today >= r.startDate && today <= r.endDate;
+        // 在途口径只有一处实现（TripWindow：ISO 串直接比大小，不许用 spanDays 差值判）
+        const onTrip: boolean = TripWindow.isActiveOn(r.startDate, r.endDate, today);
         // 三态而不是两态：未出发与已结束此前都叫「已生成」，进度条一个 0 一个 100，
         // 于是同一天出发的几条过去行程在列表里长得一模一样（§5.13 的根因）
         let progress: number = 100;
@@ -171,26 +172,6 @@ export struct TripsPage {
     .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
   }
 
-  /** 登出（对齐有据 SettingsPage 的二次确认通路；不清隐私同意） */
-  private confirmLogout(): void {
-    this.getUIContext().showAlertDialog({
-      title: '退出登录',
-      message: '退出后回到本机游客空间；该账号下的行程仍留在本机。',
-      primaryButton: { value: '取消', action: (): void => {} },
-      secondaryButton: {
-        value: '退出登录',
-        fontColor: ColorTokens.danger,
-        action: (): void => {
-          AccountStore.logout().then((): void => {
-            this.getUIContext().getPromptAction().showToast({ message: '已退出，回到登录页' });
-          }).catch((err: Error): void => {
-            Logger.warn('TripsPage', '登出失败: ' + err.message);
-          });
-        }
-      }
-    });
-  }
-
   private confirmDelete(t: TripCardData): void {
     this.getUIContext().showAlertDialog({
       title: '删除这条行程',
@@ -213,6 +194,11 @@ export struct TripsPage {
   private doDelete(id: string): void {
     const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
     TripDao.deleteTrip(ctx, id).then((): void => {
+      // 行程上下文只服费用格，它认「最后打开的那条」。删掉的正是那条的话不清掉，
+      // 费用格会拿着一个已不存在的 id 去 loadTrip。
+      if (activeTripId() === id) {
+        AppStorage.setOrCreate(ACTIVE_TRIP_KEY, '');
+      }
       this.getUIContext().getPromptAction().showToast({ message: '已删除该行程' });
       this.reload().catch((err: Error): void => {
         Logger.error('Ui.Trips', `删除后重载失败: ${err.message}`);
@@ -518,15 +504,11 @@ export struct TripsPage {
       .titleMode(HdsNavigationTitleMode.MINI)
       .hideBackButton(true)
       .titleBar(HdsChrome.bar({
-        mainTitle: '我的行程',
+        mainTitle: '行程',
         subTitle: this.trips.length > 0 ? `${this.trips.length} 条` : '',
         menu: [HdsChrome.item($r('sys.symbol.plus'), '新建行程', (): void => {
           PlanDraft.fresh();
           enterPlanningFlow('TripInput');
-        }), HdsChrome.item($r('sys.symbol.medal'), '我的勋章', (): void => {
-          this.pathStack.pushPath({ name: 'Badges' });
-        }), HdsChrome.item($r('sys.symbol.person_crop_circle_fill_1'), '退出登录', (): void => {
-          this.confirmLogout();
         })]
       }))
       .navDestination(routerMap)
@@ -538,15 +520,11 @@ export struct TripsPage {
         this.rootShell()
       }
       .titleBar(HdsChrome.bar({
-        mainTitle: '我的行程',
+        mainTitle: '行程',
         subTitle: this.trips.length > 0 ? `${this.trips.length} 条` : '',
         menu: [HdsChrome.item($r('sys.symbol.plus'), '新建行程', (): void => {
           PlanDraft.fresh();
           enterPlanningFlow('TripInput');
-        }), HdsChrome.item($r('sys.symbol.medal'), '我的勋章', (): void => {
-          this.pathStack.pushPath({ name: 'Badges' });
-        }), HdsChrome.item($r('sys.symbol.person_crop_circle_fill_1'), '退出登录', (): void => {
-          this.confirmLogout();
         })]
       }))
       .titleMode(HdsNavDestinationTitleMode.MINI)

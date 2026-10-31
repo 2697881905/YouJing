@@ -148,6 +148,8 @@ export struct ExpensePage {
   @State private inputCategory: ExpenseCategory = ExpenseCategory.TICKET;
   private segments: SegmentedItem[] = [{ label: '预算' }, { label: '实际' }];
   private trip: Trip | null = null;
+  /** 已经因「上下文行程不存在」退回过一次无上下文分支；防异步自循环 */
+  private contextRetried: boolean = false;
 
   aboutToAppear(): void {
     // 冷启后第一次进「费用」tab：本页是新建的，@StorageProp 的初值不会触发 onDockShown，
@@ -187,8 +189,21 @@ export struct ExpensePage {
     const context: common.Context = this.ctx();
     TripDao.loadTrip(context, this.tripId).then((trip: Trip | null): Promise<CategoryTotal[]> => {
       if (trip === null) {
+        // 上下文里的行程已不在本机（桌面卡片带旧 id 深链进来，或删除后 ACTIVE_TRIP_KEY 没跟上）：
+        // 丢掉这个 id 退回「无上下文」分支，它会自己找最近一条或给规划入口。
+        // 只退一次——无上下文分支挑的是 listSummaries 第一条，那条要也取不到就是数据本身坏了，
+        // 再退一次就是异步自循环。
+        AppStorage.setOrCreate(ACTIVE_TRIP_KEY, '');
+        this.tripId = '';
+        if (!this.contextRetried) {
+          this.contextRetried = true;
+          this.reload();
+        } else {
+          this.noTrip = true;
+        }
         return Promise.resolve<CategoryTotal[]>([]);
       }
+      this.contextRetried = false;
       this.trip = trip;
       AppStorage.setOrCreate(ACTIVE_TRIP_KEY, trip.id);
       this.tripLabel = `${trip.destination} · ${trip.startDate} – ${trip.endDate}`;

@@ -18,7 +18,7 @@ export const FLOW_STEP_TRIP_INPUT: number = 0;
 export const FLOW_STEP_PREFERENCE_QA: number = 1;
 export const FLOW_STEP_SPOT_PICK: number = 2;
 export const FLOW_STEP_STAY_PICK: number = 3;
-// 刻意**不给屏8 定义 step**：屏8 是结果页，而且从「我的行程」点开一条老行程
+// 刻意**不给屏8 定义 step**：屏8 是结果页，而且从「行程」格点开一条老行程
 // 也落在这屏——那时说"第 5 / 5 步"是错的。五档里最后一档「看行程」是终点标记，
 // 由屏5 之后的生成流程兑现，不挂在屏8 顶栏下。
 

@@ -1,12 +1,16 @@
 /**
- * 屏1 首启与静默登录（帧 77ed8d08）。
+ * 屏1 首启与静默登录（帧 77ed8d08）——五格导航后它是「规划」格的根页。
  * 必改表已落：bottom-section gap 10→8；preview-badge padding 2→0；
  * preview-foot padding 10→8；stop-body padding 10→8；
  * transit-leg margin-left 64→48、padding 10→8。
  * 状态栏 mock 为设备 chrome，不实现。
+ *
+ * 这一屏曾经兼着「最近行程」列表（当时历史行程没有别的落点）。五格落地后
+ * 列表归「行程」格，这里回到纯门面：品牌 + 两颗 CTA + 规划预览卡，
+ * 不读行程数据，所以也没有 dock 切回重取一说。
  */
 
-import { APP_NAV, requestTab, enterPlanningFlow, markDraftDirty, DRAFT_DIRTY_KEY, isDraftDirty, TAB_SHOWN_KEY, isTabShownTick, TAB_PLAN, TAB_ITINERARY } from '../common/constants/AppNav';
+import { APP_NAV, enterPlanningFlow, markDraftDirty, DRAFT_DIRTY_KEY, isDraftDirty } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
@@ -17,8 +21,7 @@ import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton
 import { AccountStore } from '../data/AccountStore';
 import { PlanDraft } from '../data/PlanDraft';
 import { AccountKind, AccountState } from '../model/Account';
-import { DateUtils } from '../utils/DateUtils';
-import { TripDao, TripSummary } from '../data/TripDao';
+import { TripDao } from '../data/TripDao';
 import { WidgetSync } from '../widget/TodayCard';
 import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
@@ -36,35 +39,15 @@ interface PreviewLeg {
   text: string;
 }
 
-/** 首页「最近行程」一行：只挑真字段显示，不编状态 */
-interface RecentRow {
-  id: string;
-  place: string;
-  meta: string;
-  onTrip: boolean;
-}
-
 // 预览动线行高：契约 itinerary-row-min-height，行内 spine 线取定值避免百分比循环
 const ROW_HEIGHT: number = LayoutTokens.itineraryRowMinHeight;
 
 @Component
 export struct YoujingStartPage {
   private pathStack: NavPathStack = APP_NAV;
-  /** dock 切回这一页时重取最近行程（广播见 AppNav.TAB_SHOWN_KEY，主链复审 P1） */
-  @StorageProp(TAB_SHOWN_KEY) @Watch('onDockShown') dockTick: string = '';
   /** 窗口实测宽（vp），由断点中心一处测量；0 = 尚未测到，按不收窄处理 */
   @StorageProp(KEY_WINDOW_WIDTH_VP) windowWidthVp: number = 0;
 
-  private onDockShown(): void {
-    if (isTabShownTick(this.dockTick, TAB_PLAN)) {
-      this.reloadRecent();
-    }
-  }
-
-  /** 最近三条真行程：这一屏此前只有营销预览，行程 tab 却看不到任何一条自己的行程 */
-  @State private recent: RecentRow[] = [];
-  /** 行程总条数：最近只展示三条，「查看全部」要说得出还剩多少 */
-  @State private tripTotal: number = 0;
   /** 主 CTA 的进行中状态：游客路径要等账号往返，没有反馈会被当成"按了没反应" */
   @State private starting: boolean = false;
   /** 有可续的规划？由写草稿的一方广播（`DRAFT_DIRTY_KEY`），不是这一屏自己轮询 */
@@ -77,27 +60,6 @@ export struct YoujingStartPage {
 
   aboutToAppear(): void {
     this.draftDirty = isDraftDirty(this.draftTick);
-    this.reloadRecent();
-  }
-
-  private reloadRecent(): void {
-    const ctx: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
-    TripDao.listSummaries(ctx).then((rows: TripSummary[]): void => {
-      const today: string = DateUtils.todayIso();
-      const list: RecentRow[] = [];
-      for (let i = 0; i < rows.length && i < 3; i++) {
-        const r: TripSummary = rows[i];
-        list.push({
-          id: r.id, place: r.destination,
-          meta: `${r.startDate} – ${r.endDate} · ${r.spotCount} 站`,
-          onTrip: today >= r.startDate && today <= r.endDate
-        });
-      }
-      this.recent = list;
-      this.tripTotal = rows.length;
-    }).catch((err: Error): void => {
-      Logger.warn('Ui.Start', `最近行程加载失败: ${err.message}`);
-    });
   }
 
   /**
@@ -291,9 +253,10 @@ export struct YoujingStartPage {
       .width('100%')
       .margin({ bottom: SpaceTokens.lg })
 
-      // 预览卡是「还没有行程」时的首启演示。已经有真行程就让它让位——
-      // 一张编出来的京都动线吃掉六成屏高，真数据只剩半屏
-      if (this.recent.length === 0) {
+      // 预览卡常驻。它原来在「本机已有真行程」时收起，理由是假数据会挤掉真数据
+      // ——但那段时间首页同时挂着「最近行程」列表，两件事确实抢屏高。
+      // 五格导航落地后历史行程归「行程」格，这一屏只剩规划，假数据不再和谁抢，
+      // 收起反而让老用户看到一个空半屏的门面。
       ImmersiveSurface({ radius: RadiusTokens.card, surfaceWidth: '100%' }) {
         Column() {
           Row() {
@@ -351,90 +314,6 @@ export struct YoujingStartPage {
         .borderRadius(RadiusTokens.card)
         .backgroundColor(ColorTokens.surfaceElevated)
         .width('100%')
-      }
-      }
-
-      if (this.recent.length > 0) {
-        Column({ space: SpaceTokens.sm }) {
-          Text('最近行程')
-            .fontSize(TypeTokens.overline.size)
-            .fontWeight(600)
-            .fontColor(ColorTokens.muted)
-          ForEach(this.recent, (row: RecentRow) => {
-            Button({ type: ButtonType.Normal, stateEffect: true }) {
-              Row() {
-                Column({ space: SpaceTokens.xs }) {
-                  Text(row.place)
-                    .fontSize(TypeTokens.headline.size)
-                    .fontWeight(600)
-                    .fontColor(ColorTokens.ink)
-                    .maxLines(1)
-                    .textOverflow({ overflow: TextOverflow.Ellipsis })
-                  Text(row.meta)
-                    .fontSize(TypeTokens.caption.size)
-                    .fontWeight(450)
-                    .fontColor(ColorTokens.muted)
-                    .fontFeature("'tnum' on")
-                }
-                .alignItems(HorizontalAlign.Start)
-                .layoutWeight(1)
-
-                if (row.onTrip) {
-                  Text('旅行中')
-                    .fontSize(TypeTokens.overline.size)
-                    .fontWeight(600)
-                    .fontColor(ColorTokens.onPrimary)
-                    .height(22)
-                    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
-                    .borderRadius(RadiusTokens.pill)
-                    .backgroundColor(ColorTokens.primary)
-                    .margin({ right: SpaceTokens.sm })
-                }
-                SymbolGlyph($r('sys.symbol.chevron_right'))
-                  .fontSize(IconSizes.control)
-                  .fontColor([ColorTokens.muted])
-              }
-              .width('100%')
-              .padding(SpaceTokens.md)
-              .borderRadius(RadiusTokens.capsule)
-              .backgroundColor(ColorTokens.surfaceElevated)
-            }
-            .buttonStyle(ButtonStyleMode.TEXTUAL)
-            .width('100%')
-            .padding(0)
-            .borderRadius(RadiusTokens.capsule)
-            .accessibilityText(`打开 ${row.place} 的行程`)
-            .onClick((): void => {
-              this.pathStack.pushPath({ name: row.onTrip ? 'OnTrip' : 'Itinerary', param: row.id });
-            })
-          }, (row: RecentRow): string => `recent-${row.id}-${row.meta}-${row.onTrip}`)
-        }
-        .alignItems(HorizontalAlign.Start)
-        .width('100%')
-        .margin({ top: SpaceTokens.xl })
-
-        Button({ type: ButtonType.Normal, stateEffect: true }) {
-          Row() {
-            Text(`查看全部 ${this.tripTotal} 条行程`)
-              .fontSize(TypeTokens.small.size)
-              .fontWeight(600)
-              .fontColor(ColorTokens.primary)
-              .fontFeature("'tnum' on")
-              .layoutWeight(1)
-            SymbolGlyph($r('sys.symbol.chevron_right'))
-              .fontSize(IconSizes.control)
-              .fontColor([ColorTokens.primary])
-          }
-          .width('100%')
-          .height(LayoutTokens.minTouchTarget)
-        }
-        .buttonStyle(ButtonStyleMode.TEXTUAL)
-        .width('100%')
-        .padding(0)
-        .accessibilityText('打开我的行程列表')
-        .onClick((): void => {
-          requestTab(TAB_ITINERARY);
-        })
       }
     }
     .width('100%')

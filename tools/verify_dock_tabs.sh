@@ -166,9 +166,14 @@ say "2 费用 tab 根页内容（要有金额，不是占位）"
 tap_text 费用 "2-goto" && sleep 1.6 && dump 2-expense && shot 2-expense
 
 say "3 冷启深链 route=Itinerary"
-start_route Itinerary "trip-1792912362551"
+# 不带 param：硬编码的 trip id 会随用户删除而失效，届时这一条测的是「深链到一条不存在的行程」，
+# 照样 grep 得到 Day 1 就成了假绿。不带 param 走的是 ItineraryPage 退最近一条那条真路。
+start_route Itinerary
 dump 3-itinerary && shot 3-itinerary
 grep -q "Day 1" "$OUT/3-itinerary.json" || echo "  !! 3 未落到行程页" >&2
+if grep -q "这一天还没有安排节点" "$OUT/3-itinerary.json"; then
+  echo "  !! 3 落到了一条没有节点的行程（深链上下文没退到真行程）" >&2
+fi
 
 say "4 冷启深链 route=TripInput"
 start_route TripInput
@@ -182,11 +187,17 @@ grep -q "勋章" "$OUT/4b-badges.json" \
   || echo "  !! 4b 深链没落到勋章墙（push 落进了还没绑 Navigation 的栈）" >&2
 
 say "5 二次深链同一个 tab（8c5d0a5 修的那条：第一次建 tab 之后的深链）"
-start_route Itinerary "trip-1792912362551"
+# 不带 param：EntryAbility 只在 param 非空时写 ACTIVE_TRIP_KEY，硬编码的旧 trip id
+# 会让费用页拿一条本机不存在的行程去 loadTrip——测的是病态数据不是深链本身。
+# 不带 param 时 ItineraryPage 退到最近一条并把它回写成上下文，才是真用户走的那条路。
+start_route Itinerary
 tap_text 费用 "5-goto" && sleep 1.6
-start_route Expense "trip-1792912362551"
+start_route Expense
 dump 5-expense-again && shot 5-expense-again
 grep -qE "预算|¥" "$OUT/5-expense-again.json" || echo "  !! 5 二次深链没落到费用页" >&2
+if grep -q "0 人 · 0 天" "$OUT/5-expense-again.json"; then
+  echo "  !! 5 费用格落在死数据（0 人 · 0 天）：上下文行程不存在且没退回最近一条" >&2
+fi
 
 say "6 弹栈边界：tab 根页的返回钮/返回手势会弹到空占位（§4j 结构性缺口）"
 tap_text 我的 "6-goto" && sleep 1.6
