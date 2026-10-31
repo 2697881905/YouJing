@@ -96,6 +96,11 @@ export function backfillOpeningHours(trip: Trip, spots: Spot[]): number {
       if (act.note !== undefined && act.note.indexOf(spot.openingHours) >= 0) {
         continue;
       }
+      // AI 已经写了「全开放」时不要再追加「开放 全天开放」（同义重复）
+      if (spot.openingHours === '全天开放' && act.note !== undefined &&
+        (act.note.indexOf('全天开放') >= 0 || act.note.indexOf('全开放') >= 0)) {
+        continue;
+      }
       const hours: string = `开放 ${spot.openingHours}`;
       act.note = act.note !== undefined && act.note.length > 0 ? `${act.note} · ${hours}` : hours;
       filled += 1;

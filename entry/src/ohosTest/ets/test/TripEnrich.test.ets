@@ -73,6 +73,14 @@ export default function tripEnrichTest(): void {
         // 二次回填不重复
         expect(backfillOpeningHours(t, [withHours])).assertEqual(0);
         expect(sight.note).assertEqual('已预约 · 开放 8:00–22:00');
+        // AI 已写「全开放」时，全天开放不重复追加
+        const allDay: Spot = spot('s3', '曲江池', '西安', '雁塔区', 108.98, 34.20);
+        allDay.openingHours = '全天开放';
+        const park: Activity = act('曲江池', '', 0);
+        park.note = '全开放，预约以官方为准';
+        const t2: Trip = tripOf([park]);
+        expect(backfillOpeningHours(t2, [allDay])).assertEqual(0);
+        expect(park.note).assertEqual('全开放，预约以官方为准');
       });
 
     it('name_with_suffix_still_matches', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
