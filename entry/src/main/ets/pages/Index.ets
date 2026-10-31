@@ -44,6 +44,13 @@ struct Index {
   @State private currentTab: number = TAB_PLAN;
   /** 运行期切页签的请求（AppNav.enterPlanningFlow 写）；冷启不走这条路 */
   @StorageProp(TAB_SWITCH_KEY) @Watch('applyTabSwitch') tabSwitch: string = '';
+  /**
+   * 状态栏高度（vp）。窗口铺满物理屏之后，页面是从窗口 y=0 起排的，而 `TabContent`
+   * 仍按安全区在状态栏下沿裁切 —— 不让位的话每屏顶部都会少一截（真机实测
+   * 「有径」标题 144px 的框被裁成 50px）。让位收在壳层这一处，
+   * 20 个页面不用各自读避让区（见 EntryAbility.makeImmersive）。
+   */
+  @StorageProp('statusBarHeight') statusBarHeight: number = 0;
   private hdsController: HdsTabsController = new HdsTabsController();
 
   /** 解析 'index:timestamp' 并切到该页签；同页签或解析不出就什么都不做 */
@@ -211,6 +218,9 @@ struct Index {
     })
     .width('100%')
     .height('100%')
+    // 让出状态栏：加在 HdsTabs 上而不是壳层 Column 上，登录/同意闸门那两屏自己
+    // 用 expandSafeArea 铺到物理屏顶，被壳层垫一下就退回去了
+    .padding({ top: this.statusBarHeight })
   }
 
   build() {

@@ -1,5 +1,5 @@
 import { AbilityConstant, Configuration, ConfigurationConstant, skillManager, UIAbility, Want } from '@kit.AbilityKit';
-import { window } from '@kit.ArkUI';
+import { display, window } from '@kit.ArkUI';
 import { resourceManager } from '@kit.LocalizationKit';
 import { initBreakpointCenter } from '../utils/breakpointCenter';
 import { Logger } from '../common/logger/Logger';
@@ -197,6 +197,49 @@ export default class EntryAbility extends UIAbility {
   }
 
   /**
+   * 把窗口铺满物理屏。
+   *
+   * 不开全屏时窗口本身被系统按避让区裁掉：真机实测 `root` 是 `[0,106][1136,2690]`，
+   * 顶部 33.9vp 根本不在 App 的窗口里（那一条由系统画，App 无从着色，只能"贴着涂色"），
+   * 而页面容器 `TabContent` 只到 2603 —— 底部 27.8vp 是指示条避让区，内容进不去。
+   * 一屏 860.8vp，页面实际能用的只有 799vp，再减掉给悬浮 dock 让的 112vp，
+   * 只剩 687vp：用户读到的就是"内容区显示不全、上下被截断"。
+   *
+   * 全屏只是把窗口还给物理屏；组件默认仍按避让区让位，所以这一步不会把标题推到
+   * 状态栏底下。真正把内容铺到屏底的是各滚动容器的 `expandSafeArea`（见 pages/Index）。
+   */
+  private makeImmersive(windowStage: window.WindowStage): void {
+    windowStage.getMainWindow().then((win: window.Window): Promise<void> => {
+      this.mainWin = win;
+      // 先发布避让区高度再翻全屏：页面第一次 build 就要能读到 statusBarHeight，
+      // 晚一步首帧就会把顶栏裁掉一截
+      this.publishAvoidArea(win);
+      return win.setWindowLayoutFullScreen(true);
+    }).then((): void => {
+      this.applySystemBarSurface();
+      Logger.info('EntryAbility', '窗口已铺满物理屏（layoutFullScreen）');
+    }).catch((err: Error): void => {
+      Logger.warn('EntryAbility', `全屏布局未生效，按非全屏继续: ${err.message}`);
+    });
+  }
+
+  /** 避让区高度（px + vp 两份）：vp 用屏幕密度换算，Ability 侧没有 UIContext.px2vp */
+  private publishAvoidArea(win: window.Window): void {
+    try {
+      const density: number = display.getDefaultDisplaySync().densityPixels;
+      const top: number = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM).topRect.height;
+      const nav: number = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR).bottomRect.height;
+      AppStorage.setOrCreate('statusBarPx', top);
+      AppStorage.setOrCreate('statusBarHeight', density > 0 ? top / density : 0);
+      AppStorage.setOrCreate('navIndicatorPx', nav);
+      AppStorage.setOrCreate('navIndicatorHeight', density > 0 ? nav / density : 0);
+      Logger.info('EntryAbility', `避让区 状态栏=${top}px 指示条=${nav}px 密度=${density}`);
+    } catch (err) {
+      Logger.warn('EntryAbility', `读避让区失败: ${(err as Error).message}`);
+    }
+  }
+
+  /**
    * 上下两条系统栏带区的底色。
    *
    * 这一屏窗口不是全屏布局（契约 §4「状态栏不许玻璃化」把状态栏当设备 chrome，
@@ -249,6 +292,10 @@ export default class EntryAbility extends UIAbility {
     // 断点中心必须在 loadContent 之前起：页面第一次 build 就要能读到 currentBreakpoint，
     // 否则宽屏首帧会先按手机档画一遍再跳列数（有据同一顺序：EntryAbility:85）
     initBreakpointCenter(this.context);
+    // 全屏布局与避让区高度要在 loadContent **之前**发起：窗口一铺满物理屏，页面就从
+    // 窗口 y=0 起排，而 TabContent 仍按安全区在 106px 处裁切——首帧读不到
+    // statusBarHeight 的话，每一屏顶部都会少一截（真机实测「有径」标题被压成 50px 高）。
+    this.makeImmersive(windowStage);
 
     windowStage.loadContent('pages/Index', (err) => {
       if (err.code) {
@@ -257,9 +304,12 @@ export default class EntryAbility extends UIAbility {
       }
       Logger.info('EntryAbility', 'Succeeded in loading the content.');
       this.registerSerifFont(windowStage);
-      // 窗口句柄只能在 loadContent 回调里取：回调之前 getMainWindowSync 会抛 1300002
+      // getMainWindow() 是异步的，可能晚于首次 build；这里用同步句柄兜底再发布一次。
+      // 回调之前 getMainWindowSync 会抛 1300002，所以只能在回调里取。
       try {
-        this.mainWin = windowStage.getMainWindowSync();
+        const win: window.Window = windowStage.getMainWindowSync();
+        this.mainWin = win;
+        this.publishAvoidArea(win);
       } catch (e) {
         Logger.error('EntryAbility', `取主窗口失败，上下带区底色无法设置: ${(e as Error).message}`);
       }
