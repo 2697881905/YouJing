@@ -91,6 +91,16 @@ export class MapKitCityStore {
       Logger.info(TAG, `${city} raw=${inputs.length} deduped=${deduped.length} ` +
         `spots=${spots.length} areas=${areas.length} districts=${districts.length} ` +
         `costMs=${Date.now() - startedAt}`);
+      // 排序口径的取证行：只看汇总判不出「古城区到底有没有进候选、被谁挤掉」
+      const detail: string[] = [];
+      for (let i = 0; i < districts.length; i++) {
+        detail.push(`${districts[i].name} ${districts[i].count}景/${counts[i]}店`);
+      }
+      const order: string[] = [];
+      for (const a of areas) {
+        order.push(a.name);
+      }
+      Logger.info(TAG, `${city} 候选区县 ${detail.join('、')} → 住宿区顺序 ${order.join('/')}`);
       const data: MapCityData = { spots: spots, areas: areas };
       return data;
     } catch (err) {

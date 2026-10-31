@@ -4251,3 +4251,37 @@ Map Kit 地点检索真机探针（任意城市数据管线的 Stage 1），以�
 
 - md/宽屏档这三页仍未验（模拟器通道未解决，见 [[harmonyos-emulator-cli]]）。
 - 浅色档只能靠 App 级探针复现：本机没有 `settings` 命令切系统深浅色。
+
+### §5ci 续 60：13 个提交推上 GitHub + 丽江住宿区预选取证
+
+**推送**
+
+- `main` 领先 13 个提交，已全部推送：`70fdf0c..d5433cd`，远端 `refs/heads/main = d5433cd`，
+  本地与 `origin/main` 已同步。
+- 通路：`~/.gitconfig` 的 `http(s).proxy=127.0.0.1:7890` 在，SSH 推送被该代理直接
+  `Connection closed`；改用钥匙串凭据走 HTTPS 显式 URL 推送，**未改动任何 git 配置**。
+- 推送前安全核对：提交版 `ApiConfig.ets` 的 `BASE_URL`/`LLM_CHAT_ENDPOINT`/`API_KEY` 均为空串；
+  全历史按 `sk-[0-9a-f]{24,}` 扫描 0 命中（`-S 'sk-'` 的两次命中是 "task-" 误报）；
+  `build-profile.json5` 与 `ApiConfig.ets` 都是 skip-worktree，签名口令不在库里；
+  未跟踪的 `.merkle-snapshot.json` 按规矩不入库。
+
+**丽江校准发现**
+
+- 「丽江 2 天」一句话识别走 MapKit：`raw=60 deduped=48 spots=48 areas=4 districts=4 costMs=2489`，
+  预选结果 `8 个景点 · 住宿区 玉龙纳西族自治县`。游客实际住的是**古城区**（大研/束河），
+  这正是 `Docs/任意城市接入方案.md` 记的「远郊县仍可能出现在屏5b」那条未收口的账。
+- 但现有日志只有汇总，判不出**古城区到底有没有进候选、被谁挤掉**：
+  是 `buildAreas` 按酒店供给排序挤掉了它，还是 `PlanAutoPick.pickArea` 的
+  「到已选景点平均距离最近」被玉龙雪山卫星簇拖走，两条修法完全不同。
+- 因此本轮只补取证，不改规则：`MapKitCityStore` 增加一行
+  `候选区县 名 景点数/酒店数 → 住宿区顺序`，下次设备空出跑一次丽江即可定位。
+  在没有这条数据前把排序改成「景点多数投票」属于凭猜改口径。
+
+**设备边界**
+
+- 走查中途 `aa dump -l` 前台变为 `com.huawei.hmos.outerhome`、有径进程 PID 由 38938 换成 42448，
+  注入点击不再改变界面——判定为真人接手，按规矩立即停手，未继续点击、未解锁。
+
+**验证**
+
+- 主 HAP `BUILD SUCCESSFUL`；离线 `MAP_CITY 66/66`；零 LLM、零数据改动。
