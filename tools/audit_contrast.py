@@ -59,19 +59,68 @@ def tail_mean(sorted_vals, from_top):
     return sum(seg) / len(seg)
 
 
-def collect(node, out):
+def collect(node, out, layers, seq, anc=()):
+    """一次遍历收两样东西：可量的 Text，和所有"遮挡层"（供遮挡判定）。
+
+    seq 是树序（≈绘制序），anc 是这个节点的**祖先 seq 集合**。
+    zIndex 非零时 paint 序会偏离树序，所以比较键是 (zIndex, seq) —— 但祖先必须
+    无条件排除：dock 的 TabBar 自带 zIndex=3、里面五个标签是 z=0，光比键会判成
+    "父在子之后画"，于是把标签整排当成被自己父容器遮住（实测：五个全被吞，
+    尺子对刚修好的 dock 直接报 0 问题——假绿）。
+    """
     a = node.get('attributes', {})
     txt = (a.get('text', '') or '').strip()
     b = a.get('bounds', '')
-    # 只量真正的 Text 节点：Progress 之类会把自身数值当 text 报上来（如 100.000000），
-    # 那不是屏幕上的字，量它没有意义
     typ = node.get('type', '') or a.get('type', '')
-    if txt and typ == 'Text' and b.startswith('['):
-        parts = [int(x) for x in b.replace('[', ' ').replace(']', ' ').replace(',', ' ').split()]
-        if len(parts) == 4:
-            out.append((txt, parts))
+    parts = None
+    if b.startswith('['):
+        p = [int(x) for x in b.replace('[', ' ').replace(']', ' ').replace(',', ' ').split()]
+        parts = p if len(p) == 4 else None
+    zraw = a.get('zIndex', '')
+    z = int(zraw) if zraw.lstrip('-').isdigit() else 0
+    bg = a.get('backgroundColor', '') or ''
+    # 遮挡层两类：① 报得出实底的；② **报不出底色的悬浮条** —— dock 走系统材质，
+    # dump 里 backgroundColor 是 #00000000、blur 是空，材质根本不在字段里，
+    # 只认①就会漏：浅色档行程格「总花费 ¥5,200」压在 dock 下量到 1.12:1，
+    # 差点被当成配色 bug。TabBar 这个类型本身就是"浮在内容之上的条"。
+    floating = typ == 'TabBar'
+    if parts and ((bg.startswith('#FF') and (parts[2] - parts[0]) * (parts[3] - parts[1]) > 0)
+                  or floating):
+        layers.append((z, seq, parts))
+    if txt and typ == 'Text' and parts:
+        # 只量真正的 Text 节点：Progress 之类会把自身数值当 text 报上来（如 100.000000），
+        # 那不是屏幕上的字，量它没有意义
+        out.append((txt, parts, z, seq, anc))
+    child_anc = anc + (seq,)
+    n = seq + 1
     for c in node.get('children', []) or []:
-        collect(c, out)
+        n = collect(c, out, layers, n, child_anc)
+    return n
+
+
+def occluded(box, layers, z, seq, anc):
+    """有没有**后画的遮挡层**盖住这个框 ≥50%（祖先层不算，见 collect 的注释）。
+
+    为什么必须有这一道：2026-11-01 走查屏5 时，钉底操作条（实底 #FF121212，
+    顶边 2166px）把视口外的「适合商务/购物…」「40分钟」两框整块盖住，框内只剩
+    jpeg 噪声 —— 明暗差跨过了 0.02、覆盖率也跨过了 1%，于是报出 3.92:1 / 2.32:1
+    两个**假**低对比。像素侧的启发式挡不住噪声，遮挡要用节点树判。
+
+    阈值取 50% 而不是 70%：dock 是半透明材质，压住半行字就已经读不出
+    （浅色档行程格「总花费 ¥5,200」被 dock 盖住 68%，量到 1.12:1）。
+    """
+    x1, y1, x2, y2 = box
+    area = float((x2 - x1) * (y2 - y1))
+    for lz, lseq, lb in layers:
+        if lseq in anc:
+            continue                      # 祖先：子节点本来就画在它上面
+        if (lz, lseq) <= (z, seq):
+            continue                      # 先画的在底下，不算遮挡
+        w = min(x2, lb[2]) - max(x1, lb[0])
+        h = min(y2, lb[3]) - max(y1, lb[1])
+        if w > 0 and h > 0 and (w * h) / area >= 0.5:
+            return True
+    return False
 
 
 def main():
@@ -85,14 +134,21 @@ def main():
     W, H = img.size
     px = img.load()
     texts = []
-    collect(tree, texts)
+    layers = []
+    collect(tree, texts, layers, 0)
     bad = []
     best = {}
     skipped = 0
-    for txt, (x1, y1, x2, y2) in texts:
+    covered = 0
+    for txt, (x1, y1, x2, y2), z, seq, anc in texts:
         x1, y1 = max(0, x1), max(0, y1)
         x2, y2 = min(W, x2), min(H, y2)
         if x2 - x1 < 6 or y2 - y1 < 6:
+            continue
+        # 先用节点树判遮挡，再动像素：被后画的实底盖住的框里根本没有字形，
+        # 采到的只有 jpeg 噪声（屏5 那两个 3.92:1 / 2.32:1 假低对比就是这么来的）
+        if occluded((x1, y1, x2, y2), layers, z, seq, anc):
+            covered += 1
             continue
         lum = []
         row_diffs = []
@@ -142,8 +198,8 @@ def main():
         if c < floor:
             bad.append((c, floor, kind, hvp, t))
     bad.sort()
-    print('### %-14s 文本节点 %d，低于阈值 %d 处（另有 %d 个框判为未画字/背景边界，不计）'
-          % (label, len(texts), len(bad), skipped))
+    print('### %-14s 文本节点 %d，低于阈值 %d 处（另有 %d 个框判为未画字/背景边界、%d 个被实底层遮住，均不计）'
+          % (label, len(texts), len(bad), skipped, covered))
     for c, floor, kind, hvp, txt in bad[:14]:
         print('    %5.2f:1 (<%.1f, %s, 框高%.0fvp)  %s' % (c, floor, kind, hvp, txt))
     return 1 if bad else 0

@@ -114,16 +114,27 @@ struct Index {
     }
   }
 
+  /**
+   * dock 五个页签。选中态**不用蓝色**，用"亮一档 + 字重 500"——这是契约 §9 的硬规矩：
+   * 「a tint fill carries an ink label plus a blue stroke, never a blue label」，
+   * 蓝字只允许出现在平画布或不透明 elevated/subtle 面上。
+   * dock 是半透明材质，透的是底下那块屏：真机量到画布上玻璃底 lum 0.016、
+   * 地图格上 0.056（亮三倍），#0A84FF 在这两处分别只有 4.39:1 与 3.05:1，
+   * 而 nav-label 是 10px、按 WCAG 普通文字要 4.5:1 —— 蓝色在这块面上永远不达标。
+   */
   @Builder
   tabLabel(idx: number) {
     Column({ space: SpaceTokens.xs }) {
       SymbolGlyph(DOCK_TABS[idx].symbol)
         .fontSize(IconSizes.control)
-        .fontColor([this.currentTab === idx ? ColorTokens.primary : ColorTokens.icon])
+        .fontColor([this.currentTab === idx ? ColorTokens.icon : ColorTokens.muted])
       Text(DOCK_TABS[idx].label)
         .fontSize(TypeTokens.navLabel.size)
         .fontWeight(this.currentTab === idx ? 500 : TypeTokens.navLabel.weight)
-        .fontColor(this.currentTab === idx ? ColorTokens.primary : ColorTokens.muted)
+        // 未选中档用 body 不用 muted：地图格的玻璃透的是亮底图（实测底 lum 比画布那侧
+        // 高约三倍），muted 在那里只剩 4.24~4.58:1；body 抬一档后五格全部过 4.5。
+        // 选中 ink / 未选中 body 仍差一档亮度，加 500 字重，主次没被抹平。
+        .fontColor(this.currentTab === idx ? ColorTokens.ink : ColorTokens.body)
     }
     .height(LayoutTokens.tabItemHeight)
     .justifyContent(FlexAlign.Center)
