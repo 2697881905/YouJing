@@ -33,6 +33,7 @@
   python3 tools/verify_scroll_clearance.py            # 全跑
   python3 tools/verify_scroll_clearance.py 行程 费用  # 只跑指定标签
   python3 tools/verify_scroll_clearance.py --evidence /tmp/scrollclear
+  python3 tools/verify_scroll_clearance.py --selftest # 不连真机复算判据 5
 
 退出码 0 = 无遮挡、无出屏；1 = 有；2 = 设备/前台问题（不算判定失败）。
 只读设备状态 + 启动自己的 App；不点删除类控件、不动任何行程数据。
@@ -92,7 +93,7 @@ def scroll_spill(d, cont_bottom):
 
     取"滚动区"的口径不能只信 `scrollable` 属性——真机上同一份 List 有时报 true
     有时报 false（续 79 复跑时撞见），所以按类型兜一层：List/Grid/Scroll/WaterFlow/Refresh。
-    单独抽出来是为了能离线复算：喂 `/tmp/k3.json`（修前的 dump）应得 +150px。
+    单独抽出来是为了能离线复算，不必连真机：`--selftest` 喂一份内置阳性样本应得 +150px。
     """
     worst = [0]
 
@@ -222,8 +223,48 @@ def fling_to_end(name, out):
     return last_bottom, dock, cont, moved, spill
 
 
+# 阳性样本：修前行程格那份 dump 的骨架（Refresh/List 的 origBounds 底 2840，窗口底 2690）。
+# 内置而不指 /tmp 里那份原始 dump——/tmp 重启即清空，"判 0 之前先自证抓得到"这条
+# 规矩就没有可复算的样本了。
+def _node(a, kids):
+    return {'attributes': a, 'children': kids}
+
+
+SELFTEST_DUMP = _node({'type': 'root', 'bounds': '[0,0][1136,2690]'}, [
+    _node({'type': 'TabContent', 'bounds': '[0,106][1136,2690]'}, [
+        _node({'type': 'Refresh', 'scrollable': 'true',
+               'bounds': '[0,536][1136,2690]', 'origBounds': '[0,536][1136,2840]'}, [
+            _node({'type': 'List', 'scrollable': 'true',
+                   'bounds': '[0,536][1136,2690]', 'origBounds': '[0,536][1136,2840]'},
+                  [])])])])
+
+
+def selftest():
+    """不连真机复算判据 5：阳性样本必须报 +150px = 48.0vp。"""
+    cont = 2690
+    got = scroll_spill(SELFTEST_DUMP, cont)
+    assert got == 150, f'阳性样本应得 +150px，实得 {got}'
+    # 真机上同一份 List 的 scrollable 字段时 true 时 false：全置 false 仍要按类型抓到
+    d = json.loads(json.dumps(SELFTEST_DUMP))
+
+    def off(n):
+        a = n.get('attributes', {})
+        if 'scrollable' in a:
+            a['scrollable'] = 'false'
+        for c in n.get('children', []) or []:
+            off(c)
+    off(d)
+    got2 = scroll_spill(d, cont)
+    assert got2 == 150, f'scrollable 全 false 时应靠类型命中，实得 {got2}'
+    print(f'selftest PASS：spill={got}px={got / DENSITY:.1f}vp；'
+          f'scrollable=false 时 {got2}px（按类型兜住）')
+    return 0
+
+
 def main():
     args = [a for a in sys.argv[1:]]
+    if args[:1] == ['--selftest']:
+        return selftest()
     out = '/tmp/sc-evidence'
     if args and args[0] == '--evidence':
         out = args[1]

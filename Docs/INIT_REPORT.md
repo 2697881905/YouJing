@@ -5220,3 +5220,13 @@ dock 是半透明材质，两头都不占。契约的 dock 段也只写 `iconCol
 本轮只动色不动几何，这正是该有的结果）；`audit_contrast.py` 17 屏 × 深浅两档 0 处低于阈值；
 HAP BUILD SUCCESSFUL 并装机复拍（规划格顶带一路连续、品牌块与主 CTA 正常）。
 零 LLM、未动行程/打卡数据。
+
+**两把真机尺都补了 `--selftest`（零设备复算）**。理由：本轮的阳性样本原本指向
+`/tmp/k3.json` 这类一次性 dump，而 `/tmp` 重启即清空 —— "判 0 之前先自证抓得到"
+这条规矩就没有可复算的依托了。现在内置成 fixture：
+`audit_contrast --selftest` 断四条（祖先排除 / 悬浮条遮挡 / 未过半不误伤 / 可见行不吞），
+`verify_scroll_clearance --selftest` 断阳性样本必须 `+150px = 48.0vp`、
+且把 `scrollable` 全置 false 后仍要按类型抓到。
+**这两条 selftest 第一次跑就双双失败**（fixture 括号不配平、样本里那根透明柱写成了实底
+把 dock 标签整个盖住），正是它们该抓的东西 —— 也说明"遮挡层"的判定连自己的测试样本
+都会踩到同一个坑。

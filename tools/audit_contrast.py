@@ -123,7 +123,51 @@ def occluded(box, layers, z, seq, anc):
     return False
 
 
+# 遮挡判定的内置样本（不连真机复算）。写成 fixture 而不是指向某次 /tmp dump：
+# /tmp 重启即清空，而这四条正是本轮踩过的坑，断掉任何一条尺子就会重新报假缺陷
+# 或者吞掉真缺陷。
+SELFTEST_TREE = {
+    'attributes': {'type': 'root', 'bounds': '[0,0][1136,2690]', 'backgroundColor': '#FF121212'},
+    'children': [
+        {'attributes': {'type': 'TabBar', 'bounds': '[55,2340][1081,2515]',
+                        'zIndex': '3', 'backgroundColor': '#00000000'},
+         'children': [
+             # dock 自己的标签：父 TabBar 的 zIndex 比它高，**不能**算被父遮住
+             {'attributes': {'type': 'Text', 'text': '规划', 'bounds': '[536,2452][599,2489]',
+                             'backgroundColor': '#00000000'}, 'children': []}]},
+        {'attributes': {'type': 'Column', 'bounds': '[0,2166][1136,2690]',
+                        'backgroundColor': '#00000000'},
+         'children': [
+             # 视口外的正文行：被**兄弟** TabBar 盖住 68% → 该判遮挡
+             {'attributes': {'type': 'Text', 'text': '总花费 ¥5,200',
+                             'bounds': '[805,2485][1049,2529]',
+                             'backgroundColor': '#00000000'}, 'children': []},
+             # 只被 dock 压住上沿 25% → 未过半，仍该照量（阈值 50% 的那一侧）
+             {'attributes': {'type': 'Text', 'text': '压一角',
+                             'bounds': '[805,2280][1049,2324]',
+                             'backgroundColor': '#00000000'}, 'children': []},
+             # 正常可见行：谁都没盖它
+             {'attributes': {'type': 'Text', 'text': '可见行',
+                             'bounds': '[100,1000][300,1044]',
+                             'backgroundColor': '#00000000'}, 'children': []}]}]}
+
+
+def selftest():
+    texts = []
+    layers = []
+    collect(SELFTEST_TREE, texts, layers, 0)
+    by = {t: occluded(b, layers, z, s, a) for t, b, z, s, a in texts}
+    assert by.get('规划') is False, 'dock 标签被自己的父容器（zIndex=3）判成遮挡 → 假绿'
+    assert by.get('总花费 ¥5,200') is True, '被 TabBar 盖住 68% 的视口外行没被判遮挡 → 假低对比'
+    assert by.get('压一角') is False, '只压住 25% 的行被判成遮挡 → 阈值过头'
+    assert by.get('可见行') is False, '没被任何东西盖住的行判成了遮挡'
+    print('selftest PASS：祖先排除 / 悬浮条遮挡 / 未过半不误伤 / 可见行不吞 四条都成立')
+    return 0
+
+
 def main():
+    if sys.argv[1:2] == ['--selftest']:
+        return selftest()
     if len(sys.argv) < 3:
         print(__doc__)
         return 2

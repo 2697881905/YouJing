@@ -72,8 +72,8 @@ tools/                十二把静态尺 + 离线断言脚本
 | 真机单测 | `hdc shell "aa test -b com.youjing.app -m entry_test -s unittest OpenHarmonyTestRunner -s timeout 300000"` | 191/191 |
 | 纯逻辑离线断言 | `bash tools/verify_map_city.sh` / `verify_trip_intent.sh` / `verify_trip_review.sh` / `verify_replan_logic.sh` / `verify_weather_logic.sh` | 66 / 104 / 57 / 74+26 / 116 全绿 |
 | 设计契约静态尺 | `python3 tools/audit_colors.py`（另有 type / geometry / material / fontfamily / tnum / elevation / button_width / scroll_actions / label_fit / a11y_name / layout_patterns） | 十二把尺 0 偏差 |
-| 真机对比度 | `python3 tools/audit_contrast.py <dump.json> <screenshot>` | 逐屏 0 低（浅/深两档 17 屏）；被遮住的框按**节点树**判，不靠像素猜 |
-| 真机滚到底净空（+滚动区出屏） | `python3 tools/verify_scroll_clearance.py`（**一次只跑一份**，两份同抢真机会互相甩离目标屏） | 17 屏全 pass；行程格 −48.3vp → −0.3vp（贴平） |
+| 真机对比度 | `python3 tools/audit_contrast.py <dump.json> <screenshot>`（`--selftest` 零设备复算遮挡判定） | 逐屏 0 低（浅/深两档 17 屏）；被遮住的框按**节点树**判，不靠像素猜 |
+| 真机滚到底净空（+滚动区出屏） | `python3 tools/verify_scroll_clearance.py`（`--selftest` 零设备复算判据 5；**一次只跑一份**，两份同抢真机会互相甩离目标屏） | 17 屏全 pass；行程格 −48.3vp → −0.3vp（贴平） |
 
 取证约定：**结论要能被复现**。UI 问题必须同机位实拍复拍，布局争议用 `uitest dumpLayout`
 读真实 bounds，颜色争议用像素量化，不接受「看代码应该没问题」。
