@@ -353,7 +353,7 @@ components:
     rounded: "{rounded.floating-bar}"
     height: "{layout.segmented-control-height}"
     border: "1px solid {colors.glass-segment-border}"
-    blur: "{layout.glass-blur}"
+    blur: "20"
     selectedItemSurface: "{colors.glass-selection-surface}"
     selectedItemShadow: "{colors.glass-selection-shadow}"
   floating-dock:
@@ -821,7 +821,7 @@ These exist so the top bar, the dock, the sticky day header, and sheets read as 
 | `glass-segment-bg` | `1A 3C 3C 43` | `20 FF FF FF` | **why it changes polarity:** white glass on a white canvas is mathematically invisible, so light mode falls back to smoked graphite (`#3C3C43` @ 10%) while dark keeps the white sheen (`#FFFFFF` @ 12.5%). Re-derive both if the canvas stops being white. |
 | `glass-overlay` | `1A 17 17 1A` | `20 FF FF FF` | floating popovers: `#17171A` @ 10% / `#FFFFFF` @ 12.5% |
 | `glass-overlay-border` | `29 17 17 1A` | `30 FF FF FF` | the same hue at 16% / 19% |
-| blur | 50 | 50 | the app's only blur radius; segmented control uses 20 |
+| blur | 50 | 50 | the four bar surfaces share this one radius; the segmented control is the single written exception at 20 (its own in-component value, not a fifth glass surface) |
 
 ## 6. Route-map palette (closed, canvas-only)
 
@@ -1059,7 +1059,7 @@ Three devices, in strict order of preference: **surface color step → whitespac
 
 In dark mode drop the shadow and add a luminance step instead; raising shadow alpha on `#121212` produces mud.
 
-The app's real depth device is **blur, and only in four places**: the top bar, the floating dock, the sticky day header, and sheets/menus. All four are translucent with blur 50 and a 1px `glass-bar-border` stroke, with a 92px gradient mask fading content into the bar. **When system material (沉浸光感) is active, the surface must zero out its own background, border, and shadow** — otherwise you get a second ring around the bar and a hard grey seam under the header. Every material feature must sit behind an explicit API-level gate with a self-drawn glass/stroke/solid fallback that looks the same. The bar surface is gated by the **absolute** scroll offset (`scrolled ? 50 : 0`), never by per-frame delta, because a spring-back negative delta turns the blur off at rest.
+The app's real depth device is **blur, and only in four places** — and the four are a closed list of surface kinds, named: ① the top bar (`components.top-bar-immersive`), ② the floating dock (`components.floating-dock`), ③ the sticky day divider (`components.day-header` in its sticky variant), ④ sheets and menus (`components.sheet-modal`, popovers). All four are translucent with blur 50 and a 1px `glass-bar-border` stroke, with a 92px gradient mask fading content into the bar. The segmented control is **not a fifth glass surface**: it carries only its own in-component value (`components.segmented-control.blur: 20`), the single written exception to the 50 above — a value scoped inside one component, never a bar surface and never a radius the bar gate may read. **When system material (沉浸光感) is active, the surface must zero out its own background, border, and shadow** — otherwise you get a second ring around the bar and a hard grey seam under the header. Every material feature must sit behind an explicit API-level gate with a self-drawn glass/stroke/solid fallback that looks the same. The bar surface is gated by the **absolute** scroll offset (`scrolled ? 50 : 0`), never by per-frame delta, because a spring-back negative delta turns the blur off at rest.
 
 Depth in the route canvas is drawn, not shadowed: overlapping contour hairlines and a soft wide `path-soft` stroke under the 2px `path` line (a halo, not a drop shadow). Widgets on the launcher get no blur and no elevation — solid surface plus a 1px hairline border so they stay legible against any wallpaper.
 # Shapes

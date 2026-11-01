@@ -16,26 +16,36 @@
 
 - `layout.glass-blur`：`"24"` → `"50"`，正文四处规范性表述（`components.top-bar-immersive.material`、
   §5 材质表 blur 行、§Layout 吸顶日分隔、§Components Floating dock）同步为 50。
-  材质表那行末尾「segmented control uses 20」是契约明文例外，**保留 20 不跟 50**。
+- **分段控件按成文例外钉死**：`components.segmented-control.blur` 由引用 `{layout.glass-blur}` 改为显式
+  `"20"`，§5 材质表那行不再自称 "the app's only blur radius"，§Elevation 的「四处玻璃」列成封闭四类
+  （顶栏 / 浮动 dock / 吸顶日分隔 / sheet 与菜单），并明写分段控件不是第五块玻璃面、20 只是组件内数值
+  （与有据 `GlassTokens.ets:11 SEGMENT_BLUR=20` 同口径）。
+- handoff §10 缺陷表「屏 8 / 11 / 11b 分段控件模糊离档」行的**实现时应为**列由 `统一 24` 改 `统一 50`
+  （规范性漏网补齐）；同行「渲染实测 blur(20px)，其余三处 24」是实测列，保持原值。
 - 新增 `layout.glass-bar-scroll-gated: "true"` 与 §Translucency 的门控口径：玻璃面由**绝对**滚动偏移
   （`scrolled ? 50 : 0`）驱动，禁止按帧增量驱动。
 - 新增 `transitions:` 五键（page-enter / page-fade / feed-stagger-step / long-take / snapshot-handover），
   本批次只写进契约、尚无实现消费方。
 - **历史记录与实测取证不跟随数值**：`DESIGN.md` 屏 4 状态栏 `blur(24px)` 那条违规实测记录、
   handoff §5「稿件屏 4 违规带了 `blur(24px)`」/ §9「稿件里的 `blur(24px)` 是 CSS 近似」/
-  §10 缺陷表同样条目，均保持 v1 原文的 24 —— 帧未重切，实测值仍是 24，改了就成篡改证据。
+  §10 缺陷表同样条目 + 「渲染实测 blur(20px)，其余三处 24」的实测列，以及 prompts 的 9 行既往
+  实测 / 违规 / 缺陷记录（1081、1088、1090、1109、1252、1350、1548、1556、1661）均保持 24 ——
+  帧未重切（39 帧 `code.html` 今日实测仍为 `blur(24px)`），改了就成篡改证据；1350 那条是逐字引用帧文件原文。
 
 ## 使用口径
 
 - **审计脚本不指向本目录**：`tools/audit_colors.py` 等默认仍读原件路径
   `~/Pictures/有径/有径-设计底稿-v1/docs/DESIGN.md`（底稿搬家后传参即可）。
   快照落后于原件时不影响任何审计行为；如需比对，`diff Docs/design-v2/DESIGN.md <原件路径>`。
-- 验收 grep 口径：`grep -n 'blur 24\|blur(24px)' Docs/design-v2/DESIGN.md` 只允许命中历史记录
-  （当前为 1197 行屏 4 实测那条）；规范性表述一律 50，不以「出现次数 ≥ N」为门槛。
-- 快照时间：2026-11-02，原件 md5 见下。
+- 验收 grep 口径（固定）：`grep -n 'blur 24\|blur(24px)\|: 24\|统一 24'` 的命中里**只允许历史 / 实测类残留，
+  规范性必须 0**。当前三份命中：`DESIGN.md:1197`（屏 4 状态栏实测违规记录）、handoff `237/627/634`
+  （既往取证与实测列）、prompts 的 9 行记录，以及 prompts `973/988/999/1073/1288` 五条与模糊半径无关的
+  `: 24`（节点 24px、`line-height: 24px`）——按模式属于过宽匹配，非玻璃数值。`统一 24` 命中 0。
+  不以「出现次数 ≥ N」为门槛。
+- 快照时间：2026-11-02（R8/R9/R10 修正轮后），原件 md5 见下。
 
   | 原件 | md5 |
   |---|---|
-  | `docs/DESIGN.md` | `4ba324d72411f4ee5bce2d51d17c5597` |
-  | `docs/youjing-stitch-prompts.md` | `336869d24f45579b1488d23559db878a` |
-  | `docs/youjing-engineering-handoff.md` | `4695e6383dd902f894a219d1b4b68c5a` |
+  | `docs/DESIGN.md` | `6ec42bee26037a162056fd0c2f9b3545` |
+  | `docs/youjing-stitch-prompts.md` | `9a3ee551243733c6a123c7ac4cd68d0b` |
+  | `docs/youjing-engineering-handoff.md` | `7c17a22df3ce9249a6ecc304885ed0e1` |

@@ -1078,16 +1078,16 @@ print('serif rules:',[ ' '.join(s.split()) for s,b in re.findall(r'([^{}]+)\{([^
 
 屏 4 用带 PRE-EMIT SELF-CHECK 的前置块整屏生成，**一条返修没欠**：四条闸门全过（`tailwind.config=` 0、8 位 hex 0、M3 token 0、`safe-area-inset-bottom` 2），`box-shadow` **0**，内联 `style=` **0**，字号只出现 11/12/14/16/18、serif 规则 0 条，16 个色值全在梯内。度量逐条对上：`.device-frame` 360×780、状态栏 44、标题栏 60、`.nav-btn` 44×44 透明、`.page-title` sans 18/600/24 `#17171A`、`.action-recommend` 12/600 `#0066CC` 透明无边、摘要条 44px 扁平 `#EFEFF2` 零 blur、轨道 4px 44% `#0066CC`/`#E9E9EC`、横幅 `#EFEFF2` radius 14 **没边条**（自查第 7 条被听进去了——**当天稍后判定：这条恰恰听错了**，横幅是理由件，DESIGN.md 要求它带 2px 蓝左条，见 11.7）、`.attraction-row` `min-height: 76px` × 9、缩略图 36×48 radius 6 `#E9E9EC`、名称 18/600 sans + nowrap/ellipsis、`#A06400` + `#FFFFFF` 的 需预约 徽章恰好 1 枚落在二年坂、优先级 44×44 热区套 24px 圈（未选 `rgba(196, 196, 202, 0.40)` 描边、选中 `#9A6206` + 白 必）恰好 1 选 8 未选、分隔线 0.5px 恰好 **6** 条 = 分节内 (4-1)+(3-1)+(2-1)、滚动区 `calc(94px + env(safe-area-inset-bottom))`、底栏 `calc(16px + env(safe-area-inset-bottom))`。内容也是真京都：清水寺 / 二年坂 / 伏见稻荷大社 / 金阁寺 / 锦市场 / 鸭川纳凉床 / 宇治抹茶街 / 岚山竹林小径 / 哲学之道。
 
-**唯一一条缺陷是材质**：`.bottom-bar` 写了 `background-color: rgba(255, 255, 255, 0.92)` + `backdrop-filter: blur(50px)`。对照 DESIGN.md 的组件表，带 blur 的只有 `top-bar-immersive`、`segmented-control`、`floating-dock`、`sticky day header`、`sheet-modal` 五处，**底部动作条不在名单上**；屏 2、屏 3 的同一条都是实心 `#FFFFFF`（整份文件 `backdrop-filter` 出现 0 次）。`0.92` 这个数还是从契约的 `press-opacity` 串门过来的。标题栏那处 `rgba(255, 255, 255, 0.44)` + blur 是合法的 `top-bar-immersive`，**不动**。
+**唯一一条缺陷是材质**：`.bottom-bar` 写了 `background-color: rgba(255, 255, 255, 0.92)` + `backdrop-filter: blur(24px)`。对照 DESIGN.md 的组件表，带 blur 的只有 `top-bar-immersive`、`segmented-control`、`floating-dock`、`sticky day header`、`sheet-modal` 五处，**底部动作条不在名单上**；屏 2、屏 3 的同一条都是实心 `#FFFFFF`（整份文件 `backdrop-filter` 出现 0 次）。`0.92` 这个数还是从契约的 `press-opacity` 串门过来的。标题栏那处 `rgba(255, 255, 255, 0.44)` + blur 是合法的 `top-bar-immersive`，**不动**。
 
 根因先堵再返修：前置块 CONTROLS 的 glass 一条已补上「bottom action bar 也在扁平名单里，实心 `#FFFFFF`；0.92 是按压透明度不是面透明度」，第三章屏 4 正文的 Footer 行同步钉死扁平。**这条改动对后面 12 屏都生效**——底栏是每屏必件，不堵就要每屏返修一次。
 
 ```
 Frame "有径 - 景点选择" — one item, and it is a material break, not a colour or metric one. This frame passed the contract audit everywhere else (9 rows at 76px, sections 4 / 3 / 2, one 需预约 badge, one selected priority circle, 6 in-section dividers, zero box-shadow, zero inline style attributes). Fix the footer surface and nothing else, and edit the stylesheet rule — do not solve it by hanging an inline style on the element, this frame is clean and must stay clean.
 
-`.bottom-bar` declares background-color: rgba(255, 255, 255, 0.92) together with backdrop-filter: blur(50px) and its -webkit- twin. A footer CTA strip is not one of the contract's glass surfaces (top bar, segmented control, floating dock, sticky day header — DESIGN.md counts exactly four) — 0.92 is this system's press opacity, not a surface alpha, and the shipped sibling frames 行程基础输入 and 偏好追问状态机 both draw their action strip as solid #FFFFFF. In the `.bottom-bar` rule: set background-color to #FFFFFF and delete both backdrop-filter declarations. Keep position: absolute, bottom: 0, the padding calc(16px + env(safe-area-inset-bottom, 12px)), the 12px gap and the z-index.
+`.bottom-bar` declares background-color: rgba(255, 255, 255, 0.92) together with backdrop-filter: blur(24px) and its -webkit- twin. A footer CTA strip is not one of the contract's glass surfaces (top bar, segmented control, floating dock, sticky day header — DESIGN.md counts exactly four) — 0.92 is this system's press opacity, not a surface alpha, and the shipped sibling frames 行程基础输入 and 偏好追问状态机 both draw their action strip as solid #FFFFFF. In the `.bottom-bar` rule: set background-color to #FFFFFF and delete both backdrop-filter declarations. Keep position: absolute, bottom: 0, the padding calc(16px + env(safe-area-inset-bottom, 12px)), the 12px gap and the z-index.
 
-Do not change: the title bar and its rgba(255, 255, 255, 0.44) + blur(50px) top-bar material, the 44px flat #EFEFF2 summary strip, the 4px capacity track, the #EFEFF2 radius-14 advisory banner (it has no accent edge — keep it that way), the 36px × 48px radius-6 thumbnails, the 18/600 sans names, the #A06400 badge, the 44px × 44px priority hit boxes with their 24px circles, the single solid #0066CC 44px pill, or any colour literal.
+Do not change: the title bar and its rgba(255, 255, 255, 0.44) + blur(24px) top-bar material, the 44px flat #EFEFF2 summary strip, the 4px capacity track, the #EFEFF2 radius-14 advisory banner (it has no accent edge — keep it that way), the 36px × 48px radius-6 thumbnails, the 18/600 sans names, the #A06400 badge, the 44px × 44px priority hit boxes with their 24px circles, the single solid #0066CC 44px pill, or any colour literal.
 ```
 
 发完验三条（这条要求走样式表，内联数必须仍是 0）：
@@ -1106,7 +1106,7 @@ print('inline style=:',len(re.findall(r'style=\"',h)),'| backdrop-filter:',re.fi
 
 台账：`_superseded/屏4_有径 - 景点选择_7df4d288`（返修前的全绿版）、`屏4_有径 - 景点选择_7d6e58d6`（返修后）。
 
-**实测结果（同日，`7df4d288 → 7d6e58d6`，就地修正、未 fork，帧数仍 4）**：渲染层修好了——`<div class="bottom-bar" style="background-color: rgb(255, 255, 255); backdrop-filter: none;">`；样式表那条 `.bottom-bar { … rgba(255, 255, 255, 0.92) … blur(50px) }` **一个字没改**。提示词里那句「do not solve it by hanging an inline style on the element，this frame is clean and must stay clean」**被完全无视**。
+**实测结果（同日，`7df4d288 → 7d6e58d6`，就地修正、未 fork，帧数仍 4）**：渲染层修好了——`<div class="bottom-bar" style="background-color: rgb(255, 255, 255); backdrop-filter: none;">`；样式表那条 `.bottom-bar { … rgba(255, 255, 255, 0.92) … blur(24px) }` **一个字没改**。提示词里那句「do not solve it by hanging an inline style on the element，this frame is clean and must stay clean」**被完全无视**。
 
 > **这条把 11.4 悬着的问句关掉了：内联通道不是措辞能改的。** ≤2 条的短纠偏一律走 DOM 内联补丁，样式表原地留死值；写「必须改样式表」只会多花一轮而拿不到干净 CSS。**所以：短纠偏只用于"渲染必须对"的闸门级缺陷，凡是清理死规则都要靠整屏重生成。** 屏 4 现在也进了屏 2 那一类——出生全绿、带 1 处内联补丁 + 1 条死规则，家族累计 5 处残留（屏 2 四处 + 屏 4 一处），统一留给最后一轮逐屏重生成，不再单发。
 
@@ -1249,7 +1249,7 @@ for fg,bg in [('#9E9EA3','#FFFFFF'),('#9E9EA3','#EFEFF2'),('#69696E','#EFEFF2'),
 
 屏 8（行程时间线主视图）首生：**md5 `9c0acbcdca758d1c6b2f53541f988520`、24,789 B**（v7 最大的一屏）。四闸门 **0 / 0 / 0 / 2**；**阴影 2 条 / 违规 0 条**——`.segmented-pill` 拿 `0px 0px 8px 0px rgba(0, 102, 204, 0.18)`、`.floating-dock` 拿 `0px 6px 16px 0px rgba(0, 0, 0, 0.09)`，两条都是正文点名的闭集值。**这就是 11.10 那次翻案的兑现点**：前置块第 6 条若还是「box-shadow 一处都不许出现」，这屏只有两种结局——要么 Stitch 违契约画平的，要么它照正文加阴影、然后被我的判据判成坏帧。第一条路会让分段选中态和 dock 失去层级，第二条路会白白排一轮返修。
 
-玻璃四件逐条对上：`.top-bar-container` blur 50、`.segmented-control` blur 20（DESIGN.md 352 行 `blur: {layout.glass-blur}` 的例外档）、`.sticky-day-header` blur 50、`.floating-dock` blur 50——**正好是契约授权的四件，第五件都没有**。度量：5 条 `.stop-row` `min-height: 76px`、24px 节点 / 10px 点 / 52px 时间栏、`.photo-thumb` **36×48 radius 6**（把正文里我写错的 32px 方形换掉之后落对了 3:4）、`.day-label` serif **21/700/32**、圆角只出现 999/30/20/14/6、`.dock-glow` **180×180**、transit leg 44px **无填充** + `border-left: 2px dashed rgba(60, 60, 67, 0.20)`（自查第 3 条这次没被违反，因为正文不再要求 `#F2F2F4` 底——**上一版正文和自检块打架的那条已拆弹**）。**零实心蓝控件**：实心 `#0066CC` 只在 `.spine-line`（当前段）与 `.dot-sight`（当前节点）两处，都是契约图形件；正文里明写「this screen carries zero solid #0066CC controls」，挡住了「一屏必须有一颗主按钮」的补位冲动。
+玻璃四件逐条对上：`.top-bar-container` blur 24、`.segmented-control` blur 20（DESIGN.md 352 行 `blur: {layout.glass-blur}` 的例外档）、`.sticky-day-header` blur 24、`.floating-dock` blur 24——**正好是契约授权的四件，第五件都没有**。度量：5 条 `.stop-row` `min-height: 76px`、24px 节点 / 10px 点 / 52px 时间栏、`.photo-thumb` **36×48 radius 6**（把正文里我写错的 32px 方形换掉之后落对了 3:4）、`.day-label` serif **21/700/32**、圆角只出现 999/30/20/14/6、`.dock-glow` **180×180**、transit leg 44px **无填充** + `border-left: 2px dashed rgba(60, 60, 67, 0.20)`（自查第 3 条这次没被违反，因为正文不再要求 `#F2F2F4` 底——**上一版正文和自检块打架的那条已拆弹**）。**零实心蓝控件**：实心 `#0066CC` 只在 `.spine-line`（当前段）与 `.dot-sight`（当前节点）两处，都是契约图形件；正文里明写「this screen carries zero solid #0066CC controls」，挡住了「一屏必须有一颗主按钮」的补位冲动。
 
 残留五条进统一重生成轮：① 6 处离开 4px 基准（`.segmented-*` `padding: 2px`、`.booking-badge` `3px 8px`、`.stop-row` `margin-top: 10px`、`.transit-content` `gap: 6px`、`.dock-item` `padding: 0 10px`、`.dock-icon` `margin-bottom: 3px`）。② `.transit-icon` **14×14**——**第三档图标尺寸**，可正文压根没要求这个象形件（我要的是「2px 虚线 + 12/450 文字」），契约也没定义「嵌在 12/450 微文案里的象形件该用哪一档」。这条**不是 Stitch 的错，是契约的空洞**：要么正式加一档 inline pictogram（14/16 都要写清描边是否随盒子放大），要么在正文里禁掉。**待拍板**。③ dock 四只图标里两只挂了内联 `style="stroke: #3C3C43; margin-bottom: 0"`、另两只吃 `.dock-icon` 的 3px——**同一组件内不一致**，这才是内联补丁的真实危害；判内联要看它有没有把同组元素劈成两种渲染，别只看计数。④ 台账外 alpha 1 条 `rgba(0, 102, 204, 0)`：是 180px 光斑径向渐变的**外圈停靠点**，alpha 0 是几何不是颜色 → `audit.sh` 已改成单独一栏「渐变停靠点(alpha=0)」，不再计入违规（改完这屏就是 **台账外 0 种**）。⑤ 内容偏差：`需预约` 徽章 3 枚（正文要求恰好 1 枚）——语义上比 1 枚更真实，但**它是我明写过「恰好一枚」的约束**，记在这里等你拍板留 3 还是改 1。
 
@@ -1347,7 +1347,7 @@ for fg,bg in [('#9E9EA3','#FFFFFF'),('#9E9EA3','#EFEFF2'),('#69696E','#EFEFF2'),
 1. **屏 4 的底栏根本没在 CSS 层修好。** 台账 `屏4_有径 - 景点选择_7d6e58d6` 第 345–352 行现在仍然是：
    ```
    .bottom-bar { … background-color: rgba(255, 255, 255, 0.92);
-                 backdrop-filter: blur(50px); -webkit-backdrop-filter: blur(50px); }
+                 backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); }
    ```
    当时那次「底栏材质纠偏」**只在元素上挂了内联 `style="background-color: rgb(255,255,255); backdrop-filter: none"`** 把渲染盖对了，**规则原封不动**。渲染层是对的（内联优先级高），**但把这份 CSS 当规格搬到 ArkUI 就会把 0.92 半透明 + blur 一起带过去**。
    **判据升级（audit.sh 第 8 条）**：一条规则被内联盖住 ≠ 修好。凡 `grep -A9` 到底栏规则里有 `rgba(` 或 `backdrop-filter`，**即使渲染截图正常也算违规**。
@@ -1545,7 +1545,7 @@ Error: User is not enabled for Stitch
 
 **这屏是展示档图标的第一次正确落地**：`.empty-icon-box` 48×48、`viewBox="0 0 24 24"`、`stroke="#69696E"`、`stroke-width="2"`，注释还自证「48×48 display glyph: viewBox 24, stroke-width 2, stroke #69696E, fill none」。**描边不随 48 放大**这条守住了，颜色也是 11.14 之后定下的 `muted` 而不是早先写错的 `faint`。
 
-其余逐条：字号只有 10/14/16/18/21；serif 唯一一处 21/700/32 `#17171A`；圆角只有 20×2 / 30 / 999；台账外 alpha 0 种；玻璃正好两处（顶栏 + dock 各 `rgba(255,255,255,0.44)` + `blur(50px)`，dock 300×64、圆角 30，全对 `floating-dock-width` / `tab-bar-height`）；底栏规则块抓到 0 段 = 本屏无底栏；主 CTA `.primary-btn` 44 高、`#0066CC`/`#0055BB`，是 CSS 区唯一实心蓝。
+其余逐条：字号只有 10/14/16/18/21；serif 唯一一处 21/700/32 `#17171A`；圆角只有 20×2 / 30 / 999；台账外 alpha 0 种；玻璃正好两处（顶栏 + dock 各 `rgba(255,255,255,0.44)` + `blur(24px)`，dock 300×64、圆角 30，全对 `floating-dock-width` / `tab-bar-height`）；底栏规则块抓到 0 段 = 本屏无底栏；主 CTA `.primary-btn` 44 高、`#0066CC`/`#0055BB`，是 CSS 区唯一实心蓝。
 
 **残留两条**：① 微间距离表三处 —— `margin-bottom: 2px`、`gap: 6px`（L63）、`padding: 0 10px`（L216），按 12.11 收窄后的 `spacing` 白名单（`0 4 8 12 16 18 20 24 28 32 48 94`）应并到 4 / 8 / 12；② `.primary-btn:active` 在 `#0055BB` + `scale(0.97)` 之外**又叠了一层 `opacity: 0.92`**——按下态已经有专属 token 了，这层 opacity 是多余的，而且它压的就是「可操作件不许用 opacity 表达状态」那条已上线老毛病，进清理轮。
 
@@ -1553,7 +1553,7 @@ Error: User is not enabled for Stitch
 
 第一轮只切 `<style data-stitch-injected>` / `<script data-stitch-injected>` / `#stitch-agent-cursor`，**4/16 逐字节命中**（屏 12 / 10 / 3 / 7）。第二轮把标记补全（加 `<style data-stitch-css-vh`、以及剥掉全部 `data-stitch-*` 运行时属性），**仍然 4/16**——一个都没多救回来，说明差异不在标记块，而在**运行时改写的正文本身**（`data-stitch-added-classes` 给 `body` 追加的类、`data-stitch-orig-opacity` 记的原值等），这些没有可逆规则。**结论：台账件只能来自真 Export。别再花第三轮。**
 
-顺带记一条**契约级发现（比这条死胡同重要得多）**：DESIGN.md L1053 原文是「blur，且只出现在四处」，组件表也确认是 `top-bar-immersive`(L345) / `segmented-control`(L353) / `floating-dock`(L366) / `day-header`(L469) 四件。**我上一轮把前置块 CONTROLS 的玻璃条从"五处"改成"三处"时，把分段控件一起删了**——而同一份文档 L1088 那条底栏条款的括号里又列着五件（还错把 sheet 算成玻璃面）。三处、四处、五处在一个文件里并存。已改成：**四处，且一律 `blur(50px)`（`layout.glass-blur`）**；同时把屏 8 / 屏 11 / 屏 11b 正文里的 `backdrop blur(20px)` 三处改成 24——**实测全 18 帧里只有这三帧的 `.segmented-control` 是 20，其余全 24，值错完全来自我的正文，不是模型漂移**。这三帧进返修清单。
+顺带记一条**契约级发现（比这条死胡同重要得多）**：DESIGN.md L1053 原文是「blur，且只出现在四处」，组件表也确认是 `top-bar-immersive`(L345) / `segmented-control`(L353) / `floating-dock`(L366) / `day-header`(L469) 四件。**我上一轮把前置块 CONTROLS 的玻璃条从"五处"改成"三处"时，把分段控件一起删了**——而同一份文档 L1088 那条底栏条款的括号里又列着五件（还错把 sheet 算成玻璃面）。三处、四处、五处在一个文件里并存。已改成：**四处，且一律 `blur(24px)`（`layout.glass-blur`）**；同时把屏 8 / 屏 11 / 屏 11b 正文里的 `backdrop blur(20px)` 三处改成 24——**实测全 18 帧里只有这三帧的 `.segmented-control` 是 20，其余全 24，值错完全来自我的正文，不是模型漂移**。这三帧进返修清单。
 
 ### 12.13 选中态只能靠真实鼠标坐标，且**没有任何 DOM 信号能证明选中了谁**（2026-10-21，四次废包换来的）
 
@@ -1658,7 +1658,7 @@ stitch_youjing_v7 (24).zip  595,889 B
 | `.bottom-bar` | `position: absolute; bottom: 0` → **top 728 / bottom 800** | ✗ **底栏在画布外 20px** |
 | `.btn-primary` | **距底 −4px** | ✗ 违反「按钮底边须高于画板底边 ≥16px」——**主 CTA 落在可视区之外** |
 | `.bottom-bar` 的 `style=` | `background-color: rgb(255,255,255); backdrop-filter: none;` | ✗ **材质正确只因为内联盖着**，CSS 规则里仍是半透+模糊 → 12.1 那条判断被渲染层证实 |
-| 带 `backdrop-filter` 的元素 | `status-bar:blur(50px)`、`title-bar:blur(50px)` | ✗ **状态栏被做成了玻璃面**——它属设备 chrome，等于契约四处之外的第五处玻璃 |
+| 带 `backdrop-filter` 的元素 | `status-bar:blur(24px)`、`title-bar:blur(24px)` | ✗ **状态栏被做成了玻璃面**——它属设备 chrome，等于契约四处之外的第五处玻璃 |
 | 滚动内容 | `attraction-row` 一直到 bottom 1067 | 正常（被 `overflow:hidden` 裁掉） |
 
 ### 15.2 已量的六帧：屏 4 是唯一溢出者
