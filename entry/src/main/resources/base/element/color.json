@@ -28,6 +28,7 @@
     { "name": "like", "value": "#FFC0392B" },
     { "name": "bookmark", "value": "#FF9A6206" },
     { "name": "hairline", "value": "#FFE5E5EA" },
+    { "name": "map_dock_scrim", "value": "#00F2F2F5" },
     { "name": "glass_selection_surface", "value": "#99EFEFF2" },
     { "name": "border_subtle", "value": "#66C4C4CA" },
     { "name": "hairline_strong", "value": "#FFE0E0E5" },

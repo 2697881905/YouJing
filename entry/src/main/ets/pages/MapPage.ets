@@ -34,6 +34,20 @@ const ALL_DAYS: number = -1;
  */
 const FIT_TOP_PX: number = 600;
 const FIT_BOTTOM_PX: number = 600;
+/**
+ * dock 底下那条遮罩的三段几何（自下而上）：压在 dock 本体下的 56vp 是实心，
+ * 往上 92vp 从透明淡进实心（契约 §1055 给四处玻璃面配的那条 fade），
+ * 往下只淡出 21vp 就收手 —— 地图 SDK 自己的「花瓣地图」归属水印顶边实测在
+ * y≈826vp（dock 底 804.8 之下 21.2vp），再多压就把水印从 4.84:1 压到 1.23:1，
+ * 那是归属声明，不能盖。整块高 169vp、底边离屏底 35vp（= 56 − 21）。
+ */
+const DOCK_MASK_FADE_VP: number = 92;
+const DOCK_MASK_PLATEAU_VP: number = 56;
+const DOCK_MASK_BELOW_VP: number = 21;
+const DOCK_MASK_HEIGHT_VP: number = DOCK_MASK_FADE_VP + DOCK_MASK_PLATEAU_VP + DOCK_MASK_BELOW_VP;
+/** 实心段起止 = 淡入段占比 / (淡入 + 实心) 占比 */
+const MASK_SOLID_FROM: number = DOCK_MASK_FADE_VP / DOCK_MASK_HEIGHT_VP;
+const MASK_SOLID_TO: number = (DOCK_MASK_FADE_VP + DOCK_MASK_PLATEAU_VP) / DOCK_MASK_HEIGHT_VP;
 
 @Component
 export struct MapPage {
@@ -321,6 +335,26 @@ export struct MapPage {
           })
             .width('100%')
             .height('100%')
+          // dock 是半透明材质，透的就是这一带的底图 —— 深色档实测底 lum 0.056
+          // （画布那侧 0.016），dock 上的页签文字因此从其余四格的 4.39~4.75:1
+          // 掉到 3.05:1。契约 §1055 给四处玻璃面都配了这条 fade 遮罩，但它的 alpha
+          // 是**按画布调的**（40%），同一节自己写了"背景不再是画布时要重推"——这里就是
+          // 那种情况：40% 实测只把选中蓝推到 2.90，80% 到 4.03，90% 到 4.10（平台期），
+          // 未选中那几档则从 4.24~4.77 抬到 6.29~6.74 全过。深色取 90% 画布。
+          // 浅色不需要：地图格浅档实测 6.00~8.41 本来就全过，故 base 档给全透明，
+          // 分档由资源系统承担，代码里不写 if (isDark)。
+          Column()
+            .width('100%')
+            .height(DOCK_MASK_HEIGHT_VP)
+            .margin({ bottom: DOCK_MASK_PLATEAU_VP - DOCK_MASK_BELOW_VP })
+            .linearGradient({
+              angle: 180,
+              colors: [[Color.Transparent, 0],
+                [$r('app.color.map_dock_scrim'), MASK_SOLID_FROM],
+                [$r('app.color.map_dock_scrim'), MASK_SOLID_TO],
+                [Color.Transparent, 1]]
+            })
+            .hitTestBehavior(HitTestMode.None)
         }
 
         Column() {
