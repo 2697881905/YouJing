@@ -6,6 +6,30 @@
 
 ### Fixed
 
+- 2026-11-01（§5ci 续 80）：**深色档每一屏 push 页的栏带都是纯黑**（不只是屏15）。
+  上一轮把屏15 的顶边色差记成"一个静态 token 配不了两种顶边"并主动放弃，这轮量节点真值
+  把它推翻了：`uitest dumpLayout` 显示 `NavDestination` 的 `backgroundColor` 是
+  `#FF000000`（HDS 深色默认），而栏是透明的 —— 露出来的就是它。于是每一屏 push 页
+  都是"系统带 18 → 栏带 0 → 正文 18"，y=106 与 y=386 各一道 Δ18 的缝。
+  同族一查是 **17 个 `HdsNavDestination`**；浅色档默认 `#FFFFFF`＝画布，所以只在深色看得见。
+  - 先单点证因（只改 OnTripPage，`NavDestination bg` 翻成 `#FF121212`、逐行中位
+    `18/18/18/18/18`）再铺其余 16 页，每页一行 `.backgroundColor(ColorTokens.canvas)`。
+    批量脚本第一版按"同缩进 `}` + 下一行以 `.` 开头"定位闭合，命中了 Stack 的错缩进括号、
+    把属性挂到内层，全部回退重做（改后逐屏量回来）。
+  - **修完暴露下一条缝**：带色原来只跟页签走，从地图格压进屏15 后系统带仍留蓝灰 56、
+    而屏上是画布 18（实测 Δ38）。改成带色跟"栈顶是谁"：`MapPage.bindStripToStackTop()`
+    用 `setInterception({ willShow })`，`to === 'navBar'` 即回根视图（`NavBar` 是字面量类型，
+    比较类型安全；不用 `size()`，回调那一刻栈可能还没更新）；壳层同步补
+    `index === TAB_MAP && stackOfTab(TAB_MAP).size() === 0`，管住"盖着别的页切走再切回"。
+  - 真机三态（深色）：地图格 `56 56 56 56 56 56` → push 屏15 `18 18 18 18 18 18`
+    → 返回地图 `56 56 56 56 56 56`；浅色同路径三态全 255（本轮改动在浅色是 no-op）。
+    六个 push 页深色复测一路 18 连续。离开底图页 `pidof` 前后同值、hilog `cppcrash` 0 条。
+  - 闸门：静态十二把尺全 0；5 套离线断言全绿；HAP BUILD SUCCESSFUL 且产物自证
+    （`modules.abc` 里 `bindStripToStackTop` 命中 2 次）；真机 hypium **191/191**；
+    `verify_dock_tabs.sh` 六项无 ⚠；`verify_scroll_clearance.py` 17 屏 pass。零 LLM。
+
+  - 顺带量到一条**与本轮无关**的：dock 选中标签「规划」在深色 4.39:1（阈值 4.5），另立待办。
+
 - 2026-11-01（§5ci 续 79）：**行程格末卡 48vp 永久压在 dock 玻璃下**（上一轮记为"机制未定"）。
   单变量实验定的：`padding.bottom` 从 112 改 300，末卡底正好上移 188vp ——
   **padding 一直生效，只是每次少 48.4vp**。真相在 `uitest dumpLayout` 的 **`origBounds`**

@@ -25,6 +25,7 @@ import { HdsNavigation, HdsNavigationTitleMode, HdsNavDestination, HdsNavDestina
 import { routerMap } from './AppRouter';
 import type { HdsNavigationMenuItemOptions, HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
+import { TopStrip, STRIP_CANVAS, STRIP_MAP } from '../utils/TopStrip';
 
 const ALL_DAYS: number = -1;
 /**
@@ -77,6 +78,28 @@ export struct MapPage {
    */
   aboutToAppear(): void {
     this.resolveAndReload();
+    if (this.rootMode) {
+      this.bindStripToStackTop();
+    }
+  }
+
+  /**
+   * 顶部那条带的"蓝灰"只在**地图自己盖在栈顶**时成立。
+   *
+   * 壳层原来只按页签决定带色（`pages/Index.syncTopStrip`），所以从地图格按栏上的
+   * 「旅行中」压进屏15 之后，带子还留在底图蓝灰 56，而屏15 的栏带是画布 18 ——
+   * y=106 处撞出一道 Δ38 的缝（2026-11-01 真机实测，见 §5ci 续 80）。
+   * 栈顶归谁这件事只有本页的导航栈知道，所以收在这一处：栈空回蓝灰，有页就交还画布。
+   */
+  private bindStripToStackTop(): void {
+    this.pathStack.setInterception({
+      willShow: (from: NavDestinationContext | NavBar, to: NavDestinationContext | NavBar,
+        op: NavigationOperation, isAnimated: boolean): void => {
+        // `to === 'navBar'` 就是"这一跳要回到根视图"（NavBar 是字面量类型 'navBar'）
+        const ctx: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
+        TopStrip.apply(ctx, to === 'navBar' ? STRIP_MAP : STRIP_CANVAS);
+      }
+    });
   }
 
   /**
@@ -408,6 +431,8 @@ export struct MapPage {
       HdsNavDestination() {
         this.rootShell()
       }
+      // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
+      .backgroundColor(ColorTokens.canvas)
       .titleBar(this.titleBarOptions())
       .titleMode(HdsNavDestinationTitleMode.MINI)
       .onShown((): void => {

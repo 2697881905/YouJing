@@ -299,6 +299,8 @@ export struct BadgePage {
       .alignItems(HorizontalAlign.Start)
       .backgroundColor(ColorTokens.canvas)
     }
+    // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
+    .backgroundColor(ColorTokens.canvas)
     .titleBar(HdsChrome.bar({
       mainTitle: '我的勋章',
       subTitle: this.loading || this.groups.length === 0 ? '' : `共 ${this.totalCount()} 枚`

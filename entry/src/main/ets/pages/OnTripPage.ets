@@ -1324,15 +1324,17 @@ export struct OnTripPage {
     .width('100%')
     .height('100%')
     }
+    // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
+    .backgroundColor(ColorTokens.canvas)
     .titleBar(this.titleBarOptions())
     .titleMode(HdsNavDestinationTitleMode.MINI)
     .onReady((ctx: NavDestinationContext): void => {
       this.pathStack = ctx.pathStack;
     })
     .onShown((): void => {
-      // 这一屏不声明顶部带底色：它的顶边实测是 0（近黑），不是地图格那种蓝灰 56，
-      // 一个静态 token 配不了两种顶边 —— 涂成 56 比留画布 18 差得更远。
-      // 系统带仍由壳层按页签决定（见 pages/Index.syncTopStrip）。
+      // 上一轮在这里放弃过这一屏的带色，理由是"顶边实测 0，一个静态 token 配不了两种顶边"。
+      // 那个 0 不是这一屏的天性，是 HDS 给 NavDestination 的深色默认底（见上面
+      // .backgroundColor 那条）—— 钉成画布之后顶边就是 18，和其余各屏一致，缝随之闭合。
       this.reload();
     })
   }

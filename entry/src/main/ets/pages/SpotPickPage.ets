@@ -557,6 +557,8 @@ export struct SpotPickPage {
         }
       }
     }
+    // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
+    .backgroundColor(ColorTokens.canvas)
     .titleBar(this.titleBarOptions())
     .titleMode(HdsNavDestinationTitleMode.MINI)
   }

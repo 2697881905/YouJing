@@ -525,6 +525,8 @@ export struct TripsPage {
       HdsNavDestination() {
         this.rootShell()
       }
+      // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
+      .backgroundColor(ColorTokens.canvas)
       .titleBar(HdsChrome.bar({
         mainTitle: '行程',
         subTitle: this.trips.length > 0 ? `${this.trips.length} 条` : '',

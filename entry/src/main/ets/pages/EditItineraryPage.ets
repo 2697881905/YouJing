@@ -726,6 +726,8 @@ export struct EditItineraryPage {
         systemMaterial: getSheetImmersiveMaterial()
       })
     }
+    // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
+    .backgroundColor(ColorTokens.canvas)
     .titleBar(this.titleBarOptions())
     .onReady((ctx: NavDestinationContext): void => {
       // 屏8 现在可能住在四条 tab 栈的任意一条上（从「我的」点开行程再进编辑），

@@ -5083,3 +5083,65 @@ padding 那 112vp 保持契约值不动——它是 dock 顶到容器底的实�
 闸门：静态十二把尺全 0；5 套纯逻辑离线断言全绿（MAP_CITY/TRIP_INTENT/TRIP_REVIEW/REPLAN/WEATHER OK）；
 HAP BUILD SUCCESSFUL；真机 hypium **191/191**；`verify_dock_tabs.sh` 六项无 ⚠；
 `verify_scroll_clearance.py` 全量 17 屏 pass。零 LLM、未动行程/打卡数据。
+
+### §5ci 续 80：屏15 的"顶边色差"不是屏15 的事——17 个 push 页的栏带在深色档全是纯黑
+
+续 78 把这条记成"一个静态 token 配不了两种顶边"，并因此**主动放弃**了屏15。
+这轮先量准再动手，结论把那条前提推翻了：**屏15 的顶边不是它自己的天性，是框架默认值。**
+
+`uitest dumpLayout` 直接读节点真值（深色档，`--ps darkprobe 1`）：
+
+```
+Column（壳层）      [0,106][1136,2690]  bg=#FF121212   ← 画布，对
+Navigation          [0,106][1136,2690]  bg=#FF121212   ← 对
+NavDestination      [0,106][1136,2690]  bg=#FF000000   ← 纯黑，HDS 深色默认
+  TitleBar/HdsTitleBar  bg=#00000000                   ← 透明，于是露出上面那层黑
+Column（页面正文）   [0,386][1136,2690]  bg=#FF121212
+```
+
+栏是透明的，露的就是 `NavDestination` 自己的底。所以每一屏 push 页都有三段：
+系统带 18 → 栏带 0 → 正文 18，**Δ18 的缝在 y=106 和 y=386 各一道**。
+同族一查就是 17 个 `HdsNavDestination`（Badges / Review / Share / OnTrip 全部 `#FF000000`）。
+浅色档默认就是 `#FFFFFF`＝画布，所以这条缝**只有深色看得见** —— 这也是上一轮"屏15 顶边 0"
+的来历：它量的不是屏15，是 HDS 的深色默认。
+
+**先单点证因，再铺开。** 只在 OnTripPage 加一行 `.backgroundColor(ColorTokens.canvas)`，
+装机复测：`NavDestination bg` 翻成 `#FF121212`，逐行中位 `0/60/106/200/340 = 18/18/18/18/18`
+（改前是 `18/18/5/0/0`）。假设成立，才铺其余 16 页。
+铺开用结构化定位（`HdsNavDestination() {` 配平括号找闭合行，且下一行必须以 `.` 开头），
+**第一版脚本按"缩进相同的 } + 下一行是 ."匹配，命中了 Stack 的错缩进闭合括号，
+把属性挂到了内层** —— 全部回退重做，17 处逐一核对下一行都是 `.titleBar(` 才写入。
+（[[verify-batch-edits-by-measuring]]：批量改完必须逐屏量回来。）
+
+**修完自己暴露下一条缝**：从地图格按栏上「旅行中」压进屏15 之后，屏幕顶上是那一页的栏带（18），
+而系统带还留在地图的蓝灰 56 —— `Index.syncTopStrip` 原来**只按页签**决定带色。实测：
+`push 后 0/60/100/106 = 56/56/56/14`，Δ38。
+
+带色该跟"栈顶是谁"，而这件事只有地图自己的导航栈知道，所以收在 `MapPage.bindStripToStackTop()`：
+`pathStack.setInterception({ willShow })`，`to === 'navBar'` 就是"这一跳回根视图"
+（`NavBar` 是字面量类型 `declare type NavBar = 'navBar'`，比较是类型安全的，不用 `size()`——
+回调那一刻栈可能还没更新）。壳层那侧同步补一条：`index === TAB_MAP && stackOfTab(TAB_MAP).size() === 0`，
+否则"屏15 盖在地图上时切走再切回"会把蓝灰带留在别的页上。
+
+**真机三态闭环（深色）**：
+
+| 状态 | 逐行中位 0/60/100/106/200/340 |
+|---|---|
+| 地图格（栈顶=地图） | 56 56 56 56 56 56 |
+| push 屏15 | 18 18 18 18 18 18 |
+| 返回地图格 | 56 56 56 56 56 56 |
+
+浅色档同一路径三态全 255（本轮改动在浅色是 no-op，因为画布与 HDS 默认同值）。
+六个 push 页（OnTrip/Badges/Itinerary/TripInput/Share/EditItinerary）深色复测
+`NavDestination bg` 全部 `#FF121212`、`0..340` 一路 18 连续。
+离开底图页做了进程对照：`pidof` 前后同为 13028，hilog 里 `cppcrash` 0 条 ——
+新加的 `willShow` 回调没有触发续 78 之前记的那条"离开含底图页面 App 被杀"。
+
+**顺带量到一条与本轮无关的**：`audit_contrast.py` 在屏15 深色抓到 dock 选中标签「规划」
+`4.39:1`（阈值 4.5）。那是 dock 玻璃上的蓝字，不在本轮改动面上，另立待办。
+
+**闸门（本轮全量）**：静态十二把尺退出码全 0；5 套纯逻辑离线断言全绿；HAP BUILD SUCCESSFUL
+且产物自证（解包 `modules.abc` 里 `bindStripToStackTop` 命中 2 次、`setInterception` 1 次，
+不是 hvigor 复用旧产物）；真机 hypium **191/191**；`verify_dock_tabs.sh` 六项无 ⚠；
+`verify_scroll_clearance.py` 全量 17 屏 pass（与续 79 那轮逐项同值，说明这批改动没动到布局）。
+零 LLM、未动行程/打卡数据。

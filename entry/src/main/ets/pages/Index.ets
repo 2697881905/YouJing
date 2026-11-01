@@ -165,11 +165,13 @@ struct Index {
   /**
    * 顶部系统带跟着页签换色：只有地图格是满铺底图，带子涂画布会在它上面压出一条
    * 硬色差（真机实测带子 18、底图 56~75）；其余四格顶边就是画布，涂画布才对。
-   * 收在切页签这一处，是因为 push 出去的屏由它们自己声明（见 OnTripPage）。
+   * 但"在地图格"还不够 —— 从地图栏上压进屏15 之后，屏幕顶上是**那一页**的栏带（画布），
+   * 带子若仍留蓝灰就在 y=106 撞出一道 Δ38 的缝，所以还要问一句栈顶是不是地图自己。
+   * 栈内那一跳由 MapPage 的 interception 负责（见 pages/MapPage.bindStripToStackTop）。
    */
   private syncTopStrip(index: number): void {
     TopStrip.apply(this.getUIContext().getHostContext() as common.UIAbilityContext,
-      index === TAB_MAP ? STRIP_MAP : STRIP_CANVAS);
+      index === TAB_MAP && stackOfTab(TAB_MAP).size() === 0 ? STRIP_MAP : STRIP_CANVAS);
   }
 
   @Builder
