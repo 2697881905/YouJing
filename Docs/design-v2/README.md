@@ -17,11 +17,19 @@
 - `layout.glass-blur`：`"24"` → `"50"`，正文四处规范性表述（`components.top-bar-immersive.material`、
   §5 材质表 blur 行、§Layout 吸顶日分隔、§Components Floating dock）同步为 50。
 - **分段控件按成文例外钉死**：`components.segmented-control.blur` 由引用 `{layout.glass-blur}` 改为显式
-  `"20"`，§5 材质表那行不再自称 "the app's only blur radius"，§Elevation 的「四处玻璃」列成封闭四类
-  （顶栏 / 浮动 dock / 吸顶日分隔 / sheet 与菜单），并明写分段控件不是第五块玻璃面、20 只是组件内数值
+  `"20"`，§5 材质表那行不再自称 "the app's only blur radius"，并明写分段控件不是第五块玻璃面、20 只是组件内数值
   （与有据 `GlassTokens.ets:11 SEGMENT_BLUR=20` 同口径）。
-- handoff §10 缺陷表「屏 8 / 11 / 11b 分段控件模糊离档」行的**实现时应为**列由 `统一 24` 改 `统一 50`
-  （规范性漏网补齐）；同行「渲染实测 blur(20px)，其余三处 24」是实测列，保持原值。
+- **§Elevation & Depth 的封闭名单按 R11 重写**：书面 blur 半径只属于**三个栏面**（①顶栏 / ②浮动 dock /
+  ③吸顶日分隔，一律 50 + 1px `glass-bar-border` + 92px 渐变遮罩）；**④sheet 与菜单是「材质面」而非
+  「blur 面」**——有系统材质时由材质接管，自绘兜底就是 `components.sheet-modal` 那套实色
+  （`surface-elevated` + `floating` 影 + scrim），不新造 blur 值（与 `components.sheet-modal` 无 blur 键、
+  §Components「Sheet (half-modal) … `surface-elevated` … floating elevation, scrim behind」自洽）。
+- prompts 屏 11 / 11b 的分段控件行文（第 200、216 行）按 R12 由 `blur(50px)` 改 `blur(20px)`（组件内例外）；
+  第 148 行是顶栏，保持 `blur(50px)`。
+- handoff §10 缺陷表「屏 8 / 11 / 11b 分段控件模糊离档」行的**实现时应为**列按 R13 改写为
+  「v2 作废：20 已升为 `components.segmented-control` 的组件内成文例外；三处栏面统一 50（ArkTS 走材质档位）」
+  ——该缺陷在 v2 口径下不再成立；同行「渲染实测 `segmented-control: blur(20px)`，其余三处 24」是实测列，
+  与 v1 原文逐字节相同，保持原值。
 - 新增 `layout.glass-bar-scroll-gated: "true"` 与 §Translucency 的门控口径：玻璃面由**绝对**滚动偏移
   （`scrolled ? 50 : 0`）驱动，禁止按帧增量驱动。
 - 新增 `transitions:` 五键（page-enter / page-fade / feed-stagger-step / long-take / snapshot-handover），
@@ -42,10 +50,10 @@
   （既往取证与实测列）、prompts 的 9 行记录，以及 prompts `973/988/999/1073/1288` 五条与模糊半径无关的
   `: 24`（节点 24px、`line-height: 24px`）——按模式属于过宽匹配，非玻璃数值。`统一 24` 命中 0。
   不以「出现次数 ≥ N」为门槛。
-- 快照时间：2026-11-02（R8/R9/R10 修正轮后），原件 md5 见下。
+- 快照时间：2026-11-02（R11/R12/R13 最后一轮文档修正后），原件 md5 见下。
 
   | 原件 | md5 |
   |---|---|
-  | `docs/DESIGN.md` | `6ec42bee26037a162056fd0c2f9b3545` |
-  | `docs/youjing-stitch-prompts.md` | `9a3ee551243733c6a123c7ac4cd68d0b` |
-  | `docs/youjing-engineering-handoff.md` | `7c17a22df3ce9249a6ecc304885ed0e1` |
+  | `docs/DESIGN.md` | `d2f74a2ca99e499d8bc1ac3d40525c02` |
+  | `docs/youjing-stitch-prompts.md` | `117c6a27642174e34bdb6be0d252bf0b` |
+  | `docs/youjing-engineering-handoff.md` | `be248e2b5c2fdaad2f0fd38eb148fa94` |

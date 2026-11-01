@@ -633,7 +633,7 @@
 | 屏 4 景点选择 | 底栏被推出画布 | `document.scrollHeight=820`、`.bottom-bar` bottom=800、`.btn-primary` 距底 **−4px** | 画板 780 硬边界，底栏包含块必须是画板，CTA 距底 ≥16vp |
 | 屏 4 景点选择 | 状态栏被玻璃化 | `.status-bar` 带 `backdrop-filter: blur(24px)` | 状态栏 `none`；玻璃面只四处 |
 | 屏 4 景点选择 | 底栏材质靠内联撑着 | `style="background-color:#FFF; backdrop-filter:none"`，CSS 规则里仍是半透+模糊 | 材质写进规则，删内联 |
-| 屏 8 / 11 / 11b | 分段控件模糊离档 | 渲染实测 `segmented-control: blur(20px)`，其余三处 24 | 统一 50（ArkTS 走材质档位） |
+| 屏 8 / 11 / 11b | 分段控件模糊离档 | 渲染实测 `segmented-control: blur(20px)`，其余三处 24 | v2 作废：20 已升为 `components.segmented-control` 的组件内成文例外；三处栏面统一 50（ArkTS 走材质档位） |
 | 屏 15 深色 `4d55fd31` | dock 带 1 条 CSS 阴影 | `box-shadow: 0px 6px 16px 0px rgba(0, 0, 0, 0.55)`，值等于契约 token `dark-glass-bar-shadow`（契约自相矛盾，已按决议第 8 条了断） | **删掉这一行声明**；dock 的投影由 ArkTS 侧 HDS 材质自带，不从 CSS 翻过去 |
 | 屏 8dark `e1245be8` / 屏 12dark `ccee0f60`（旧基准，已被 7.4 的新帧取代，仅作历史留档） | 窗口底色非契约值 | `body` 实测 `#070B16` / `#000000`（被满幅画板盖住，画面不可见） | `html/body` 显式 `#121212`，否则 ArkTS 窗口底色取自该层会闪黑——新帧已 19/19 合规 |
 | 屏 13 | 元标注与低对比文字 | `#8A8A91`（2.67:1）用在 `Widget C · 2×2 (Dark)` 文字上 | 实现期整行删除；若保留改 `#A8A8AE` |
