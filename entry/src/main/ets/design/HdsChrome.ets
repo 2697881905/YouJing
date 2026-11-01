@@ -46,7 +46,9 @@ export interface ChromeSpec {
   menu?: Array<HdsNavigationMenuItemOptions>;
   /** 栏内最多直出几枚图标，其余收进官方「更多」；不给即 3 */
   menuMaxCount?: number;
-  /** 沉浸画布页（地图/全屏底图）：内容铺到状态栏下，栏体只作透明悬浮层 */
+  /** 沉浸画布页（地图/全屏底图）：内容铺到状态栏下，栏体只作透明悬浮层。
+   *  ⚠ 真机实测这一项会把栏内两行翻转成分段在上、标题在下（契约 §1055 是标题在上），
+   *  底图类屏要连续顶边请用 barBackground，别用 fullBleed。 */
   fullBleed?: boolean;
   /** 页面滚动状态：驱动 blurRadius，静止时不给模糊（有据静止态白底白图标教训） */
   scrolled?: boolean;

@@ -387,7 +387,9 @@ export struct MapPage {
       }
       .width('100%')
       .height('100%')
-      .backgroundColor(this.stops.length > 0 ? Color.Transparent : ColorTokens.canvas)
+      // 有站点时这一层要铺底图基色：栏本身是透明的，露出来的就是这层的底色。
+      // 留画布会在顶边切出第二条色差（真机实测：带子 56、栏区 18、底图 62~75）。
+      .backgroundColor(this.stops.length > 0 ? $r('app.color.map_strip_base') : ColorTokens.canvas)
   }
 
   build() {

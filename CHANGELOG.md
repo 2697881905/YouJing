@@ -6,6 +6,32 @@
 
 ### Fixed
 
+- 2026-11-01（§5ci 续 78）：**地图格顶边色差**（上一轮只修了四格，地图格反而把缝从
+  y=106 挪到 y=390）。量准之后定性改了：那不是"带子涂错"，是**顶部 112vp 是一整块画布**
+  （系统带 + 透明栏露出的壳层画布）压在底图上。
+  - 三条路试了两条被否：**B2 机制不存在**（SDK 里 `HdsNavigationBackgroundStyle` 只有
+    `backgroundColor`/`maskExtraHeight`/`blurRadius`，而 `maskExtraHeight` 定义为
+    "遮罩高 = 栏高 + 它"，只往下长，栏之上那条带子是系统平色、没有渐变旋钮）；
+    **`fullBleed` 能满铺但会把栏内两行翻转**（分段跑到标题上面，违反契约 §1055
+    「Line 1 品牌块 / Line 2 分段」），撤。顺带否掉自己新加的 `barBackground` 旋钮——
+    栏是透明的，给了底色也不画，透出来的是壳层。
+  - 成立的做法是**一个 token 涂两处**：新增 `map_strip_base`（深色 `#2A3A53`，
+    实测底图区众数占 48.5%；浅色 `#FFFFFF` 与现状一致），新 util `utils/TopStrip.ets`
+    在 AppStorage 里只存**资源名**、色值用 `getColorByNameSync` 按当前档现解
+    （与 `seedDarkMode` 同一手法，不写死第二份色值），同一个名字同时喂给
+    系统带（`setWindowBackgroundColor` + `statusBarColor`）和**壳层 Column 的 backgroundColor**
+    —— 后者才是那 112vp 画布块的真正来源。切换点收在 `Index.syncTopStrip(index)`。
+  - 真机逐行中位：地图格 `0/60/104/110/200/340px` 全是 56、一路连续到底图内容；
+    其余四格仍全 18；地图→行程→回地图带子 56↔18 正确跟随；栏内两行次序保持标题在上。
+  - **屏15 主动没纳入，这是这套办法的边界**：它顶边实测 0（近黑），不是 56。
+    静态 token 配不了两种顶边 —— 给它涂 56 后色差从 Δ18 变成 Δ56，**比不改更差**，
+    已撤并留注释。屏15 要真修只能让底图铺进带子（即被否的 fullBleed），
+    得先解决栏内两行翻转。上一轮反对"涂色"时说的那句"只能涂静态值"，这次被自己的数据证实。
+  - 闸门：静态十二把尺全 0（`audit_colors` 50 件 0 偏差，新 token 归入"契约未直接命名"
+    这一既有档）；双 HAP BUILD SUCCESSFUL；真机 hypium **191/191**；
+    `verify_scroll_clearance.py` 复跑无新增遮挡。零 LLM、未动行程/打卡数据。
+
+
 - 2026-11-01（§5ci 续 74）：**每屏上下两条黑边**（深色档全 App 可见，浅色档被同色遮住）。
   - 两条带区不是一回事：`uitest dumpLayout` 的 bounds 显示 `root` 是 `[0,106][1136,2690]` ——
     **顶部 33.9vp 在窗口之外**（系统按 `statusBarColor` 画，没设过就是纯黑），

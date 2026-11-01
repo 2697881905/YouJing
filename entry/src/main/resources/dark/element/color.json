@@ -2,6 +2,7 @@
   "color": [
     { "name": "start_window_background", "value": "#000000" },
     { "name": "canvas", "value": "#FF121212" },
+    { "name": "map_strip_base", "value": "#FF2A3A53" },
     { "name": "surface_elevated", "value": "#FF1E1E1E" },
     { "name": "surface_subtle", "value": "#FF232326" },
     { "name": "surface_panel", "value": "#FF28282C" },

@@ -33,6 +33,7 @@ import { TypeTokens } from '../design/TypeTokens';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { HDS_MATERIAL_LEVEL_EXQUISITE, HDS_MATERIAL_TYPE_IMMERSIVE } from '../utils/immersiveMaterial';
+import { TopStrip, TOP_STRIP_KEY, STRIP_CANVAS, STRIP_MAP } from '../utils/TopStrip';
 
 const TAG: string = 'Index';
 
@@ -58,6 +59,12 @@ struct Index {
    * 连带让 `floatingDockClearance: 112` 多让了 27.8vp）。
    */
   @StorageProp('navIndicatorHeight') navIndicatorHeight: number = 0;
+  /**
+   * 顶部该用哪个底色资源名（画布 / 底图基色），与系统带同源、由 TopStrip 写。
+   * 壳层 Column 必须跟着换：栏是透明的，栏区露的就是这层的底色 ——
+   * 只换系统带不换这里，顶边会多出第二条色差（真机实测带子 56、栏区 18）。
+   */
+  @StorageProp(TOP_STRIP_KEY) stripName: string = STRIP_CANVAS;
   private hdsController: HdsTabsController = new HdsTabsController();
 
   /** 解析 'index:timestamp' 并切到该页签；同页签或解析不出就什么都不做 */
@@ -73,6 +80,9 @@ struct Index {
 
   aboutToAppear(): void {
     this.currentTab = this.wantTab;
+    // 冷启直接深链到地图格时 onChange 不触发（同值），带子会留在 EntryAbility 涂的画布色 ——
+    // 初始这一格也要同步一次，不然"冷启落地图格"这条路上色差仍在
+    this.syncTopStrip(this.wantTab);
     // 明示同意闸门：自己把同意态读出来再决定开不开弹窗。
     // 不在 EntryAbility 里预读——preferences 是异步的，aboutToAppear 可能抢跑，
     // 那样每次冷启都会给已同意的用户重问一遍。
@@ -152,6 +162,16 @@ struct Index {
     alignment: DialogAlignment.Center
   });
 
+  /**
+   * 顶部系统带跟着页签换色：只有地图格是满铺底图，带子涂画布会在它上面压出一条
+   * 硬色差（真机实测带子 18、底图 56~75）；其余四格顶边就是画布，涂画布才对。
+   * 收在切页签这一处，是因为 push 出去的屏由它们自己声明（见 OnTripPage）。
+   */
+  private syncTopStrip(index: number): void {
+    TopStrip.apply(this.getUIContext().getHostContext() as common.UIAbilityContext,
+      index === TAB_MAP ? STRIP_MAP : STRIP_CANVAS);
+  }
+
   @Builder
   mainTabs() {
     HdsTabs({ controller: this.hdsController, index: this.wantTab }) {
@@ -205,6 +225,7 @@ struct Index {
     .onChange((index: number): void => {
       this.currentTab = index;
       AppStorage.setOrCreate(TAB_INDEX_KEY, index);
+      this.syncTopStrip(index);
       // 五个 tab 根页只在 aboutToAppear 取一次数：在别处新建/编辑完行程、记完费用
       // 再切回页签，看到的还是第一次进入那份。广播一条，根页序号对上才重取
       announceTabShown(index);
@@ -220,6 +241,7 @@ struct Index {
       if (stack.size() > 0) {
         stack.clear();
       }
+      this.syncTopStrip(index);
       // 回根和切页签一样算「这一页重新露面」：刚生成的行程要在首页立刻出现
       announceTabShown(index);
     })
@@ -255,6 +277,6 @@ struct Index {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor($r('app.color.canvas'))
+    .backgroundColor(this.stripName === STRIP_MAP ? $r('app.color.map_strip_base') : $r('app.color.canvas'))
   }
 }

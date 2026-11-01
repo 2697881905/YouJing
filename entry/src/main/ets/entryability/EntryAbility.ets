@@ -13,6 +13,7 @@ import { SkillPrefill, SkillPrefillRecord } from '../data/SkillPrefill';
 import { BuildConfig } from '../common/constants/BuildConfig';
 import { BudgetConfig } from '../common/constants/BudgetConfig';
 import { WidgetSync } from '../widget/TodayCard';
+import { TopStrip } from '../utils/TopStrip';
 
 export default class EntryAbility extends UIAbility {
   private pendingRoute: string = '';
@@ -257,22 +258,9 @@ export default class EntryAbility extends UIAbility {
     if (win === null) {
       return;
     }
-    let canvas: string = '#FFFFFFFF';
-    try {
-      const argb: number = this.context.resourceManager.getColorSync($r('app.color.canvas').id);
-      canvas = `#${argb.toString(16).padStart(8, '0')}`;
-    } catch (err) {
-      Logger.warn('EntryAbility', `解画布色失败，系统栏带区按白色处理: ${(err as Error).message}`);
-    }
-    try {
-      win.setWindowBackgroundColor(canvas);
-    } catch (e) {
-      Logger.warn('EntryAbility', `setWindowBackgroundColor 失败: ${(e as Error).message}`);
-    }
-    const props: window.SystemBarProperties = { statusBarColor: canvas, navigationBarColor: canvas };
-    win.setWindowSystemBarProperties(props).catch((err: Error): void => {
-      Logger.warn('EntryAbility', `setWindowSystemBarProperties 失败: ${err.message}`);
-    });
+    // 涂哪个色由 TopStrip 单点决定（画布 / 底图基色），这里只负责在配置变化、
+    // 回前台、HDS 挂载期回写之后按同一个口径重涂
+    TopStrip.paint(win, this.context, TopStrip.current());
   }
 
   onConfigurationUpdate(newConfig: Configuration): void {

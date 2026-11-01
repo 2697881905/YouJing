@@ -1330,6 +1330,9 @@ export struct OnTripPage {
       this.pathStack = ctx.pathStack;
     })
     .onShown((): void => {
+      // 这一屏不声明顶部带底色：它的顶边实测是 0（近黑），不是地图格那种蓝灰 56，
+      // 一个静态 token 配不了两种顶边 —— 涂成 56 比留画布 18 差得更远。
+      // 系统带仍由壳层按页签决定（见 pages/Index.syncTopStrip）。
       this.reload();
     })
   }
