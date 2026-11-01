@@ -11,6 +11,8 @@
 —— 48.3vp 压在玻璃 dock 底下，被挡的是「总花费」那一行和进度条。
 **padding 写了不等于净空生效**：静态尺只看代码里有没有那个 token，
 量不到"滚到底之后还剩多少"。这一把补的就是这个缺口。
+（行程格那条 48.3vp 已在续 79 修掉，真因是滚动区按父容器满高解析、框钻出屏幕底 48vp；
+ 定它靠的就是本尺判据 5，不是判据 3。）
 
 判据（对每一屏）：
   1. 进屏（冷启深链或点 dock），断言前台确实是有径，不跟真人抢手机；
@@ -18,14 +20,21 @@
      不然量到的是中途滚动位置，会把正常页读成缺陷；
   3. 取 dock 顶（本次 dump 实测，不写死像素）与最末内容底边比：
      末边 > dock 顶 ⇒ 遮挡，报失败；
-  4. 顺带报"有效净空"，让 112 这个 token 与实际值漂移可见。
+  4. 顺带报"有效净空"，让 112 这个 token 与实际值漂移可见；
+  5. 报**滚动区出屏**：`origBounds` 比 `bounds` 多的那一段就是框钻到窗口以下的量。
+     这一条是续 79 那轮的教训加的 —— 只量"末边 vs dock 顶"，**内容短的屏会把同一个缺陷
+     读成 pass**（行程格那 48vp 靠三条长卡才顶出来；净空 173–395vp 的屏即使同样出屏也看不出来）。
+     阳性自证：`scroll_spill(修前 dump)` = +150px = 48.0vp，与缺陷量级一致。
+
+**一次只跑一份**：两份同时点同一台真机会互相把对方甩离目标屏，
+证据文件（同一批 `sc-*.json`）也会被后写的盖掉 —— 抓到的"页面结构"其实是别的屏。
 
 用法：
   python3 tools/verify_scroll_clearance.py            # 全跑
   python3 tools/verify_scroll_clearance.py 行程 费用  # 只跑指定标签
   python3 tools/verify_scroll_clearance.py --evidence /tmp/scrollclear
 
-退出码 0 = 无遮挡；1 = 有遮挡；2 = 设备/前台问题（不算判定失败）。
+退出码 0 = 无遮挡、无出屏；1 = 有；2 = 设备/前台问题（不算判定失败）。
 只读设备状态 + 启动自己的 App；不点删除类控件、不动任何行程数据。
 """
 import json
@@ -41,6 +50,7 @@ DENSITY = 3.125          # 实测：真机像素 ÷ vp 一律按 3.125
 CLIP = 106               # 状态栏避让区（px），实测 33.9vp；窗口铺满物理屏后这是内容起排点
 TOL_PX = 3               # 3px 以内的压线算量测噪声（bounds 取整）
 MAX_FLINGS = 26
+SCROLL_TYPES = ('List', 'Grid', 'Scroll', 'WaterFlow', 'Refresh')
 
 # 进入方式与 AppNav 的 TAB_* / routerMap 对齐；改名或加路由时要同步这张表。
 # 不带 param：硬编码 trip id 会随用户删除而过期，届时测的是病态数据不是这一屏。
@@ -77,14 +87,35 @@ def inside(b, r):
     return bool(r) and b[0] >= r[0] - 2 and b[1] >= r[1] - 2 and b[2] <= r[2] + 2 and b[3] <= r[3] + 2
 
 
+def scroll_spill(d, cont_bottom):
+    """滚动区的 origBounds 最底比容器底低多少 px；≤0 = 没出屏。
+
+    取"滚动区"的口径不能只信 `scrollable` 属性——真机上同一份 List 有时报 true
+    有时报 false（续 79 复跑时撞见），所以按类型兜一层：List/Grid/Scroll/WaterFlow/Refresh。
+    单独抽出来是为了能离线复算：喂 `/tmp/k3.json`（修前的 dump）应得 +150px。
+    """
+    worst = [0]
+
+    def w(n):
+        a = attrs(n)
+        if str(a.get('scrollable')) == 'true' or str(a.get('type')) in SCROLL_TYPES:
+            ob = nums(a.get('origBounds')) or nums(a.get('bounds'))
+            if ob:
+                worst[0] = max(worst[0], ob[3])
+        for c in n.get('children', []):
+            w(c)
+    w(d)
+    return worst[0] - cont_bottom if worst[0] else 0
+
+
 def grab(tag, out):
-    """dump 一次，返回 (最末内容底边 px, dock 顶 px, 容器底 px, 落盘路径)"""
+    """dump 一次，返回 (最末内容底边 px, dock 顶 px, 容器底 px, 落盘路径, 滚动区出屏 px)"""
     remote = f'/data/local/tmp/{tag}.json'
     sh(HDC, 'shell', f'uitest dumpLayout -p {remote}')
     local = os.path.join(out, f'{tag}.json')
     sh(HDC, 'file', 'recv', remote, local)
     if not os.path.exists(local):
-        return None, None, None, None
+        return None, None, None, None, 0
     d = json.load(open(local))
     nodes, bar, tab = [], [None], [None]
 
@@ -101,16 +132,18 @@ def grab(tag, out):
         for c in n.get('children', []):
             w(c)
     w(d)
+    cont = tab[0][3] if tab[0] else 2690
+    spill = scroll_spill(d, cont)
     if bar[0] is None:
-        return None, bar[0], None, local
+        return None, bar[0], None, local, spill
     # 只看"内容边"：有文字的节点 + ListItem 这一级。
     # 不加这个限定的话，根容器/Column 这些铺满整屏的框会先命中 max，
     # 末边永远等于屏底 —— 尺子自己造出 112vp 假遮挡（第一版就踩了）。
     body = [b for t, ty, b in nodes
             if (t or ty == 'ListItem') and not inside(b, bar[0]) and b[3] > CLIP and b[2] < 1138]
     if not body:
-        return None, bar[0][1], tab[0][3] if tab[0] else 2690, local
-    return max(b[3] for b in body), bar[0][1], tab[0][3] if tab[0] else 2690, local
+        return None, bar[0][1], cont, local, spill
+    return max(b[3] for b in body), bar[0][1], cont, local, spill
 
 
 def is_youjing():
@@ -119,7 +152,7 @@ def is_youjing():
     for p in ('/tmp/sc-front.json',):
         if os.path.exists(p):
             os.unlink(p)
-    _, dock, _, _ = grab('sc-front', '/tmp')
+    _, dock, _, _, _ = grab('sc-front', '/tmp')
     return dock is not None
 
 
@@ -161,32 +194,32 @@ def enter(name, how):
 
 
 def fling_to_end(name, out):
-    """甩到几何不再变化为止；返回 (末边, dock顶, 容器底, 是否真的还能再滚)
+    """甩到几何不再变化为止；返回 (末边, dock顶, 容器底, 是否真的还能再滚, 滚动区出屏px)
 
     稳定判据要"连续 3 次同值 + 至少甩 6 次"。只比两次会在惯性滚动中途
     恰好抓到同一帧时提前收手 —— 第一版就在行程格停在半路，把 797.1 读成 860.8。
     """
-    last_bottom, dock, cont, _ = grab(f'sc-{name}', out)
+    last_bottom, dock, cont, _, spill = grab(f'sc-{name}', out)
     if last_bottom is None:
-        return None, None, None, False
+        return None, None, None, False, spill
     moved = False
     same = 0
     for i in range(MAX_FLINGS):
         prev = last_bottom
         sh(HDC, 'shell', 'uitest uiInput swipe 568 2100 568 400 1400')
         time.sleep(0.7)
-        nb, dock, cont, _ = grab(f'sc-{name}', out)
+        nb, dock, cont, _, spill = grab(f'sc-{name}', out)
         if nb is None:
-            return None, None, None, False
+            return None, None, None, False, spill
         if abs(nb - prev) <= TOL_PX:
             same += 1
             if same >= 3 and i + 1 >= 6:
-                return nb, dock, cont, moved
+                return nb, dock, cont, moved, spill
         else:
             same = 0
             moved = abs(nb - prev) > TOL_PX
             last_bottom = nb
-    return last_bottom, dock, cont, moved
+    return last_bottom, dock, cont, moved, spill
 
 
 def main():
@@ -217,21 +250,31 @@ def main():
         if not enter(name, how):
             print(f"{name:16s} 进不去（前台丢了或标签没找到）")
             continue
-        bottom, dock, cont, moved = fling_to_end(name, out)
+        bottom, dock, cont, moved, spill = fling_to_end(name, out)
+        spill_vp = spill / DENSITY if spill else 0.0
         if bottom is None:
-            print(f"{name:16s} 读不到正文节点")
+            # 读不到正文节点时也要报出屏——出屏这一类缺陷与能不能滚无关
+            note = f'滚动区出屏 {spill_vp:.1f}vp（正文节点读不到）' if spill > 5 else ''
+            print(f"{name:16s} 读不到正文节点" + (f'  ⚠ {note}' if note else ''))
+            if note:
+                fails.append((name, note))
             continue
         gap = (dock - bottom) / DENSITY
-        verdict = 'ok' if gap >= -TOL_PX / DENSITY else '⚠ 被 dock 挡'
+        notes = []
         if gap < -TOL_PX / DENSITY:
-            fails.append((name, gap))
-        print(f"{name:16s} {'是' if moved else '否':4s} {bottom / DENSITY:7.1f} {dock / DENSITY:8.1f} {gap:7.1f} {verdict}")
+            notes.append(f'末边超出 dock 顶 {-gap:.1f}vp')
+        if spill > 5:
+            notes.append(f'滚动区出屏 {spill_vp:.1f}vp')
+        if notes:
+            fails.append((name, ' + '.join(notes)))
+        print(f"{name:16s} {'是' if moved else '否':4s} {bottom / DENSITY:7.1f} {dock / DENSITY:8.1f} {gap:7.1f} "
+              + ('ok' if not notes else '⚠ ' + ' + '.join(notes)))
 
     print()
     if fails:
-        print(f"== 滚到底被 dock 挡住：{len(fails)} 屏 ==")
-        for n, g in fails:
-            print(f"   {n}: 末边超出 dock 顶 {-g:.1f}vp")
+        print(f"== 滚到底被 dock 挡住 / 滚动区出屏：{len(fails)} 屏 ==")
+        for n, why in fails:
+            print(f"   {n}: {why}")
         print('   注：可滚=否 的屏是"内容超出但没有滚动区"，同样算遮挡——滚不动就永远看不见。')
         return 1
     print('== 滚到底无遮挡（pass）==')

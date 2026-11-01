@@ -475,13 +475,14 @@ export struct TripsPage {
             .edgeEffect(EdgeEffect.Spring)
             .cachedCount(4)
             // 这一页的最后一张卡住在浮动 dock 底下，按实测净空让位。
-            // ⚠ 2026-11-01 真机量：这条 padding 只生效 63.7vp（写的是 112），
-            //   末卡「已结束/总花费/进度条」有 48.3vp 永久压在 dock 玻璃下、滚不出来；
-            //   换成 List.contentEndOffset(112) 量到的是同一个 63.7vp —— 说明这段缺口
-            //   不是这两者给的，机制未定。缺陷与两种候选都由 tools/audit_scroll_clearance.py
-            //   复现，修它之前先用那把尺立据。
             .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.floatingDockClearance })
           }
+          // Refresh / List 不写尺寸时按**父容器**的 100% 高解析，不是「剩下的」高。
+          // 上面那条 Search 已经吃掉 48vp，所以整条列表被撑到屏幕外 150px（dump 的
+          // origBounds 底是 2840 而窗口底 2690），于是 padding 从看不见的底量起，
+          // 末卡永远有 48vp 压在 dock 玻璃下（2026-11-01 真机量，见 §5ci 续 79）。
+          // 交给 layoutWeight 拿剩余空间，padding 那 112 才真的落在 dock 顶上。
+          .layoutWeight(1)
           .onRefreshing((): void => {
             this.reload().then((): void => {
               this.refreshing = false;
