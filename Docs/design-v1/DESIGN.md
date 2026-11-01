@@ -236,7 +236,8 @@ layout:
   floating-dock-side-margin: "16px"
   bottom-scroll-reserve: "94px"
   hairline-width: "0.5px"
-  glass-blur: "24"
+  glass-blur: "50"
+  glass-bar-scroll-gated: "true"
   glass-border-width: "1px"
   sheet-panel-width: "344px"
   sheet-panel-padding: "20px"
@@ -638,6 +639,12 @@ components:
     darkRingColor: "{colors.star-night-ring}"
     darkAccentColor: "{colors.star-night-icon}"
     darkGoldColor: "{colors.star-night-gold}"
+transitions:
+  page-enter: "opacity 220ms + translate{x:12px} 240ms"
+  page-fade: "opacity 380ms, decelerate, delay 60ms"
+  feed-stagger-step: "{motion.stagger}"
+  long-take: "350ms, radius 16px -> 24px"
+  snapshot-handover: "min 300ms, max 1500ms"
 ---
 
 # Overview
@@ -1052,7 +1059,7 @@ Three devices, in strict order of preference: **surface color step → whitespac
 
 In dark mode drop the shadow and add a luminance step instead; raising shadow alpha on `#121212` produces mud.
 
-The app's real depth device is **blur, and only in four places**: the top bar, the floating dock, the sticky day header, and sheets/menus. All four are translucent with blur 24 and a 1px `glass-bar-border` stroke, with a 92px gradient mask fading content into the bar. **When system material (沉浸光感) is active, the surface must zero out its own background, border, and shadow** — otherwise you get a second ring around the bar and a hard grey seam under the header. Every material feature must sit behind an explicit API-level gate with a self-drawn glass/stroke/solid fallback that looks the same.
+The app's real depth device is **blur, and only in four places**: the top bar, the floating dock, the sticky day header, and sheets/menus. All four are translucent with blur 50 and a 1px `glass-bar-border` stroke, with a 92px gradient mask fading content into the bar. **When system material (沉浸光感) is active, the surface must zero out its own background, border, and shadow** — otherwise you get a second ring around the bar and a hard grey seam under the header. Every material feature must sit behind an explicit API-level gate with a self-drawn glass/stroke/solid fallback that looks the same. The bar surface is gated by the **absolute** scroll offset (`scrolled ? 50 : 0`), never by per-frame delta, because a spring-back negative delta turns the blur off at rest.
 
 Depth in the route canvas is drawn, not shadowed: overlapping contour hairlines and a soft wide `path-soft` stroke under the 2px `path` line (a halo, not a drop shadow). Widgets on the launcher get no blur and no elevation — solid surface plus a 1px hairline border so they stay legible against any wallpaper.
 # Shapes
