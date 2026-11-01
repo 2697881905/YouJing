@@ -7,6 +7,18 @@
 
 export interface ApiConfigType {
   /**
+   * BFF 基础地址。商业化方案 §4：所有 LLM 请求经 BFF 中转（鉴权 + 配额 + Key 代理）。
+   * 仓库版恒空 = BFF 未配置；开发期填本地/测试地址，上架前填正式地址。
+   */
+  BFF_BASE_URL: string;
+  /**
+   * 开发态旁路：true = 不查设备票据与权益，且 **BFF 未配置时**行程生成走端侧
+   * MockLlmTransport 本地合成（否则放开门禁也只是把"跳付费页"换成"LLM_UNAVAILABLE 报错页"）。
+   * 仓库版恒 false —— 真值只写本机（本文件 skip-worktree）。配了 BFF_BASE_URL 后
+   * 本开关不再改变传输选择，只放开权益判断，便于本地联调付费墙。
+   */
+  DEV_SKIP_BFF: boolean;
+  /**
    * 服务端基础地址。当前为占位空串：有径无自建后端（开发文档 §1.3），
    * 本项仅在启用「直连 LLM API」备选方案时取值（§2.4），具体值待该阶段决策后填入。
    */
@@ -78,6 +90,8 @@ export interface ApiConfigType {
 }
 
 export const ApiConfig: ApiConfigType = {
+  BFF_BASE_URL: '',
+  DEV_SKIP_BFF: false,
   BASE_URL: '',
   LLM_CHAT_ENDPOINT: '',
   API_KEY: '',
