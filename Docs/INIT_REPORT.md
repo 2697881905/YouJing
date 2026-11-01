@@ -5331,8 +5331,8 @@ HAP BUILD SUCCESSFUL 并装机复拍（规划格顶带一路连续、品牌块�
   **我没有装这份包去动真机库** —— 迁移虽然是增列，但拿用户的行程/打卡去验别人在飞的代码不对等。
 - **应用侧没新增权限、没新增运行时依赖**（`module.json5`、两个 `oh-package.json5` 无 diff）；
   新依赖都在未跟踪的 `bff/package.json`（express/dotenv/better-sqlite3/jsonwebtoken）。
-  但 `bff/` 一旦被 `git add` 就会入库，里面有硬编码兜底 `JWT_SECRET 'youjing-bff-dev-secret'`
-  （`bff/src/middleware/auth.js:3`、`bff/src/routes/iap.js:29`）与 DeepSeek 默认端点 ——
+  但 `bff/` 一旦被 `git add` 就会入库，里面有硬编码兜底 `JWT_SECRET`（值不在本文抄录，
+  位置是 `bff/src/middleware/auth.js:3`、`bff/src/routes/iap.js:29`）与 DeepSeek 默认端点 ——
   提交前要把兜底改成"缺环境变量即启动失败"。
 - **一轮里删掉的解释性注释**（不是功能改动，但都是踩过坑换来的）：`Index.ets` 四条
   （含"为什么必须等登录态恢复才能种 `ACTIVE_TRIP_KEY`"整段）、`MapPage.ets` 三条、
