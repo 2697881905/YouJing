@@ -4,6 +4,20 @@
 
 ## [Unreleased]
 
+### Added
+
+- 2026-11-01（§5ci 续 83）：**第 13 把静态尺 `tools/audit_skip_worktree.py`** ——
+  管住 skip-worktree 配置（`ApiConfig.ets` 这类"本地带真密钥、仓库版字段齐全但留空"的文件）。
+  R1 查引用面：全仓 `.ets` 引用的 `<Config>.<field>` 必须在 **HEAD 版**里声明过，
+  否则本地一切正常、`git status` 干净，而别人 clone 下来直接编译失败；
+  R2 查凭证面：仓库版里 `KEY|TOKEN|SECRET|PASSWORD|APP_ID|CLIENT_ID` 必须为空，
+  另单判 URL 内嵌凭证。**URL/ENDPOINT 本身不算凭证**（`WEATHER_URL` 是免 Key 的公共端点，
+  清空它只会让功能一起哑掉）—— 这条是第一版判错后改回来的。
+  `--selftest` 四条断言（缺字段可判 / 凭证入库可判 / 公共 URL 不误判 / 嵌套键不误收），
+  **首跑即抓到一条真命中**：`ApiConfig.BFF_BASE_URL` 被 6 处引用却没进仓库版
+  （同一坑 2026-10 踩过一次，见记忆 `skip-worktree-config-must-stay-compilable`）。
+  这把尺现在是红的，红得对。
+
 ### Fixed
 
 - 2026-11-01（§5ci 续 82）：**地图格的 dock 标签被亮底图洗淡**（深色档选中 3.05:1、

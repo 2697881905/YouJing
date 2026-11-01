@@ -5282,3 +5282,62 @@ HAP BUILD SUCCESSFUL 并装机复拍（规划格顶带一路连续、品牌块�
 竞态守卫等），**全部未提交**。`MapPage.ets` 因此是"他们的改动 + 我的遮罩"混在一个文件里，
 提交时按"HEAD + 仅我的两段"构造索引内容单独提交，工作树里他们的改动原样保留，
 不把我的提交信息盖到别人未完成的活上。
+
+### §5ci 续 83：CodeArts 的商业化改动盘点（两条 P0），并把"skip-worktree 必须能编过"变成第 13 把尺
+
+用户这轮用 CodeArts 在同仓库做商业化（IAP / 权益 / 设备激活 / 新增 `bff/` 后端），
+21 个文件未提交。工作树被占着，我做任何 UI/逻辑改动都会撞，所以这轮做**只读盘点 + 一条不撞车的闸门**。
+
+#### 两条 P0（都在代码层面证实，不是推测）
+
+**P0-1 现在这份代码把 App 的主路径堵死了。** 链路是：
+`GeneratingPage.ets:99` `if (!EntitlementStore.canGenerate()) throw CLOUD_QUOTA_EXHAUSTED`
+→ `:126` `replacePath('Pricing')`。而 `EntitlementStore.canGenerate()`（`EntitlementStore.ets:102`）
+第一句就是 `if (!isCacheValid()) return false`，`isCacheValid()` 要求 `cachedAt` 在 5 分钟内 ——
+缓存只由 BFF 回包写入，而 `DeviceActivator.ets:39` 在 `BFF_BASE_URL.length === 0` 时
+**直接 return false 跳过激活**。当前仓库版 `ApiConfig` 的 `BFF_BASE_URL` 就是空串（BFF 没部署），
+所以：**生成行程必然被拦、必然跳付费页**。同样地 `canExport()`（:91）还额外要求
+`!AccountStore.isGuest()`，日历写入（`ItineraryPage.ets:306`）、.ics 导出（`SharePage.ets:114`）、
+分享（`TripReviewPage.ets:152`）三处也一律被拦。`IapStore.verifyWithBff`(:180) 在 BFF 空时
+只返回 success 不调 `EntitlementStore.update`，所以开发期买了也不解锁。
+> 修法方向（等他们定，我不改别人的在飞代码）：给"无 BFF"一个显式的开发态旁路
+> （比如 `BFF_BASE_URL` 为空时整套权益门禁不生效），而不是让"没配置"等于"全拒绝"。
+
+**P0-2 干净检出编不过。** `ApiConfig.ets` 是 skip-worktree（`git ls-files -v` 标 `S`）：
+工作树版给接口加了 `BFF_BASE_URL: string;`，而 **HEAD 的仓库版没有这个字段**，
+`LlmClient`/`DeviceActivator`/`IapStore` 共 6 处引用它。本地一切正常、`git status` 干净，
+别人 clone 下来直接编译失败。这条坑 2026-10 已经踩过一次（记忆
+[[skip-worktree-config-must-stay-compilable]]），**同一个坑第二次**，所以这次做成闸门。
+
+#### 第 13 把尺 `tools/audit_skip_worktree.py`
+
+- **R1 引用面**：全仓 `.ets` 里出现的 `<ConfigConst>.<field>`，字段必须在 **HEAD 版**配置里声明过。
+- **R2 凭证面**：HEAD 版里名字像凭证的字段（`KEY|TOKEN|SECRET|PASSWORD|APP_ID|CLIENT_ID`）
+  值必须为空；另外单判 URL 里内嵌凭证（`https://user:pass@host`）。
+  **URL/ENDPOINT 本身不算凭证** —— 仓库版里 `WEATHER_URL` 是 Open-Meteo 免 Key 公共端点，
+  把它清空只会让干净检出后的天气功能一起哑掉，是更坏不是更安全。这条是我第一版判错后改回来的。
+- `--selftest` 四条：R1 缺字段可判 / R2 凭证入库可判 / 公共 URL 不误判 / 嵌套键不误收。
+  **尺子自己也是先错两次才对**：写死"4 空格缩进"漏掉本仓的 2 空格配置（全字段被判成缺失、
+  噪声 26 条），改成"缩进最浅一层"后又被 `^(\s*)` 坑了一次 —— `\s` 吃进换行，
+  紧跟空行的键缩进多 1，被 `min()` 判成更深一层而整行漏掉（`BASE_URL` 就这么丢了）。
+- 首跑就抓到真东西：**1 条 R1 命中，正是 P0-2**（`ApiConfig.BFF_BASE_URL`，6 处引用）。
+  这把尺现在是红的，红得对 —— 修法是 CodeArts 把字段补进仓库版并留空。
+
+#### 顺带记两条事实
+
+- **数据库侧是安全的**：`DB_VERSION` 9 → 10，只 `ALTER TABLE trip ADD COLUMN pass_id TEXT NOT NULL
+  DEFAULT ''`，由 `if (oldVersion < 10)` 守护、幂等；全文件无新增 `DROP/TRUNCATE/DELETE`。
+  `CREATE TABLE` 里删掉的 `user_id`/`time`/`confidence` 三列由既有 v2/v5/v6 迁移在全新安装时补回。
+  **我没有装这份包去动真机库** —— 迁移虽然是增列，但拿用户的行程/打卡去验别人在飞的代码不对等。
+- **应用侧没新增权限、没新增运行时依赖**（`module.json5`、两个 `oh-package.json5` 无 diff）；
+  新依赖都在未跟踪的 `bff/package.json`（express/dotenv/better-sqlite3/jsonwebtoken）。
+  但 `bff/` 一旦被 `git add` 就会入库，里面有硬编码兜底 `JWT_SECRET 'youjing-bff-dev-secret'`
+  （`bff/src/middleware/auth.js:3`、`bff/src/routes/iap.js:29`）与 DeepSeek 默认端点 ——
+  提交前要把兜底改成"缺环境变量即启动失败"。
+- **一轮里删掉的解释性注释**（不是功能改动，但都是踩过坑换来的）：`Index.ets` 四条
+  （含"为什么必须等登录态恢复才能种 `ACTIVE_TRIP_KEY`"整段）、`MapPage.ets` 三条、
+  `TripsPage.ets` 三条、`StayPickPage.ets` 两条、`LlmClient.ets` 多条
+  （response_format 三层防线、max_tokens 截断账单翻倍等）。要不要留由用户定，我没擅自改回去。
+
+闸门：新增的第 13 把尺 `--selftest` PASS、真实扫描 1 条真命中；其余十二把静态尺仍全 0。
+本轮零设备写入、零 LLM、未动任何行程/打卡/费用数据。
