@@ -1,7 +1,9 @@
 /**
- * 纯配置/口径回归：CategoryStyle 五映射与 QuestionFlowConfig 四题。
+ * 纯配置/口径回归：CategoryStyle 五映射、QuestionFlowConfig 四题与 MotionTokens 五档。
  * 拼错一个选项 value 即静默错档（屏3 与 PlanParams 枚举对不上时用户选了没反应），
  * 这两处必须离线可断言。
+ * MotionTokens 一段是契约 v2 C4 的锁：五档时长与 pressScale 写死对表 DESIGN.md `motion:`，
+ * 顺带证明 §1 那条「自定义贝塞尔在 ArkTS 可用」不只是抄姊妹 App 的结论。
  */
 
 import { describe, it, expect, TestType, Size, Level } from '@ohos/hypium';
@@ -9,6 +11,7 @@ import { CategoryStyle } from '../../../main/ets/utils/CategoryStyle';
 import { QuestionFlowConfig } from '../../../main/ets/common/constants/QuestionFlowConfig';
 import { ActivityCategory } from '../../../main/ets/model/Trip';
 import { PaceOption, TransitPreference, TravelStyle } from '../../../main/ets/model/PlanParams';
+import { MotionTokens, MotionCurves } from '../../../main/ets/design/MotionTokens';
 
 export default function styleConfigTest(): void {
   describe('CategoryStyle', () => {
@@ -70,6 +73,23 @@ export default function styleConfigTest(): void {
           expect(hit).assertTrue();
         }
       }
+    });
+  });
+
+  describe('MotionTokens', () => {
+    it('motion_tiers_match_contract', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+      // DESIGN.md `motion:` 段逐字对表：press140 / control220 / container320 / shimmer1200 /
+      // press-scale 0.97。改这里任一个值必须先改契约，否则 P2 的家族件跟着错档。
+      expect(MotionTokens.press).assertEqual(140);
+      expect(MotionTokens.control).assertEqual(220);
+      expect(MotionTokens.container).assertEqual(320);
+      expect(MotionTokens.shimmer).assertEqual(1200);
+      expect(MotionTokens.pressScale).assertEqual(0.97);
+      // 三条曲线是 curves.cubicBezierCurve 返回的 ICurve（非 Curve 枚举）：
+      // 模块一加载就把静态成员算出来，取不到即 §1「自定义贝塞尔可用」这条前提在本机不成立。
+      const curvesReady: boolean = MotionCurves.standard !== undefined
+        && MotionCurves.decelerate !== undefined && MotionCurves.linear !== undefined;
+      expect(curvesReady).assertTrue();
     });
   });
 }
