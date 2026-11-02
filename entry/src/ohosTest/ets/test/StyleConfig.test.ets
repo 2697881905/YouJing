@@ -5,6 +5,8 @@
  * MotionTokens 一段是契约 v2 C4 的锁：五档时长与 pressScale 写死对表 DESIGN.md `motion:`，
  * 三条曲线的**控制点**用 ICurve.interpolate 的曲线指纹锁住（否则换一档贝塞尔今天全绿），
  * 顺带证明 §1 那条「自定义贝塞尔在 ArkTS 可用」不只是抄姊妹 App 的结论。
+ * ShadowTokens 一段是 T10 前置半步的锁：契约 v2 四档新投影值 + contact/card 的别名关系
+ * + `floating` 本轮刻意不改的 #17（T2 与契约 YAML 同批改值时这条必红，是预期的删除信号）。
  */
 
 import { describe, it, expect, TestType, Size, Level } from '@ohos/hypium';
@@ -13,6 +15,15 @@ import { QuestionFlowConfig } from '../../../main/ets/common/constants/QuestionF
 import { ActivityCategory } from '../../../main/ets/model/Trip';
 import { PaceOption, TransitPreference, TravelStyle } from '../../../main/ets/model/PlanParams';
 import { MotionTokens, MotionCurves } from '../../../main/ets/design/MotionTokens';
+import { ShadowTokens } from '../../../main/ets/design/ShadowTokens';
+import { Pressable } from '../../../main/ets/components/Pressable';
+import { EmptyState } from '../../../main/ets/components/EmptyState';
+import { Skeleton } from '../../../main/ets/components/Skeleton';
+import { Separator } from '../../../main/ets/components/Separator';
+import { Avatar, AvatarSizes } from '../../../main/ets/components/Avatar';
+import { StatRow, StatItem } from '../../../main/ets/components/StatRow';
+import { ChipRow, ChipItem } from '../../../main/ets/components/ChipRow';
+import { SoftChip, SoftChipTone } from '../../../main/ets/components/SoftChip';
 
 export default function styleConfigTest(): void {
   describe('CategoryStyle', () => {
@@ -125,6 +136,99 @@ export default function styleConfigTest(): void {
       // 0.005 → 绝对窗 ±0.0025，5 倍余量；仍比「换一档曲线」的量级差 0.11 小 40 倍以上，
       // 放宽的是噪声窗，没把指纹判据放松到测不出换曲线。
       expect(MotionCurves.linear.interpolate(0.5)).assertClose(0.5, 0.005);
+    });
+  });
+
+  describe('ShadowTokens', () => {
+    it('contract_v2_projection_tiers_locked', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+      // T10 §0.2 的前置半步：契约 v2 的投影档**先落在代码侧**，四档逐字取有据（shadow.ets）。
+      // 简报 §5.3 要求的四条合起来先锁一次（写成一整条与简报逐字对齐的合取式）：
+      expect(ShadowTokens.cardContact.radius === 1 && ShadowTokens.cardAmbient.offsetY === 3
+        && ShadowTokens.pillFloat.color === '#26000000' && ShadowTokens.none.radius === 0).assertTrue();
+      // 再逐字段钉死，防止「只改一个字段仍然满足上面那条合取式」：
+      expect(ShadowTokens.none.radius).assertEqual(0);
+      expect(ShadowTokens.none.offsetX).assertEqual(0);
+      expect(ShadowTokens.none.offsetY).assertEqual(0);
+      expect(ShadowTokens.none.color).assertEqual('#00000000');
+      expect(ShadowTokens.cardContact.radius).assertEqual(1);
+      expect(ShadowTokens.cardContact.offsetX).assertEqual(0);
+      expect(ShadowTokens.cardContact.offsetY).assertEqual(0);
+      expect(ShadowTokens.cardContact.color).assertEqual('#08000000');
+      expect(ShadowTokens.cardAmbient.radius).assertEqual(10);
+      expect(ShadowTokens.cardAmbient.offsetX).assertEqual(0);
+      expect(ShadowTokens.cardAmbient.offsetY).assertEqual(3);
+      expect(ShadowTokens.cardAmbient.color).assertEqual('#12000000');
+      expect(ShadowTokens.pillFloat.radius).assertEqual(8);
+      expect(ShadowTokens.pillFloat.offsetX).assertEqual(0);
+      expect(ShadowTokens.pillFloat.offsetY).assertEqual(3);
+      expect(ShadowTokens.pillFloat.color).assertEqual('#26000000');
+      // 旧档一个都没动（简报 §0.2「只加不改不删」；现存 4 个页面调用点还在用旧名）：
+      expect(ShadowTokens.floating.radius).assertEqual(16);
+      expect(ShadowTokens.floating.offsetY).assertEqual(6);
+      // #17 是**本轮刻意不改**的那一条（契约 YAML 的 9% 由散文三行供值，改 #18 随 T2
+      // 与契约 YAML 同批）。钉在这里是防止有人提前替 T2 改值——改了这条必红。
+      expect(ShadowTokens.floating.color).assertEqual('#17000000');
+      // 别名关系（简报 §5.3 要的那条）。口径修正记在 task-10 报告：
+      // `ShadowTokens.card === ShadowTokens.cardAmbient` 是**引用**相等，而两条
+      // ElevationSpec 必须是各自的内联字面量，否则 tools/audit_elevation.py 的 tokens()
+      // 正则（认 `名字: { radius: …`）在 contact/card 上打空、刚转绿的尺立刻报 [缺档]。
+      // ⇒ 这里按**四字段全等**锁别名，效果同向且更强：T2 删 `contact`/`card` 时
+      // 这条会因字段不存在而编译失败/断言红，那是**预期的删除信号**，不是回归。
+      expect(ShadowTokens.contact.radius === ShadowTokens.cardContact.radius
+        && ShadowTokens.contact.offsetX === ShadowTokens.cardContact.offsetX
+        && ShadowTokens.contact.offsetY === ShadowTokens.cardContact.offsetY
+        && ShadowTokens.contact.color === ShadowTokens.cardContact.color).assertTrue();
+      expect(ShadowTokens.card.radius === ShadowTokens.cardAmbient.radius
+        && ShadowTokens.card.offsetX === ShadowTokens.cardAmbient.offsetX
+        && ShadowTokens.card.offsetY === ShadowTokens.cardAmbient.offsetY
+        && ShadowTokens.card.color === ShadowTokens.cardAmbient.color).assertTrue();
+      // segmented/popover 是「无偏移环境影」两档，elevation 尺也盯着 offsetY；一起钉住：
+      expect(ShadowTokens.segmented.offsetY).assertEqual(0);
+      expect(ShadowTokens.popover.offsetY).assertEqual(0);
+    });
+  });
+
+  describe('FamilyComponents', () => {
+    it('unmounted_family_pieces_compile_and_keep_contract_sizes',
+      TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+      // T10 的编译图陷阱（报告里取证）：hvigor 的 ArkTS 阶段按**引用可达性**收文件，
+      // 一个都没挂载的 @Component 连 filesInfo.txt 都进不去（实测 entry@default 的
+      // filesInfo.txt 里有 OptionCard.ets、没有 Pressable.ets/Skeleton.ets），
+      // 于是「整仓构建零 error」这句**根本不覆盖这 8 个新文件**。
+      // 这里把它们 import 进 ohosTest 的编译图，让 ArkTS 真的类型检查一遍；
+      // 下面这些 `: Xxx | undefined = null` 的持有位就是为了不被当无用导入剪掉。
+      // 不许反过来用它：件仍然是「已落地未挂载」，app 产物里不该有这些符号。
+      const pressableHolder: Pressable | null = null;
+      const emptyStateHolder: EmptyState | null = null;
+      const skeletonHolder: Skeleton | null = null;
+      const separatorHolder: Separator | null = null;
+      const avatarHolder: Avatar | null = null;
+      const statRowHolder: StatRow | null = null;
+      const chipRowHolder: ChipRow | null = null;
+      const softChipHolder: SoftChip | null = null;
+      expect(pressableHolder === null).assertTrue();
+      expect(emptyStateHolder === null).assertTrue();
+      expect(skeletonHolder === null).assertTrue();
+      expect(separatorHolder === null).assertTrue();
+      expect(avatarHolder === null).assertTrue();
+      expect(statRowHolder === null).assertTrue();
+      expect(chipRowHolder === null).assertTrue();
+      expect(softChipHolder === null).assertTrue();
+      // 契约 avatar sizes "24px, 40px, 56px"（DESIGN.md:385）——三档封闭，不许长出第四档
+      expect(AvatarSizes.SM).assertEqual(24);
+      expect(AvatarSizes.MD).assertEqual(40);
+      expect(AvatarSizes.LG).assertEqual(56);
+      // tag-pill 两档 tone（有据的 danger 档本轮不建：色板没有 danger_tint，
+      // 简报 §0.3 把两份 color.json 收在 52/52，加第 53 件属契约改动，随 T2）
+      expect(SoftChipTone.NEUTRAL).assertEqual('neutral');
+      expect(SoftChipTone.BRAND).assertEqual('brand');
+      // 家族件入参形状（字段名写错要到 T2 挂载那一屏才发现，太晚了）
+      const chip: ChipItem = { key: 'sight', label: '景点' };
+      expect(chip.key).assertEqual('sight');
+      expect(chip.label).assertEqual('景点');
+      const stat: StatItem = { key: 'trips', value: '12', label: '行程' };
+      expect(stat.value).assertEqual('12');
+      expect(stat.label).assertEqual('行程');
     });
   });
 }

@@ -52,6 +52,13 @@ export interface ColorTokensType {
   hairlineStrong: Resource;
   separator: Resource;
   modalScrim: Resource;
+  /**
+   * 栏面投影成对色（契约 v2 `bar_shadow`）：浅色 #2E1A1A1E / 深色 #8C000000，
+   * 逐字取契约 glass-bar-shadow 的十六进制列（DESIGN.md:703/714）。
+   * T10 只落**资源与 token**，本轮不建任何 `.shadow(` 消费点——带 `bar_shadow` 的
+   * 栏面件与 elevation 判据反转必须同原子批（简报 §0.1/§0.3）。
+   */
+  barShadow: Resource;
   // 路线图（浅色 paper / 深色 night 同名双值自动切换）
   routePath: Resource;
   routePathSoft: Resource;
@@ -104,6 +111,7 @@ export const ColorTokens: ColorTokensType = {
   hairlineStrong: $r('app.color.hairline_strong'),
   separator: $r('app.color.separator'),
   modalScrim: $r('app.color.modal_scrim'),
+  barShadow: $r('app.color.bar_shadow'),
   routePath: $r('app.color.route_path'),
   routePathSoft: $r('app.color.route_path_soft'),
   routeNodeFill: $r('app.color.route_node_fill'),

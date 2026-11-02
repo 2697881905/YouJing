@@ -34,6 +34,7 @@
     { "name": "hairline_strong", "value": "#FF3A3A3F" },
     { "name": "separator", "value": "#4D545458" },
     { "name": "modal_scrim", "value": "#5217171A" },
+    { "name": "bar_shadow", "value": "#8C000000" },
     { "name": "route_path", "value": "#FF7DB8FF" },
     { "name": "route_path_soft", "value": "#4D7DB8FF" },
     { "name": "route_node_fill", "value": "#FF16203A" },
