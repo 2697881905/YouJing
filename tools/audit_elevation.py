@@ -57,7 +57,7 @@ def sources():
 
 
 def contract_from_design():
-    """抓 §1048-1050 三行：`card` (10px blur, 3px y, 7% black)"""
+    """抓 §1055-1057 三行：`card` (10px blur, 3px y, 7% black)"""
     txt = open(DESIGN, encoding='utf-8').read()
     out = {}
     for m in re.finditer(r'`(contact|card|floating)` \(([^)]*)\)', txt):

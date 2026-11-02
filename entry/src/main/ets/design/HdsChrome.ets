@@ -33,8 +33,9 @@ import type {
 } from '@kit.UIDesignKit';
 import { ColorTokens } from './ColorTokens';
 
-/** 滚动后栏体磨砂半径（vp）：契约 layout.glass-blur = 24，四点位同一把尺 */
-const BAR_BLUR_RADIUS: number = 24;
+/** 滚动后栏体磨砂半径（vp）：契约 layout.glass-blur = 50，三处栏面同一把尺
+ *  （分段控件是 `components.segmented-control.blur: 20` 的组件内成文例外，不走这条路径） */
+const BAR_BLUR_RADIUS: number = 50;
 /** 模糊渐变终点：从 0 推到这段距离内完成"不糊→糊" */
 const DEFAULT_BLUR_END_VP: number = 32;
 
@@ -52,6 +53,8 @@ export interface ChromeSpec {
   fullBleed?: boolean;
   /** 页面滚动状态：驱动 blurRadius，静止时不给模糊（有据静止态白底白图标教训） */
   scrolled?: boolean;
+  /** 本页是否存在可滚容器；false 时关滚动特效，避免静止态空糊 */
+  scrollable?: boolean;
   blurEndVp?: number;
 }
 
@@ -70,7 +73,7 @@ export class HdsChrome {
   static bar(spec: ChromeSpec): HdsNavigationTitleBarOptions {
     const endVp: number = spec.blurEndVp === undefined ? DEFAULT_BLUR_END_VP : spec.blurEndVp;
     const scrollEffect: ScrollEffectOptions = {
-      enableScrollEffect: true,
+      enableScrollEffect: spec.scrollable !== false,
       scrollEffectType: ScrollEffectType.IMMERSIVE_GRADIENT_BLUR,
       blurEffectiveStartOffset: LengthMetrics.vp(0),
       blurEffectiveEndOffset: LengthMetrics.vp(endVp)
@@ -98,7 +101,10 @@ export class HdsChrome {
     };
     const style: TitleBarStyleOptions = {
       scrollEffectOpts: scrollEffect,
-      originalStyle: originalStyle
+      originalStyle: originalStyle,
+      // 两态：originalStyle = 静止态，scrollEffectStyle = 滚动到位后的终态（契约 §1062 的
+      // 「三处栏面 blur 50」靠这条切换；只写 originalStyle 等于没有终态，模糊推不出来）。
+      scrollEffectStyle: { contentStyle: contentStyle }
     };
     const title: HdsNavigationTitle = {
       mainTitle: spec.mainTitle,

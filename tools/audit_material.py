@@ -2,7 +2,7 @@
 """沉浸光感核对：玻璃点位必须"四处都有、四处之外都没有"，且材质生效时撤掉自绘层。
 
 为什么要有这一支：色/字/几何/对比度四把尺量的都是"画出来对不对"，
-而 DESIGN §1055/§1149/§1150 管的是另一件事——深度装置只有 blur 一种，且只许出现在
+而 DESIGN §1062/§1156/§1157 管的是另一件事——深度装置只有 blur 一种，且只许出现在
 顶栏、浮动 dock、吸顶日标题、sheet/菜单四处；材质可用时自绘背景/描边/投影必须归零，
 否则栏外多一圈环、栏下多一条灰缝。这四条此前只靠人眼，而 ItineraryPage:807 那条
 "glassOn 时把底置透明，结果既无材质也无底色"的事故正是人眼漏掉的形态。
@@ -93,7 +93,7 @@ def check_points(srcs, fails):
                 if body_exempt(body, lines, text) or (head_line is not None and head_line in exempt):
                     continue
                 fails.append(f'[点位③吸顶] {rel} 的 @Builder {builder}() 既无材质也无豁免——'
-                             f'契约 §1024 要求 sticky 变体用 glass-bar-surface + blur 24')
+                             f'契约 §1031 要求 sticky 变体用 glass-bar-surface + blur 50')
 
     for rel, text in srcs.items():
         lines = text.split('\n')
@@ -103,13 +103,13 @@ def check_points(srcs, fails):
                 window = '\n'.join(lines[i:i + 12])
                 if 'systemMaterial' in window or i in exempt or (i - 1) in exempt:
                     continue
-                fails.append(f'[点位④sheet] {rel}:{i + 1} bindSheet 未走 options.systemMaterial，'
+                fails.append(f'[④材质面·sheet] {rel}:{i + 1} bindSheet 未走 options.systemMaterial，'
                              f'也未写豁免')
             if '.bindMenu(' in ln or 'MenuOptions' in ln and 'bindMenu' in ln:
                 window = '\n'.join(lines[i:i + 12])
                 if 'systemMaterial' in window or i in exempt:
                     continue
-                fails.append(f'[点位④菜单] {rel}:{i + 1} 菜单未走 options.systemMaterial，也未写豁免')
+                fails.append(f'[④材质面·菜单] {rel}:{i + 1} 菜单未走 options.systemMaterial，也未写豁免')
 
 
 def builder_body(text, name):
@@ -181,8 +181,13 @@ def check_single_gate(srcs, fails):
                 fails.append(f'[门禁外溢] {rel} 直接写了 {bad}——兼容性门禁只准在 immersiveMaterial.ets 内')
 
 
-def check_blur_value(srcs, notes):
-    """R5 栏体磨砂半径 vs 契约 glass-blur（数值不等时要求写明理由）"""
+def check_blur_value(srcs, notes, fails):
+    """R5 栏体磨砂半径 vs 契约 glass-blur + 两态样式齐备。
+
+    判据升档（Task 3）：契约 v2 把 glass-blur 钉成 50 且 T1′ 已落地，半径不再走"写明理由即可"
+    的 note 通道——不等即 fail。两态判据同批加：只挂 IMMERSIVE_GRADIENT_BLUR 却不写
+    scrollEffectStyle，等于滚动后没有终态样式可切，同属缺件。
+    """
     design = read(DESIGN)
     m = re.search(r'glass-blur:\s*"?(\d+)"?', design)
     if not m:
@@ -195,13 +200,10 @@ def check_blur_value(srcs, notes):
         if got == contract:
             continue
         line = chrome[:vm.start()].count('\n') + 1
-        nearby = '\n'.join(chrome.split('\n')[max(0, line - 6):line + 1])
-        if '契约' in nearby and str(contract) in nearby:
-            notes.append(f'[半径·已释明] 顶栏 blurRadius={got} 而契约 glass-blur={contract}，'
-                         f'HdsChrome:{line} 已写明取舍')
-        else:
-            notes.append(f'[半径·待释明] 顶栏 blurRadius={got} 而契约 glass-blur={contract}，'
-                         f'HdsChrome:{line} 未写明为何偏离')
+        fails.append(f'[半径] HdsChrome:{line} BAR_BLUR_RADIUS={got} 而契约 glass-blur={contract}'
+                     f'（三处栏面同一把尺，不再接受注释释明）')
+    if 'IMMERSIVE_GRADIENT_BLUR' in chrome and 'scrollEffectStyle:' not in chrome:
+        fails.append('[两态缺失] HdsChrome 用 IMMERSIVE_GRADIENT_BLUR 却没写 scrollEffectStyle')
 
 
 def main():
@@ -212,7 +214,7 @@ def main():
     check_selfdrawn(srcs, fails)
     check_widget(srcs, fails)
     check_single_gate(srcs, fails)
-    check_blur_value(srcs, notes)
+    check_blur_value(srcs, notes, fails)
     print(f'扫描 {len(srcs)} 个 .ets，玻璃点位四处 + 自绘叠加 + 卡片 + 门禁外溢')
     for n in notes:
         print('  · ' + n)

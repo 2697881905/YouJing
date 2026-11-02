@@ -25,7 +25,17 @@
   （`surface-elevated` + `floating` 影 + scrim），不新造 blur 值（与 `components.sheet-modal` 无 blur 键、
   §Components「Sheet (half-modal) … `surface-elevated` … floating elevation, scrim behind」自洽）。
 - prompts 屏 11 / 11b 的分段控件行文（第 200、216 行）按 R12 由 `blur(50px)` 改 `blur(20px)`（组件内例外）；
-  第 148 行是顶栏，保持 `blur(50px)`。
+  第 148 行（屏 8）是**同一行里既有顶栏也有分段控件**的那一行：顶栏那半句 `backdrop-filter blur(50px)`
+  保持 50，分段控件那半句「(`glass-segment-border`), backdrop blur(50px)」按 R12 口径改成 `blur(20px)`——
+  所以该行现在同时含 50 与 20 两个值，不再是"第 148 行 = 顶栏"一句话能概括的。
+- **T3 折叠的四条口径修正**（随本批代码同批落，评审裁决「不该等批次二」）：
+  `DESIGN.md` §5 材质表 blur 行的计数用词「the **four** bar surfaces share this one radius」→「three」
+  （与 §1062 的 v2 名单对齐；809 标题与 811 引言按评审核对未动）；handoff 的三条**规范条目**
+  §5 标题（226）、自查第 9 条（606）、§10 缺陷表「实现时应为」列（634）由 v1 的「玻璃四件含分段控件 /
+  弹层不是玻璃」改按 R10/R11 重写（三处栏面书面 50 + 分段控件组件内 20 例外 + sheet/菜单是材质面、
+  其自绘兜底为 `components.sheet-modal` 实色且不新造 blur 值）——同文件的实测/证据列（`.status-bar`
+  的 `blur(24px)`、「其余三处 24」等）逐字节未动；prompts 843 全局规则块按同一口径整体重写
+  （原文「four surfaces… 含 segmented control」「A sheet is NOT glass」与 R10/R11/R12 三向冲突）。
 - handoff §10 缺陷表「屏 8 / 11 / 11b 分段控件模糊离档」行的**实现时应为**列按 R13 改写为
   「v2 作废：20 已升为 `components.segmented-control` 的组件内成文例外；三处栏面统一 50（ArkTS 走材质档位）」
   ——该缺陷在 v2 口径下不再成立；同行「渲染实测 `segmented-control: blur(20px)`，其余三处 24」是实测列，
@@ -50,10 +60,10 @@
   （既往取证与实测列）、prompts 的 9 行记录，以及 prompts `973/988/999/1073/1288` 五条与模糊半径无关的
   `: 24`（节点 24px、`line-height: 24px`）——按模式属于过宽匹配，非玻璃数值。`统一 24` 命中 0。
   不以「出现次数 ≥ N」为门槛。
-- 快照时间：2026-11-02（R11/R12/R13 最后一轮文档修正后），原件 md5 见下。
+- 快照时间：2026-11-02（R11/R12/R13 最后一轮文档修正 + **T3 折叠四条口径修正**之后），原件 md5 见下。
 
   | 原件 | md5 |
   |---|---|
-  | `docs/DESIGN.md` | `d2f74a2ca99e499d8bc1ac3d40525c02` |
-  | `docs/youjing-stitch-prompts.md` | `117c6a27642174e34bdb6be0d252bf0b` |
-  | `docs/youjing-engineering-handoff.md` | `be248e2b5c2fdaad2f0fd38eb148fa94` |
+  | `docs/DESIGN.md` | `3fcc3a62edc7bc8ac3d782c9910d20aa` |
+  | `docs/youjing-stitch-prompts.md` | `6ea9e4251bd8396dd44121ff2dd4f546` |
+  | `docs/youjing-engineering-handoff.md` | `7139d0c47a7656997cc3a57c2256290c` |

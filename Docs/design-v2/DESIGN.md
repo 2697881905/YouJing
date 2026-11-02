@@ -821,7 +821,7 @@ These exist so the top bar, the dock, the sticky day header, and sheets read as 
 | `glass-segment-bg` | `1A 3C 3C 43` | `20 FF FF FF` | **why it changes polarity:** white glass on a white canvas is mathematically invisible, so light mode falls back to smoked graphite (`#3C3C43` @ 10%) while dark keeps the white sheen (`#FFFFFF` @ 12.5%). Re-derive both if the canvas stops being white. |
 | `glass-overlay` | `1A 17 17 1A` | `20 FF FF FF` | floating popovers: `#17171A` @ 10% / `#FFFFFF` @ 12.5% |
 | `glass-overlay-border` | `29 17 17 1A` | `30 FF FF FF` | the same hue at 16% / 19% |
-| blur | 50 | 50 | the four bar surfaces share this one radius; the segmented control is the single written exception at 20 (its own in-component value, not a fifth glass surface) |
+| blur | 50 | 50 | the three bar surfaces share this one radius; the segmented control is the single written exception at 20 (its own in-component value, not a fifth glass surface) |
 
 ## 6. Route-map palette (closed, canvas-only)
 
