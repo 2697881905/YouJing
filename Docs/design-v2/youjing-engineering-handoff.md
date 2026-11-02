@@ -228,11 +228,11 @@
 | 面 | 底色 | 描边 | 备注 |
 |---|---|---|---|
 | 顶栏 | `rgba(255,255,255,0.44)` / 深色 `rgba(18,18,18,0.35)` | `1px rgba(196,196,202,0.40)` / 深色 `rgba(69,69,75,0.32)` | 60vp |
-| 分段控件 | `rgba(60,60,67,0.10)` / 深色 `rgba(255,255,255,0.13)` | `1px rgba(60,60,67,0.18)` / 深色 `rgba(255,255,255,0.14)` | 36vp，圆角 30 |
+| 分段控件（组件内例外，**不是玻璃面**） | `rgba(60,60,67,0.10)` / 深色 `rgba(255,255,255,0.13)` | `1px rgba(60,60,67,0.18)` / 深色 `rgba(255,255,255,0.14)` | 36vp，圆角 30；只带组件内 `blur(20px)` 成文例外，不占三处栏面名额 |
 | 浮动 dock | 同顶栏 | 同顶栏 | 300×64，圆角 30，距底 `calc(28px + env(safe-area-inset-bottom,12px))` |
 | 吸顶日标题 | 同顶栏 | 下沿 `0.5px rgba(60,60,67,0.20)` | 44vp |
 
-**弹层（sheet）不是玻璃**：实色 `#F7F7F8`（深色 `#1E1E1E`）+ `elevation.floating` + `modal-scrim rgba(23,23,26,0.32)` 遮罩，`backdrop-filter` 为 `none`。
+**弹层（sheet）与菜单是材质面，不是 blur 面**：有系统材质时由材质接管整块面板；自绘兜底就是实色 `#F7F7F8`（深色 `#1E1E1E`）+ `elevation.floating` + `modal-scrim rgba(23,23,26,0.32)` 遮罩，`backdrop-filter` 为 `none`，**不新造 blur 值**。
 
 **状态栏不是玻璃**：设备 chrome，`backdrop-filter` 必须 `none`。稿件屏 4 违规带了 `blur(24px)`。
 
@@ -250,7 +250,7 @@
 | 交通腿 | 44vp 高、虚线、**无背景填充**（画成实心胶囊是错的） |
 | 空状态 | 48×48 展示档图标，`viewBox 24`、`stroke-width 2`、`stroke #69696E`（深色 `#97979E`），**描边不随 48 放大**；下方 21/700 serif 标题 + 16/400 说明 + 一个主按钮 |
 | 桌面 widget | **实色填充，永不模糊、永不半透**（DESIGN.md L593）。2×2 内缩 12、2×4 内缩 16，最小可读字号 11 |
-| 弹层 sheet | 344 宽、圆角 20、内缩 20、底部 `calc(20px + env(safe-area-inset-bottom,12px))`，`elevation.floating`，遮罩 `modal-scrim`。**不是玻璃** |
+| 弹层 sheet | 344 宽、圆角 20、内缩 20、底部 `calc(20px + env(safe-area-inset-bottom,12px))`，`elevation.floating`，遮罩 `modal-scrim`。**材质面，不是 blur 面**：有系统材质时由材质接管，自绘兜底走 §5 那套实色，不新造 blur 值 |
 
 ## 7. 38 帧清单与逐帧「实现期必改」表（19 浅色 + 19 深色）
 

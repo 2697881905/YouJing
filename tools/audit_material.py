@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
-"""沉浸光感核对：玻璃点位必须"四处都有、四处之外都没有"，且材质生效时撤掉自绘层。
+"""沉浸光感核对：书面 blur 只许在三处栏面、材质面必须挂系统材质，且材质生效时撤掉自绘层。
 
 为什么要有这一支：色/字/几何/对比度四把尺量的都是"画出来对不对"，
-而 DESIGN §1062/§1156/§1157 管的是另一件事——深度装置只有 blur 一种，且只许出现在
-顶栏、浮动 dock、吸顶日标题、sheet/菜单四处；材质可用时自绘背景/描边/投影必须归零，
-否则栏外多一圈环、栏下多一条灰缝。这四条此前只靠人眼，而 ItineraryPage:807 那条
+而 DESIGN §1062/§1156/§1157 管的是另一件事——深度装置只有 blur 一种，且书面 blur 只许出现在
+顶栏、浮动 dock、吸顶日标题这三处栏面；④sheet/菜单是**材质面**而不是 blur 面：有系统材质时由
+材质接管面板，自绘兜底就是 `components.sheet-modal` 那套实色（surface-elevated + floating 影 + scrim），
+不新造 blur 值；分段控件也不是第四块玻璃面，它只带组件内的 blur 20。材质可用时自绘背景/描边/投影
+必须归零，否则栏外多一圈环、栏下多一条灰缝。这几条此前只靠人眼，而 ItineraryPage:807 那条
 "glassOn 时把底置透明，结果既无材质也无底色"的事故正是人眼漏掉的形态。
 
 用法：python3 tools/audit_material.py
-退出码 0 = 四处齐备且无越界；1 = 缺点位 / 玻璃画到四处之外 / 材质上叠了自绘层。
+退出码 0 = 三处栏面 blur 与④材质面齐备且无越界；1 = 缺点位 / 书面 blur 画到三处栏面之外 / 材质上叠了自绘层。
 
 口径：
 - 点位是否落实，按"该点位的宿主是否出现材质载体调用"判；有意不做写
@@ -62,7 +64,7 @@ def stmt_blocks(text):
 
 
 def check_points(srcs, fails):
-    """R1 四处点位齐备"""
+    """R1 三处栏面（①顶栏 ②dock ③吸顶）+ ④材质面（sheet/菜单）点位齐备"""
     chrome = srcs.get('entry/src/main/ets/design/HdsChrome.ets', '')
     if 'IMMERSIVE_GRADIENT_BLUR' not in chrome:
         fails.append('[点位①顶栏] HdsChrome 未挂 IMMERSIVE_GRADIENT_BLUR 沉浸渐变模糊')
@@ -187,14 +189,20 @@ def check_blur_value(srcs, notes, fails):
     判据升档（Task 3）：契约 v2 把 glass-blur 钉成 50 且 T1′ 已落地，半径不再走"写明理由即可"
     的 note 通道——不等即 fail。两态判据同批加：只挂 IMMERSIVE_GRADIENT_BLUR 却不写
     scrollEffectStyle，等于滚动后没有终态样式可切，同属缺件。
+
+    N-5（round 2）：两态判据必须在读 DESIGN.md 之前就跑完。它只依赖 HdsChrome 的源码，与
+    glass-blur 数值判据是两回事；旧写法把它放在 `if not m: return` 之后，DESIGN 抓不到
+    glass-blur 键时两条判据同批静默跳过、rc 照样 0——尺子失效得毫无声音。
     """
+    chrome = srcs.get('entry/src/main/ets/design/HdsChrome.ets', '')
+    if 'IMMERSIVE_GRADIENT_BLUR' in chrome and 'scrollEffectStyle:' not in chrome:
+        fails.append('[两态缺失] HdsChrome 用 IMMERSIVE_GRADIENT_BLUR 却没写 scrollEffectStyle')
     design = read(DESIGN)
     m = re.search(r'glass-blur:\s*"?(\d+)"?', design)
     if not m:
-        notes.append('[半径] DESIGN.md 未找到 glass-blur token，跳过')
+        notes.append('[半径] DESIGN.md 未找到 glass-blur token，跳过（两态判据已照跑）')
         return
     contract = int(m.group(1))
-    chrome = srcs.get('entry/src/main/ets/design/HdsChrome.ets', '')
     for vm in re.finditer(r'BAR_BLUR_RADIUS:\s*number\s*=\s*(\d+)', chrome):
         got = int(vm.group(1))
         if got == contract:
@@ -202,8 +210,6 @@ def check_blur_value(srcs, notes, fails):
         line = chrome[:vm.start()].count('\n') + 1
         fails.append(f'[半径] HdsChrome:{line} BAR_BLUR_RADIUS={got} 而契约 glass-blur={contract}'
                      f'（三处栏面同一把尺，不再接受注释释明）')
-    if 'IMMERSIVE_GRADIENT_BLUR' in chrome and 'scrollEffectStyle:' not in chrome:
-        fails.append('[两态缺失] HdsChrome 用 IMMERSIVE_GRADIENT_BLUR 却没写 scrollEffectStyle')
 
 
 def main():
@@ -215,7 +221,7 @@ def main():
     check_widget(srcs, fails)
     check_single_gate(srcs, fails)
     check_blur_value(srcs, notes, fails)
-    print(f'扫描 {len(srcs)} 个 .ets，玻璃点位四处 + 自绘叠加 + 卡片 + 门禁外溢')
+    print(f'扫描 {len(srcs)} 个 .ets，三处栏面 blur + ④材质面 + 自绘叠加 + 卡片 + 门禁外溢')
     for n in notes:
         print('  · ' + n)
     if not fails:

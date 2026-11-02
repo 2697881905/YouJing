@@ -17,7 +17,7 @@ Four signatures that must be present and consistent across every screen:
 1. Route trace: a 2px #0066CC line with a soft 35% halo under it, threading numbered nodes (24px circle, white fill, #17171A ring, 10px inner dot tinted by activity type) over faint hairline contours on a white→#F1F2F5 paper gradient. No map screenshots, no stock photography.
 2. Itinerary spine: 52px right-aligned tabular time gutter, one 2px vertical spine, nodes centred on it, stop rows ≥76px, 44px dashed transit legs that always show BOTH time and distance ("步行 18分钟 · 1.2km").
 3. Option-based interview: a serif question, a muted helper line, then a stack of 56px selectable cards (20px radius, never pills). Selected = rgba(0, 102, 204, 0.10) tint fill + 1px #0066CC border + blue check, with the LABEL remaining near-black #17171A (never blue text on blue tint — it measures 4.49:1 and misses AA). Progress shown as 6px dots and an 11px "第 2/4 步" eyebrow. Absolutely no chat bubbles, no AI avatar, no typing indicator, no sparkle motifs.
-4. Material discipline: blur/glass on exactly four surfaces — top bar, floating dock, sticky day header, sheets. Cards, timeline rows, option chips, reason blocks and widgets are flat opaque; separation comes from the surface ladder (#FFFFFF → #F7F7F8 → #F2F2F4 → #EFEFF2) and whitespace, never borders or shadows.
+4. Material discipline: written blur on exactly three bar surfaces — top bar, floating dock, sticky day header — all at blur(50px). Sheets and menus are material surfaces, not blur surfaces: where system material exists it paints the panel, and the self-drawn fallback is the opaque #F7F7F8 surface recipe plus elevation.floating and a scrim, with no blur value invented. The segmented control carries only its own in-component blur(20px) and is not a fourth glass surface. Cards, timeline rows, option chips, reason blocks and widgets are flat opaque; separation comes from the surface ladder (#FFFFFF → #F7F7F8 → #F2F2F4 → #EFEFF2) and whitespace, never borders or shadows.
 
 Color law: one action hue only (#0066CC, dark #0A84FF). Activity types reuse a closed five-hue set (景点 blue / 餐饮 #9A6206 ochre / 住宿 #5856D6 indigo / 交通 #3C3C43 graphite / 休整 #9E9EA3 grey). Text polarity flips by theme: light = white labels on deep fills; dark = #121212 ink on bright fills. #9E9EA3 is for disabled and placeholder text only (2.67:1 — it is below even the 3:1 graphic floor); a chevron that means "this opens" is #69696E.
 
@@ -318,7 +318,7 @@ Bottom action bar: **flat opaque #FFFFFF, no translucency and no blur**, `paddin
 | 检查 | 通过标准 |
 | --- | --- |
 | 颜色 | 无规范外色相；动作色只有 `#0066CC`；深色亮底压 `#121212` 墨字；蓝字未压在蓝 tint 上 |
-| 材质 | 玻璃只在顶栏 / Dock / 吸顶日头 / 弹层四处；卡片、时间线行、选项卡、理由块、卡片全是实心 |
+| 材质 | 书面 blur 只在顶栏 / Dock / 吸顶日头三处栏面，一律 `blur(50px)`；弹层与菜单是**材质面**，不是 blur 面——有系统材质由材质接管，自绘兜底是实色 + `floating` 影 + 遮罩，不新造 blur 值；分段控件只带组件内 `blur(20px)`，不是第四块玻璃面；卡片、时间线行、选项卡、理由块、卡片全是实心 |
 | 字体 | 衬线只出现在地名/日头/提问/板块标题；活动名一律无衬线 18/600；无 500/600 衬线；字距 0；数字等宽 |
 | 栅格 | 全部间距是 4 的倍数；页面左右 16；触控目标 ≥44；底部留 94 + 导航条 |
 | 圆角 | 按钮一律胶囊；卡片 20；卡内嵌套 6（=20−16 同心公式） |
@@ -346,7 +346,7 @@ Hard constraints for every frame in this project:
 - Type: 32/700/44 serif display · 21/700/32 serif title · 21/650/28 sans · 18/600/24 headline (all stop names, SANS) · 16/400/24 body · 14/400/20 · 12/450/16 caption · 12/600 itinerary-time · 11/600 overline · 10/400 dock label. Allowed sizes ONLY: 10 11 12 14 16 18 21 32 — 13/15/17/19/20 do not exist here. Serif never on a control, never on a stop name. Letter-spacing 0. Every numeral tabular.
 - Radius: cards 20, nested-in-card 6, chips/inputs 10, reason blocks 14, hero 28, dock + segmented 30, buttons + badges + avatars pill 999. Buttons are ALWAYS pill.
 - Buttons: exactly one solid #0066CC primary CTA per screen, 44px tall; everything else transparent with a 1px rgba(196, 196, 202, 0.40) outline. Never a second blue button. Press = scale 0.97, 140ms.
-- Chrome: title bar 60px; floating dock 300×64 centred, 30px radius, 28px above the nav inset; content reserves 94px + nav inset. Glass on exactly four surfaces: top bar rgba(255, 255, 255, 0.44), dock, sticky day header, sheets.
+- Chrome: title bar 60px; floating dock 300×64 centred, 30px radius, 28px above the nav inset; content reserves 94px + nav inset. Written blur on exactly three bar surfaces at blur(50px): top bar rgba(255, 255, 255, 0.44), dock, sticky day header. Sheets and menus are material surfaces, not blur surfaces — system material paints the panel where it exists, and the self-drawn fallback is the opaque surface-elevated + floating elevation + scrim recipe with no blur value invented. The segmented control keeps only its in-component blur(20px) and is not a fourth glass surface.
 - Timeline geometry: the time gutter is a 52px RIGHT-aligned tabular column, then a 2px spine with nodes centred on it, then the row. Stop rows ≥76px. Transit legs 44px showing BOTH time and distance.
 - Contrast: labels ≥4.5:1; icons, dots, route strokes ≥3:1. Never blue text on a blue wash. Never white text on a dark-mode bright fill.
 - Dividers 0.5px, only between like rows. Cards separated by whitespace, not lines.
