@@ -9,7 +9,11 @@
 色/字/几何/对比度/材质/字族/tnum 之后，这是最后一条还能机判的风格轴。
 
 用法：python3 tools/audit_elevation.py
-退出码 0 = 三档值与契约一致、所有阴影走 token 且深色归零、hero 无影；1 = 有偏差。
+退出码 0 = 三档值与契约一致、所有阴影走 token 且深色归零、hero 无影；
+        1 = 有偏差；
+        2 = 用法错（未知参数）或 `--selftest`——**自检本轮未实现**，给了这个参数就报错退出，
+            绝不静默跑正常扫描退 0（批次一全批评审 Important-1 附项）。
+            自检本体随批次二 T2 与「深色不归零」反转判据同批落地。
 
 口径：
 - 契约值用 §1048-1050 的三行（blur / y / 黑不透明度），token 侧的 color 是 #AARRGGBB，
@@ -82,7 +86,30 @@ def tokens():
     return out
 
 
+def usage():
+    print('用法：python3 tools/audit_elevation.py'
+          '（本轮无可选参数；--selftest 的自检随批次二 T2 落地）')
+
+
 def main():
+    argv = sys.argv[1:]
+    # 批次一全批评审 Important-1 附项：这把尺以前**一个参数都不解析**，
+    # `--selftest` 会被无视、照常跑正常扫描退 0——于是"elevation --selftest 通过"这句
+    # 写在收尾清单里就是没发生过的事（本项目最恨的假绿）。现在：
+    #   · 给了 --selftest 就以清晰文案退 2，**绝不退 0**；本轮**不实现**自检本体——
+    #     T2 会连同「深色不归零」的反转判据一起做（计划文档 :274 那条期望 [selftest] pass），
+    #     现在写死阳性样本，只会和仍指向 v1 口径的原件互相打假。
+    #   · 其它任何参数一律退 2 并打用法。
+    if argv[:1] == ['--selftest']:
+        print('本尺自检（--selftest）**本轮未实现**：判据要在批次二 T2 随「深色不归零」反转一起改，'
+              '现在补阳性样本会与仍按 v1 口径写的原件对打，绿了也不可信。'
+              '⇒ 收尾清单里这句不算通过：本尺自检随批次二 T2 落地。')
+        usage()
+        return 2
+    if argv:
+        print('未知参数：' + ' '.join(argv))
+        usage()
+        return 2
     fails = []
     notes = []
     want = contract_from_design()

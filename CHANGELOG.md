@@ -57,6 +57,28 @@
     双 HAP `BUILD SUCCESSFUL` 记在 T3（`8111777`），真机 hypium **192/192（Failure: 0）**
     记在 T5 各轮（`23bf450`..`3d56074`，控制器与复审各自实跑复算过）—— 本轮没有重跑构建与设备。
     本批零 LLM、未动任何行程/打卡/费用数据，工作树里另一会话的 29 条改动未被卷入。
+  - **批次一全批评审的修复波（0 Critical / 2 Important，同日紧跟在续 84 后）**：
+    ① `audit_material.py` 新增 **`[门控]` 判据**——契约 `layout.glass-bar-scroll-gated: "true"`（`DESIGN.md:240`）
+    与 §1062「由**绝对滚动偏移**驱动 `scrolled ? 50 : 0`，不得用每帧增量」这句以前**零校验**
+    （`grep -r glass-bar-scroll-gated tools/ entry/` 0 命中），把 `HdsChrome:83` 的三元式改成无条件 50
+    时半径与两态两条照绿；现在契约声明为 true 时逐个 `blurRadius` 值位必须带 `scrolled` 三元式，
+    无条件、每帧增量、假门控名（`scrolledDelta`）、挂载点被删、声明被删五种形态全 fail。
+    ② **两把尺的参数拒收**：`audit_elevation.py` 与 `audit_material.py` 以前一个参数都不解析，
+    `--selftest` 被无视、照常跑仓库扫描退 0 ⇒ 谁在收尾清单写"elevation --selftest 通过"都是没发生的事。
+    现在未知参数退 2；`audit_material --selftest` **真做**（30 条：阳性 8 类含半径/两态/门控三类、
+    阴性 6 类含当前真实代码形态、交叉与去重、真契约解析、端到端与用法；docstring 数字由断言锁死），
+    并加 `--design PATH` / `--chrome PATH`（与 `audit_colors.py:81-83` 同惯例，路径不存在退 2）；
+    `audit_elevation --selftest` **本轮不实现**（T2 随「深色不归零」反转判据同批做，
+    现在写阳性样本会与仍指向 v1 口径的原件对打），只兑现「给了参数必须以清晰文案退 2，绝不退 0」。
+    ③ 新增镜像闸 **`tools/verify_mirror.sh`**（零依赖 `sh`+`cmp`+`md5`，归入离线断言类，
+    **不改「十四把静态尺」计数**）：原件 `docs` 三份 vs `Docs/design-v2/` 逐字节 `cmp`、
+    `Docs/design-v1/` 四份 vs 冻结哈希（基线 `c7671d9`，四条 `git show … | md5 -q` 现算现钉）。
+    它补的是 Important-2 那个空档——五把读契约的尺全指原件路径、`design-v2/README:67-69`
+    明写「快照落后不影响审计」，即镜像失同步今天是合法状态，而 `prompts` 引 DESIGN 72 处是出稿产线。
+    三条反证均实跑：`--chrome` 喂「无条件 50」的 /tmp 副本报 `[门控]`（原样不报）、
+    镜像改一个字节报红退 1、`design-v1` 探针副本改一个字节报哈希不符退 1；
+    复跑本轮 14 把静态尺全 rc=0。本波**没碰** `entry/**`，`HdsChrome.ets` 的三元式是被校验对象、未改动。
+
 
 - 2026-11-01（§5ci 续 83）：**第 13 把静态尺 `tools/audit_skip_worktree.py`** ——
   管住 skip-worktree 配置（`ApiConfig.ets` 这类"本地带真密钥、仓库版字段齐全但留空"的文件）。
