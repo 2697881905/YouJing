@@ -20,7 +20,7 @@
 - 数据：`@kit.ArkData` RDB（当前 `DB_VERSION = 9`，带级联清理与版本迁移）、`preferences` 存账号/同意态。
 - 能力：Account Kit（华为账号，仅用于本机区分使用者）、Map Kit（地点检索 / 逆地理）、Calendar Kit、ShareKit、桌面卡片 FormKit、小艺 Skill。
 - 生成：`ai/` 三层防线——提示词内嵌 Schema → `response_format` → `TripParser` 逐字段守卫；Schema、接口、守卫同源（`ai/TripSchema.ets`）。
-- 测试：hypium（真机 191 例）+ 纯逻辑离线断言 + 十二把静态尺。
+- 测试：hypium（真机 191 例）+ 纯逻辑离线断言 + 十四把静态尺。
 
 ## 仓库结构
 
@@ -36,7 +36,7 @@ entry/src/main/ets/
   common/       配置、错误码与文案、日志、权限、天气解析
 entry/src/ohosTest/   hypium 用例（新文件必须注册进 List.test.ets 才会跑）
 Docs/                 开发文档、架构、各方案与取证报告
-tools/                十二把静态尺 + 离线断言脚本
+tools/                十四把静态尺 + 离线断言脚本
 ```
 
 ## 快速开始
@@ -71,7 +71,8 @@ tools/                十二把静态尺 + 离线断言脚本
 | ArkTS 编译 | `hvigorw … assembleHap`（主 + `entry@ohosTest`） | 零 error，pre-commit 强制 |
 | 真机单测 | `hdc shell "aa test -b com.youjing.app -m entry_test -s unittest OpenHarmonyTestRunner -s timeout 300000"` | 191/191 |
 | 纯逻辑离线断言 | `bash tools/verify_map_city.sh` / `verify_trip_intent.sh` / `verify_trip_review.sh` / `verify_replan_logic.sh` / `verify_weather_logic.sh` | 66 / 104 / 57 / 74+26 / 116 全绿 |
-| 设计契约静态尺 | `python3 tools/audit_colors.py`（另有 type / geometry / material / fontfamily / tnum / elevation / button_width / scroll_actions / label_fit / a11y_name / layout_patterns / skip_worktree） | 十三把尺；`skip_worktree` 当前 1 条真命中（`ApiConfig.BFF_BASE_URL` 未进仓库版，见 §5ci 续 83）|
+| 设计契约静态尺 | `python3 tools/audit_colors.py`（另有 type / geometry / material / fontfamily / tnum / elevation / button_width / scroll_actions / label_fit / a11y_name / layout_patterns / skip_worktree / motion） | **十四把静态尺**；`skip_worktree` 那条真命中（§5ci 续 83 的 `ApiConfig.BFF_BASE_URL`）已由 `8229245` 闭合，2026-11-02 批次一收尾复跑十四把全 rc=0 |
+| 动效契约尺 | `python3 tools/audit_motion.py`（`--selftest` 30 条：阳性 13 类 / 阴性 13 类 / 键位点名 / 文档数字对表） | 判据：裸时长、`Curve` 枚举曲线、`.animation` 与 `.stateStyles` 顺序；**不做无声豁免**，W1–W5 白名单站点逐条打印 `file:line`；契约五档 + `ICurve` 自定义贝塞尔已真机坐实。跨仓取证跑在姊妹仓 197 个 `.ets` 上（HEAD 尺独有 11 条假红、新尺独有 0 条） |
 | 真机对比度 | `python3 tools/audit_contrast.py <dump.json> <screenshot>`（`--selftest` 零设备复算遮挡判定） | 17 屏两档：浅色 0 低；深色唯一低项是 **dock 选中蓝 4.10–4.75:1**（用户 2026-10-26 拍板维持 `#0A84FF`，§5ci 续 82 已把地图格从 3.05 抬到 4.10 与其他四格同档）；被遮住的框按**节点树**判，不靠像素猜 |
 | 真机滚到底净空（+滚动区出屏） | `python3 tools/verify_scroll_clearance.py`（`--selftest` 零设备复算判据 5；**一次只跑一份**，两份同抢真机会互相甩离目标屏） | 17 屏全 pass；行程格 −48.3vp → −0.3vp（贴平） |
 

@@ -6,6 +6,58 @@
 
 ### Added
 
+- 2026-11-02（§5ci 续 84）：**契约 v2 第一批（批次一：T1′/T3/T5/T7/T8）落库** ——
+  家族契约对齐「有据」的**第一批**，只碰契约/token/尺/文档，**不含页面接线**
+  （T4 接线取证、T6 间距契约名迁移、T9 收尾属批次二，起点是另一会话那 21 个在飞文件先提交；
+  本条不写成"已完成 T4/T6"）。
+  - **契约侧**：四处玻璃 `glass-blur` 24→**50**，四条规范性表述（`:348` 顶栏材质、`:824` 材质表、
+    `:1031` 吸顶日分隔、`:1101` dock）一并跟上（ledger R4）；
+    历史实测句 `DESIGN.md:1197`「屏 4 实测带 blur(24px)」**留 24 不动**——那是缺陷证据不是规范（R5/R8）；
+    新增 `glass-bar-scroll-gated` 门控声明与 `transitions:` 五键转场段；
+    **分段控件 20 改为成文例外**（`components.segmented-control.blur: "20"` 不再引用主 token，
+    与有据 `GlassTokens.ets:11 SEGMENT_BLUR=20` 同一口径）；
+    **sheet 与菜单改判为「系统材质面」**：有材质时系统接管、自绘兜底走 `components.sheet-modal`
+    那套实色，**不新造 blur 值**（顶栏/dock/吸顶三处才是书面 blur 50 的栏面，
+    分段控件不是第五块玻璃）。
+  - **代码侧**：`HdsChrome` 顶栏按 `scrollable` 门控挂 `scrollEffectStyle` 两态、
+    半径判据由 note **升 fail**；`MotionTokens` 落契约五档。
+    **边界要说清**：T4 那 16 个页面至今没有一个往 `ChromeSpec` 传 `scrolled`/`scrollable`
+    （两个键只在 `design/HdsChrome.ets:55/57/76/83` 自己声明与消费），所以"顶栏模糊 50"
+    这一批**只有尺绿和构建证据，像素证据为零**——模糊到底有没有真出图，唯一取证点在 T4。
+  - **动效**：`ICurve` 自定义贝塞尔（standard/decelerate/linear 控制点）与五档时长**真机坐实**，
+    hypium 192/192（`Failure: 0`）；设备实测还留下两条平台事实——
+    `ICurve.interpolate(0)` 不是 0（`standard` 实测 0.00234），而 hypium `assertClose`
+    是**相对**精度，期望为 0 时任何非 0 都挂 ⇒ 端点只能用区间断言。
+  - **新增第 14 把静态尺 `tools/audit_motion.py`**：判据是裸时长 / `Curve` 枚举曲线 /
+    `.animation` 与 `.stateStyles` 顺序；**不做无声豁免**，W1–W5 白名单站点逐条打印 `file:line`；
+    `--selftest` 30 条（阳性 13 类抓到 / 阴性 13 类不误抓 / 键位点名 / 文档数字对表）。
+    校准付了两轮学费：顺序判据要认「上一条属性」（跨行块形、夹注释空行、同行链都算），
+    全 token 三元/乘加（W4）得给合规退路，否则 `duration: this.on ? A : B` 这类惯用形会被假红逼人手关闸门。
+    判据还在**姊妹仓 197 个 `.ets`** 上跨仓取证：新尺 76 命中、与 HEAD 尺对表 HEAD 独有 11 条假红而新尺独有 0 条。
+  - **修掉 `audit_fontfamily.py` 的假绿**：它定义了契约路径常量却从没 `open`，
+    serif 档全来自硬编码表 —— 契约 typography 段改了永远 0 红。现在真解析
+    `typography.hierarchy` 子树（`display-sans`/`title-sans` 这类无 serif 键的档不进集合），
+    抓不到就打「尺子失明」并退 1，兜底表生效时必打 `[降级]` 且 rc 非 0，契约路径可传且
+    不存在时退 2（与 `audit_colors.py:81-83` 同惯例）；`--selftest` 24 条先证规则本身有效。
+  - **文档口径收口**：`handoff` 226/231/235/253/606/634 与 §5 表体、`prompts` 20/148/200/216/321/349/843
+    按同一口径对齐——**四处玻璃面**是 顶栏 / dock / 吸顶日分隔 / sheet 与菜单，
+    其中**三处栏面带书面 blur 50**、sheet 与菜单是**材质面**（不带书面 blur），
+    分段控件 20 是**成文例外**而不是第五块玻璃（数值 grep 之外还要**口径词 grep + 材质表逐行读**，
+    因为无数字的口径句逃过所有数值门槛，见 ledger R18/R19）；
+    评审撤销的两条 park（`DESIGN.md:824` 自计数、handoff 那三处）随 T3 一并改掉。
+  - **规矩改写**（本条是 T8）：契约由「不许为了让尺子过而改它」改为
+    **家族契约文本、由产品负责人修订，任何改动必须与 `design/*.ets` token 表与
+    `tools/audit_*.py` 判据在同一批提交里同步**（尺只遍历契约侧：加行可能红、删行只会绿）。
+    历史记录 `INIT_REPORT:4711-4718`（含 `:4712` 那处 `design-v1` 引用与"不可为过闸而改"那句，
+    本轮只在它后面追加历史路径括注，正文一字未动），以及本文件 2026-11-01 那条
+    「两份 DESIGN.md 都没动 / 两份"权威契约"互相漂移」的记述（原 `:252-254`，
+    因本条插入现下移到 `:297-299`）**原文一字不动**，口径变化只写进 §5ci 续 84 与本条。
+  - 闸门（分得清是谁跑的）：**批次一 T7/T8 收尾这轮实跑** 14 把静态尺全 rc=0、
+    `audit_fontfamily --selftest` 24 条 PASS、`audit_motion --selftest` 30 条 PASS；
+    双 HAP `BUILD SUCCESSFUL` 记在 T3（`8111777`），真机 hypium **192/192（Failure: 0）**
+    记在 T5 各轮（`23bf450`..`3d56074`，控制器与复审各自实跑复算过）—— 本轮没有重跑构建与设备。
+    本批零 LLM、未动任何行程/打卡/费用数据，工作树里另一会话的 29 条改动未被卷入。
+
 - 2026-11-01（§5ci 续 83）：**第 13 把静态尺 `tools/audit_skip_worktree.py`** ——
   管住 skip-worktree 配置（`ApiConfig.ets` 这类"本地带真密钥、仓库版字段齐全但留空"的文件）。
   R1 查引用面：全仓 `.ets` 引用的 `<Config>.<field>` 必须在 **HEAD 版**里声明过，
