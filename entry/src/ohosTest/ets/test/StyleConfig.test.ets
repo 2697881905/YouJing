@@ -24,6 +24,7 @@ import { Avatar, AvatarSizes } from '../../../main/ets/components/Avatar';
 import { StatRow, StatItem } from '../../../main/ets/components/StatRow';
 import { ChipRow, ChipItem } from '../../../main/ets/components/ChipRow';
 import { SoftChip, SoftChipTone } from '../../../main/ets/components/SoftChip';
+import { FAMILY_PROBE_COMPONENT_COUNT } from './FamilyProbePage';
 
 export default function styleConfigTest(): void {
   describe('CategoryStyle', () => {
@@ -229,6 +230,12 @@ export default function styleConfigTest(): void {
       const stat: StatItem = { key: 'trips', value: '12', label: '行程' };
       expect(stat.value).assertEqual('12');
       expect(stat.label).assertEqual('行程');
+      // R29 通道：上面那批「类型持有位」只进 tsc 层、不进 emit，ArkUI 装饰器判据对
+      // 5 个件（EmptyState/Skeleton/Separator/StatRow/ChipRow）根本不跑。
+      // FamilyProbePage 在 build() 里实例化全部 8 件，这里值级引用它导出的常量，
+      // 把该页（连同 8 个件）拉进 ohosTest 的 emit——收口判据是 filesInfo.txt 8/8 命中。
+      // 该页不注册成用例、不新增 `it`，194 口径不动。
+      expect(FAMILY_PROBE_COMPONENT_COUNT).assertEqual(8);
     });
   });
 }

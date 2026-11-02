@@ -8,7 +8,17 @@
  *   textColor {colors.muted}                 → 解释句 `ColorTokens.muted`
  *   typography {typography.hierarchy.callout} → 契约 callout = 14/400/20，有径同值档
  *                                              `TypeTokens.small`（简报 §1 就写「文案 small/14」）
- *   iconColor {colors.faint}                 → 图标 `ColorTokens.faint`
+ *   iconColor {colors.muted}                 → 图标 `ColorTokens.muted`（**采散文，见下方冲突留痕**）
+ * 主句档位：契约散文 §1109「Empty state. Centered: … `title` line」+ §913 档位表
+ * （`title` = serif 21/700/32）+ §937「hero empty-state line」归 serif ⇒ 标题走
+ * **serif `TypeTokens.title`**，并按 §3.1 既有纪律同链带 `.fontFamily(TypeTokens.title.family)`
+ * （ArkUI 的 fontFamily 不随字号档自动带上，漏写就还是黑体，`audit_fontfamily.py` [漏字族] 会咬）。
+ *
+ * **冲突留痕（评审 R28 裁定：契约散文赢）**：YAML `components.empty-state.iconColor`
+ * 现为 `{colors.faint}`（DESIGN.md:400），与散文 DESIGN.md:1109 互斥——散文原文
+ * 「`muted` `#69696E` icon at 48px … `faint` is barred here by §8：它在 canvas 上 2.67:1，
+ * 连 3:1 图形底线都不过」。本轮按 R28 采散文落 `ColorTokens.muted`；
+ * YAML 那一行的校正**随 T2 契约批同改**（本轮不动契约文件），届时删掉这段留痕。
  *
  * props 名逐字照搬有据：`icon / title / message / actionLabel / onAction`，
  * 三个字符串都过一层 `safe*()`——`@Prop` 从父级拿到 undefined 时
@@ -70,12 +80,12 @@ export struct EmptyState {
     Column({ space: SpaceTokens.md }) {
       SymbolGlyph(this.icon)
         .fontSize(IconSizes.display)
-        .fontColor([ColorTokens.faint])
+        .fontColor([ColorTokens.muted])
 
       Text(this.safeTitle())
-        .fontSize(TypeTokens.headline.size)
-        .fontWeight(TypeTokens.headline.weight)
-        .fontFamily(TypeTokens.headline.family)
+        .fontSize(TypeTokens.title.size)
+        .fontWeight(TypeTokens.title.weight)
+        .fontFamily(TypeTokens.title.family)
         .fontColor(ColorTokens.ink)
         .textAlign(TextAlign.Center)
 
