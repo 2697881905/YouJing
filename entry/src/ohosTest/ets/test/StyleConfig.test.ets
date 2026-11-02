@@ -116,7 +116,15 @@ export default function styleConfigTest(): void {
       expect(MotionCurves.standard.interpolate(0.5)).assertClose(0.946079, 0.02);
       expect(MotionCurves.standard.interpolate(0.25)).assertClose(0.767284, 0.02);
       expect(MotionCurves.decelerate.interpolate(0.5)).assertClose(0.839245, 0.02);
-      expect(MotionCurves.linear.interpolate(0.5)).assertClose(0.5, 0.001);
+      // linear 这条单独放宽 precision（0.001 → 0.005）。理由：assertClose 判的是
+      // |actual-expected|/|actual| < precision（hypium 1.0.25 assertClose.js:21-29，分母是**实测值**），
+      // 期望 0.5 时 0.001 折算成绝对窗只有 ±0.0005；另三条期望值在 0.77~0.95，0.02 折算成绝对窗
+      // 是 ±0.015~±0.019 —— 线性档反而比其他三条紧 30 倍以上。本机 linear 实测恰好 0.5（尾差 0），
+      // 但换设备/换 API 版本解算出 0.5006 就会因 0.0006 > 0.0005 判红，那是框架尾差不是缺陷
+      // （同一现象在端点断言上已经付过学费，见上面 0.002342 那条真相）。
+      // 0.005 → 绝对窗 ±0.0025，5 倍余量；仍比「换一档曲线」的量级差 0.11 小 40 倍以上，
+      // 放宽的是噪声窗，没把指纹判据放松到测不出换曲线。
+      expect(MotionCurves.linear.interpolate(0.5)).assertClose(0.5, 0.005);
     });
   });
 }
