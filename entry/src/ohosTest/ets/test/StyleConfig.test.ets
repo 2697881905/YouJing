@@ -3,6 +3,7 @@
  * 拼错一个选项 value 即静默错档（屏3 与 PlanParams 枚举对不上时用户选了没反应），
  * 这两处必须离线可断言。
  * MotionTokens 一段是契约 v2 C4 的锁：五档时长与 pressScale 写死对表 DESIGN.md `motion:`，
+ * 三条曲线的**控制点**用 ICurve.interpolate 的曲线指纹锁住（否则换一档贝塞尔今天全绿），
  * 顺带证明 §1 那条「自定义贝塞尔在 ArkTS 可用」不只是抄姊妹 App 的结论。
  */
 
@@ -60,7 +61,7 @@ export default function styleConfigTest(): void {
       }
       const paceVals: string[] = [PaceOption.RELAXED, PaceOption.STANDARD, PaceOption.PACKED];
       for (const opt of QuestionFlowConfig.QUESTIONS[3].options) {
-        expect(paceVals.indexOf(opt.value) >= 0);
+        expect(paceVals.indexOf(opt.value) >= 0).assertTrue();
       }
     });
 
@@ -90,6 +91,32 @@ export default function styleConfigTest(): void {
       const curvesReady: boolean = MotionCurves.standard !== undefined
         && MotionCurves.decelerate !== undefined && MotionCurves.linear !== undefined;
       expect(curvesReady).assertTrue();
+      // 控制点也锁死：只断言 !== undefined 时，把 standard 改成 (0.25, 0.1, 0.25, 1)（CSS ease）
+      // 或整条换成 Curve 枚举，今天全绿。ICurve.interpolate(fraction) 把归一化时间打到该曲线上
+      // （SDK 声明见 component/common.d.ts 的 `interface ICurve { interpolate(fraction: number): number }`），
+      // 于是「曲线指纹」可断言。参考值按 cubic-bezier 逐字算出，与本机实测逐位对表：
+      //   standard(0.2,0.8,0.2,1)  f=.25 → 0.767284 / 实测 0.7668588757514954
+      //                            f=.50 → 0.946079 / 实测 0.9461418390274048
+      //   decelerate(0,0,0.2,1)    f=.50 → 0.839245 / 实测 0.8393326997756958
+      //   linear(0,0,1,1)          f=.50 → 0.500000 / 实测 0.5
+      //   三档端点实测**不是** 0/1：f=0 → 0.002342033898457885 / 0.00286865234375 / 0.00072479248046875，
+      //   f=1 → 0.9999999403953552 / 0.9999998211860657 / 0.9992752075195313——ArkUI 解算器的数值地板。
+      //   所以端点判「落在 0/1 附近」而不是逐位等于；hypium 的 assertClose 是**相对**精度
+      //   （|actual-expected|/|actual| < precision，见 @ohos/hypium assertClose.js），
+      //   拿 0 当期望值时任何非 0 实测都会挂——本机首跑正是这样炸出 0.002342 这条真相的。
+      expect(MotionCurves.standard.interpolate(0) <= 0.01).assertTrue();
+      expect(MotionCurves.standard.interpolate(1) >= 0.99).assertTrue();
+      expect(MotionCurves.linear.interpolate(0) <= 0.01).assertTrue();
+      expect(MotionCurves.linear.interpolate(1) >= 0.99).assertTrue();
+      // 契约 curve-standard 是快出曲线：中点必须已跑到 0.6 之后
+      expect(MotionCurves.standard.interpolate(0.5)).assertLarger(0.6);
+      // 指纹区间：precision 0.02 既盖住框架尾差（实测尾差 4e-4 量级），又远小于
+      // 「换一档曲线」的量级差——ease(0.25,0.1,0.25,1) 中点 0.8024、decelerate 中点 0.8393，
+      // 与 standard 的 0.9461 差 0.11~0.14，改控制点或换成 Curve 枚举必红。
+      expect(MotionCurves.standard.interpolate(0.5)).assertClose(0.946079, 0.02);
+      expect(MotionCurves.standard.interpolate(0.25)).assertClose(0.767284, 0.02);
+      expect(MotionCurves.decelerate.interpolate(0.5)).assertClose(0.839245, 0.02);
+      expect(MotionCurves.linear.interpolate(0.5)).assertClose(0.5, 0.001);
     });
   });
 }
