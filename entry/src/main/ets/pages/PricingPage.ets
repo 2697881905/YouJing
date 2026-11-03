@@ -86,7 +86,10 @@ export struct PricingPage {
       this.showToast('通行证已解锁');
       this.pathStack.pop();
     } else {
-      this.showToast(result.message);
+      // 「校验…」说明钱已扣、只是服务端没确认：告诉用户还有「恢复购买」这条路
+      const message: string = result.message.indexOf('校验') >= 0
+        ? `${result.message}；可用「恢复购买」补领` : result.message;
+      this.showToast(message);
     }
   }
 
@@ -106,7 +109,9 @@ export struct PricingPage {
       this.showToast('订阅已激活');
       this.pathStack.pop();
     } else {
-      this.showToast(result.message);
+      const message: string = result.message.indexOf('校验') >= 0
+        ? `${result.message}；可用「恢复购买」补领` : result.message;
+      this.showToast(message);
     }
   }
 
@@ -177,6 +182,7 @@ export struct PricingPage {
               variant: YoujingButtonVariant.PRIMARY,
               label: this.purchasing ? '处理中…' : '购买行程通行证 ¥9.9',
               fullWidth: true,
+              disabled: this.purchasing,
               onAction: (): void => {
                 this.purchasePass();
               }
@@ -195,6 +201,7 @@ export struct PricingPage {
               variant: YoujingButtonVariant.SECONDARY,
               label: '订阅会员 ¥19.9/月',
               fullWidth: true,
+              disabled: this.purchasing,
               onAction: (): void => {
                 this.purchaseSubscription(PRODUCT_ID_SUB_MONTHLY);
               }
@@ -203,6 +210,7 @@ export struct PricingPage {
               variant: YoujingButtonVariant.SECONDARY,
               label: '订阅会员 ¥98/年',
               fullWidth: true,
+              disabled: this.purchasing,
               onAction: (): void => {
                 this.purchaseSubscription(PRODUCT_ID_SUB_YEARLY);
               }
@@ -212,6 +220,7 @@ export struct PricingPage {
             variant: YoujingButtonVariant.TEXT,
             label: '恢复购买',
             fullWidth: true,
+            disabled: this.purchasing,
             onAction: (): void => {
               this.restorePurchases();
             }
