@@ -230,7 +230,7 @@ function sparseUserPrompt(body) {
   return lines.join('\n');
 }
 
-/** 17 条规则 + JSON Schema 的系统提示词（与 entry/ PromptBuilder 同一份） */
+/** 规则 + JSON Schema 的系统提示词（与 entry/ PromptBuilder 同一份 SOT；条数由 prompt.test.js 管） */
 export function buildSystemPrompt(freeTier = false) {
   const prompt = PromptBuilder.systemPrompt();
   return freeTier
