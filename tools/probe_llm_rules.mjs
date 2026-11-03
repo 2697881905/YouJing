@@ -8,6 +8,7 @@
  * 用法：
  *   node tools/probe_llm_rules.mjs --days 1 --yes     # 约 ¥0.003
  *   node tools/probe_llm_rules.mjs --days 3 --yes     # 约 ¥0.005
+ *   node tools/probe_llm_rules.mjs --days 1 --yes --free-tier   # 免费档提示词变体
  * 不带 --yes 只打印将要花的钱与请求规模，不发起调用。
  *
  * 结构类断言（任一不成立则退出码 1）：
@@ -32,6 +33,7 @@ const daysArg = args.indexOf('--days');
 const days = daysArg >= 0 ? Number(args[daysArg + 1]) : 1;
 const confirmed = args.includes('--yes');
 const strict = args.includes('--strict');
+const freeTier = args.includes('--free-tier');
 
 if (!Number.isInteger(days) || days < 1 || days > 7) {
   console.error('--days 必须是 1–7 的整数');
@@ -50,9 +52,10 @@ const end = new Date(Date.parse(body.startDate) + (days - 1) * 86400000);
 body.endDate = end.toISOString().slice(0, 10);
 body.selectedSpots = body.spots.map((s) => ({ name: s.name, priority: 'must' }));
 
-const messages = buildMessages(body, { freeTier: false });
+const messages = buildMessages(body, { freeTier });
 const promptChars = messages.reduce((sum, m) => sum + m.content.length, 0);
-console.log(`请求：${days} 天 · system+user ${promptChars} 字符 · 预计 ¥${(days === 1 ? 0.003 : 0.005)}`);
+console.log(`请求：${days} 天 · ${freeTier ? '免费档提示词' : '付费档提示词'} · ` +
+  `system+user ${promptChars} 字符 · 预计 ¥${(days === 1 ? 0.003 : 0.005)}`);
 if (!confirmed) {
   console.log('未带 --yes：只做了预算与请求检查，未发起真实调用。');
   process.exit(0);
