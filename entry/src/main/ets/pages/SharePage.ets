@@ -115,7 +115,7 @@ export struct SharePage {
       return;
     }
     if (!EntitlementStore.canExport(this.tripId)) {
-      this.pathStack.pushPath({ name: 'Pricing' });
+      this.pathStack.pushPath({ name: 'Pricing', param: this.tripId });
       return;
     }
     // 提醒提前量与 CalendarSync 同一口径：固定提前 1 天（Activity 不带 advanceDays）

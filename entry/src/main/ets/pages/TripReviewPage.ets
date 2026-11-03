@@ -153,7 +153,7 @@ export struct TripReviewPage {
       return;
     }
     if (!EntitlementStore.canExport(this.tripId)) {
-      this.pathStack.pushPath({ name: 'Pricing' });
+      this.pathStack.pushPath({ name: 'Pricing', param: this.tripId });
       return;
     }
     this.sharing = true;

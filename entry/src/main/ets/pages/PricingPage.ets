@@ -54,6 +54,13 @@ export struct PricingPage {
     this.purchasing = true;
     const localTripId: string = this.tripId.length > 0 ? this.tripId :
       (AppStorage.get<string>('activeTripId') ?? '');
+    // 通行证是「绑一条行程」的商品：没有行程 id 就不能发起 IAP 购买，
+    // 否则钱扣了、BFF 校验因缺 localTripId 拒绝，用户只能靠「恢复购买」兜底。
+    if (localTripId.length === 0) {
+      this.purchasing = false;
+      this.showToast('通行证需要绑定一条行程，请先生成或打开一条行程');
+      return;
+    }
     const result: IapResult = await IapStore.purchasePass(this.ctx(), localTripId);
     this.purchasing = false;
     if (result.success) {

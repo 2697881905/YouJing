@@ -6425,3 +6425,18 @@ if (hasSubscription()) return usedToday < dailyCap;  // ← 直接返回，后�
 - 回归：`EntitlementGate.test.ets` 4 例（订阅未满 / **订阅满额+pass** / 订阅满额无 pass / 赠送），
   真机 hypium **218→222/222**；双 HAP 全新构建安装。
 - **未验**：真机上「订阅满额后用 pass 继续生成」的完整链路（要真实订阅+通行证凭证）。
+
+#### 续 129（2026-11-03）通行证购买不再可能拿空行程 id 去扣款
+
+付费页的 `purchasePass` 原来这样取行程 id：`this.tripId` 为空时回退 `AppStorage('activeTripId')`。
+而入口里 **SharePage / TripReviewPage 打开付费页时压根没带 tripId**（`pushPath({ name: 'Pricing' })`），
+`activeTripId` 又只在"正在进行的行程"场景才有值——从分享/回顾进来买通行证，
+很可能拿**空字符串**去走 IAP：钱先扣了，BFF 的 `MISSING_TRIP_ID` 再把它拒掉，只能靠「恢复购买」兜底。
+
+- 两个入口补 `param: this.tripId`（它们本来就有这个字段）。
+- `purchasePass` 在发起 IAP **之前**判断：解析不到行程 id 就提示
+  「通行证需要绑定一条行程，请先生成或打开一条行程」并直接返回，不扣款。
+- 订阅购买不受影响（订阅不绑行程）。
+- 真机 hypium **222/222**（本轮无新增用例：这是 UI 付费入口的守卫，无法在单测里点 IAP），
+  双 HAP 全新构建安装。
+- **未验**：真实 IAP 购买链路（无凭证）；本轮验的是「空 id 不会发起购买」的代码路径与编译。
