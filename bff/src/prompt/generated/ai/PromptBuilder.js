@@ -63,6 +63,11 @@ class PromptBuilder {
         days.push('18. 午餐/晚餐只写进 meals，**不要**再在 activities 里输出「午餐/晚餐」这类通用用餐条目；' +
             '只有本身是游览内容的特色餐饮（小吃街、下午茶、市场）才可作为 category=food 的活动，' +
             '且不得与 meals 里的同一餐重复。');
+        // 免费档（本机引擎）对**每一天**都按 DayLoad 窗口收口；付费档此前只有第 17 条管 1 天行程，
+        // 多日行程没有任何当日预算约束——2026-11-03 真模型曾在 1 天里塞 12 个活动（630 分钟）。
+        days.push('19. 任何一天（不只 1 天行程）：当日活动停留与各段通勤之和不超过 10 小时（600 分钟）；' +
+            '景点活动条数按节奏档上限（轻松 3、标准 4–5、紧凑 6），含交通与用餐的 activities 总数一般不超过 8–10 条。' +
+            '超了就删减 optional/want，不要靠压缩停留时长或把活动排到深夜来凑。');
         days.push('JSON Schema:');
         days.push(TripSchema_1.TripSchema.TRIP_JSON_SCHEMA);
         return days.join('\n');
