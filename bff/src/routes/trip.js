@@ -11,12 +11,45 @@ import { HttpError } from '../lib/http-error.js';
 
 const router = Router();
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * 生成请求的核心参数边界。放在扣额度/打上游之前：坏请求既不该烧一次模型调用，
+ * 也不该因为 undefined 日期把提示词拼成"计划天数：1 天"再产出 garbage。
+ * 返回 '' 表示通过，否则是用给客户端看的错误说明。
+ */
+function validateGenerateRequest(body) {
+  if (typeof body.destination !== 'string' || body.destination.trim().length === 0) {
+    return 'destination 必须是非空字符串';
+  }
+  if (typeof body.startDate !== 'string' || ISO_DATE.test(body.startDate) === false) {
+    return 'startDate 必须是 YYYY-MM-DD';
+  }
+  if (typeof body.endDate !== 'string' || ISO_DATE.test(body.endDate) === false) {
+    return 'endDate 必须是 YYYY-MM-DD';
+  }
+  if (body.endDate < body.startDate) {
+    return 'endDate 不能早于 startDate';
+  }
+  if (!Number.isInteger(body.people) || body.people < 1 || body.people > 30) {
+    return 'people 必须是 1–30 的整数';
+  }
+  if (!Number.isInteger(body.budget) || body.budget < 0) {
+    return 'budget 必须是非负整数';
+  }
+  return '';
+}
+
 router.post('/generate', idempotencyMiddleware, async (req, res, next) => {
   const db = req.db;
   const accountId = req.accountId;
   const idempotencyKey = req.idempotencyKey;
   const requestHash = req.requestHash;
   const body = req.body || {};
+  const guardError = validateGenerateRequest(body);
+  if (guardError !== '') {
+    return res.status(400).json({ error: 'INVALID_REQUEST', message: guardError });
+  }
 
   const quotaSource = determineQuotaSource(db, accountId, body.passId);
   if (!quotaSource) {

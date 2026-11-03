@@ -294,3 +294,25 @@ test('模型在 JSON 后附带说明文字：提取第一个对象后照常 200�
     chattyUpstream.close();
   }
 });
+
+test('核心参数非法：400，不扣额度、不打上游', async () => {
+  calls.length = 0;
+  const cases = [
+    { ...payloadFor(), destination: '' },
+    { ...payloadFor(), startDate: '2026/11/06' },
+    { ...payloadFor(), endDate: '2026-11-05' },
+    { ...payloadFor(), people: 0 },
+    { ...payloadFor(), budget: -1 }
+  ];
+  for (const body of cases) {
+    const r = await post(14, 'route-key-bad-' + Math.random().toString(36).slice(2), body);
+    assert.equal(r.status, 400, JSON.stringify({ startDate: body.startDate, people: body.people }));
+    assert.equal(r.body.error, 'INVALID_REQUEST');
+  }
+  assert.equal(calls.length, 0, '坏请求不能打上游');
+  const gift = db.prepare(
+    `SELECT COALESCE(SUM(delta),0) AS total FROM quota_ledger
+     WHERE account_id = 14 AND source = 'gift' AND state = 'committed'`
+  ).get();
+  assert.equal(gift.total, 0, '坏请求不能扣额度');
+});

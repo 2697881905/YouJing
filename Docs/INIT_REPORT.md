@@ -6507,3 +6507,16 @@ better-sqlite3 抛成 500，或者把 account 表撑脏（deviceId 是账号键�
 - **MapKit 形态真模型读数**：1 天 `completion 1065`（约 ¥0.003），validator 通过、午/晚各 1、
   住宿=碑林区、tips 3 条都以「以官方为准」表述；活动+通勤 510min 触发 WARN（产品口径：屏8 兜底）。
 - 本目标累计真实调用约 **¥0.05**。
+
+#### 续 135（2026-11-03）生成接口补核心参数边界：坏请求不再烧模型额度
+
+`POST /v1/trip/generate` 原来对请求体不做任何校验：`startDate` 缺失时
+`expectedDayCount` 会退回 1 天、提示词照拼，模型据此产出一份 garbage 行程并正常扣额度；
+日期倒挂/人数为 0 也不会被拦。现在在**扣额度与打上游之前**校验：
+
+- `destination` 非空字符串；`startDate`/`endDate` 必须是 `YYYY-MM-DD` 且 end ≥ start；
+  `people` 是 1–30 的整数；`budget` 是非负整数。违反回 `400 INVALID_REQUEST`。
+- 回归：`trip-route.integration.test.js` 新增一例（五种坏请求全 400、上游调用数 0、
+  `gift` 未扣），`bff npm test` **76→77/77**；真实进程探针复跑 **23/23 + D5 一条**，无回归。
+- 说明：只校验"打模型之前必须成立"的字段；`selectedSpots` 的富/疏两种形态仍由
+  `hasRichPayload` 分支决定，不在这一层收窄。
