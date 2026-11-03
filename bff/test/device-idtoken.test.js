@@ -171,3 +171,14 @@ test('同一设备上的华为账号不会被游客激活冒领', async () => {
   const tokenPayload = jwt.decode(guest.body.deviceToken);
   assert.equal(tokenPayload.accountId, anon.id, '游客拿到的票据必须指向匿名账号');
 });
+
+test('同一华为账号并发激活：都 200，只建一个账号', async () => {
+  const token = signJwt(payload({ sub: 'u-race' }), 'PS256');
+  const results = await Promise.all([
+    activate({ deviceId: 'dev-hw-race', idToken: token }),
+    activate({ deviceId: 'dev-hw-race', idToken: token })
+  ]);
+  for (const r of results) assert.equal(r.status, 200);
+  const count = db.prepare("SELECT COUNT(*) AS c FROM account WHERE union_id = 'u-race'").get().c;
+  assert.equal(count, 1);
+});

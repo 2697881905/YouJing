@@ -6655,3 +6655,14 @@ D10 之后华为账号激活会把自己的 `device_id` 写成这台设备，而
 
 - 续 143 补正：默认超时按 **45s** 而不是 60s——修正式重问最多两次顺序调用，
   2×45 = 90s 才留出端侧 120s 读超时的余量（60+60 恰好压在客户端上限上）。
+
+#### 续 144（2026-11-03）并发激活幂等：不再因 UNIQUE 约束打成 500
+
+冷启与重试可能同时发两次激活；`account.union_id` 有 UNIQUE 约束，原实现
+「先 SELECT 再 INSERT」在两者都查不到时会撞约束，第二个请求 500。
+华为分支（union_id）与匿名分支（anon-<deviceId>）都改成
+**INSERT OR IGNORE + 按 union_id 重取**。
+
+- 回归：`device-validate.test.js` 新增「同一游客 deviceId 三路并发」；
+  `device-idtoken.test.js` 新增「同一华为账号两路并发」。都断言全部 200 且只建一个账号。
+  `bff npm test` **87→89/89**。

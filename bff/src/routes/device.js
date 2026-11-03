@@ -41,10 +41,12 @@ router.post('/activate', async (req, res, next) => {
     if (unionId) {
       account = db.prepare('SELECT * FROM account WHERE union_id = ?').get(unionId);
       if (!account) {
-        const result = db.prepare(
-          'INSERT INTO account (union_id, device_id) VALUES (?, ?)'
+        // 并发激活（冷启 + 重试）会同时走到这里：INSERT OR IGNORE + 重取，
+        // 避免 union_id UNIQUE 约束把第二个请求打成 500。
+        db.prepare(
+          'INSERT OR IGNORE INTO account (union_id, device_id) VALUES (?, ?)'
         ).run(unionId, deviceId);
-        account = db.prepare('SELECT * FROM account WHERE id = ?').get(result.lastInsertRowid);
+        account = db.prepare('SELECT * FROM account WHERE union_id = ?').get(unionId);
       } else {
         db.prepare(
           'UPDATE account SET device_id = ?, last_seen_at = datetime(\'now\') WHERE id = ?'
@@ -58,10 +60,10 @@ router.post('/activate', async (req, res, next) => {
       ).get(deviceId);
       if (!account) {
         const anonUnionId = `anon-${deviceId}`;
-        const result = db.prepare(
-          'INSERT INTO account (union_id, device_id) VALUES (?, ?)'
+        db.prepare(
+          'INSERT OR IGNORE INTO account (union_id, device_id) VALUES (?, ?)'
         ).run(anonUnionId, deviceId);
-        account = db.prepare('SELECT * FROM account WHERE id = ?').get(result.lastInsertRowid);
+        account = db.prepare('SELECT * FROM account WHERE union_id = ?').get(anonUnionId);
       } else {
         db.prepare(
           'UPDATE account SET last_seen_at = datetime(\'now\') WHERE id = ?'

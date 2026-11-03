@@ -68,3 +68,19 @@ test('unionId 非字符串或超长：400；空串/缺省按游客处理', async
   const guest = await activate({ deviceId: 'dev-guest-again', unionId: '' });
   assert.equal(guest.status, 200);
 });
+
+test('同一游客 deviceId 并发激活：都 200，只建一个匿名账号', async () => {
+  const before = db.prepare("SELECT COUNT(*) AS c FROM account WHERE union_id = 'anon-dev-race'").get().c;
+  assert.equal(before, 0);
+  const results = await Promise.all([
+    activate({ deviceId: 'dev-race' }),
+    activate({ deviceId: 'dev-race' }),
+    activate({ deviceId: 'dev-race' })
+  ]);
+  for (const r of results) {
+    assert.equal(r.status, 200);
+    assert.ok(r.body.deviceToken.length > 0);
+  }
+  const count = db.prepare("SELECT COUNT(*) AS c FROM account WHERE union_id = 'anon-dev-race'").get().c;
+  assert.equal(count, 1, '并发激活不能打出 UNIQUE 500 或重复账号');
+});
