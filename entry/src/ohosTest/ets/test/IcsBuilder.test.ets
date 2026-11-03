@@ -108,9 +108,12 @@ export default function icsBuilderTest(): void {
       t.overview.summary = '先近后远，省两段打车。';
       t.overview.highlights = ['清晨人少', '古街光影'];
       t.days[0].dailyCost = 3000;
+      // tips 是 Schema 必填字段，此前零消费方；分享文本现在要带上它
+      t.tips = ['带身份证', '地铁 2 号线直达'];
       const txt: string = IcsBuilder.plainSummary(t);
       expect(txt.includes('先近后远，省两段打车。')).assertTrue();
       expect(txt.includes('亮点：清晨人少 · 古街光影')).assertTrue();
+      expect(txt.includes('提示：带身份证 · 地铁 2 号线直达')).assertTrue();
       expect(txt.includes('Day 1 2026-07-01 东城 · 轻松 · 预估 ¥3000')).assertTrue();
       expect(txt.includes('Day 2 2026-07-02 海淀 · 标准')).assertTrue();
       t.days[0].risk = '周一故宫闭馆';
@@ -118,6 +121,7 @@ export default function icsBuilderTest(): void {
       const bare: Trip = fixture();
       expect(bare.overview.summary.length === 0 &&
         IcsBuilder.plainSummary(bare).includes('亮点：')).assertFalse();
+      expect(IcsBuilder.plainSummary(bare).includes('提示：')).assertFalse();
     });
 
     it('node_summary_is_one_node_only', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {

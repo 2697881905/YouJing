@@ -166,6 +166,11 @@ export class IcsBuilder {
     if (trip.overview.highlights.length > 0) {
       out.push(`亮点：${trip.overview.highlights.join(' · ')}`);
     }
+    // tips 是 Schema 必填、模型每次都产，但此前全 App 零消费方（§5ci 续 119）。
+    // 分享文本是既有输出面：出行提醒本来就该跟着行程一起发出去，与 summary/highlights 同一处理。
+    if (trip.tips.length > 0) {
+      out.push(`提示：${trip.tips.join(' · ')}`);
+    }
     for (const day of trip.days) {
       out.push('');
       const pace: string = CategoryStyle.pace(day.intensity);
