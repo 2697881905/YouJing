@@ -61,6 +61,11 @@ export class PromptBuilder {
     days.push('17. 计划天数为 1 时：停留 + 通勤总时长不超过 10 小时（含往返住宿区）；' +
       '首站不早于 07:30，末站不晚于 21:00；装不下时保留 must，删减 want/optional，' +
       '不要用「早起 + 深夜」硬塞。');
+    // 2026-11-03 真机 + 真模型实测：meals 已经写「老北京炸酱面 13:30」，activities 里又来一条
+    // 「午餐 13:30」，屏8 的当日序列（活动 ∪ 餐次）于是出现两顿午饭。
+    days.push('18. 午餐/晚餐只写进 meals，**不要**再在 activities 里输出「午餐/晚餐」这类通用用餐条目；' +
+      '只有本身是游览内容的特色餐饮（小吃街、下午茶、市场）才可作为 category=food 的活动，' +
+      '且不得与 meals 里的同一餐重复。');
     days.push('JSON Schema:');
     days.push(TripSchema.TRIP_JSON_SCHEMA);
     return days.join('\n');

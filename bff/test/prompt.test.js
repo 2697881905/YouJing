@@ -32,9 +32,9 @@ test('prompt-contract 生成物与 entry/ SOT 未漂移', () => {
   }
 });
 
-test('systemPrompt 携带 17 条规则与同源 JSON Schema', () => {
+test('systemPrompt 携带 18 条规则与同源 JSON Schema', () => {
   const prompt = buildSystemPrompt();
-  assert.equal((prompt.match(/^\d+\./gm) || []).length, 17, '规则条数应为 17');
+  assert.equal((prompt.match(/^\d+\./gm) || []).length, 18, '规则条数应为 18');
   assert.ok(prompt.includes('JSON Schema:'));
   assert.ok(prompt.includes(TRIP_JSON_SCHEMA), '系统提示词必须内嵌同源 Schema');
   for (const phrase of [
