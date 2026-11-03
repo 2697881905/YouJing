@@ -15,6 +15,7 @@ import { common } from '@kit.AbilityKit';
 import { Logger } from '../common/logger/Logger';
 import { ApiConfig } from '../common/config/ApiConfig';
 import { AccountStore } from './AccountStore';
+import { DeviceTokenStore } from './DeviceTokenStore';
 
 const TAG: string = 'Data.EntitlementStore';
 const PREFS_NAME: string = 'youjing_entitlement';
@@ -119,7 +120,11 @@ export class EntitlementStore {
       return true;
     }
     if (!EntitlementStore.isCacheValid()) {
-      return false;
+      // 缓存过期**不等于**没额度：票据还在就把判断交给服务端（真用尽会回 402，端侧照样跳付费页）。
+      // 原实现直接 return false，再叠加 `DeviceActivator`「已激活就不再刷新权益」，
+      // 会让持有效票据的用户在 5 分钟 TTL 之后**永久**停在付费页——2026-11-03 端到端联调
+      // 连续 4 次生成全落付费页、BFF 一次都没被调用，就是这个组合造成的。
+      return DeviceTokenStore.hasToken();
     }
     if (EntitlementStore.hasSubscription()) {
       return EntitlementStore.cached.usedToday < EntitlementStore.cached.dailyCap;

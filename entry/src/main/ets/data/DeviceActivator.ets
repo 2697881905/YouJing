@@ -18,6 +18,7 @@ import { Logger } from '../common/logger/Logger';
 
 const TAG: string = 'Data.DeviceActivator';
 const ACTIVATE_ENDPOINT: string = '/v1/device/activate';
+const ENTITLEMENT_ENDPOINT: string = '/v1/entitlement';
 
 interface ActivateResponse {
   deviceToken: string;
@@ -29,8 +30,10 @@ export class DeviceActivator {
 
   static async activate(context: common.Context): Promise<boolean> {
     if (DeviceTokenStore.isActivated()) {
-      Logger.info(TAG, '设备已激活，跳过');
-      return true;
+      // 票据还在，也要把**权益**刷一遍：缓存 TTL 只有 5 分钟，而生成门禁看的是缓存有效期。
+      // 原来这里直接 return true，「已激活」就再也不刷新 —— 冷启一次、过 5 分钟再点生成，
+      // 用户会被挡到付费页且永远补不回来（2026-11-03 端到端联调实测就是这个）。
+      return DeviceActivator.refreshEntitlement();
     }
     if (DeviceActivator.activating) {
       Logger.info(TAG, '激活正在进行中，跳过重复调用');
@@ -90,6 +93,47 @@ export class DeviceActivator {
       return false;
     } finally {
       DeviceActivator.activating = false;
+    }
+  }
+
+  /**
+   * 用现有票据把权益刷一遍（不重新签发票据）。
+   * 401 说明票据真的失效：清掉票据，让下一次 activate() 走完整激活。
+   */
+  private static async refreshEntitlement(): Promise<boolean> {
+    try {
+      const reqHandle = http.createHttp();
+      try {
+        const resp: http.HttpResponse = await reqHandle.request(
+          `${ApiConfig.BFF_BASE_URL}${ENTITLEMENT_ENDPOINT}`, {
+          method: http.RequestMethod.GET,
+          header: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${DeviceTokenStore.getToken()}`
+          },
+          expectDataType: http.HttpDataType.STRING,
+          connectTimeout: ApiConfig.CONNECT_TIMEOUT_MS,
+          readTimeout: ApiConfig.READ_TIMEOUT_MS
+        });
+        if (resp.responseCode === 401) {
+          Logger.warn(TAG, '权益刷新遇 401，清票据等下次重新激活');
+          await DeviceTokenStore.clear();
+          return false;
+        }
+        if (resp.responseCode < 200 || resp.responseCode >= 300) {
+          Logger.warn(TAG, `权益刷新失败 HTTP ${resp.responseCode}`);
+          return false;
+        }
+        const ent: Entitlement = JSON.parse(String(resp.result)) as Entitlement;
+        await EntitlementStore.update(ent);
+        Logger.info(TAG, `权益已刷新 gift=${ent.giftRemaining} used=${ent.usedToday}/${ent.dailyCap}`);
+        return true;
+      } finally {
+        reqHandle.destroy();
+      }
+    } catch (err) {
+      Logger.warn(TAG, `权益刷新异常: ${(err as Error).message}`);
+      return false;
     }
   }
 
