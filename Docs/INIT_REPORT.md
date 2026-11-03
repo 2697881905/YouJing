@@ -5439,3 +5439,51 @@ button_width / scroll_actions / label_fit / a11y_name / layout_patterns / skip_w
   `audit_motion.py --selftest` 30 条 PASS。双 HAP `assembleHap BUILD SUCCESSFUL` 与真机 hypium 192/192
   是 **T3（`8111777`）/ T5（`23bf450`..`3d56074`）各轮实跑并经复审复算**的记录，本轮没有重跑构建与设备，
   别把它读成"T7/T8 又验了一遍真机"。本轮零设备写入、零 LLM、未动任何用户数据。
+
+#### 续 85（2026-11-03）商业化链路真实验收：干净检出下主路径不可达 + 7 条支付守卫缺陷
+
+探针 `bash tools/probe_bff_commercial.sh`（`tools/bff_commercial_probe.mjs`）。跑法见
+`Docs/analysis/商业化链路真实验收-2026-11-03.md`。`bff/` 此前只被 `node --test` 用
+`initDb(':memory:')` 装配成 in-process express，**`src/index.js` 从未作为真实进程启动过**，
+`grep -rn iap bff/test/` **零命中** —— 付费路径一行测试都没有。本轮补齐。
+
+**已证成立（13/14 必守行为）**：真实进程可启动；匿名设备激活拿票据并赠 3 次；
+无票据读权益被 401 拦下（正对照，先证明鉴权链确实在）；`gift 3→2`；
+同键重放带 `Idempotency-Replayed: true` 且**上游调用数 1→1、额度不双扣**；
+三次用尽后第四次 **402 QUOTA_EXHAUSTED** —— 付费墙本身可诚实到达，扣费/幂等记账不用返工。
+
+**P0 · 主路径在干净检出下不可达**（不是探针结论，是逐跳读消费方读出来的）：
+
+| 跳 | 位置 | 行为 |
+| --- | --- | --- |
+| 1 | `common/config/ApiConfig.ets`（**仓库版** `git show HEAD:` 第 93/94 行） | `BFF_BASE_URL: ''` + `DEV_SKIP_BFF: false` |
+| 2 | `data/DeviceActivator.ets:39-42` | URL 空 → 直接 return false，**永不激活** |
+| 3 | `data/EntitlementStore.ets:117-131` | `devBypass()` 假 + `isCacheValid()` 假（缓存从没被填过）→ `canGenerate()` **恒 false** |
+| 4 | `pages/GeneratingPage.ets:99-101 → 126-128` | 抛 `CLOUD_QUOTA_EXHAUSTED` → `replacePath('Pricing')` |
+| 5 | `pages/PricingPage.ets` → `data/IapStore.ets` | 购买又要打同一个不存在的 BFF |
+
+⇒ 任何干净检出/**提审构建**：点「生成行程」100% 跳付费页，且付费页也走不通。
+商业化方案 §2 承诺的「免费 = 本机规则引擎生成」在 release 形态下**没有出口**——
+本地合成挂在 `LlmClient.ets:326-328` 的 `DEV_SKIP_BFF` 之后，仓库版恒 false。
+这条属产品决定（部署 BFF / 把本地规则引擎做成真免费档），**没替用户拍**。
+
+**7 条支付守卫缺陷**（逐条证据见分析文档 §2）：D1 `services/iap.js:4` 的
+`verifyPurchase()` 恒 `{verified:true}` ⇒ 假 `purchaseToken` 换来 active 订阅；
+D2 该订阅**兑换成真额度**（赠送已 0 的账号 `POST /v1/trip/generate` → 200 `source=subscription`，利用链闭合）；
+D3 假收据换来 trip pass ⇒ 端侧 `canExport()` 只看 passes 里有没有该 id，导出墙失效；
+D4 伪造 pass 在**干净账号**上买到 `source=pass` 无限生成；
+D5 换 `deviceId` 白拿 3 次（无 unionId 即建 `anon-<deviceId>`，端侧 deviceId 是本地随机 UUID）；
+D6 `quota.js:1` `DAILY_CAP=20` 按**天**数，方案写 20 次/**月**，成本敞口约 30 倍；
+D7 `/v1/iap/notify` 只 log 后回 `200 {}` ⇒ 到期/续费/退款永不改变权益；
+另 D8 同一 `purchaseToken` 重复提交 → **500 SQLITE_CONSTRAINT_UNIQUE**（裸 INSERT，未处理约束）。
+
+**探针自己的一处假绿（已修，值得记）**：第一版把「伪造 pass 换生成额度」放在账号 1 上跑，读出 PASS。
+根因是账号 1 此时已有（伪造来的）订阅，`determineQuotaSource` 优先返回 `subscription`，
+`pass` 分支整个被盖掉。换干净账号 C（先烧光 3 次赠送、断言 402 当前提）后同一断言立刻变 DEFECT。
+与 [[verify-the-scanner-before-trusting-a-zero]] 同族：**守卫类断言必须先证明它抓得到**。
+
+**边界（本批没有的证据）**：端侧→BFF 那一段仍未在真机跑过一次（`BFF_BASE_URL` 空 +
+skip-worktree），本探针只证明服务端一侧；契约 v2 的 T4/T6/T9 仍以另一会话 24 个在飞文件落地为前置，
+顶栏模糊依旧零像素证据。本轮**零设备写入、零 LLM、未动 bff/data 与任何用户数据**
+（探针跑在 `mktemp -d` 副本里，因 `bff/src/db.js:6` 的 `DB_PATH` 硬编码无 env 入口）。
+静态尺 14 把全 rc=0、离线断言 7 套全 PASS（本轮实跑）。
