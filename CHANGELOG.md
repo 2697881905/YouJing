@@ -166,6 +166,15 @@
 
 ### Fixed
 
+- 2026-11-03（§5ci 续 136）：**D10 销案：设备激活改用华为 idToken 验签**。
+  此前 BFF 直接信任请求体里的 `unionId`，知道他人 unionId 即可换到对方票据与权益。
+  现在端侧静默取 Account Kit `idToken`（`AccountStore.refreshIdToken`，不改登录态/不清权益），
+  BFF 按官方 JWKS 本地验签（RS256/PS256、iss/aud/exp，`sub` 即 unionId），
+  请求体 unionId 不再采信、验签失败 401；已登录但取不到 idToken 时跳过激活、不降级游客。
+  证据：`bff npm test` 82/82；**真机真 JWKS 端到端**（实账号 union_id 写入库、
+  BFF 日志 `kind=huawei`），验后已还原配置；真机 hypium 223/223。
+  `preflight` 通过 8 / 阻断 3（新增 `HUAWEI_CLIENT_ID` 配置项）。
+
 - 2026-11-03（§5ci 续 135）：**生成接口补核心参数边界**。日期缺失/格式错/倒挂、人数 0、
   预算负数等坏请求以前会照拼提示词、烧一次模型调用并扣额度；现在在扣额度与打上游之前
   返回 `400 INVALID_REQUEST`。`bff npm test` 77/77，真实进程探针 23/23 无回归。

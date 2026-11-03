@@ -40,6 +40,42 @@ function guestState(): AccountState {
 export class AccountStore {
   private static current: AccountState = guestState();
   private static prefs: preferences.Preferences | null = null;
+  /** 最近一次登录返回的 idToken：只给设备激活证明身份用，不落盘、不打印。 */
+  private static lastIdToken: string = '';
+
+  static idToken(): string {
+    return AccountStore.lastIdToken;
+  }
+
+  /**
+   * 静默重新取一张 idToken（forceLogin=false）。
+   * 设备激活要把 unionId 交给 BFF 验签，而 idToken 有有效期；这里只取票据，
+   * **不改登录态、不清权益缓存**（login() 会 clear，不能拿来干这件事）。
+   */
+  static async refreshIdToken(context: common.UIAbilityContext): Promise<string> {
+    if (!AccountConfig.ACCOUNT_KIT_ENABLED) {
+      return '';
+    }
+    try {
+      const provider: authentication.HuaweiIDProvider = new authentication.HuaweiIDProvider();
+      const request: authentication.LoginWithHuaweiIDRequest = provider.createLoginWithHuaweiIDRequest();
+      request.forceLogin = false;
+      const controller: authentication.AuthenticationController =
+        new authentication.AuthenticationController(context);
+      const response: authentication.LoginWithHuaweiIDResponse =
+        await controller.executeRequest(request) as authentication.LoginWithHuaweiIDResponse;
+      const token: string = response.data === undefined || response.data.idToken === undefined
+        ? '' : response.data.idToken;
+      AccountStore.lastIdToken = token;
+      if (token.length === 0) {
+        Logger.warn(TAG, '静默登录未返回 idToken');
+      }
+      return token;
+    } catch (err) {
+      Logger.warn(TAG, `刷新 idToken 失败: ${(err as Error).message}`);
+      return '';
+    }
+  }
 
   /** 把登录态推给 UI（闸门靠它，不靠轮询） */
   private static publish(): void {
@@ -111,6 +147,8 @@ export class AccountStore {
       if (unionId.length === 0) {
         throw new AppError(ErrorCode.ACCOUNT_LOGIN_FAILED, '静默登录响应缺少 UnionID');
       }
+      AccountStore.lastIdToken = response.data === undefined || response.data.idToken === undefined
+        ? '' : response.data.idToken;
       await AccountStore.persist(unionId);
       Logger.info(TAG, `静默登录成功 uid=${AccountStore.masked()}`);
       await EntitlementStore.clear();

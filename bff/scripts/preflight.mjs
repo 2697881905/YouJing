@@ -94,11 +94,16 @@ if (process.env.IAP_NOTIFY_PUBLIC_KEY) {
 // 只要知道他人 unionId，就能换到对方的票据与权益（含订阅/通行证）。
 // 正解：端侧改传 Account Kit 的 idToken，服务端验签 + 校验 audience(Client ID)。
 const device = read('src/routes/device.js');
-if (/verifyHuaweiIdToken|idToken/.test(device)) {
+if (/verifyHuaweiIdToken/.test(device)) {
   ok('设备激活校验华为 idToken（unionId 不再自报）');
 } else {
   bad('设备激活信任客户端 unionId', 'unionId 直接取自 req.body ⇒ 账号可被冒用；' +
     '修法：端侧传 idToken，服务端验签并校验 audience');
+}
+if (process.env.HUAWEI_CLIENT_ID) {
+  ok('HUAWEI_CLIENT_ID 已配置（idToken audience）');
+} else {
+  bad('HUAWEI_CLIENT_ID 未配置', 'idToken 无法校验 aud ⇒ 所有带身份票据的激活都会 401');
 }
 
 // 5) 数据库路径能否在容器/云函数里落地 ------------------------------------

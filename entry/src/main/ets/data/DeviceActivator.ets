@@ -47,12 +47,22 @@ export class DeviceActivator {
     DeviceActivator.activating = true;
     try {
       const deviceId: string = await DeviceTokenStore.ensureDeviceId();
-      const unionId: string = AccountStore.isGuest() ? '' : AccountStore.uid();
+      // D10：身份只交**华为签发的 idToken**，不再把 unionId 放在请求体里自报。
+      // 已登录却取不到 idToken 时**不降级为游客**（那会把数据切到另一个分区）——
+      // 直接放弃本次激活，下次冷启/重试再试。
+      let idToken: string = '';
+      if (!AccountStore.isGuest()) {
+        idToken = await AccountStore.refreshIdToken(context as common.UIAbilityContext);
+        if (idToken.length === 0) {
+          Logger.warn(TAG, '已登录但取不到 idToken，跳过激活（不降级为游客）');
+          return false;
+        }
+      }
 
       const body: Record<string, string> = {};
       body['deviceId'] = deviceId;
-      if (unionId.length > 0) {
-        body['unionId'] = unionId;
+      if (idToken.length > 0) {
+        body['idToken'] = idToken;
       }
 
       const reqHandle = http.createHttp();

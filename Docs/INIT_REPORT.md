@@ -6520,3 +6520,31 @@ better-sqlite3 抛成 500，或者把 account 表撑脏（deviceId 是账号键�
   `gift` 未扣），`bff npm test` **76→77/77**；真实进程探针复跑 **23/23 + D5 一条**，无回归。
 - 说明：只校验"打模型之前必须成立"的字段；`selectedSpots` 的富/疏两种形态仍由
   `hasRichPayload` 分支决定，不在这一层收窄。
+
+#### 续 136（2026-11-03）D10 销案：设备激活改为华为 idToken 验签（真机真 JWKS 端到端通过）
+
+按官方口径实现本地验签，并**真机真身份**跑通：
+
+- **BFF**（新增 `services/huaweiIdToken.js`）：从官方 JWKS（默认
+  `https://oauth-login.cloud.huawei.com/oauth2/v3/certs`）按 `kid` 取公钥，
+  支持 RS256/PS256（拒绝 none/HS*），校验签名、`iss=https://accounts.huawei.com`、
+  `aud=HUAWEI_CLIENT_ID`、`exp`；**`sub` 即 unionId**。JWKS 缓存 10 分钟，
+  10 秒 TLS 超时；未配置 Client ID / 取不到 JWKS / kid 缺失 / 任何校验失败一律 fail-closed。
+- **激活路由**：身份只认验签后的 `sub`；请求体里的 `unionId` **不再采信**
+  （只带 unionId、不带 idToken 的请求按游客建 `anon-*` 账号）。验签失败回 401。
+- **端侧**：`AccountStore.refreshIdToken(context)` 静默取一张新 idToken（不改登录态、
+  不清权益缓存——`login()` 会清，不能复用）；`DeviceActivator` 已登录时先取 idToken 再激活，
+  **取不到就跳过激活、绝不降级为游客**（那会把数据切到另一个分区）。
+- **真机端到端（2026-11-03，Pocket 2）**：本机起隔离 BFF，`HUAWEI_CLIENT_ID` 用 AGC 的
+  `6917619826312400726`、JWKS 用**官方真实地址**；设备临时指向 Mac 局域网重编装机，冷启：
+  - 第一次：Account Kit 返回 `1001502005 Network error` → 日志
+    `已登录但取不到 idToken，跳过激活（不降级为游客）`（守卫按设计生效）；
+  - 第二次冷启：`设备激活成功 token=213字符`，BFF 日志 `[device] activate account=1 kind=huawei`，
+    库中 `union_id=AABKND_p4xEcf6kVFclUBMOcPk05U`（真实华为 unionId，非 `anon-`）。
+  - 验后已还原 `ApiConfig`、重编重装发布形态、停掉临时 BFF 并删除副本；真机 hypium **223/223**。
+- **回归**：`device-idtoken.test.js` 5 例（PS256/RS256 正对照、篡改/错 aud/过期/alg=none 全 401
+  且不建账号、只带自报 unionId 落 anon、非字符串 400），`bff npm test` **77→82/82**。
+  `preflight` 由「设备激活信任 unionId」FAIL 改为 PASS，并新增
+  「HUAWEI_CLIENT_ID 未配置」FAIL ⇒ 现在 **通过 8 / 阻断 3**（三项都是部署配置）。
+- **未验**：真实华为环境下 idToken 过期后的自动刷新链条（本轮第二次冷启已同时覆盖
+  「首次网络失败→下次重试成功」，但没等到 idToken 自然过期）。

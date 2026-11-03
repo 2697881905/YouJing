@@ -131,6 +131,8 @@ cd bff && npm run preflight
 | IAP 校验服务已配置 | **FAIL** | 缺 `IAP_VERIFY_URL`/`IAP_APP_ID`/`IAP_VERIFY_TOKEN` ⇒ 所有收据 503 |
 | `/v1/iap/verify` 要设备票据、`/v1/iap/notify` 验签 | PASS | notify 走 RSA-SHA256 验签；未配公钥时 fail-closed 503 |
 | `IAP_NOTIFY_PUBLIC_KEY` 已配置 | **FAIL** | 未配置时华为回调一律 503 ⇒ 到期/退款不生效 |
+| 设备激活验华为 idToken（D10） | PASS | 按官方 JWKS 本地验签（RS256/PS256、iss/aud/exp），unionId 只取验签后的 `sub`；请求体 unionId 不再采信 |
+| `HUAWEI_CLIENT_ID` 已配置 | **FAIL** | 缺它无法校验 idToken 的 aud ⇒ 带身份的激活一律 401 |
 | DB 路径可配置 | PASS | 支持 `DB_PATH` 环境变量（容器/云函数把库放到挂载卷上）；目录不存在会自动建 |
 | Prompt/Schema 生成物在位 | PASS | hash 一致性由 `npm test` 校验 |
 
@@ -148,7 +150,7 @@ cd bff && npm run preflight
   收据重放改为**幂等**（不再把 UNIQUE 约束抛成 500）、notify 改为**验签 + 到期/退款真落权益**
   （`iapNotify.js`）、`quota` 回传 `subscription`/`dailyCap` 快照（端上据此感知到期/退款）。
   仍未配的见上面「上线前自检」表。
-- 当前验证：`npm test` **77/77** 全绿（含通知验签 9 例、收据 fail-closed 5 例、收据↔账号绑定 2 例、收据边界 1 例、激活边界 3 例、生成请求边界 1 例、上游 429 透传、三档提示词档位、JSON 兜底 6 例），主 HAP + ohosTest HAP 编译通过；
+- 当前验证：`npm test` **82/82** 全绿（含通知验签 9 例、收据 fail-closed 5 例、收据↔账号绑定 2 例、收据边界 1 例、激活边界 3 例、idToken 验签 5 例、生成请求边界 1 例、上游 429 透传、三档提示词档位、JSON 兜底 6 例），主 HAP + ohosTest HAP 编译通过；
   真实网络已做过 `json_schema`（400）/`json_object`（200）与真模型生成验收；
   端侧→BFF 已在真机上跑通（激活/扣额度/401/402/5xx），但**BFF 尚未部署到公网**。
 - 2026-11-03 的真实 200 响应第 3 天缺晚餐；本规则加上后同类输出会被 502，需要重试。
