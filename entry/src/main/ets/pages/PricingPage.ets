@@ -32,6 +32,8 @@ export struct PricingPage {
   /** 已订阅时隐藏两个订阅购买键，避免重复扣款；到期后自动恢复可买 */
   @State private isMember: boolean = false;
   @State private memberEnd: string = '';
+  /** 该行程已解锁（通行证生效）时隐藏通行证购买键 */
+  @State private passOwned: boolean = false;
   private pathStack: NavPathStack = APP_NAV;
   @Prop tripId: string = '';
 
@@ -45,6 +47,7 @@ export struct PricingPage {
     const status: string = ent.subscription === null ? '' : ent.subscription.status;
     this.isMember = subscriptionActive(status, periodEnd, DateUtils.todayIso());
     this.memberEnd = periodEnd.length >= 10 ? periodEnd.slice(0, 10) : '';
+    this.passOwned = this.tripId.length > 0 && EntitlementStore.hasPass(this.tripId);
   }
 
   private ctx(): common.UIAbilityContext {
@@ -68,6 +71,12 @@ export struct PricingPage {
     if (localTripId.length === 0) {
       this.purchasing = false;
       this.showToast('通行证需要绑定一条行程，请先生成或打开一条行程');
+      return;
+    }
+    // 二次拦截：该行程已有生效通行证时不能再买（会重复扣款）
+    if (EntitlementStore.hasPass(localTripId)) {
+      this.purchasing = false;
+      this.showToast('该行程已解锁，无需重复购买');
       return;
     }
     const result: IapResult = await IapStore.purchasePass(this.ctx(), localTripId);
@@ -154,14 +163,24 @@ export struct PricingPage {
         )
 
         Column({ space: SpaceTokens.xs }) {
-          YoujingButton({
-            variant: YoujingButtonVariant.PRIMARY,
-            label: this.purchasing ? '处理中…' : '购买行程通行证 ¥9.9',
-            fullWidth: true,
-            onAction: (): void => {
-              this.purchasePass();
-            }
-          })
+          if (this.passOwned) {
+            Text('该行程已解锁 · 通行证已生效')
+              .fontSize(TypeTokens.small.size)
+              .fontWeight(600)
+              .fontColor(ColorTokens.primary)
+              .width('100%')
+              .textAlign(TextAlign.Center)
+              .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
+          } else {
+            YoujingButton({
+              variant: YoujingButtonVariant.PRIMARY,
+              label: this.purchasing ? '处理中…' : '购买行程通行证 ¥9.9',
+              fullWidth: true,
+              onAction: (): void => {
+                this.purchasePass();
+              }
+            })
+          }
           if (this.isMember) {
             Text(`已是订阅会员 · 有效期至 ${this.memberEnd}`)
               .fontSize(TypeTokens.small.size)
