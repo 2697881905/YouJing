@@ -50,6 +50,24 @@ const upstream = http.createServer((req, res) => {
 });
 await new Promise((r) => upstream.listen(0, '127.0.0.1', r));
 
+// 收据校验桩：只有以 probe-real- 开头的 token 才算"真收据"。
+// 用真实进程验两半通路——伪造收据必须被拒、真收据必须能买到订阅（只测拒收等于没测）。
+const iapVerifier = http.createServer((req, res) => {
+  let raw = '';
+  req.on('data', (c) => { raw += c; });
+  req.on('end', () => {
+    let parsed = {};
+    try { parsed = JSON.parse(raw); } catch (e) { parsed = {}; }
+    const ok = typeof parsed.purchaseToken === 'string' && parsed.purchaseToken.startsWith('probe-real-');
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ verified: ok }));
+  });
+});
+await new Promise((r) => iapVerifier.listen(0, '127.0.0.1', r));
+process.env.IAP_VERIFY_URL = `http://127.0.0.1:${iapVerifier.address().port}/verify`;
+process.env.IAP_APP_ID = 'probe-iap-app';
+process.env.IAP_VERIFY_TOKEN = 'probe-iap-token';
+
 process.env.LLM_BASE_URL = `http://127.0.0.1:${upstream.address().port}/v1`;
 process.env.DEEPSEEK_API_KEY = 'probe-key-not-real';
 process.env.JWT_SECRET = 'probe-secret';
@@ -107,6 +125,7 @@ gate('真实进程可启动并响应 /health', booted);
 if (!booted) {
   defects.push({ name: 'BFF 起不来', detail: 'import src/index.js 后 6 秒内 /health 无响应' });
   upstream.close();
+  iapVerifier.close();
   process.exit(1);
 }
 
@@ -155,7 +174,7 @@ gate('额度用尽后 402 QUOTA_EXHAUSTED（付费墙可诚实到达）',
   g4.status === 402 && g4.body && g4.body.error === 'QUOTA_EXHAUSTED',
   `status=${g4.status} error=${g4.body && g4.body.error}`);
 
-// ── 4. 付费守卫：伪造一张收据能否换来订阅 ─────────────────────────────
+// ── 4. 付费守卫：伪造一张收据能否换来订阅（D1 已修：校验服务 fail-closed） ──
 const forgeSub = await req('POST', '/v1/iap/verify', {
   token: tokenA,
   body: {
@@ -166,16 +185,16 @@ const forgeSub = await req('POST', '/v1/iap/verify', {
 });
 const forgedAccepted = forgeSub.status === 200 && forgeSub.body && forgeSub.body.verified === true;
 const sub = forgeSub.body && forgeSub.body.entitlement && forgeSub.body.entitlement.subscription;
+gate('伪造订阅收据被校验服务拒绝', forgeSub.status === 200 && forgeSub.body.verified === false,
+  `status=${forgeSub.status} verified=${forgeSub.body && forgeSub.body.verified}`);
 guardAbsent('伪造收据不能换来订阅', forgedAccepted,
-  `假 purchaseToken 直接拿到 subscription=${JSON.stringify(sub)}；` +
-  'src/services/iap.js 的 verifyPurchase() 恒返回 {verified:true}，' +
-  'IAP_VERIFY_URL 读了环境变量却从不调用华为校验接口');
+  `假 purchaseToken 直接拿到 subscription=${JSON.stringify(sub)}`);
 
 const afterForge = await req('POST', '/v1/trip/generate', { token: tokenA, key: 'probe-k5', body: planBody() });
-const q5 = afterForge.body && afterForge.body.quota;
 guardAbsent('伪造订阅不该兑换成真额度', afterForge.status === 200,
-  `赠送已 0 的账号靠假收据又生成成功：status=${afterForge.status} source=${q5 && q5.source} ` +
-  `usedToday=${q5 && q5.remainingToday}`);
+  `赠送已 0 的账号靠假收据又生成成功：status=${afterForge.status}`);
+gate('伪造失败后额度仍为 0（真的没换到额度）', afterForge.status === 402,
+  `status=${afterForge.status}`);
 
 // ── 5. 通行证：伪造能否解锁导出墙与生成额度 ───────────────────────────
 const forgePass = await req('POST', '/v1/iap/verify', {
@@ -183,13 +202,12 @@ const forgePass = await req('POST', '/v1/iap/verify', {
   body: { purchaseToken: 'totally-forged-receipt-456', productType: 'pass', localTripId: 'local-trip-free' }
 });
 const passGranted = forgePass.status === 200 && forgePass.body && forgePass.body.passId === 'local-trip-free';
+gate('伪造通行证收据被拒绝',
+  forgePass.status === 200 && forgePass.body.verified === false,
+  `status=${forgePass.status} verified=${forgePass.body && forgePass.body.verified}`);
 guardAbsent('伪造收据不能换来行程通行证', passGranted,
-  `passId=${forgePass.body && forgePass.body.passId}；端侧 EntitlementStore.canExport() ` +
-  '只看 passes 里有没有这条 localTripId，导出墙（ICS/PDF/海报）随之失效');
+  `passId=${forgePass.body && forgePass.body.passId}`);
 
-// 通行证换干净账号验生成额度：账号 1 此时已有（伪造来的）订阅，
-// determineQuotaSource 优先返回 'subscription'，会把 pass 分支整个盖掉，
-// 在这一格看到 PASS 属于假绿。用 probe-device-c，先烧光 3 次赠送再挂 pass。
 const actC = await req('POST', '/v1/device/activate', { body: { deviceId: 'probe-device-c' } });
 const tokenC = actC.body && actC.body.deviceToken;
 for (let i = 0; i < 3; i += 1) {
@@ -204,9 +222,8 @@ const forgePassC = await req('POST', '/v1/iap/verify', {
   token: tokenC,
   body: { purchaseToken: 'totally-forged-receipt-789', productType: 'pass', localTripId: 'local-trip-free' }
 });
-gate('账号 C 也拿到伪造通行证（前提）',
-  forgePassC.status === 200 && forgePassC.body && forgePassC.body.passId === 'local-trip-free',
-  `status=${forgePassC.status}`);
+gate('账号 C 的伪造通行证同样被拒', forgePassC.body && forgePassC.body.verified === false,
+  `verified=${forgePassC.body && forgePassC.body.verified}`);
 
 const withPass = await req('POST', '/v1/trip/generate', {
   token: tokenC, key: 'probe-k6', body: Object.assign(planBody(), { passId: 'local-trip-free' })
@@ -214,8 +231,32 @@ const withPass = await req('POST', '/v1/trip/generate', {
 const pw = withPass.body && withPass.body.quota;
 guardAbsent('伪造通行证不该买到无限生成额度',
   withPass.status === 200 && pw && pw.source === 'pass',
-  `额度已尽的干净账号靠伪造 pass 拿到 source=${pw && pw.source} status=${withPass.status}；` +
-  '通行证按方案是「该行程无限生成」，一旦能伪造就没有任何消耗');
+  `额度已尽的干净账号靠伪造 pass 拿到 source=${pw && pw.source} status=${withPass.status}`);
+gate('伪造失败后账号 C 仍是 402', withPass.status === 402, `status=${withPass.status}`);
+
+// ── 5b. 正对照：真收据必须能买到订阅并兑换成额度（不然"全拒"也能骗过上面几条） ──
+const actE = await req('POST', '/v1/device/activate', { body: { deviceId: 'probe-device-e' } });
+const tokenE = actE.body && actE.body.deviceToken;
+const realSub = await req('POST', '/v1/iap/verify', {
+  token: tokenE,
+  body: {
+    purchaseToken: 'probe-real-sub-1',
+    productType: 'subscription',
+    productId: 'youjing_sub_monthly'
+  }
+});
+gate('真收据通过校验并拿到订阅',
+  realSub.status === 200 && realSub.body.verified === true &&
+  !!(realSub.body.entitlement && realSub.body.entitlement.subscription &&
+    realSub.body.entitlement.subscription.status === 'active'),
+  `status=${realSub.status} subscription=${JSON.stringify(realSub.body && realSub.body.entitlement && realSub.body.entitlement.subscription)}`);
+
+const realGen = await req('POST', '/v1/trip/generate', { token: tokenE, key: 'probe-e-real', body: planBody() });
+gate('真订阅兑换成生成额度（source=subscription，且 quota 回传 subscription 快照）',
+  realGen.status === 200 && realGen.body.quota.source === 'subscription' &&
+  realGen.body.quota.subscription && realGen.body.quota.subscription.status === 'active',
+  `status=${realGen.status} source=${realGen.body && realGen.body.quota && realGen.body.quota.source} ` +
+  `subscription=${JSON.stringify(realGen.body && realGen.body.quota && realGen.body.quota.subscription)}`);
 
 // ── 6. 赠送额度是否真的「终身不重置」 ─────────────────────────────────
 const actB = await req('POST', '/v1/device/activate', { body: { deviceId: 'probe-device-b' } });
@@ -237,19 +278,19 @@ gate('订阅档上限值应为 20（窗口=按月，见 quota-window.test.js）'
 // D7 已修（2026-11-03）：通知端点验 RSA-SHA256 签名、落真实权益变更、按 eventId 幂等。
 // 未签名先证「拒收」，再用真签名证「到期真的让订阅失效」——只测拒收等于没测通路。
 const unsigned = await req('POST', '/v1/iap/notify', {
-  body: { notificationType: 'EXPIRED', purchaseToken: 'totally-forged-receipt-123', eventId: 'probe-unsigned' }
+  body: { notificationType: 'EXPIRED', purchaseToken: 'probe-real-sub-1', eventId: 'probe-unsigned' }
 });
 gate('未签名的 IAP 通知被拒绝（不能撤销别人的权益）', unsigned.status === 401,
   `status=${unsigned.status} error=${unsigned.body && unsigned.body.error}`);
 
 const notifyRaw = JSON.stringify({
   notificationType: 'EXPIRED',
-  purchaseToken: 'totally-forged-receipt-123',
+  purchaseToken: 'probe-real-sub-1',
   eventId: 'probe-expire-signed'
 });
 const notifySig = createSign('RSA-SHA256').update(notifyRaw).sign(NOTIFY_PRIVATE_PEM, 'base64');
 const notify = await req('POST', '/v1/iap/notify', { raw: notifyRaw, signature: notifySig });
-const entAfterNotify = await req('GET', '/v1/entitlement', { token: tokenA });
+const entAfterNotify = await req('GET', '/v1/entitlement', { token: tokenE });
 gate('已验签的 EXPIRED 通知让订阅失效（真实进程、真签名）',
   notify.status === 200 && notify.body && notify.body.applied === true &&
   entAfterNotify.body && entAfterNotify.body.subscription === null,
@@ -274,4 +315,5 @@ console.log(`必守行为 ${passed}/${gates.length} 通过；支付守卫缺陷 
   `上游 stub 真实调用 ${stubCalls.length} 次；LLM 花费 0`);
 defects.forEach((d, i) => console.log(`  ${i + 1}. ${d.name}`));
 upstream.close();
+iapVerifier.close();
 process.exit(defects.length || passed !== gates.length ? 1 : 0);

@@ -7,6 +7,7 @@
  */
 import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
+import http from 'node:http';
 import express from 'express';
 
 import { initDb } from '../src/db.js';
@@ -14,6 +15,20 @@ import iapRouter from '../src/routes/iap.js';
 import { issueToken } from '../src/middleware/auth.js';
 
 process.env.JWT_SECRET = 'iap-test-secret';
+
+// 收据校验现在 fail-closed：测试要显式配一个"全都验过"的校验桩，
+// 否则 /v1/iap/verify 会 503，这些幂等用例根本走不到入库。
+const verifier = http.createServer((req, res) => {
+  req.resume();
+  req.on('end', () => {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ verified: true }));
+  });
+});
+await new Promise((resolve) => verifier.listen(0, '127.0.0.1', resolve));
+process.env.IAP_VERIFY_URL = `http://127.0.0.1:${verifier.address().port}/verify`;
+process.env.IAP_APP_ID = 'iap-test-app';
+process.env.IAP_VERIFY_TOKEN = 'iap-test-token';
 
 const db = initDb(':memory:');
 const app = express();
@@ -36,6 +51,7 @@ base = `http://127.0.0.1:${server.address().port}`;
 after(() => {
   server.close();
   db.close();
+  verifier.close();
 });
 
 const accountId = Number(

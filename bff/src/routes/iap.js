@@ -16,6 +16,11 @@ router.post('/verify', async (req, res, next) => {
 
     const iapResult = await verifyPurchase(purchaseToken, productType);
     if (!iapResult.verified) {
+      // 未配置校验服务是**部署态问题**（503），不是"这张收据无效"（200 verified:false）。
+      // 两种都必须拒绝入库——fail-closed 的方向是拒真，不是收假。
+      if (iapResult.reason === 'IAP_NOT_CONFIGURED') {
+        return res.status(503).json({ verified: false, error: 'IAP_NOT_CONFIGURED', message: '收据校验服务未配置' });
+      }
       return res.status(200).json({ verified: false, message: 'IAP 校验未通过' });
     }
 

@@ -148,6 +148,14 @@
 
 ### Fixed
 
+- 2026-11-03（§5ci 续 116）：**收据校验改 fail-closed，假收据换订阅的利用链关闭**（D1–D4）。
+  `verifyPurchase()` 不再恒真：未配置 `IAP_VERIFY_URL`/`IAP_APP_ID`/`IAP_VERIFY_TOKEN` 时一律拒绝
+  （路由 503），配置后只认远端 `verified:true`，超时/5xx/网络错都按未通过。
+  失败方向从「收假」变成「拒真」。证据：`iap-verify` 5 例（含正对照）+ `npm test` **62/62**；
+  真实进程探针必守 **17→23/23**、支付守卫缺陷 **5→1 条**（只剩 D5 产品口径），
+  并用本机校验桩验通「真收据 → 订阅 → 生成 source=subscription」；
+  `preflight` 通过 **7 / 阻断 2**（两条都只剩填凭证）。**未验**：与华为官方校验 API 的请求体对表。
+
 - 2026-11-03（§5ci 续 115）：**订阅到期/退款在端上终于有生效通路**（D9 销案）。
   `/v1/trip` 的 `quota` 快照新增 `subscription` 与 `dailyCap`；端侧把合并语义收进
   `EntitlementStore.mergeQuotaSnapshot()`：服务端**明确回 null 就清掉本地订阅**、

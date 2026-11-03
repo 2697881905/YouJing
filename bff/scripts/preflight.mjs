@@ -51,11 +51,21 @@ if (llmKey.length === 0 || llmKey === 'sk-your-key-here') {
 }
 
 // 2) 支付校验不能还是桩（D1/D3/D4 的根因） --------------------------------
+// 判据用「正向结构」而不是「搜 return { verified: true」——新实现里也有一句
+// `return { verified: true }`（远端确认通过时），拿它当桩的特征会永远报红。
 const iap = read('src/services/iap.js');
-if (/return \{ verified: true/.test(iap)) {
-  bad('IAP 校验仍是恒真桩', 'src/services/iap.js 无条件返回 verified:true ⇒ 假收据可换订阅与通行证');
+const iapRemote = /IAP_NOT_CONFIGURED/.test(iap) && /fetch\(url/.test(iap) && /AbortSignal\.timeout/.test(iap);
+if (iapRemote) {
+  ok('IAP 收据校验已接远端服务（未配置/异常时 fail-closed）');
 } else {
-  ok('IAP 校验已实现真实校验');
+  bad('IAP 校验仍是恒真桩', 'src/services/iap.js 没有远端校验与 fail-closed 结构 ⇒ 假收据可换订阅与通行证');
+}
+const iapEnvMissing = ['IAP_VERIFY_URL', 'IAP_APP_ID', 'IAP_VERIFY_TOKEN']
+  .filter((key) => !process.env[key]);
+if (iapEnvMissing.length === 0) {
+  ok('IAP 校验服务已配置（端点/APP_ID/TOKEN）');
+} else {
+  bad('IAP 校验服务未配置', `缺 ${iapEnvMissing.join('/')}；未配置时 /v1/iap/verify 一律 503 拒收`);
 }
 
 // 3) /v1/iap 两条入口各自的守门方式 -----------------------------------------
