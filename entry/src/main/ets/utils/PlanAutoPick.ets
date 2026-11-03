@@ -12,6 +12,7 @@ import { Spot, SpotTag } from '../model/Spot';
 import { Area, AreaPriceTier } from '../model/Area';
 import { SelectedSpot, SpotPriority, PaceRule } from '../model/PlanParams';
 import { Geo, GeoPoint } from './Geo';
+import { Transit } from './Transit';
 import { isMapArea } from './MapCityMapper';
 import { DayLoadCalc } from './DayLoad';
 
@@ -169,7 +170,117 @@ export class PlanAutoPick {
       return `按单日 ${PlanAutoPick.SINGLE_DAY_WINDOW_MIN / 60} 小时窗口预选 ` +
         `${picked.length} 个景点 · 住宿区 ${areaName}`;
     }
-    return `按每天 ${cap} 站预选 ${picked.length} 个景点 · 住宿区 ${areaName}`;
+    // 多日这句原来写「按每天 N 站预选 M 个」，读者会把它理解成「M = 天数 × N」的承诺；
+    // 实际 N 只是节奏档**上限**，真正装得下几个受停留与通勤约束（见 pickSpotsForDays）。
+    return `预选 ${picked.length} 个景点 · 每天 ≤${cap} 站 · 住宿区 ${areaName}`;
+  }
+
+  /**
+   * 多日预选：按「每天实际装得下多少」收口，而不是 `天数 × 节奏上限` 一把切。
+   *
+   * 为什么要它：屏2 曾写「按每天 4 站预选 12 个景点」，而 12 站摊 3 天时**排不下**
+   * （种子库停留是 4h/5h），实测三天各只落 2 站 ⇒ 6 站被静默丢弃，预选数量成了空头支票。
+   * 名额上限仍是节奏档（不放松用户选的节奏），时间可行性是硬约束：装不下就不选它。
+   *
+   * 计费口径与 `pickSpotsForSingleDay` 同一套（停留 + 直线启发式通勤），差别只有预算：
+   * 单日要扣两餐（480），多日不扣——生成器把餐次单列，`DayLoad` 只统活动与通勤，
+   * 两边同一把尺。首站永远装（`placed === 0` 不设预算门），空白天比超载天更糟。
+   */
+  static pickSpotsForDays(spots: Spot[], dayCount: number, pace: string, tags: string[],
+    area: Area | null): SelectedSpot[] {
+    const days: number = Math.max(1, dayCount);
+    const cap: number = PlanAutoPick.dailyCap(pace);
+    const pool: Spot[] = PlanAutoPick.daysCandidates(spots, days, pace, tags);
+    if (pool.length === 0) {
+      return [];
+    }
+    const origin: GeoPoint | null = area !== null && Geo.usable(area.latitude, area.longitude)
+      ? { latitude: area.latitude, longitude: area.longitude } : null;
+    // 先把候选池按「就近成串」重排（同区域内连成一串），再做 N 搜索。
+    // 只按热度排会把八达岭（离鼓楼 60km）排到第 2 位，把第 1 天直接撑爆，
+    // 于是 N 只能收到 3——三天各一站，虽然可行但把行程做空了。
+    // 重排的是**池子本身的顺序**，所以分块规则在预选与生成器两边仍然一致。
+    const order: Spot[] = PlanAutoPick.clusterOrder(pool, origin);
+    // 从候选池最大可用量往下试，取「按**生成器同一套分天规则**也装得下」的最大 N。
+    // 必须模拟同一套 chunk 规则：预选自己按另一套分组、生成器再按 quota 切一次，
+    // 两次分组一旦错位，同一批景点会被拆进不同天、通勤翻倍——2026-11-03 实测
+    // 预选 8 站、生成器排 6 站，且 D2/D3 各 15.4h（超建议 5.4h）。
+    for (let n = order.length; n > 0; n--) {
+      if (PlanAutoPick.daysFit(order, n, days, cap, origin)) {
+        return PlanAutoPick.toSelected(order.slice(0, n), Math.min(days, n));
+      }
+    }
+    return [];
+  }
+
+  /**
+   * 就近成串：从住宿区出发，每次取「离上一站最近」的候选（同距离时保留原有热度顺序）。
+   *
+   * 这样同一片区的景点会连在一起，按天切开时每一天都在小范围内活动；
+   * 远郊站（八达岭这类）要么和同向的站成串，要么自然落到最后。
+   */
+  private static clusterOrder(pool: Spot[], origin: GeoPoint | null): Spot[] {
+    const ordered: Spot[] = [];
+    const used: boolean[] = [];
+    for (let i = 0; i < pool.length; i++) {
+      used.push(false);
+    }
+    let prev: GeoPoint | null = origin;
+    while (ordered.length < pool.length) {
+      let best: number = -1;
+      let bestLeg: number = 0;
+      for (let i = 0; i < pool.length; i++) {
+        if (used[i]) {
+          continue;
+        }
+        const leg: number = PlanAutoPick.legMinutes(prev, PlanAutoPick.pointOf(pool[i]));
+        if (best < 0 || leg < bestLeg) {
+          best = i;
+          bestLeg = leg;
+        }
+      }
+      used[best] = true;
+      ordered.push(pool[best]);
+      prev = PlanAutoPick.pointOf(pool[best]);
+    }
+    return ordered;
+  }
+
+  /**
+   * 把前 n 个候选按生成器的分天规则切开，逐天核算「停留 + 通勤」是否落在窗口内。
+   *
+   * 生成器每天首站不算腿（当日第一段路无从算起），这里对每天首站**也**算一段到住宿区的腿
+   * ——预选比实排更严是安全的方向：严出来的差值只会让实排更松，不会反过来超窗。
+   */
+  private static daysFit(pool: Spot[], n: number, days: number, cap: number,
+    origin: GeoPoint | null): boolean {
+    let cursor: number = 0;
+    for (let d = 0; d < days; d++) {
+      const left: number = n - cursor;
+      if (left <= 0) {
+        return true;
+      }
+      const quota: number = Math.max(1, Math.min(cap, Math.ceil(left / (days - d))));
+      let load: number = 0;
+      let prev: GeoPoint | null = origin;
+      for (let k = 0; k < quota && cursor < n; k++) {
+        const s: Spot = pool[cursor];
+        const point: GeoPoint | null = PlanAutoPick.pointOf(s);
+        load += s.suggestedDuration + PlanAutoPick.legMinutes(prev, point);
+        prev = point;
+        cursor += 1;
+      }
+      if (load > DAY_WINDOW_MIN) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /** 多日候选池：名额的 2 倍，给「远站吃预算被跳过」留余量（单日池同理由） */
+  static daysCandidates(spots: Spot[], dayCount: number, pace: string, tags: string[]): Spot[] {
+    const pool: number = Math.max(1, dayCount) * PlanAutoPick.dailyCap(pace) * 2;
+    return PlanAutoPick.orderedCandidates(spots, tags).slice(0, Math.min(spots.length, pool));
   }
 
   /** 标签命中的按热度优先，其余按热度补齐 */
@@ -243,17 +354,8 @@ export class PlanAutoPick {
    * 缺坐标的腿按 15min 估，宁可多算不漏算。
    */
   private static legMinutes(a: GeoPoint | null, b: GeoPoint | null): number {
-    if (a === null && b === null) {
-      return 0;
-    }
-    if (a === null || b === null) {
-      return 15;
-    }
-    if (!Geo.usable(a.latitude, a.longitude) || !Geo.usable(b.latitude, b.longitude)) {
-      return 15;
-    }
-    const km: number = Geo.distanceKm(a, b);
-    return Math.round(km * 1.2 / 30 * 60) + 8;
+    // 与离线合成的通勤段同一口径（utils/Transit）：预选说装得下、生成器就必须排得下
+    return Transit.minutes(a, b);
   }
 
   private static hasTag(s: Spot, tags: string[]): boolean {

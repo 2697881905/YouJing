@@ -111,6 +111,20 @@ export struct GeneratingPage {
       if (this.cancelled) {
         return;
       }
+      // 选中的站不一定都排得进这几天（种子库停留 4h/5h，加上 20:00 起排上限，
+      // 3 天最多容纳约 3 站/天）。**少掉的必须说出来**——静默丢失用户的选择比超载更糟。
+      let placed: number = 0;
+      for (const day of trip.days) {
+        placed += day.activities.length;
+      }
+      const shortfall: number = params.selectedSpots.length - placed;
+      if (shortfall > 0) {
+        Logger.info('Ui.Generating', `排不下 ${shortfall} 站：选中 ${params.selectedSpots.length} 实排 ${placed}`);
+        this.getUIContext().getPromptAction().showToast({
+          message: `这几天排不下 ${shortfall} 个景点，可在「编辑行程」里调整或减少`,
+          duration: 2600
+        });
+      }
       this.done = true;
       this.stage = this.stages.length;
       this.progress = 1;

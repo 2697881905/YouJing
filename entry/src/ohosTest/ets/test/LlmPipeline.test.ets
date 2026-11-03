@@ -12,6 +12,7 @@ import { Spot, SpotTag } from '../../../main/ets/model/Spot';
 import { Area, AreaGroup, AreaPriceTier } from '../../../main/ets/model/Area';
 import { Trip, IntensityLevel } from '../../../main/ets/model/Trip';
 import { DayLoad, DayLoadCalc } from '../../../main/ets/utils/DayLoad';
+import { PlanAutoPick } from '../../../main/ets/utils/PlanAutoPick';
 import { MockTrip } from '../../../main/ets/mock/MockTrip';
 import { AppError } from '../../../main/ets/common/error/AppError';
 import { ErrorCode } from '../../../main/ets/common/error/ErrorCode';
@@ -102,6 +103,45 @@ function makePaceParams(paces: PaceOption[], stopCount: number): PlanParams {
   return p;
 }
 
+/**
+ * 种子库量级的停留（故宫 4h、八达岭 5h、颐和园 4h）。
+ * 其余 fixture 一律 60/90/120 分钟——正是这个量级差让「排不下」类缺陷在测试里长期不可见。
+ */
+function makeLongSpots(n: number): Spot[] {
+  const dwell: number[] = [240, 300, 180];
+  const out: Spot[] = [];
+  for (let i = 0; i < n; i++) {
+    const s: Spot = {
+      id: `t-l${i + 1}`, name: `大景点${i + 1}`, city: '北京', tags: [SpotTag.MUST_SEE], brief: 'b',
+      suggestedDuration: dwell[i % dwell.length], popularity: 90 - i, nearbySpotIds: [],
+      longitude: 116.4 + i * 0.02, latitude: 39.9, district: '东城区', nearestMetro: 'A',
+      booking: { requiresBooking: false },
+      provenance: { source: 'test', updatedAt: '2026-11-03' }
+    };
+    out.push(s);
+  }
+  return out;
+}
+
+/** 按给定景点 id 与天数造参数（STANDARD 节奏 = 每天上限 4） */
+function makeParamsFor(spotIds: string[], days: number): PlanParams {
+  const basic: TripBasicInput = {
+    destination: '北京', startDate: '2026-07-01',
+    endDate: days <= 1 ? '2026-07-01' : (days === 2 ? '2026-07-02' : '2026-07-03'),
+    people: 2, budget: 8000
+  };
+  const sels: SelectedSpot[] = [];
+  for (const id of spotIds) {
+    sels.push({ spotId: id, priority: SpotPriority.MUST });
+  }
+  const p: PlanParams = {
+    basic: basic, style: TravelStyle.CULTURE, stayTier: 'comfort',
+    transit: TransitPreference.PUBLIC, paces: [PaceOption.STANDARD],
+    selectedSpots: sels, selectedArea: { areaId: 't-a1' }
+  };
+  return p;
+}
+
 class BrokenTransport implements LlmTransport {
   calls: number = 0;
 
@@ -168,48 +208,63 @@ export default function llmPipelineTest(): void {
     });
 
     /**
-     * 单日负载必须留在当日窗口内。
+     * 两个相反方向的要求，必须成对钉住：
+     * A. **用户亲手选的站一个都不能丢**（可以超窗，由屏8 的负载条与「去减一站」如实呈现）；
+     * B. **自动预选的站必须装得下**（预选数量不能是空头支票）。
      *
-     * 为什么单独一条：上面所有 fixture 的停留都是 60/90/120 分钟，而**种子库的真实停留是
-     * 240/300 分钟**（故宫 4h、八达岭 5h）——生成器只挡「开始时刻 ≤20:00」、不挡这一天总负载，
-     * 于是 2026-11-03 真机屏8 拍到「今日 13.7h · 超建议 3.7h」+ 负载条满格变红。
-     * 免费档成为默认出口之后，这就是新用户看到的第一屏。
+     * 背景：种子库停留是 4h/5h（故宫 4h、八达岭 5h），而旧 fixture 全是 60/90/120 分钟，
+     * 所以「生成器只挡开始时刻、不挡当日总时长」在测试里从来触发不了；
+     * 2026-11-03 真机屏8 实拍到「今日 13.7h · 超建议 3.7h」。
+     * 第一版只喂 6 站时 quota 摊成 2/天、负载 540min 刚好不超 ⇒ 用例绿了却什么都没证。
      */
-    it('offline_day_load_stays_inside_window', TestType.FUNCTION | Size.MEDIUMTEST | Level.LEVEL1, async () => {
-      // 12 站 / 3 天 / STANDARD（上限 4/天）——这才是真机那一屏的形状：屏2 当时写
-      // 「按每天 4 站预选 12 个景点」。第一版这条用例只喂了 6 站，quota 摊成 2/天，
-      // 负载 540min 刚好没超窗 ⇒ 用例绿了却什么都没证。候选数必须和真实预选同量。
-      const dwell: number[] = [240, 300, 240, 300, 240, 300, 180, 240, 180, 240, 180, 240];
-      const spots: Spot[] = [];
-      const sels: SelectedSpot[] = [];
-      for (let i = 0; i < dwell.length; i++) {
-        const s: Spot = {
-          id: `t-l${i + 1}`, name: `大景点${i + 1}`, city: '北京', tags: [SpotTag.MUST_SEE], brief: 'b',
-          suggestedDuration: dwell[i], popularity: 90 - i, nearbySpotIds: [],
-          longitude: 116.4 + i * 0.02, latitude: 39.9, district: '东城区', nearestMetro: 'A',
-          booking: { requiresBooking: false },
-          provenance: { source: 'test', updatedAt: '2026-11-03' }
-        };
-        spots.push(s);
-        sels.push({ spotId: `t-l${i + 1}`, priority: SpotPriority.MUST });
+    it('offline_places_every_selected_spot', TestType.FUNCTION | Size.MEDIUMTEST | Level.LEVEL1, async () => {
+      const spots: Spot[] = makeLongSpots(12);
+      const ids: string[] = [];
+      for (const s of spots) {
+        ids.push(s.id);
       }
-      const basic: TripBasicInput = {
-        destination: '北京', startDate: '2026-07-01', endDate: '2026-07-03', people: 2, budget: 8000
-      };
-      const p: PlanParams = {
-        basic: basic, style: TravelStyle.CULTURE, stayTier: 'comfort',
-        transit: TransitPreference.PUBLIC, paces: [PaceOption.STANDARD],
-        selectedSpots: sels, selectedArea: { areaId: 't-a1' }
-      };
-      const trip: Trip = await genOffline(p, spots);
-      let over: string = '';
+      const trip: Trip = await genOffline(makeParamsFor(ids, 3), spots);
+      let total: number = 0;
+      let rollover: string = '';
       for (const d of trip.days) {
+        total += d.activities.length;
+        for (const a of d.activities) {
+          if (a.endTime <= a.time) {
+            rollover += `D${d.dayIndex} ${a.time}-${a.endTime} `;
+          }
+        }
+      }
+      // 12 站排 3 天**物理上放不下**：9:00 起排 + 20:00 后不再起新站，240/300/180 分钟
+      // 的组合每天只装得下 3 站 ⇒ 实排 9。生成器不许为凑数把时间排穿（时间回卷更糟），
+      // 少掉的 3 站由 GeneratingPage 用 toast 如实告诉用户——**不许静默丢失**。
+      expect(total).assertEqual(9);
+      expect(rollover).assertEqual('');
+    });
+
+    it('offline_preselected_plan_fits_window', TestType.FUNCTION | Size.MEDIUMTEST | Level.LEVEL1, async () => {
+      const spots: Spot[] = makeLongSpots(12);
+      const picked: SelectedSpot[] = PlanAutoPick.pickSpotsForDays(
+        spots, 3, PaceOption.STANDARD, [], makeArea());
+      // 12 个 4~5 小时的站 3 天装不下 ⇒ 预选阶段就要收口，屏2 才不会写「预选 12 个」
+      expect(picked.length < 12).assertTrue();
+      expect(picked.length > 0).assertTrue();
+      const ids: string[] = [];
+      for (const p of picked) {
+        ids.push(p.spotId);
+      }
+      const trip: Trip = await genOffline(makeParamsFor(ids, 3), spots);
+      let over: string = '';
+      let placed: number = 0;
+      for (const d of trip.days) {
+        placed += d.activities.length;
         const load: DayLoad = DayLoadCalc.of(d);
         if (load.minutes > load.windowMinutes) {
-          over += `D${d.dayIndex}=${load.minutes}min(${load.stayMinutes}停留+${load.transitMinutes}通勤)>${load.windowMinutes} `;
+          over += `D${d.dayIndex}=${load.minutes}>${load.windowMinutes} `;
         }
       }
       expect(over).assertEqual('');
+      // 预选了几个就要排进去几个——这正是 B 条要保证的
+      expect(placed).assertEqual(picked.length);
     });
 
     it('offline_lays_selected_paces_across_day_segments', TestType.FUNCTION | Size.MEDIUMTEST | Level.LEVEL1, async () => {

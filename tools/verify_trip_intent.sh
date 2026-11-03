@@ -24,6 +24,7 @@ copy entry/src/main/ets/utils/TripIntentParser.ets utils/TripIntentParser.ts
 copy entry/src/main/ets/utils/PlanAutoPick.ets utils/PlanAutoPick.ts
 copy entry/src/main/ets/utils/MapCityMapper.ets utils/MapCityMapper.ts
 copy entry/src/main/ets/utils/DayLoad.ets utils/DayLoad.ts
+copy entry/src/main/ets/utils/Transit.ets utils/Transit.ts
 copy entry/src/main/ets/model/Trip.ets model/Trip.ts
 copy entry/src/main/ets/model/Expense.ets model/Expense.ts
 copy entry/src/main/ets/common/constants/BudgetConfig.ets common/constants/BudgetConfig.ts

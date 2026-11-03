@@ -21,7 +21,8 @@ import { PlanParams, SelectedSpot, TripBasicInput, PaceOption, PaceRule } from '
 import { Spot } from '../model/Spot';
 import { Area } from '../model/Area';
 import { backfillActivityPlaces, backfillOpeningHours } from '../utils/TripEnrich';
-import { DayLoadCalc } from '../utils/DayLoad';
+import { Transit, TransitEstimate } from '../utils/Transit';
+import { GeoPoint } from '../utils/Geo';
 import { DateUtils } from '../utils/DateUtils';
 import { ApiConfig } from '../common/config/ApiConfig';
 import { GenerationChannel } from '../utils/GenerationChannel';
@@ -80,58 +81,33 @@ export class MockLlmTransport implements LlmTransport {
     const caps: number[] = this.dayCaps(dayCount);
     const chosen: SelectedSpot[] = this.params.selectedSpots;
     const days: TripDay[] = [];
-    const taken: boolean[] = [];
-    for (let i = 0; i < chosen.length; i++) {
-      taken.push(false);
-    }
-    let remaining: number = chosen.length;
+    let cursor: number = 0;
     let total: number = 0;
     for (let d = 0; d < dayCount; d++) {
       const perDay: number = caps[d];
       // 每天的名额按「剩余量摊到剩余天」算，而不是一律吃满当日上限：
       // 2 个景点排 3 天时若按 perDay 贪心装，第 1 天就全塞完、后两天空着（真机拍到过），
       // 用户看到的就是「三天两晚只有头一天有东西」。上限仍是当日档，不放松节奏。
-      const quota: number = Math.max(1, Math.min(perDay, Math.ceil(remaining / (dayCount - d))));
+      const left: number = chosen.length - cursor;
+      const quota: number = Math.max(1, Math.min(perDay, Math.ceil(left / (dayCount - d))));
       const acts: Activity[] = [];
       let slot: number = 9 * 60;
-      // 当日负载预算与屏8 的负载条**同一把尺**（DayLoadCalc.WINDOW_MINUTES）。
-      // 原来只挡「开始时刻 ≤20:00」，不挡这一天的总时长：种子库的真实停留是 4h/5h，
-      // 12 站摊 3 天（每天 4 站）就排出 820~895min，屏8 一律报「超建议」+ 满格红条
-      // （2026-11-03 真机，免费档成为默认出口后这就是新用户看到的第一屏）。
-      let loadUsed: number = 0;
-      for (let i = 0; i < chosen.length && acts.length < quota; i++) {
-        if (taken[i]) {
-          continue;
-        }
-        const spot: Spot | undefined = this.spots.find((s: Spot): boolean => s.id === chosen[i].spotId);
-        if (spot === undefined) {
-          taken[i] = true;
-          continue;
-        }
-        const leg: TransportInfo | undefined =
-          acts.length === 0 ? undefined : MockLlmTransport.legMock(acts.length);
-        // 写成两条语句而不是 `leg.duration : 0` 的三元：后者的冒号会被动效尺的
-        // `duration:` 键位正则当成一个硬写的时长值（ai/ 目录在 W3 下"硬写数字照样报"），
-        // 读起来也更直白。
-        let legMinutes: number = 0;
-        if (leg !== undefined) {
-          legMinutes = leg.duration;
-        }
-        const add: number = spot.suggestedDuration + legMinutes;
-        const fits: boolean = loadUsed + add <= DayLoadCalc.WINDOW_MINUTES;
-        // 装不下就跳过这一站、继续看下一站，**不从尾部砍**：候选按优先级排，
-        // 尾部往往是同城好站（重庆 1 天那次就是这么把洪崖洞全砍光的）。
-        // 但如果这一天还空着，宁可超窗也要装首站——空白天比超载天更糟。
-        if (!fits && acts.length > 0) {
-          continue;
-        }
-        if (acts.length > 0 && slot > 20 * 60) {
+      // 上一站的坐标：通勤段按真实直线距离估算（与预选同一套口径），不再写死 22 分钟 2 站
+      let prevPoint: GeoPoint | null = null;
+      for (let k = 0; k < quota && cursor < chosen.length; k++) {
+        if (slot > 20 * 60) {
+          // 太晚就不硬塞：跨午夜会让 endTime 回卷成比 time 早，剩余站点顺延到次日
           break;
         }
-        taken[i] = true;
+        const sel: SelectedSpot = chosen[cursor];
+        cursor += 1;
+        const spot: Spot | undefined = this.spots.find((s: Spot): boolean => s.id === sel.spotId);
+        if (spot === undefined) {
+          continue;
+        }
         const end: number = slot + spot.suggestedDuration;
         const act: Activity = {
-          id: `d${d + 1}-a${acts.length + 1}`,
+          id: `d${d + 1}-a${k + 1}`,
           time: MockLlmTransport.hhmm(slot),
           endTime: MockLlmTransport.hhmm(end),
           title: spot.name,
@@ -142,14 +118,13 @@ export class MockLlmTransport implements LlmTransport {
           status: spot.booking.requiresBooking ? ActivityStatus.NOT_BOOKED : ActivityStatus.NO_NEED,
           category: ActivityCategory.SIGHT,
           note: spot.booking.requiresBooking ? `预约：${spot.booking.bookingMethod ?? '官方渠道'}（以官方为准）` : undefined,
-          reason: acts.length === 0 ? '当日首站安排在最开阔时段，动线由近及远。' : undefined,
-          transport: leg
+          reason: k === 0 ? '当日首站安排在最开阔时段，动线由近及远。' : undefined,
+          transport: k === 0 ? undefined : MockLlmTransport.legTo(prevPoint, spot)
         };
         acts.push(act);
-        loadUsed += add;
+        prevPoint = Transit.pointOf(spot.latitude, spot.longitude);
         slot = end + 15;
       }
-      remaining -= acts.length;
       const meals: Meal[] = [
         { type: MealType.LUNCH, name: '本地午餐', location: this.area.name, estimatedCost: 120 },
         { type: MealType.DINNER, name: '本地晚餐', location: this.area.name, estimatedCost: 180 }
@@ -207,13 +182,13 @@ export class MockLlmTransport implements LlmTransport {
     return `${`${h}`.padStart(2, '0')}:${`${m}`.padStart(2, '0')}`;
   }
 
-  /** 离线 mock 的通勤段：轮换步行/地铁/打车，让屏8 图标与动线摘要这段渲染真被走到 */
-  private static legMock(k: number): TransportInfo {
-    const modes: string[] = ['步行', '地铁', '打车'];
-    const mode: string = modes[k % modes.length];
-    const minutes: number = mode === '步行' ? 15 : (mode === '地铁' ? 22 : 18);
-    const detail: string = mode === '步行' ? '约 1km' : (mode === '地铁' ? '2 站' : '约 6km');
-    const info: TransportInfo = { mode: mode, duration: minutes, detail: detail };
+  /** 离线合成的通勤段：按真实直线距离估（与预选/收口同一套 Transit 口径）。
+   *  原来这里是「步行/地铁/打车」三个写死的 15/22/18 分钟，中关村→八达岭 60km
+   *  与故宫→景山 1km 报同一句「地铁 22 分钟 · 2 站」，属于凭空编造。 */
+  private static legTo(from: GeoPoint | null, to: Spot): TransportInfo {
+    const target: GeoPoint | null = Transit.pointOf(to.latitude, to.longitude);
+    const est: TransitEstimate = Transit.of(from, target);
+    const info: TransportInfo = { mode: est.mode, duration: est.minutes, detail: est.detail };
     return info;
   }
 }

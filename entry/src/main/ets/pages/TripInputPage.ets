@@ -346,6 +346,14 @@ export struct TripInputPage {
           `弃${dropped.join('/') || '无'} 停留+通勤` +
           `${PlanAutoPick.routeMinutesOf(keptSpots, originArea)}min/` +
           `预算${PlanAutoPick.SINGLE_DAY_SIGHT_BUDGET_MIN}min 起点${originArea !== null ? originArea.name : '无'}`);
+      } else {
+        // 多日同样要收口：「每天 N 站」是节奏档的**上限**，不是承诺。
+        // 种子库停留是 4h/5h 时，3 天根本装不下「每天 4 站 ×3」，不收口就会把
+        // 用户看到的预选数量写成空头支票（2026-11-03 实测：预选 12 站、只排出 6 站）。
+        picked = PlanAutoPick.pickSpotsForDays(spots, days, pace, intent.tags, area);
+        area = PlanAutoPick.pickArea(areas, spots, picked, stayTier);
+        Logger.info('Ui.TripInput', `多日收口 ${days}天 预选${picked.length}站 ` +
+          `每天窗口${PlanAutoPick.SINGLE_DAY_WINDOW_MIN}min 起点${area !== null ? area.name : '无'}`);
       }
       intent.city = targetCity;
       if (viaMap) {
