@@ -45,3 +45,12 @@ export function membershipStatus(hasSubscription: boolean, periodEnd: string,
   };
   return status;
 }
+
+/** 订阅用户的本月用量文案；无订阅/上限未知时返回空串（不显示） */
+export function membershipUsage(hasSubscription: boolean, usedToday: number, dailyCap: number): string {
+  if (!hasSubscription || dailyCap <= 0) {
+    return '';
+  }
+  const used: number = usedToday > 0 ? usedToday : 0;
+  return `本月已用 ${used} / ${dailyCap} 次`;
+}

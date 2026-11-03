@@ -21,7 +21,7 @@ import { AccountStore, AUTH_STATE_KEY } from '../data/AccountStore';
 import { BadgeDao } from '../data/BadgeDao';
 import { EntitlementStore } from '../data/EntitlementStore';
 import { DateUtils } from '../utils/DateUtils';
-import { membershipStatus, MembershipStatus } from '../utils/MembershipCopy';
+import { membershipStatus, membershipUsage, MembershipStatus } from '../utils/MembershipCopy';
 import { BadgeGroup, BadgeRecord, badgeCityCount, badgeTotal, buildBadgeBoard } from '../utils/BadgeBoard';
 import { ProfileStore } from '../data/ProfileStore';
 import { LegalDocReader } from '../components/LegalDocReader';
