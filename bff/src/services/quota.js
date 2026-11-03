@@ -1,4 +1,12 @@
-const DAILY_CAP = 20;
+/**
+ * 订阅档的防滥用上限：商业化方案 §2 写的是「20 次/**月**」，屏2 的付费页文案也写「每月 20 次」。
+ * 这里原本按**天**数（`start of day` + DAILY_CAP=20），一个月最多可跑到 600 次，
+ * 与方案的字面口径差约 30 倍成本敞口，也和自家付费页自相矛盾（§5ci 续 85 的 D6）。
+ *
+ * 响应字段名沿用 `usedToday` / `dailyCap`：端侧 `EntitlementStore.canGenerate()` 直接读这两个键，
+ * 改名要连端侧一起动，而 BFF 还没部署、收益为零。**口径已改成按月**，名字留作历史兼容。
+ */
+const MONTHLY_CAP = 20;
 const GIFT_QUOTA = 3;
 
 export function getEntitlement(db, accountId) {
@@ -15,10 +23,11 @@ export function getEntitlement(db, accountId) {
      WHERE account_id = ? AND source = 'gift' AND state = 'committed'`
   ).get(accountId);
 
-  const usedToday = db.prepare(
+  // 按月计（与方案 §2 和付费页文案一致）；字段名沿用 usedToday 见文件头说明
+  const usedThisMonth = db.prepare(
     `SELECT COUNT(*) as cnt FROM trip_request
      WHERE account_id = ? AND status = 'succeeded'
-     AND started_at >= date('now', 'start of day')`
+     AND started_at >= date('now', 'start of month')`
   ).get(accountId);
 
   const giftRemaining = Math.max(0, GIFT_QUOTA + (giftLedger?.total || 0));
@@ -27,8 +36,8 @@ export function getEntitlement(db, accountId) {
     subscription: sub ? { status: sub.status, periodEnd: sub.period_end } : null,
     passes: passes.map(p => ({ localTripId: p.local_trip_id, status: p.status, expiresAt: p.expires_at })),
     giftRemaining,
-    usedToday: usedToday?.cnt || 0,
-    dailyCap: DAILY_CAP
+    usedToday: usedThisMonth?.cnt || 0,
+    dailyCap: MONTHLY_CAP
   };
 }
 

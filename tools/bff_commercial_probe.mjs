@@ -221,9 +221,10 @@ guardAbsent('换设备不该白送 3 次', giftB === 3,
 const ent = await req('GET', '/v1/entitlement', { token: tokenA });
 const cap = ent.body && ent.body.dailyCap;
 const used = ent.body && ent.body.usedToday;
-guardAbsent('上限口径应与商业化方案一致（20 次/月）', cap === 20,
-  `quota.js 里 DAILY_CAP=20 且 usedToday 按「今天」数 succeeded 行（当前 ${used} 次），` +
-  '方案 §2 写的是「20 次/月」。按代码口径一个月上限 600 次，成本敞口约 30 倍');
+// D6 已修（2026-11-03）：口径从「20 次/天」改成「20 次/月」，与方案 §2 和付费页文案一致。
+// 窗口本身在 HTTP 上看不出来，由 bff/test/quota-window.test.js 断言；这里只钉值。
+gate('订阅档上限值应为 20（窗口=按月，见 quota-window.test.js）', cap === 20,
+  `dailyCap=${cap} usedToday=${used}`);
 
 const notify = await req('POST', '/v1/iap/notify', {
   body: { purchaseToken: 'real-huawei-notify', status: 'RENEWED' }
