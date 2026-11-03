@@ -49,7 +49,7 @@ export default function dayLoadTest(): void {
       expect(load.transitMinutes).assertEqual(30);
       expect(load.minutes).assertEqual(150);
       expect(load.level).assertEqual(LoadLevel.OK);
-      expect(DayLoadCalc.label(load)).assertEqual('今日 2.5h · 建议 ≤10h');
+      expect(DayLoadCalc.label(load)).assertEqual('活动 2.5h · 建议 ≤10h');
     });
 
     it('span_gap_is_not_counted', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
@@ -82,7 +82,7 @@ export default function dayLoadTest(): void {
       ]));
       expect(over.minutes).assertEqual(610);
       expect(over.level).assertEqual(LoadLevel.OVER);
-      expect(DayLoadCalc.label(over)).assertEqual('今日 10.2h · 超建议 0.2h');
+      expect(DayLoadCalc.label(over)).assertEqual('活动 10.2h · 超建议 0.2h');
     });
 
     it('transport_node_counts_once', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {

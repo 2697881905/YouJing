@@ -79,15 +79,21 @@ export class DayLoadCalc {
     return text.endsWith('.0') ? text.slice(0, text.length - 2) : text;
   }
 
-  /** 屏8 吸顶日标题那一行（数据为空串时返回 ''，宿主据此整行不出） */
+  /**
+   * 屏8 吸顶日标题那一行（数据为空串时返回 ''，宿主据此整行不出）。
+   *
+   * 用「活动」而不是「今日」：这个数是**各活动的停留 + 各段通勤之和**，**不含活动之间的空档**。
+   * 写「今日 5.6h」会被读成"这一天只有 5.6 小时"，而真机上有过活动 5.6h、实际在场 11.5h 的行程
+   * （2026-11-03 真模型 3 天样本 D2）。口径没错，错的是把它说成一天的长度。
+   */
   static label(load: DayLoad): string {
     if (load.minutes <= 0) {
       return '';
     }
     const total: string = DayLoadCalc.hours(load.minutes);
     if (load.level === LoadLevel.OVER) {
-      return `今日 ${total}h · 超建议 ${DayLoadCalc.hours(load.minutes - load.windowMinutes)}h`;
+      return `活动 ${total}h · 超建议 ${DayLoadCalc.hours(load.minutes - load.windowMinutes)}h`;
     }
-    return `今日 ${total}h · 建议 ≤${DayLoadCalc.hours(load.windowMinutes)}h`;
+    return `活动 ${total}h · 建议 ≤${DayLoadCalc.hours(load.windowMinutes)}h`;
   }
 }
