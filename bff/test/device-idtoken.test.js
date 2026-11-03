@@ -149,4 +149,25 @@ test('JWKS 轮换：kid 未命中时强制刷新一次，新公钥仍能验签',
   const r = await activate({ deviceId: 'dev-rotated', idToken: token });
   assert.equal(r.status, 200);
   assert.equal(unionOf('dev-rotated'), 'u-rotated');
+
+  // 还原 JWKS 端点，避免后续用例（用原 key 签的 token）被轮换后的 key 集误伤
+  activeJwks = { keys: [{ ...publicJwk, kid: KID, alg: 'PS256', use: 'sig' }] };
+});
+
+test('同一设备上的华为账号不会被游客激活冒领', async () => {
+  // 华为账号激活会把自己的 device_id 写成这台设备；匿名激活按 device_id 取账号时
+  // 若不限定 anon-*，就会直接拿到华为账号的票据（D10 后的串号风险）。
+  const owner = await activate({ deviceId: 'dev-shared', idToken: signJwt(payload({ sub: 'u-owner' }), 'PS256') });
+  assert.equal(owner.status, 200);
+  const ownerId = db.prepare("SELECT id FROM account WHERE union_id = 'u-owner'").get().id;
+
+  const guest = await activate({ deviceId: 'dev-shared' });
+  assert.equal(guest.status, 200);
+  const anon = db.prepare("SELECT id FROM account WHERE union_id = 'anon-dev-shared'").get();
+  assert.ok(anon, '应新建匿名账号');
+  assert.notEqual(anon.id, ownerId);
+
+  const jwt = (await import('jsonwebtoken')).default;
+  const tokenPayload = jwt.decode(guest.body.deviceToken);
+  assert.equal(tokenPayload.accountId, anon.id, '游客拿到的票据必须指向匿名账号');
 });

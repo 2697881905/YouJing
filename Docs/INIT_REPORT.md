@@ -6626,3 +6626,17 @@ idToken 验签用的是按 kid 查找的华为公钥，JWKS 缓存 10 分钟。�
 - 回归：`device-idtoken.test.js` 新增一例——先用旧 key 打一次让缓存就位，
   再让 JWKS 端点切到新 key、用新 key 签 token，激活仍然 200 且账号 union_id 正确。
   `bff npm test` **84→85/85**。
+
+#### 续 142（2026-11-03）匿名激活限定 `anon-*`：同设备的华为账号不会被游客冒领
+
+D10 之后华为账号激活会把自己的 `device_id` 写成这台设备，而匿名激活按
+`SELECT * FROM account WHERE device_id = ?` 取账号——**`device_id` 不是唯一键**。
+如果同一设备上已有华为账号，一次游客激活（无 idToken）会直接查回那个华为账号，
+拿到它的票据与权益。这是设备标识被当成登录凭据的串号风险。
+
+- 匿名分支改为 `WHERE device_id = ? AND union_id LIKE 'anon-%'`；华为身份只能走
+  idToken 验签分支。已有匿名账号仍复用（幂等）。
+- 回归：`device-idtoken.test.js` 新增一例——先用合法 idToken 给 `dev-shared` 建华为账号，
+  再在同一 deviceId 上做游客激活：必须**新建 `anon-dev-shared`**，且游客票据里的
+  `accountId` 指向这个匿名账号、不等于华为账号。`bff npm test` **85→86/86**。
+  （同轮给 JWKS 轮换用例补了「测完还原公钥集」，避免用例间互相误伤。）

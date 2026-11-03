@@ -51,7 +51,11 @@ router.post('/activate', async (req, res, next) => {
         ).run(deviceId, account.id);
       }
     } else {
-      account = db.prepare('SELECT * FROM account WHERE device_id = ?').get(deviceId);
+      // 匿名激活只能命中**匿名账号**：device_id 不是唯一键（华为账号激活时也会写同一个
+      // device_id），若这里不限定 anon-*，同一设备上的游客激活会直接拿到该华为账号的票据。
+      account = db.prepare(
+        "SELECT * FROM account WHERE device_id = ? AND union_id LIKE 'anon-%'"
+      ).get(deviceId);
       if (!account) {
         const anonUnionId = `anon-${deviceId}`;
         const result = db.prepare(
