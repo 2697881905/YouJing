@@ -181,3 +181,17 @@ test('period_end 已过但通知未到：getEntitlement 也不能再送额度', 
   const ent = getEntitlement(db, other);
   assert.equal(ent.subscription, null, '过期订阅不能只靠 status=active 继续生效');
 });
+
+test('已退款的订阅不会被迟到的 RENEWED 复活', async () => {
+  seedSubscription('sub-refund-renew');
+  const refund = await notify({ notificationType: 'REFUND', purchaseToken: 'sub-refund-renew', eventId: 'e-rr-1' });
+  assert.equal(refund.body.applied, true);
+  const renew = await notify({ notificationType: 'RENEWED', purchaseToken: 'sub-refund-renew', eventId: 'e-rr-2' });
+  assert.equal(renew.status, 200);
+  assert.equal(renew.body.applied, false);
+  assert.equal(renew.body.kind, 'renew');
+  const row = db.prepare(
+    "SELECT status FROM subscription WHERE purchase_token = 'sub-refund-renew'"
+  ).get();
+  assert.equal(row.status, 'refunded');
+});

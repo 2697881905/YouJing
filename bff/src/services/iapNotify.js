@@ -97,10 +97,17 @@ export function applyNotification(db, body, rawBody) {
   }
 
   if (kind === 'renew') {
-    const row = db.prepare('SELECT product_id FROM subscription WHERE purchase_token = ?').get(purchaseToken);
+    const row = db.prepare(
+      'SELECT product_id, status FROM subscription WHERE purchase_token = ?'
+    ).get(purchaseToken);
     if (!row) {
       record(false, 'NO_SUBSCRIPTION');
       return { applied: false, kind, reason: 'NO_SUBSCRIPTION' };
+    }
+    // 已退款/已撤销的订阅不能被迟到的续费通知复活（事件乱序/伪造都不该改回权益）
+    if (row.status === 'refunded') {
+      record(false, 'REFUNDED_IGNORED');
+      return { applied: false, kind, reason: 'REFUNDED_IGNORED' };
     }
     const months = row.product_id === 'youjing_sub_yearly' ? 12 : 1;
     // 从「原到期时间」与「现在」的较晚者起算：延迟送达/重推不会吞掉一个周期

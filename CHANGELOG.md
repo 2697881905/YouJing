@@ -179,6 +179,10 @@
 
 ### Fixed
 
+- 2026-11-03（§5ci 续 164）：**已退款订阅不被迟到的 RENEWED 复活**。renew 分支原来不看状态，
+  乱序/伪造的续费通知会把 refunded 改回 active；现在 refunded 直接忽略（expired 仍可续费）。
+  新增一例，`bff npm test` 95/95。
+
 - 2026-11-03（§5ci 续 163）：**总费用以各天合计为准**。真模型出现过
   `overview.totalCost=4200` 而 `Σ dailyCost=3100`（差 26%），费用页总览与每日卡会对不上；
   `generateTrip` 落库前归一为各天之和。新增一例 hypium，真机 236/236。

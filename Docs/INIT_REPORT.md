@@ -6898,3 +6898,14 @@ D10 之后华为账号激活会把自己的 `device_id` 写成这台设备，而
   真机 hypium **235→236/236**；双 HAP 全新构建安装。
 - **未验**：模型给总费用时是否包含某类未并入 dailyCost 的费用（无法从输出判定）；
   本轮选择「与每日卡自洽」的口径，而非猜测它的构成。
+
+#### 续 164（2026-11-03）已退款的订阅不会被迟到的 RENEWED 复活
+
+`applyNotification` 的 renew 分支原来只看「有没有这条订阅」，不看状态：
+退款后若再来一条续费通知（事件乱序或伪造），会把 `refunded` 改回 `active` 并延长周期。
+现在 renew 先读状态，`refunded` 直接记 `REFUNDED_IGNORED`、不改权益（`expired` 仍允许续费复活）。
+
+- 回归：`iap-notify.test.js` 新增一例（REFUND 成功后 RENEWED → applied=false、
+  库里仍是 refunded），`bff npm test` **94→95/95**。
+- 说明：测试里没有断言账号级 `subscription=null`——同一账号在前面用例里还有其它在期订阅，
+  那是测试串扰；断言落在「这张收据对应的订阅行状态」上。
