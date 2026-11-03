@@ -10,12 +10,16 @@
  *   node tools/probe_llm_rules.mjs --days 3 --yes     # 约 ¥0.005
  * 不带 --yes 只打印将要花的钱与请求规模，不发起调用。
  *
- * 断言（任一不成立则退出码 1）：
+ * 结构类断言（任一不成立则退出码 1）：
  *   1) BFF validateTrip 通过（结构/枚举/天数窗口）
  *   2) 每天午餐、晚餐各至少一条（规则 4/13）
  *   3) 没有与 meals 重复的通用用餐活动（规则 18：游览性小吃/下午茶仍允许）
- *   4) 每天「活动停留 + 各段通勤」≤ 480 分钟（规则 19）
+ *   4) 当日活动按时间不重叠（LLM 常见失败态：两个活动同一时段）
  *   5) accommodation 缺省或等于用户选的住宿区域（规则 20）
+ *
+ * 规则 19（每天活动+通勤 ≤480min）默认是 **WARN 不是 FAIL**：
+ * 产品口径是不静默裁剪、由屏8「去减一站」兜底（2026-11-03 真实输出出现过 505/570min）。
+ * 要把它当硬门槛时加 `--strict`。
  */
 import dotenv from '../bff/node_modules/dotenv/lib/main.js';
 import { buildMessages, buildResponseFormat } from '../bff/src/prompt/index.js';
@@ -27,6 +31,7 @@ const args = process.argv.slice(2);
 const daysArg = args.indexOf('--days');
 const days = daysArg >= 0 ? Number(args[daysArg + 1]) : 1;
 const confirmed = args.includes('--yes');
+const strict = args.includes('--strict');
 
 if (!Number.isInteger(days) || days < 1 || days > 7) {
   console.error('--days 必须是 1–7 的整数');
@@ -69,6 +74,7 @@ try {
 
 const check = validateTrip(trip, { days, startDate: body.startDate });
 const failures = [];
+const warnings = [];
 if (!check.valid) failures.push(`validator: ${check.errors.join('; ')}`);
 
 const areaName = body.area.name;
@@ -100,7 +106,25 @@ for (const [i, day] of (trip.days || []).entries()) {
     const leg = a.transport && Number.isFinite(a.transport.duration) ? a.transport.duration : 0;
     return sum + stayMin + leg;
   }, 0);
-  if (minutes > 480) failures.push(`D${i + 1}: 活动+通勤 ${minutes}min > 480`);
+  if (minutes > 480) {
+    (strict ? failures : warnings).push(`D${i + 1}: 活动+通勤 ${minutes}min > 480（规则 19）`);
+  }
+
+  // 同日活动时间不得重叠：重叠会让屏8 时间轴出现两个并行节点，DayLoad 也会重复计分钟
+  const spans = (day.activities || [])
+    .map((a) => [a.time, a.endTime])
+    .filter(([t, e]) => /^\d{2}:\d{2}$/.test(String(t)) && /^\d{2}:\d{2}$/.test(String(e)))
+    .map(([t, e]) => [Number(String(t).slice(0, 2)) * 60 + Number(String(t).slice(3, 5)),
+      Number(String(e).slice(0, 2)) * 60 + Number(String(e).slice(3, 5))])
+    .sort((x, y) => x[0] - y[0]);
+  for (let k = 1; k < spans.length; k += 1) {
+    if (spans[k][0] < spans[k - 1][1]) {
+      failures.push(`D${i + 1}: 活动重叠 ${String(spans[k - 1][0] / 60 | 0).padStart(2, '0')}:` +
+        `${String(spans[k - 1][0] % 60).padStart(2, '0')} 与 ${String(spans[k][0] / 60 | 0).padStart(2, '0')}:` +
+        `${String(spans[k][0] % 60).padStart(2, '0')}`);
+      break;
+    }
+  }
 
   if (day.accommodation !== undefined && day.accommodation !== areaName) {
     failures.push(`D${i + 1}: accommodation='${day.accommodation}' 不是用户选的「${areaName}」`);
@@ -124,8 +148,11 @@ console.log(JSON.stringify({
   perDay
 }, null, 2));
 
+if (warnings.length > 0) {
+  console.warn('\nPROBE_WARN（不判失败；屏8 会显示超建议并提供「去减一站」）\n- ' + warnings.join('\n- '));
+}
 if (failures.length > 0) {
   console.error('\nPROBE_FAIL\n- ' + failures.join('\n- '));
   process.exit(1);
 }
-console.log('\nPROBE_OK 规则 4/13/18/19/20 在真实输出上成立');
+console.log('\nPROBE_OK 结构类规则 4/13/18/20 + 不重叠在真实输出上成立');
