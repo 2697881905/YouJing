@@ -24,6 +24,7 @@
  * 要把它当硬门槛时加 `--strict`。
  */
 import dotenv from '../bff/node_modules/dotenv/lib/main.js';
+import { writeFileSync } from 'node:fs';
 import { buildMessages, buildResponseFormat } from '../bff/src/prompt/index.js';
 import { proxyLlmRequest } from '../bff/src/services/llm.js';
 import { validateTrip } from '../bff/src/prompt/trip-validator.js';
@@ -88,9 +89,16 @@ let trip;
 try {
   trip = JSON.parse(result.content);
 } catch (e) {
-  console.error('JSON 解析失败：', e.message);
-  console.error('--- 头部 ---\n' + result.content.slice(0, 400));
-  console.error('--- 尾部 ---\n' + result.content.slice(-400));
+  const rawPath = `/tmp/llm-raw-${Date.now()}.json`;
+  writeFileSync(rawPath, result.content, 'utf8');
+  console.error('JSON 解析失败：', e.message, '\n原始输出已存：', rawPath);
+  const m = /position (\d+)/.exec(e.message);
+  const pos = m === null ? -1 : Number(m[1]);
+  if (pos >= 0) {
+    console.error('--- 断点 ±120 ---\n' +
+      result.content.slice(Math.max(0, pos - 120), pos + 120));
+  }
+  console.error('--- 尾部 ---\n' + result.content.slice(-300));
   process.exit(1);
 }
 
@@ -115,7 +123,8 @@ for (const [i, day] of (trip.days || []).entries()) {
   const dupFood = foodActs.filter((a) => {
     const title = String(a.title || '').trim();
     if (genericMeal.test(title)) return true;
-    return mealNames.some((n) => title === n || title.indexOf(n) >= 0 || n.indexOf(title) >= 0);
+    // 只认「与餐次同名」；像「永兴坊」这种游览地与小票餐名含同一地名，不算重复（规则 18 允许逛吃）
+    return mealNames.some((n) => title === n);
   });
   if (dupFood.length > 0) {
     failures.push(`D${i + 1}: food 活动与餐次重复 ${dupFood.map((a) => a.title).join(' / ')}`);

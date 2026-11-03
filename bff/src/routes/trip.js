@@ -18,6 +18,23 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
  * 也不该因为 undefined 日期把提示词拼成"计划天数：1 天"再产出 garbage。
  * 返回 '' 表示通过，否则是用给客户端看的错误说明。
  */
+/**
+ * 解析模型输出：先严格 JSON.parse；失败再尝试提取第一个完整对象（尾部说明/围栏）。
+ * 仍失败返回 error，由路由决定是否发起一次修正调用。
+ */
+function parseTripContent(content) {
+  try {
+    return { trip: JSON.parse(content), error: '' };
+  } catch (err) {
+    const salvaged = parseFirstJsonObject(content);
+    if (salvaged !== null) {
+      console.log('[trip] json salvaged：模型在 JSON 之后附带了额外内容，已取第一个完整对象');
+      return { trip: salvaged, error: '' };
+    }
+    return { trip: null, error: err.message };
+  }
+}
+
 function validateGenerateRequest(body) {
   if (typeof body.destination !== 'string' || body.destination.trim().length === 0) {
     return 'destination 必须是非空字符串';
@@ -95,27 +112,42 @@ router.post('/generate', idempotencyMiddleware, async (req, res, next) => {
     const responseFormat = buildResponseFormat();
     console.log(`[trip] account=${accountId} prompt=${promptMode(body)} source=${quotaSource} ` +
       `freeTier=${freeTier} response_format=${responseFormat.type}`);
-    const llmResult = await proxyLlmRequest(messages, {
+    const callOptions = {
       maxTokens: freeTier ? 8192 : 16384,
       thinkingDisabled: true,
       responseFormat
-    });
-
-    let trip;
-    try {
-      trip = JSON.parse(llmResult.content);
-    } catch (err) {
-      // 模型偶发在 JSON 后面补说明文字（2026-11-03 真实输出：
-      // `Unexpected non-whitespace character after JSON at position 1963`）。
-      // 先尝试提取第一个完整对象；仍不行才 502。解析结果照样要过 validateTrip。
-      const salvaged = parseFirstJsonObject(llmResult.content);
-      if (salvaged === null) {
-        throw new HttpError(502, 'LLM_INVALID_JSON',
-          `模型输出不是合法 JSON: ${String(llmResult.content).slice(0, 160)}`);
-      }
-      console.log('[trip] json salvaged：模型在 JSON 之后附带了额外内容，已取第一个完整对象');
-      trip = salvaged;
+    };
+    let llmResult = await proxyLlmRequest(messages, callOptions);
+    let parsed = parseTripContent(llmResult.content);
+    if (parsed.trip === null) {
+      // 长行程实测（2026-11-03，7 天 MapKit）：模型偶发输出中途坏掉的 JSON
+      //（Expected double-quoted property name at position 3336）。原样重试多半还会坏，
+      // 这里带一条修正指令再问一次；仍只扣一次额度。
+      console.log(`[trip] json invalid，发起修正调用: ${parsed.error}`);
+      const repairMessages = messages.concat([
+        { role: 'assistant', content: String(llmResult.content).slice(0, 12000) },
+        {
+          role: 'user',
+          content: `上面的输出不是合法的 JSON 对象（解析错误：${parsed.error}）。` +
+            '请只输出修正后的完整 JSON：字符串内不要出现英文双引号或反斜杠，不要输出任何解释或代码围栏。'
+        }
+      ]);
+      const repaired = await proxyLlmRequest(repairMessages, callOptions);
+      llmResult = {
+        content: repaired.content,
+        usage: {
+          promptTokens: (llmResult.usage.promptTokens || 0) + (repaired.usage.promptTokens || 0),
+          completionTokens: (llmResult.usage.completionTokens || 0) + (repaired.usage.completionTokens || 0),
+          model: repaired.usage.model
+        }
+      };
+      parsed = parseTripContent(llmResult.content);
     }
+    if (parsed.trip === null) {
+      throw new HttpError(502, 'LLM_INVALID_JSON',
+        `模型输出不是合法 JSON（修正后仍失败）: ${String(llmResult.content).slice(0, 160)}`);
+    }
+    const trip = parsed.trip;
 
     const check = validateTrip(trip, {
       days: expectedDayCount(body),

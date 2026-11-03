@@ -316,3 +316,67 @@ test('核心参数非法：400，不扣额度、不打上游', async () => {
   ).get();
   assert.equal(gift.total, 0, '坏请求不能扣额度');
 });
+
+test('模型首次输出坏 JSON：带修正指令重问一次，成功则照常 200、只扣一次额度', async () => {
+  const bodies = [];
+  let call = 0;
+  const flaky = http.createServer((req, res) => {
+    let raw = '';
+    req.on('data', (c) => { raw += c; });
+    req.on('end', () => {
+      call += 1;
+      bodies.push(raw);
+      const content = call === 1 ? '{"days": [' : JSON.stringify(validTrip());
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        choices: [{ message: { content } }],
+        usage: { prompt_tokens: 10, completion_tokens: 20 }
+      }));
+    });
+  });
+  await new Promise((resolve) => flaky.listen(0, '127.0.0.1', resolve));
+  const oldBase = process.env.LLM_BASE_URL;
+  process.env.LLM_BASE_URL = `http://127.0.0.1:${flaky.address().port}/v1`;
+  try {
+    const r = await post(15, 'route-key-repair', payloadFor());
+    assert.equal(r.status, 200);
+    assert.equal(call, 2, '坏 JSON 应触发一次修正调用');
+    assert.equal(r.body.quota.giftRemaining, 2, '两次模型调用只扣一次额度');
+    assert.ok(bodies[1].includes('修正后的完整 JSON'), '第二次请求必须带修正指令');
+  } finally {
+    process.env.LLM_BASE_URL = oldBase;
+    flaky.close();
+  }
+});
+
+test('修正调用仍是坏 JSON：502，且不扣额度', async () => {
+  let call = 0;
+  const alwaysBad = http.createServer((req, res) => {
+    req.resume();
+    req.on('end', () => {
+      call += 1;
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        choices: [{ message: { content: '{"days": [' } }],
+        usage: { prompt_tokens: 10, completion_tokens: 20 }
+      }));
+    });
+  });
+  await new Promise((resolve) => alwaysBad.listen(0, '127.0.0.1', resolve));
+  const oldBase = process.env.LLM_BASE_URL;
+  process.env.LLM_BASE_URL = `http://127.0.0.1:${alwaysBad.address().port}/v1`;
+  try {
+    const r = await post(16, 'route-key-repair-bad', payloadFor());
+    assert.equal(r.status, 502);
+    assert.equal(r.body.error, 'LLM_INVALID_JSON');
+    assert.equal(call, 2);
+    const gift = db.prepare(
+      `SELECT COALESCE(SUM(delta),0) AS total FROM quota_ledger
+       WHERE account_id = 16 AND source = 'gift' AND state = 'committed'`
+    ).get();
+    assert.equal(gift.total, 0);
+  } finally {
+    process.env.LLM_BASE_URL = oldBase;
+    alwaysBad.close();
+  }
+});
