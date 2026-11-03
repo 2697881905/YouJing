@@ -352,6 +352,11 @@ export class LlmClient {
       try {
         raw = await t.complete(idempotencyKey);
         const trip: Trip = TripParser.parseTrip(raw, expect);
+        // 行程主键由端侧重新生成：模型给的 id 不保证唯一，而 `TripDao.saveTrip` 是
+        // 「按 id 先删后插」——两次生成撞上同一个 id 会把前一条行程连同它的天/活动整片删掉。
+        // 2026-11-03 端到端联调时模型返回固定 id `trip-test`，这个碰撞面当场就露出来了。
+        // 解析器本身不改（它对外部输入保持忠实），只在落库前的这一个漏斗收口。
+        trip.id = `trip-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         // 地址/坐标以景点库为准回填（提示词第 12 条要求模型留空，省输出 token 也免幻觉）
         const filled: number = backfillActivityPlaces(trip, spots);
         const hours: number = backfillOpeningHours(trip, spots);

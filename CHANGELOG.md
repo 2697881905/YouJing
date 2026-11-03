@@ -161,6 +161,14 @@
 
 ### Fixed
 
+- 2026-11-03（§5ci 续 103）：**两次生成撞 id 会把前一条行程整片删掉**。`TripParser` 原样接受模型给的
+  `id`，而 `TripDao.saveTrip` 是「按 id 先删后插」——桩两次返回固定 `trip-test` 时当场复现。
+  改为在落库前的唯一漏斗 `LlmClient.generateTrip` 换成本地主键 `trip-<ms>-<random6>`
+  （解析器保持对外部输入忠实，`TripParser.test` 断言不变）。
+  同轮把**端侧→BFF 第一次在真机上跑通**（本机局域网 BFF + 桩上游、零 LLM 花费）：
+  设备激活 `token=213字符`、rich 载荷到达、生成成功；修后连续两次生成拉库确认两条都在。
+  新增 hypium `generated_trip_id_is_minted_locally`。真机 hypium **203/203**、
+  十五把静态尺 + 七套离线断言全 rc=0、bff 46/46。
 - 2026-11-03（§5ci 续 97）：**地图城市不再被说成「无需预约」**。`requiresBooking=false` 对地图来源
   城市只表示**没查过**（MapKit 不返回预约字段），本地合成却当成"查过、不需要"，于是一路说
   「无需预约」。改为在 note 里写「预约信息未获取，以官方为准」，`IcsBuilder.statusLabel` 照实返回；

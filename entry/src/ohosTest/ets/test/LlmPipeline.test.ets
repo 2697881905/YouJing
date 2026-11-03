@@ -143,6 +143,15 @@ function makeParamsFor(spotIds: string[], days: number, destination: string = '�
   return p;
 }
 
+/** 固定 id 的传输：模拟模型每次都给同一个主键（联调时真撞上过） */
+class FixedIdTransport implements LlmTransport {
+  complete(idempotencyKey?: string): Promise<string> {
+    const o: Obj = JSON.parse(JSON.stringify(MockTrip.TRIP)) as Obj;
+    o['id'] = 'trip-test';
+    return Promise.resolve(JSON.stringify(o));
+  }
+}
+
 class BrokenTransport implements LlmTransport {
   calls: number = 0;
 
@@ -283,6 +292,18 @@ export default function llmPipelineTest(): void {
       const actB: Activity = bj.days[0].activities[0];
       expect(actB.note === undefined).assertTrue();
       expect(IcsBuilder.statusLabel(actB)).assertEqual('无需预约');
+    });
+
+    it('generated_trip_id_is_minted_locally', TestType.FUNCTION | Size.MEDIUMTEST | Level.LEVEL1, async () => {
+      const spots: Spot[] = makeLongSpots(1);
+      const params: PlanParams = makeParamsFor(['t-l1'], 1);
+      const a: Trip = await LlmClient.generateTrip(params, spots, makeArea(), new FixedIdTransport());
+      const b: Trip = await LlmClient.generateTrip(params, spots, makeArea(), new FixedIdTransport());
+      // 模型两次都返回 'trip-test'。解析器对它保持忠实（TripParser.test 里另有断言），
+      // 但**落库前的漏斗**必须换成本地唯一主键：`TripDao.saveTrip` 是按 id 先删后插，
+      // 撞 id 会把前一条行程连同天/活动整片删掉。
+      expect(a.id === 'trip-test').assertFalse();
+      expect(a.id === b.id).assertFalse();
     });
 
     it('offline_lays_selected_paces_across_day_segments', TestType.FUNCTION | Size.MEDIUMTEST | Level.LEVEL1, async () => {

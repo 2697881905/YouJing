@@ -5912,3 +5912,28 @@ BFF 能不能上线，此前只散落在分析文档的缺陷表里，没有可�
 - 自检覆盖不到、须人工确认的三件：TLS 终止、按 IP/账号限流、日志脱敏
   （请求体里有行程参数，原样落盘等于把用户行程写进日志）。
 - 闸门：`bff: npm test` 46/46 不受影响；端侧无改动。
+
+#### 续 103（2026-11-03）端侧→BFF 第一次真机跑通，并当场抓到一个会删数据的缺陷
+
+到这一轮为止，「端侧→BFF」这一段**一次都没在真机上跑过**（BFF 未部署）。这轮用本机把这条缝补上：
+Mac 的局域网地址是 `192.168.2.1`、手机是 `192.168.2.3`，同一网段，够得着。
+
+- **做法**：把 `bff/` 拷到 `/tmp/bff-live`（不碰开发库），旁边起一个桩上游（返回夹具 Trip，
+  按请求里出现的日期回填当天，**零 LLM 花费**）；临时把本机 skip-worktree 的
+  `ApiConfig` 指到 `http://192.168.2.1:3001` 且 `DEV_SKIP_BFF:false`，重编装机跑一句话生成。
+- **跑通了什么（日志逐条）**：`DeviceActivator: 设备激活成功 token=213字符`（真实跨设备 HTTP + JWT）；
+  BFF `[trip] account=1 prompt=rich response_format=json_object`（rich 请求体按契约到达）；
+  桩 `[stub] hit day=2026-11-03`（日期真的从用户消息传过来）；端侧 `生成成功 attempt=1 days=1`
+  ⇒ **激活 / 票据 / rich 载荷 / Schema 校验 / 额度扣减 全链路成立**，此前只有本机 curl 和单测证据。
+- **当场抓到的真缺陷（会删数据）**：模型返回的 `id` 被 `TripParser` 原样接受，而
+  `TripDao.saveTrip` 是**按 id 先删后插**。桩两次都返回夹具的固定 id `trip-test` ——
+  也就是说**第二次生成会把第一次那条行程连同它的天/活动整片删掉**，用户看到的是
+  "新行程把旧的顶掉了"，且没有任何提示。真模型同样可能复用 id（`trip-001`、日期式 id 等）。
+- **修法**：解析器对输入保持忠实（`TripParser.test` 仍断言 `trip-mock-kyoto`），
+  只在**落库前的唯一漏斗** `LlmClient.generateTrip` 里换成本地主键
+  `trip-${Date.now()}-${random6}`。活动 id 只在行程内唯一，保持模型给的不动。
+- **真机复验**：修前两次都落 `trip-test`；修后连续两次生成落
+  `trip-1793706219020-1d5lwm` 与 `trip-1793706261201-lzbt5s`，**拉库确认两条都在**（trip 总数 28）。
+  新增 hypium `generated_trip_id_is_minted_locally`（固定 id 传输连生两次 ⇒ 两个 id 不同）。
+- 收尾：`ApiConfig` 还原（skip-worktree 未破）、按源码重编重装、本机 BFF/桩进程已停、`/tmp/bff-live` 已删。
+- 闸门：真机 hypium **203/203**、十五把静态尺 + 七套离线断言全 rc=0、bff 46/46。
