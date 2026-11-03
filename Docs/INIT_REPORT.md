@@ -6725,3 +6725,18 @@ D10 之后华为账号激活会把自己的 `device_id` 写成这台设备，而
 - 键名收在 `EntitlementStore.TICK_KEY`，避免页面/数据层各写一份字符串。
 - 回归：`EntitlementMerge` 新增一例（`update` 后 tick > 0），真机 hypium **231→232/232**。
 - **未验**：真机购买后返回的即时刷新（要真实购买凭证）；本轮验的是广播通路本身。
+
+#### 续 150（2026-11-03）已订阅用户不能再重复买订阅（防重复扣款）
+
+付费页此前对所有人展示「订阅会员 ¥19.9/月」「¥98/年」两个购买键——已订阅的人
+再点一次就是**重复扣款**（BFF 会按新收据再落一行订阅）。
+
+- `MembershipCopy` 抽出 `subscriptionActive(status, periodEnd, todayIso)`：
+  `status=active` 且 `periodEnd`（按天）不早于今天才算在期；`membershipStatus` 复用它。
+- `PricingPage` 在 `aboutToAppear` 计算订阅态：在期时**隐藏两个订阅购买键**，
+  改显示「已是订阅会员 · 有效期至 YYYY-MM-DD」；`purchaseSubscription` 入口再拦一次
+  （缓存/UI 不同步时也不会扣款）。到期后自动恢复可买。通行证与恢复购买不受影响。
+- 回归：`MembershipCopy.test` 新增在期/过期/非 active 三判，真机 hypium **232→233/233**；
+  非会员态真机 dump 确认两个订阅键仍正常展示（无回归）。
+- **未验**：订阅在期态的真机画面（要真实购买凭证）；月付→年付的「升级」路径未做，
+  在期时统一隐藏（避免误扣），升级属后续产品设计。

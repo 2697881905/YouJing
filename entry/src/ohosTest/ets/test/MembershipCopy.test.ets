@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, TestType, Size, Level } from '@ohos/hypium';
-import { membershipStatus, MembershipStatus } from '../../../main/ets/utils/MembershipCopy';
+import { membershipStatus, subscriptionActive, MembershipStatus } from '../../../main/ets/utils/MembershipCopy';
 
 export default function membershipCopyTest(): void {
   describe('MembershipCopy', () => {
@@ -28,6 +28,13 @@ export default function membershipCopyTest(): void {
       expect(s.active).assertTrue();
       expect(s.title).assertEqual('已解锁 2 条行程');
     });
+
+    it('subscription_active_requires_future_end_and_active_status',
+      TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+        expect(subscriptionActive('active', '2026-12-03 12:00:00', '2026-11-03')).assertTrue();
+        expect(subscriptionActive('active', '2026-11-01 12:00:00', '2026-11-03')).assertFalse();
+        expect(subscriptionActive('expired', '2026-12-03 12:00:00', '2026-11-03')).assertFalse();
+      });
 
     it('expired_subscription_with_pass_falls_back_to_pass', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
       const s: MembershipStatus = membershipStatus(true, '2026-10-01 00:00:00', 1, '2026-11-03');

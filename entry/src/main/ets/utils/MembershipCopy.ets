@@ -12,11 +12,17 @@ export interface MembershipStatus {
   active: boolean;
 }
 
+/** 订阅是否在有效期内：status=active 且 periodEnd（按天）不早于今天 */
+export function subscriptionActive(status: string, periodEnd: string, todayIso: string): boolean {
+  const endDate: string = periodEnd.length >= 10 ? periodEnd.slice(0, 10) : '';
+  return status === 'active' && endDate.length === 10 && endDate >= todayIso;
+}
+
 export function membershipStatus(hasSubscription: boolean, periodEnd: string,
   passCount: number, todayIso: string): MembershipStatus {
   const endDate: string = periodEnd.length >= 10 ? periodEnd.slice(0, 10) : '';
-  const subscriptionActive: boolean = hasSubscription && endDate.length === 10 && endDate >= todayIso;
-  if (subscriptionActive) {
+  const active: boolean = hasSubscription && endDate.length === 10 && endDate >= todayIso;
+  if (active) {
     const status: MembershipStatus = {
       title: '订阅会员',
       detail: `有效期至 ${endDate}`,

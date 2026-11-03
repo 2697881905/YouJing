@@ -171,6 +171,10 @@
 
 ### Fixed
 
+- 2026-11-03（§5ci 续 150）：**已订阅用户不能再重复买订阅**。付费页此前始终展示两个
+  订阅购买键，已订阅者再点即重复扣款。现在在期时隐藏订阅键、显示「已是订阅会员 · 有效期至 …」，
+  购买入口二次拦截；到期自动恢复可买。`subscriptionActive` 纯判定 3 例，真机 233/233。
+
 - 2026-11-03（§5ci 续 149）：**会员卡随权益变更即时刷新**。付费页 pop 回来不触发
   `aboutToAppear`/dock 广播，买到的会员要切页签才显示。`EntitlementStore.update/clear`
   现在广播 `entitlementTick`，MinePage 用 `@StorageProp + @Watch` 只重算会员卡。

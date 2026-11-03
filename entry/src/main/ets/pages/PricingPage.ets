@@ -19,6 +19,8 @@ import { Logger } from '../common/logger/Logger';
 import { IapStore, PRODUCT_ID_SUB_MONTHLY, PRODUCT_ID_SUB_YEARLY, IapResult } from '../data/IapStore';
 import { EntitlementStore } from '../data/EntitlementStore';
 import { pricingHeadline, pricingSubtitle } from '../utils/PricingCopy';
+import { subscriptionActive } from '../utils/MembershipCopy';
+import { DateUtils } from '../utils/DateUtils';
 import { common } from '@kit.AbilityKit';
 
 @Component
@@ -27,6 +29,9 @@ export struct PricingPage {
   @State private toastMsg: string = '';
   @State private headline: string = '解锁完整行程';
   @State private subtitle: string = '生成免费，导出与无限重排需解锁';
+  /** 已订阅时隐藏两个订阅购买键，避免重复扣款；到期后自动恢复可买 */
+  @State private isMember: boolean = false;
+  @State private memberEnd: string = '';
   private pathStack: NavPathStack = APP_NAV;
   @Prop tripId: string = '';
 
@@ -36,6 +41,10 @@ export struct PricingPage {
     const hasSub: boolean = ent.subscription !== null && ent.subscription.status === 'active';
     this.headline = pricingHeadline(hasSub, ent.usedToday, ent.dailyCap);
     this.subtitle = pricingSubtitle(hasSub, ent.usedToday, ent.dailyCap);
+    const periodEnd: string = ent.subscription === null ? '' : ent.subscription.periodEnd;
+    const status: string = ent.subscription === null ? '' : ent.subscription.status;
+    this.isMember = subscriptionActive(status, periodEnd, DateUtils.todayIso());
+    this.memberEnd = periodEnd.length >= 10 ? periodEnd.slice(0, 10) : '';
   }
 
   private ctx(): common.UIAbilityContext {
@@ -73,6 +82,11 @@ export struct PricingPage {
 
   private async purchaseSubscription(productId: string): Promise<void> {
     if (this.purchasing) {
+      return;
+    }
+    // 二次拦截：UI 可能还是旧态（缓存刚变），这里再确认一次，避免重复订阅扣款
+    if (this.isMember) {
+      this.showToast('你已是订阅会员，到期前无需重复购买');
       return;
     }
     this.purchasing = true;
@@ -148,22 +162,32 @@ export struct PricingPage {
               this.purchasePass();
             }
           })
-          YoujingButton({
-            variant: YoujingButtonVariant.SECONDARY,
-            label: '订阅会员 ¥19.9/月',
-            fullWidth: true,
-            onAction: (): void => {
-              this.purchaseSubscription(PRODUCT_ID_SUB_MONTHLY);
-            }
-          })
-          YoujingButton({
-            variant: YoujingButtonVariant.SECONDARY,
-            label: '订阅会员 ¥98/年',
-            fullWidth: true,
-            onAction: (): void => {
-              this.purchaseSubscription(PRODUCT_ID_SUB_YEARLY);
-            }
-          })
+          if (this.isMember) {
+            Text(`已是订阅会员 · 有效期至 ${this.memberEnd}`)
+              .fontSize(TypeTokens.small.size)
+              .fontWeight(600)
+              .fontColor(ColorTokens.primary)
+              .width('100%')
+              .textAlign(TextAlign.Center)
+              .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
+          } else {
+            YoujingButton({
+              variant: YoujingButtonVariant.SECONDARY,
+              label: '订阅会员 ¥19.9/月',
+              fullWidth: true,
+              onAction: (): void => {
+                this.purchaseSubscription(PRODUCT_ID_SUB_MONTHLY);
+              }
+            })
+            YoujingButton({
+              variant: YoujingButtonVariant.SECONDARY,
+              label: '订阅会员 ¥98/年',
+              fullWidth: true,
+              onAction: (): void => {
+                this.purchaseSubscription(PRODUCT_ID_SUB_YEARLY);
+              }
+            })
+          }
           YoujingButton({
             variant: YoujingButtonVariant.TEXT,
             label: '恢复购买',
