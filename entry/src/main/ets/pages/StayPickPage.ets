@@ -361,7 +361,8 @@ export struct StayPickPage {
     .width('100%')
     .padding(SpaceTokens.lg)
     .borderRadius(RadiusTokens.card)
-    .backgroundColor(ColorTokens.canvas)
+    // 契约 card.backgroundColor = surface-elevated；填 canvas 时深色档卡片无边界（TripsPage 同批实拍）
+    .backgroundColor(ColorTokens.surfaceElevated)
     .shadow(ShadowTokens.cardAmbient)
     .border({
       width: this.selectedId === pick.area.id ? 1 : 0,

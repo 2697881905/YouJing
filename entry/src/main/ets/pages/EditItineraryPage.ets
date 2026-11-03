@@ -326,7 +326,8 @@ export struct EditItineraryPage {
     }
     .padding(SpaceTokens.md)
     .borderRadius(RadiusTokens.card)
-    .backgroundColor(ColorTokens.canvas)
+    // 拖动抬起的预览行：填 canvas 时深色档与底同色，抬起来看不出区别（同 TripsPage/StayPickPage 那批）
+    .backgroundColor(ColorTokens.surfaceElevated)
     .shadow(ShadowTokens.floating)
   }
 

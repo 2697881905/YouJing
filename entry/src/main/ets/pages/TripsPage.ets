@@ -325,7 +325,11 @@ export struct TripsPage {
     .width('100%')
     .padding(SpaceTokens.md)
     .borderRadius(RadiusTokens.card)
-    .backgroundColor(ColorTokens.canvas)
+    // 契约 components.card.backgroundColor = {colors.surface-elevated}。
+    // 原来填 canvas：浅色档靠 cardAmbient 投影还分得开卡与底，深色档投影实测不可见
+    // （2026-11-03 实拍：全屏 1767/1950 行读数都是 canvas 的 L=18，卡面档 L=30 零命中）
+    // ⇒ 卡片在深色下完全没有边界。改回契约档。
+    .backgroundColor(ColorTokens.surfaceElevated)
     .shadow(ShadowTokens.cardAmbient)
     }
     .buttonStyle(ButtonStyleMode.TEXTUAL)
