@@ -99,7 +99,7 @@ export struct GeneratingPage {
       };
       // 端侧规则引擎合成（免费档）不依赖 BFF 权益，不该被额度拦；只有真要打 BFF 才问额度。
       // 判据与 ai/LlmClient 的传输选择同源于 utils/GenerationChannel。
-      if (GenerationChannel.needsEntitlement() && !EntitlementStore.canGenerate()) {
+      if (GenerationChannel.needsEntitlement() && !EntitlementStore.canGenerate(this.localTripId)) {
         throw new AppError(ErrorCode.CLOUD_QUOTA_EXHAUSTED, '生成额度已用完');
       }
       const trip: Trip = await LlmClient.generateTrip(params, spots, area, undefined, context, this.localTripId);

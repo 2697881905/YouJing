@@ -69,7 +69,7 @@ tools/                十六把静态尺 + 离线断言脚本
 | 闸门 | 命令 | 当前状态 |
 |---|---|---|
 | ArkTS 编译 | `hvigorw … assembleHap`（主 + `entry@ohosTest`） | 零 error，pre-commit 强制 |
-| 真机单测 | `hdc shell "aa test -b com.youjing.app -m entry_test -s unittest OpenHarmonyTestRunner -s timeout 300000"` | 218/218 |
+| 真机单测 | `hdc shell "aa test -b com.youjing.app -m entry_test -s unittest OpenHarmonyTestRunner -s timeout 300000"` | 222/222 |
 | 纯逻辑离线断言 | `bash tools/verify_map_city.sh` / `verify_trip_intent.sh` / `verify_trip_review.sh` / `verify_replan_logic.sh` / `verify_weather_logic.sh` | 66 / 104 / 57 / 74+26 / 116 全绿 |
 | 商业化链路真实进程验收（**集成探针**，不占「十六把静态尺」计数） | `bash tools/probe_bff_commercial.sh` | import `bff/src/index.js` 起**真进程** + 真 HTTP 走「激活→扣额度→付费墙→付费→高级额度」；跑在 `mktemp -d` 副本里（**不污染开发库**）；上游 LLM 与收据校验都用本机桩，**真模型/真供应商花费 0**。2026-11-03 复跑：必守行为 **23/23**、支付守卫缺陷 **1 条**（只剩 D5「换设备白拿赠送」，属产品口径；D1/D2/D3/D4 已被 fail-closed 校验关闭，D6/D7/D8/D9 已修）。**故意不进 `verify_*.sh` 通配**——它要起进程，且当前必然 rc=1（D5 未拍板），红是正确信号而不是闸门失可用 |
 | BFF 上线自检（**部署闸门**，不占静态尺计数） | `cd bff && npm run preflight` | 九项检查（JWT 密钥、API Key、IAP 远端校验结构 + 校验服务配置、verify 要票据 / notify 验签、`IAP_NOTIFY_PUBLIC_KEY`、**设备激活是否验 idToken（D10 账号冒用）**、DB 路径、Prompt 生成物）。**当前 通过7/警告0/阻断3**，退出码 1 是真话；前两条只剩填凭证，第三条要改设备激活的身份校验。已做过反证（喂示例密钥/空 Key 都会红） |

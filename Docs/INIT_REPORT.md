@@ -6406,3 +6406,22 @@ unionId 不在任何 API 响应里返回，利用前提是泄露——但"凭自
   通行证与无权益），真机 hypium **214→218/218**；双 HAP 全新构建安装。
 - **未验**：真机「订阅后等 6 分钟再导出」这一幕（要真实订阅凭证造缓存）；
   本轮验的是判定语义本身。
+
+#### 续 128（2026-11-03）生成门禁认通行证：订阅满额不再把付费用户挡在本地
+
+`EntitlementStore.canGenerate()` 旧实现：
+```
+if (hasSubscription()) return usedToday < dailyCap;  // ← 直接返回，后面不再看 pass
+```
+订阅用户用满每月 20 次后，**即使手里有该行程的通行证**也会被端上先拦下，
+服务端 `determineQuotaSource`（订阅 → pass → gift）根本没机会按 pass 放行。
+通行证按方案是「该行程无限生成」的付费权益；这是端上判据比服务端更严造成的误伤。
+
+- 判据收成纯函数 `generateAllowed(hasSubscription, usedToday, dailyCap, hasPass, hasGift)`：
+  订阅未满 ⇒ 放行；订阅满额但有该行程通行证 ⇒ 放行；否则看赠送。订阅满额且无 pass 仍拒绝。
+- `canGenerate(tripId?)` 改为接 tripId 并转发；`GeneratingPage` 传 `this.localTripId`
+  （新生成没有 pass，行为不变）。
+- 顺带删掉 `if (isGuest()) return hasGiftQuota(); return hasGiftQuota();` 这条两个分支同体的死判断。
+- 回归：`EntitlementGate.test.ets` 4 例（订阅未满 / **订阅满额+pass** / 订阅满额无 pass / 赠送），
+  真机 hypium **218→222/222**；双 HAP 全新构建安装。
+- **未验**：真机上「订阅满额后用 pass 继续生成」的完整链路（要真实订阅+通行证凭证）。

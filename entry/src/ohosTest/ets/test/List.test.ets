@@ -30,6 +30,7 @@ import generationChannelTest from './GenerationChannel.test';
 import entitlementMergeTest from './EntitlementMerge.test';
 import pricingCopyTest from './PricingCopy.test';
 import entitlementExportTest from './EntitlementExport.test';
+import entitlementGateTest from './EntitlementGate.test';
 
 export default function testsuite() {
   tripParserTest();
@@ -64,4 +65,5 @@ export default function testsuite() {
   entitlementMergeTest();
   pricingCopyTest();
   entitlementExportTest();
+  entitlementGateTest();
 }

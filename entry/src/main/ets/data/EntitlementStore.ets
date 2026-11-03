@@ -95,6 +95,20 @@ export function exportAllowed(devBypass: boolean, isGuest: boolean,
   return hasSubscription || hasPass;
 }
 
+/** 生成放行的纯判定：订阅未满额 / 该行程有通行证 / 还有赠送额度。 */
+export function generateAllowed(hasSubscription: boolean, usedToday: number, dailyCap: number,
+  hasPass: boolean, hasGift: boolean): boolean {
+  if (hasSubscription && dailyCap > 0 && usedToday < dailyCap) {
+    return true;
+  }
+  // 订阅满额后仍可能持有该行程的通行证（服务端 determineQuotaSource 会选 pass）。
+  // 旧实现订阅分支直接 return false，端上先拦下、服务端根本没机会按 pass 放行。
+  if (hasPass) {
+    return true;
+  }
+  return hasGift;
+}
+
 export class EntitlementStore {
   private static cached: Entitlement = emptyEntitlement();
   private static cachedAt: number = 0;
@@ -153,7 +167,7 @@ export class EntitlementStore {
     return EntitlementStore.cached.giftRemaining > 0;
   }
 
-  static canGenerate(): boolean {
+  static canGenerate(tripId?: string): boolean {
     if (EntitlementStore.devBypass()) {
       return true;
     }
@@ -164,13 +178,10 @@ export class EntitlementStore {
       // 连续 4 次生成全落付费页、BFF 一次都没被调用，就是这个组合造成的。
       return DeviceTokenStore.hasToken();
     }
-    if (EntitlementStore.hasSubscription()) {
-      return EntitlementStore.cached.usedToday < EntitlementStore.cached.dailyCap;
-    }
-    if (AccountStore.isGuest()) {
-      return EntitlementStore.hasGiftQuota();
-    }
-    return EntitlementStore.hasGiftQuota();
+    const hasPass: boolean = tripId !== undefined && tripId.length > 0 &&
+      EntitlementStore.hasPass(tripId);
+    return generateAllowed(EntitlementStore.hasSubscription(), EntitlementStore.cached.usedToday,
+      EntitlementStore.cached.dailyCap, hasPass, EntitlementStore.hasGiftQuota());
   }
 
   static async update(entitlement: Entitlement): Promise<void> {
