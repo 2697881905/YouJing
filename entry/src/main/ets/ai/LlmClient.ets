@@ -110,7 +110,14 @@ export class MockLlmTransport implements LlmTransport {
         }
         const leg: TransportInfo | undefined =
           acts.length === 0 ? undefined : MockLlmTransport.legMock(acts.length);
-        const add: number = spot.suggestedDuration + (leg !== undefined ? leg.duration : 0);
+        // 写成两条语句而不是 `leg.duration : 0` 的三元：后者的冒号会被动效尺的
+        // `duration:` 键位正则当成一个硬写的时长值（ai/ 目录在 W3 下"硬写数字照样报"），
+        // 读起来也更直白。
+        let legMinutes: number = 0;
+        if (leg !== undefined) {
+          legMinutes = leg.duration;
+        }
+        const add: number = spot.suggestedDuration + legMinutes;
         const fits: boolean = loadUsed + add <= DayLoadCalc.WINDOW_MINUTES;
         // 装不下就跳过这一站、继续看下一站，**不从尾部砍**：候选按优先级排，
         // 尾部往往是同城好站（重庆 1 天那次就是这么把洪崖洞全砍光的）。
