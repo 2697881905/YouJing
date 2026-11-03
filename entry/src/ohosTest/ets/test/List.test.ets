@@ -28,6 +28,7 @@ import tripReviewTest from './TripReview.test';
 import mapCityMapperTest from './MapCityMapper.test';
 import generationChannelTest from './GenerationChannel.test';
 import entitlementMergeTest from './EntitlementMerge.test';
+import pricingCopyTest from './PricingCopy.test';
 
 export default function testsuite() {
   tripParserTest();
@@ -60,4 +61,5 @@ export default function testsuite() {
   mapCityMapperTest();
   generationChannelTest();
   entitlementMergeTest();
+  pricingCopyTest();
 }

@@ -18,14 +18,25 @@ import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton
 import { Logger } from '../common/logger/Logger';
 import { IapStore, PRODUCT_ID_SUB_MONTHLY, PRODUCT_ID_SUB_YEARLY, IapResult } from '../data/IapStore';
 import { EntitlementStore } from '../data/EntitlementStore';
+import { pricingHeadline, pricingSubtitle } from '../utils/PricingCopy';
 import { common } from '@kit.AbilityKit';
 
 @Component
 export struct PricingPage {
   @State private purchasing: boolean = false;
   @State private toastMsg: string = '';
+  @State private headline: string = '解锁完整行程';
+  @State private subtitle: string = '生成免费，导出与无限重排需解锁';
   private pathStack: NavPathStack = APP_NAV;
   @Prop tripId: string = '';
+
+  aboutToAppear(): void {
+    // 订阅用户用满每月额度时也会被送到这页：不能再说「解锁」「生成免费」
+    const ent = EntitlementStore.get();
+    const hasSub: boolean = ent.subscription !== null && ent.subscription.status === 'active';
+    this.headline = pricingHeadline(hasSub, ent.usedToday, ent.dailyCap);
+    this.subtitle = pricingSubtitle(hasSub, ent.usedToday, ent.dailyCap);
+  }
 
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext;
@@ -86,12 +97,12 @@ export struct PricingPage {
       Column({ space: SpaceTokens.base }) {
 
         Column({ space: SpaceTokens.xxs }) {
-          Text('解锁完整行程')
+          Text(this.headline)
             .fontSize(TypeTokens.title.size)
             .fontWeight(700)
             .fontFamily(TypeTokens.title.family)
             .fontColor(ColorTokens.ink)
-          Text('生成免费，导出与无限重排需解锁')
+          Text(this.subtitle)
             .fontSize(TypeTokens.caption.size)
             .fontWeight(450)
             .fontColor(ColorTokens.muted)
