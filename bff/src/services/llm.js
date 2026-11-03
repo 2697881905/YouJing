@@ -2,6 +2,12 @@ import { HttpError } from '../lib/http-error.js';
 
 const DEFAULT_LLM_BASE_URL = 'https://api.deepseek.com/v1';
 const DEFAULT_LLM_MODEL = 'deepseek-flash';
+const DEFAULT_TIMEOUT_MS = 60000;
+
+function llmTimeoutMs() {
+  const raw = Number(process.env.LLM_TIMEOUT_MS);
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_TIMEOUT_MS;
+}
 
 function llmConfig() {
   return {
@@ -33,14 +39,26 @@ export async function proxyLlmRequest(messages, options = {}) {
 
   const body = buildLlmRequestBody(messages, options);
 
-  const resp = await fetch(`${config.baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${config.apiKey}`
-    },
-    body: JSON.stringify(body)
-  });
+  const timeoutMs = llmTimeoutMs();
+  let resp;
+  try {
+    resp = await fetch(`${config.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${config.apiKey}`
+      },
+      body: JSON.stringify(body),
+      // 上游挂起而没有超时会把幂等行卡在 pending、连接也被占住；超时后按 504 交给路由
+      // 释放额度并标记失败。
+      signal: AbortSignal.timeout(timeoutMs)
+    });
+  } catch (err) {
+    if (err && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
+      throw new HttpError(504, 'LLM_TIMEOUT', `LLM 上游超时 ${timeoutMs}ms`);
+    }
+    throw err;
+  }
 
   if (!resp.ok) {
     const text = await resp.text();

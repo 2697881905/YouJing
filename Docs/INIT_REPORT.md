@@ -6640,3 +6640,15 @@ D10 之后华为账号激活会把自己的 `device_id` 写成这台设备，而
   再在同一 deviceId 上做游客激活：必须**新建 `anon-dev-shared`**，且游客票据里的
   `accountId` 指向这个匿名账号、不等于华为账号。`bff npm test` **85→86/86**。
   （同轮给 JWKS 轮换用例补了「测完还原公钥集」，避免用例间互相误伤。）
+
+#### 续 143（2026-11-03）LLM 上游调用补超时：挂起不再卡住幂等行
+
+`proxyLlmRequest` 的 `fetch` 一直没有超时。上游挂起时：BFF 请求一直占着连接，
+`trip_request` 行停在 `pending`，同 key 重试会一直 409；额度也暂时被占。
+现在单次调用默认 **60 秒**超时（`LLM_TIMEOUT_MS` 可配），超时抛 `504 LLM_TIMEOUT`：
+路由的 catch 会 release 额度并把行标 `failed`，客户端按 5xx 报服务不可用。
+
+- 回归：`trip-route.integration.test.js` 新增一例——上游永不响应（`LLM_TIMEOUT_MS=200`），
+  断言 504 + `LLM_TIMEOUT` + `gift` 未扣 + 幂等行 `failed`。`bff npm test` **86→87/87**。
+- 说明：修正式重问是两次顺序调用，各自受 60s 约束；客户端 `READ_TIMEOUT_MS` 是 120s，
+  两次都在上限内。

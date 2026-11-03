@@ -380,3 +380,35 @@ test('修正调用仍是坏 JSON：502，且不扣额度', async () => {
     alwaysBad.close();
   }
 });
+
+test('上游一直不回：按超时失败（504）、不扣额度、幂等行标记 failed', async () => {
+  const hung = http.createServer((req, res) => {
+    req.resume();
+    // 故意不响应：模拟上游挂起
+    void res;
+  });
+  await new Promise((resolve) => hung.listen(0, '127.0.0.1', resolve));
+  const oldBase = process.env.LLM_BASE_URL;
+  const oldTimeout = process.env.LLM_TIMEOUT_MS;
+  process.env.LLM_BASE_URL = `http://127.0.0.1:${hung.address().port}/v1`;
+  process.env.LLM_TIMEOUT_MS = '200';
+  try {
+    const r = await post(17, 'route-key-timeout', payloadFor());
+    assert.equal(r.status, 504);
+    assert.equal(r.body.error, 'LLM_TIMEOUT');
+    const gift = db.prepare(
+      `SELECT COALESCE(SUM(delta),0) AS total FROM quota_ledger
+       WHERE account_id = 17 AND source = 'gift' AND state = 'committed'`
+    ).get();
+    assert.equal(gift.total, 0, '超时失败不该扣额度');
+    const row = db.prepare(
+      "SELECT status FROM trip_request WHERE account_id = 17 AND idempotency_key LIKE '%' ORDER BY id DESC LIMIT 1"
+    ).get();
+    assert.equal(row.status, 'failed');
+  } finally {
+    process.env.LLM_BASE_URL = oldBase;
+    if (oldTimeout === undefined) delete process.env.LLM_TIMEOUT_MS;
+    else process.env.LLM_TIMEOUT_MS = oldTimeout;
+    hung.close();
+  }
+});
