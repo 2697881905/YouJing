@@ -33,6 +33,7 @@ import entitlementExportTest from './EntitlementExport.test';
 import entitlementGateTest from './EntitlementGate.test';
 import bffErrorMapTest from './BffErrorMap.test';
 import membershipCopyTest from './MembershipCopy.test';
+import activityIdsTest from './ActivityIds.test';
 
 export default function testsuite() {
   tripParserTest();
@@ -70,4 +71,5 @@ export default function testsuite() {
   entitlementGateTest();
   bffErrorMapTest();
   membershipCopyTest();
+  activityIdsTest();
 }

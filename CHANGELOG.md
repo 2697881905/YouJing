@@ -179,6 +179,10 @@
 
 ### Fixed
 
+- 2026-11-03（§5ci 续 166）：**屏9 替换/补选活动改用唯一 id**。此前直接用 `spot.id`，
+  同一景点在行程里出现两次会撞 `TripDao` 的 `${tripId}:${activityId}` 主键，整次编辑
+  保存失败。新增 `mintEditActivityId`（替换不复用旧 id），真机 hypium 237/237。
+
 - 2026-11-03（§5ci 续 165）：**已退款收据再次提交回 `verified:false`**。此前重放/恢复购买
   会拿到 `verified:true`，端侧显示"购买成功"但权益为空。现在按 `order.status` 拒绝兑换，
   撤销仍由 notify 的 REFUND 事件负责。新增一例，`bff npm test` 96/96。

@@ -28,6 +28,7 @@ import { WidgetSync } from '../widget/TodayCard';
 import { PlanRepository } from '../data/PlanRepository';
 import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
 import { Logger } from '../common/logger/Logger';
+import { mintEditActivityId } from '../utils/ActivityIds';
 import { common } from '@kit.AbilityKit';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import type { HdsNavigationMenuItemOptions, HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
@@ -198,7 +199,9 @@ export struct EditItineraryPage {
     }
     const old: Activity = this.acts[idx];
     const replacement: Activity = {
-      id: spot.id, time: old.time, endTime: old.endTime, title: spot.name,
+      // 不能复用 spot.id：同景点在行程里出现两次会撞 TripDao 主键；也不复用 old.id，
+      // 否则新景点会继承旧节点的打卡记录。
+      id: mintEditActivityId('rep'), time: old.time, endTime: old.endTime, title: spot.name,
       location: `${spot.city} ${spot.district}`, address: spot.district,
       longitude: spot.longitude, latitude: spot.latitude,
       status: spot.booking.requiresBooking ? ActivityStatus.NOT_BOOKED : ActivityStatus.NO_NEED,
@@ -217,7 +220,7 @@ export struct EditItineraryPage {
     const last: Activity | undefined = acts.length > 0 ? acts[acts.length - 1] : undefined;
     const start: number = last === undefined ? 9 * 60 : EditItineraryPage.minsOf(last.endTime) + 15;
     const added: Activity = {
-      id: spot.id, time: EditItineraryPage.hhmm(start),
+      id: mintEditActivityId('add'), time: EditItineraryPage.hhmm(start),
       endTime: EditItineraryPage.hhmm(start + spot.suggestedDuration),
       title: spot.name,
       location: `${spot.city} ${spot.district}`, address: spot.district,
