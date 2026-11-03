@@ -58,11 +58,18 @@ const accountId = Number(
   db.prepare('INSERT INTO account (union_id, device_id) VALUES (?, ?)').run('u-iap', 'dev-iap').lastInsertRowid
 );
 const token = issueToken(accountId, 'dev-iap');
+const accountId2 = Number(
+  db.prepare('INSERT INTO account (union_id, device_id) VALUES (?, ?)').run('u-iap-2', 'dev-iap-2').lastInsertRowid
+);
+const token2 = issueToken(accountId2, 'dev-iap-2');
 
-async function verify(body) {
+async function verify(body, bearer) {
   const resp = await fetch(`${base}/v1/iap/verify`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${bearer || token}`
+    },
     body: JSON.stringify(body)
   });
   return { status: resp.status, body: await resp.json() };
@@ -107,4 +114,30 @@ test('通行证购买时绑上订单号：退款回调只拿收据号也能追�
     "SELECT order_id FROM trip_pass WHERE local_trip_id = 'trip-link'"
   ).get();
   assert.equal(pass.order_id, orderId, '没有这层绑定，REFUND 通知就只能记一笔孤儿日志、撤不掉通行证');
+});
+
+test('同一通行证收据换账号：第二个人被拒，且不落 pass', async () => {
+  // 旧实现先插 trip_pass 再查 order：订单不重复，但第二个人照样白拿一张 active 通行证。
+  const receipt = 'receipt-shared-pass';
+  const first = await verify({ purchaseToken: receipt, productType: 'pass', localTripId: 'trip-shared' });
+  const second = await verify(
+    { purchaseToken: receipt, productType: 'pass', localTripId: 'trip-shared' }, token2);
+
+  assert.equal(first.status, 200);
+  assert.equal(second.status, 409);
+  assert.equal(second.body.error, 'RECEIPT_ALREADY_USED');
+
+  const passes = db.prepare('SELECT COUNT(*) AS c FROM trip_pass WHERE account_id = ?').get(accountId2);
+  assert.equal(passes.c, 0, '收据不能给别人换来通行证');
+});
+
+test('同一订阅收据换账号：同样拒绝，不落订阅', async () => {
+  const receipt = 'receipt-shared-sub';
+  const first = await verify({ purchaseToken: receipt, productType: 'subscription' });
+  const second = await verify({ purchaseToken: receipt, productType: 'subscription' }, token2);
+
+  assert.equal(first.status, 200);
+  assert.equal(second.status, 409);
+  const subs = db.prepare('SELECT COUNT(*) AS c FROM subscription WHERE account_id = ?').get(accountId2);
+  assert.equal(subs.c, 0);
 });

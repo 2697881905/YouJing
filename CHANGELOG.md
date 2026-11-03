@@ -161,6 +161,11 @@
 
 ### Fixed
 
+- 2026-11-03（§5ci 续 130）：**收据绑定账号**。通行证分支先插 `trip_pass` 再查订单，
+  同一张收据换账号提交会白拿一张 active 通行证（收据泄露即可多人复用）。
+  现在 `order.purchase_token` 已属他人时返回 `409 RECEIPT_ALREADY_USED`，不落权益；
+  同账号重放仍幂等。`bff npm test` 72/72，真实进程探针 23/23 无回归。
+
 - 2026-11-03（§5ci 续 129）：**通行证购买不再可能拿空行程 id 去扣款**。
   从分享页/回顾页打开付费页时没带 `tripId`，`purchasePass` 回退 `activeTripId` 可能为空，
   会出现「IAP 扣款成功、BFF 因缺 localTripId 拒绝」。两个入口补传 tripId，

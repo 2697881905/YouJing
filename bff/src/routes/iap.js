@@ -42,6 +42,19 @@ router.post('/verify', async (req, res, next) => {
       }
     }
 
+    // 收据只能绑定一个账号：同一张收据换账号再提交必须拒绝。
+    // 改前通行证分支先插 `trip_pass` 再查 `order`，订单虽然不重复记账，
+    // 但第二个人照样白拿一张 active 通行证（收据一旦泄露就能被多人复用）。
+    const receiptOwner = db.prepare(
+      'SELECT account_id FROM `order` WHERE purchase_token = ?'
+    ).get(purchaseToken);
+    if (receiptOwner && receiptOwner.account_id !== accountId) {
+      return res.status(409).json({
+        error: 'RECEIPT_ALREADY_USED',
+        message: '该收据已绑定其他账号'
+      });
+    }
+
     if (productType === 'pass') {
       if (!localTripId) {
         return res.status(400).json({ error: 'MISSING_TRIP_ID', message: '通行证购买需提供 localTripId' });
