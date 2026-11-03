@@ -33,9 +33,13 @@ function decodeJsonPart(part) {
   return JSON.parse(Buffer.from(part, 'base64url').toString('utf8'));
 }
 
-async function loadJwks() {
+function findKey(keys, kid) {
+  return keys.find((key) => key.kid === kid && key.kty === 'RSA');
+}
+
+async function loadJwks(force = false) {
   const url = process.env.HUAWEI_JWKS_URL || DEFAULT_JWKS_URL;
-  if (jwksCache.url === url && Date.now() - jwksCache.at < JWKS_TTL_MS && jwksCache.keys.length > 0) {
+  if (!force && jwksCache.url === url && Date.now() - jwksCache.at < JWKS_TTL_MS && jwksCache.keys.length > 0) {
     return jwksCache.keys;
   }
   const resp = await fetch(url, { signal: AbortSignal.timeout(JWKS_TIMEOUT_MS) });
@@ -90,9 +94,19 @@ export async function verifyHuaweiIdToken(idToken) {
   } catch (err) {
     return { ok: false, reason: 'JWKS_UNAVAILABLE' };
   }
-  const jwk = keys.find((key) => key.kid === header.kid && key.kty === 'RSA');
+  let jwk = findKey(keys, header.kid);
   if (jwk === undefined) {
-    return { ok: false, reason: 'KID_NOT_FOUND' };
+    // 华为轮换公钥时，缓存里会短暂找不到新 kid。强制刷新一次再判，
+    // 否则所有新签发的 idToken 会在这 10 分钟缓存窗口里被 401。
+    try {
+      keys = await loadJwks(true);
+    } catch (err) {
+      return { ok: false, reason: 'JWKS_UNAVAILABLE' };
+    }
+    jwk = findKey(keys, header.kid);
+    if (jwk === undefined) {
+      return { ok: false, reason: 'KID_NOT_FOUND' };
+    }
   }
 
   let key;

@@ -21,13 +21,13 @@ process.env.HUAWEI_ISSUER = 'https://accounts.huawei.com';
 const { publicKey, privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const publicJwk = publicKey.export({ format: 'jwk' });
 const KID = 'kid-under-test';
-const jwks = { keys: [{ ...publicJwk, kid: KID, alg: 'PS256', use: 'sig' }] };
+let activeJwks = { keys: [{ ...publicJwk, kid: KID, alg: 'PS256', use: 'sig' }] };
 
 const jwksServer = http.createServer((req, res) => {
   req.resume();
   req.on('end', () => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(jwks));
+    res.end(JSON.stringify(activeJwks));
   });
 });
 await new Promise((resolve) => jwksServer.listen(0, '127.0.0.1', resolve));
@@ -48,18 +48,22 @@ after(() => { server.close(); jwksServer.close(); db.close(); });
 
 function b64url(buf) { return Buffer.from(buf).toString('base64url'); }
 
-function signJwt(payload, alg) {
-  const header = { alg, kid: KID, typ: 'JWT' };
+function signJwtWith(key, kid, payload, alg = 'PS256') {
+  const header = { alg, kid, typ: 'JWT' };
   const h = b64url(JSON.stringify(header));
   const p = b64url(JSON.stringify(payload));
   const input = Buffer.from(`${h}.${p}`);
   const signer = createSign('RSA-SHA256');
   signer.update(input);
   const sig = alg === 'PS256'
-    ? signer.sign({ key: privateKey, padding: constants.RSA_PKCS1_PSS_PADDING,
+    ? signer.sign({ key, padding: constants.RSA_PKCS1_PSS_PADDING,
       saltLength: constants.RSA_PSS_SALTLEN_DIGEST })
-    : signer.sign(privateKey);
+    : signer.sign(key);
   return `${h}.${p}.${b64url(sig)}`;
+}
+
+function signJwt(payload, alg) {
+  return signJwtWith(privateKey, KID, payload, alg);
 }
 
 function payload(overrides = {}) {
@@ -129,4 +133,20 @@ test('idToken 非字符串：400', async () => {
   const r = await activate({ deviceId: 'dev-bad-token-type', idToken: { evil: true } });
   assert.equal(r.status, 400);
   assert.equal(r.body.error, 'INVALID_ID_TOKEN');
+});
+
+test('JWKS 轮换：kid 未命中时强制刷新一次，新公钥仍能验签', async () => {
+  // 先用旧 key 打一次，确保缓存里是旧 JWKS
+  const warm = await activate({ deviceId: 'dev-rot-warm', idToken: signJwt(payload({ sub: 'u-warm' })) });
+  assert.equal(warm.status, 200);
+
+  const rotated = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const rotatedJwk = rotated.publicKey.export({ format: 'jwk' });
+  const kid2 = 'kid-rotated';
+  activeJwks = { keys: [{ ...rotatedJwk, kid: kid2, alg: 'PS256', use: 'sig' }] };
+
+  const token = signJwtWith(rotated.privateKey, kid2, payload({ sub: 'u-rotated' }));
+  const r = await activate({ deviceId: 'dev-rotated', idToken: token });
+  assert.equal(r.status, 200);
+  assert.equal(unionOf('dev-rotated'), 'u-rotated');
 });

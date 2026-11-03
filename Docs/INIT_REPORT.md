@@ -6614,3 +6614,15 @@ BFF 对三类失败都回 502：上游故障（`LLM_UPSTREAM_ERROR`）、模型�
   真机 hypium **223→226/226**；双 HAP 全新构建安装。
 - 屏7 文案随之为：内容问题「试了两次都没排通 / 连着两次拿到的排期都没能拆成可用的一天」；
   上游问题仍是「连不上行程服务」。
+
+#### 续 141（2026-11-03）JWKS 轮换兜底：kid 未命中强制刷新一次
+
+idToken 验签用的是按 kid 查找的华为公钥，JWKS 缓存 10 分钟。华为轮换签名密钥后，
+新签发的 idToken 会带着缓存里没有的 kid——旧实现直接 `KID_NOT_FOUND`，
+在这 10 分钟窗口里所有新登录都会被 401。
+
+- `huaweiIdToken.js`：首次找不到 kid 时 **强制刷新 JWKS 再找一次**；
+  仍找不到才 `KID_NOT_FOUND`，取不到 JWKS 仍是 `JWKS_UNAVAILABLE`（fail-closed 不变）。
+- 回归：`device-idtoken.test.js` 新增一例——先用旧 key 打一次让缓存就位，
+  再让 JWKS 端点切到新 key、用新 key 签 token，激活仍然 200 且账号 union_id 正确。
+  `bff npm test` **84→85/85**。
