@@ -1,27 +1,42 @@
 #!/usr/bin/env python3
-"""投影（elevation）契约核对：阴影只有三档、必须走 ShadowTokens、深色一律归零、hero 永不带影。
+r"""投影（elevation）契约核对：阴影档与 ShadowTokens 逐档对表、必须走 ShadowTokens、hero 永不带影。
 
-为什么要有这一支：DESIGN §1046 把深度装置排成严格优先级
-「表面色阶 → 留白 → 阴影」，阴影是最后手段、且只有三档具面值；
-§9 决议 4「hero 永不带影，elevation 只给卡片与浮层」、决议 8「深色侧零阴影，
-层次靠亮度阶梯 #121212→#1E1E1E→#232326→#28282C」。
+T2′（契约 v2）改尺记录：契约 elevation 从三档（contact/card/floating）升六档
+（none/cardContact/cardAmbient/floating/pillFloat/segmented/popover）。本尺的档名映射同步为
+cardContact(1,0,3) / cardAmbient(10,3,7) / floating(16,6,9) / pillFloat(8,3,15)，
+兼容期正则仍收旧名 contact/card（4 个页面调用点在用，别名删除随 T4）。
+**深色判据本轮保持原状（仍要求门控词）**，反转到 T4，见下方 [深色未归零] 处的 TODO(T4)
+与 ledger R32 —— 契约散文那句「pending the T4 migration」就是这条偏差的留痕。
+
+selftest 共 14 条断言 = 阳性 7 类 + 阴性 6 类 + 1 条文档数字锁（三个数自锁）。
+阳性样本钉死「改 blur 必报 / 删档与缺 `Npx y` 退化必报 [契约漂移] 或失明 / pillFloat 新映射面必报」，
+阴性样本钉死「当前真实代码 + 新契约 0 偏差、解析恰等于 CONTRACT 四档、字面跑 6 处挂载不误红」。
+
+为什么要有这一支：DESIGN §Elevation 把深度装置排成严格优先级
+「表面色阶 → 留白 → 阴影」，阴影是最后手段、且只有具面值的档；
+决议 4「hero 永不带影，elevation 只给卡片与浮层」。
+决议 8「深色侧零阴影」在契约 v2 已被 §Elevation 那句「Shadow is black-with-alpha,
+which is theme-neutral」反转，但**判据反转与门控删除属 T4 原子批**，本轮尺仍按 v1 口径要求门控。
 这几条全是"多写一处不明显、攒起来就毁掉层级"的规则，且纯静态可判——
 色/字/几何/对比度/材质/字族/tnum 之后，这是最后一条还能机判的风格轴。
 
-用法：python3 tools/audit_elevation.py
-退出码 0 = 三档值与契约一致、所有阴影走 token 且深色归零、hero 无影；
-        1 = 有偏差；
-        2 = 用法错（未知参数）或 `--selftest`——**自检本轮未实现**，给了这个参数就报错退出，
-            绝不静默跑正常扫描退 0（批次一全批评审 Important-1 附项）。
-            自检本体随批次二 T2 与「深色不归零」反转判据同批落地。
+用法：python3 tools/audit_elevation.py [--selftest]
+退出码 0 = 各档值与契约一致、所有阴影走 token 且深色带门控、hero 无影（selftest 为 14 条断言全成立）；
+        1 = 有偏差 / selftest 失效；
+        2 = 用法错（未知参数）。
 
 口径：
-- 契约值用 §1048-1050 的三行（blur / y / 黑不透明度），token 侧的 color 是 #AARRGGBB，
-  alpha 换算成百分比比对（0x08=3.1%≈3%、0x12=7.1%≈7%、0x17=9.0%≈9%）；
-- 「contact 从不单独出现、与 card 成对」这条在 ArkUI 里换了一种实现：
-  一个节点只有一层阴影，所以 contact 那条" crisp edge"由 hairline 描边承担，
-  不额外建节点——见 TOKEN_NOTE，属实现口径不是漏做；
-- 深色归零的判据是链上出现 isDark / ColorMode / glassOn 三元，或直接不调用 .shadow()。
+- 契约值用 §Elevation bullet 行（blur / y / 黑不透明度），**本尺不解析 YAML `elevation:` 段**——
+  R27③ 实测：YAML 键带点号而 token 侧正则只认 `\w+`；且旧散文正则不强制括号里的 `Npx y` 时，
+  改名后 `` `contact` `` 会去匹配 `` `cardAmbient` (10px blur… `` 行、两档互相覆盖静默出错档。
+  ⇒ 现在档名组显式列出六名（含兼容期旧名），且 blur/y/% 三件缺一即不解析、由 [缺档]/失明分支兜住；
+- token 侧的 color 是 #AARRGGBB，alpha 换算成百分比比对（0x08=3.1%≈3%、0x12=7.1%≈7%、
+  0x18=9.4%≈9%、0x26=14.9%≈15%），容差 ±1 个百分点（hex alpha 粒度 ~0.4%）；
+- 「cardContact 从不单独出现」这条 v2 口径（契约散文：layered under `cardContact` by two nested
+  containers）：一个节点只有一层阴影，ambient 与 contact 由两个嵌套容器分层——见 TOKEN_NOTE，
+  属实现口径不是漏做；
+- 深色归零的**当前**判据仍是链上出现 isDark / ColorMode / glassOn 三元，或直接不调用 .shadow()
+  （v1 口径，反转随 T4）。
 """
 
 import glob
@@ -32,27 +47,47 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DESIGN = os.path.expanduser('~/Pictures/有径/有径-设计底稿-v1/docs/DESIGN.md')
 
-# 契约 §1048-1050：档名 → (blur, offsetY, 黑不透明度%)
+# 契约 §Elevation：档名 → (blur, offsetY, 黑不透明度%)。
+# 这份 dict 是 selftest 阴性的数字源——与顶部 docstring 的三件数字互锁，漂移即 FAIL。
 CONTRACT = {
-    'contact': (1, 0, 3),
-    'card': (10, 3, 7),
+    'cardContact': (1, 0, 3),
+    'cardAmbient': (10, 3, 7),
     'floating': (16, 6, 9),
+    'pillFloat': (8, 3, 15),
 }
-# 契约允许的两档"环境影"（无偏移）：分段栏与弹层，见 §1050 末行
+# 兼容期旧档名（4 个页面调用点在用）：散文正则收进来后归一到新名；T4 随别名一起删。
+LEGACY_MAP = {'contact': 'cardContact', 'card': 'cardAmbient'}
+# 契约允许的两档"环境影"（无偏移）：分段栏与弹层，见 §Elevation 末行
 AMBIENT = {'segmented': 8, 'popover': 8}
 # 具名 token 之外允许出现的零值形态
 ZERO_OK = re.compile(r'\{\s*radius:\s*0[^}]*\}')
-# 深色/材质归零的门控写法
+# 深色/材质归零的门控写法（v1 口径）
+# TODO(T4): 深色判据在此处**保持要求门控**——现存 4 个页面（TripsPage:327/StayPickPage:363/
+#   MapPage:416/EditItineraryPage:328）仍是 `.shadow(this.isDark ? {radius:0} : …)`，
+#   现在反转 = 立刻点红那 4 行且文件属另一会话。反转、门控删除、contact/card 别名删除、
+#   BaseCard 同属 T4 一个原子批（ledger R32）。
 GATE = re.compile(r'isDark|ColorMode|glassOn|colorMode')
 
 TOKEN_NOTE = {
-    'contact': '契约要求 contact 与 card 成对；ArkUI 一个节点只画一层阴影，'
-               '所以这条"卡片下沿实边"由 hairline 描边（LayoutTokens.hairlineWidth + border_subtle）承担，'
-               '不额外建第二层节点——实测 5 处 .shadow( 全部同时带 hairline 或材质描边',
+    'contact': '契约要求 cardContact 从不单独出现（与 cardAmbient 由两个嵌套容器分层）；'
+               'ArkUI 一个节点只画一层阴影，所以这条"卡片下沿实边"由 hairline 描边'
+               '（LayoutTokens.hairlineWidth + border_subtle）承担，不额外建第二层节点——'
+               '实测 4 处 .shadow( 全部同时带 hairline 或材质描边',
     'segmented': '分段栏的投影由 HDS 材质给（immersiveMaterial.getSegmentImmersiveMaterial 的 '
                  'applyShadow:true），自绘档只在材质不可用时才该被引用；当前无消费方',
     'popover': '弹层走官方 bindMenu/MenuOptions.systemMaterial，自绘档同样无消费方',
 }
+
+# §Elevation 的六档散文 bullet（与契约逐字同文）。真实扫描直接读 DESIGN；
+# selftest 以这四行为基线做单变量变异，跑 run-on-sample 而不是拿字面量比 contract_from_design()。
+BULLETS = [
+    '- `cardContact` (1px blur, 0px y, 3% black): the crisp edge under a card; never alone.',
+    '- `cardAmbient` (10px blur, 3px y, 7% black): itinerary cards, summary card, sheets — '
+    'layered under `cardContact` by two nested containers, since ArkUI renders one shadow '
+    'layer per node.',
+    '- `floating` (16px blur, 6px y, 9% black): sheets, popovers, the dock.',
+    '- `pillFloat` (8px blur, 3px y, 15% black): floating pills and drag-elevated rows.',
+]
 
 
 def sources():
@@ -60,18 +95,39 @@ def sources():
                   glob.glob(os.path.join(ROOT, 'entry/src/main/ets/components/*.ets')))
 
 
-def contract_from_design():
-    """抓 §1055-1057 三行：`card` (10px blur, 3px y, 7% black)"""
+def elevation_section_text():
     txt = open(DESIGN, encoding='utf-8').read()
+    start = txt.find('# Elevation & Depth')
+    if start < 0:
+        return ''
+    body = txt[start:]
+    nxt = body.find('\n# ')
+    return body if nxt < 0 else body[:nxt]
+
+
+def parse_bullets(section_text):
+    """抓 §Elevation bullet：`档名` (Npx blur, Npx y, N% black)。
+
+    R27③：`Npx y` **强制必填**。改名后若不强制，旧式 `` `contact` (1px blur, 3% black) ``
+    （无 y 件）会静默解析成 cardContact=(1,0,0)，或让档名组吃掉别的档的行——
+    缺件时该条**不进** out，由主扫描的 [缺档]/[契约解析] 分支兜住并报红，绝不静默绿。
+    """
     out = {}
-    for m in re.finditer(r'`(contact|card|floating)` \(([^)]*)\)', txt):
-        name, body = m.group(1), m.group(2)
+    for m in re.finditer(
+            r'`(cardContact|cardAmbient|contact|card|floating|pillFloat)` \(([^)]*)\)',
+            section_text):
+        name = LEGACY_MAP.get(m.group(1), m.group(1))
+        body = m.group(2)
         blur = re.search(r'(\d+)px blur', body)
         off = re.search(r'(\d+)px y', body)
         pct = re.search(r'(\d+)% black', body)
-        if blur and pct:
-            out[name] = (int(blur.group(1)), int(off.group(1)) if off else 0, int(pct.group(1)))
+        if blur and off and pct:
+            out[name] = (int(blur.group(1)), int(off.group(1)), int(pct.group(1)))
     return out
+
+
+def contract_from_design():
+    return parse_bullets(elevation_section_text())
 
 
 def tokens():
@@ -87,50 +143,49 @@ def tokens():
 
 
 def usage():
-    print('用法：python3 tools/audit_elevation.py'
-          '（本轮无可选参数；--selftest 的自检随批次二 T2 落地）')
+    print('用法：python3 tools/audit_elevation.py [--selftest]'
+          '（--selftest 自 T2′ 起真跑 14 条断言，不再是退 2 占位）')
 
 
-def main():
-    argv = sys.argv[1:]
-    # 批次一全批评审 Important-1 附项：这把尺以前**一个参数都不解析**，
-    # `--selftest` 会被无视、照常跑正常扫描退 0——于是"elevation --selftest 通过"这句
-    # 写在收尾清单里就是没发生过的事（本项目最恨的假绿）。现在：
-    #   · 给了 --selftest 就以清晰文案退 2，**绝不退 0**；本轮**不实现**自检本体——
-    #     T2 会连同「深色不归零」的反转判据一起做（计划文档 :274 那条期望 [selftest] pass），
-    #     现在写死阳性样本，只会和仍指向 v1 口径的原件互相打假。
-    #   · 其它任何参数一律退 2 并打用法。
-    if argv[:1] == ['--selftest']:
-        print('本尺自检（--selftest）**本轮未实现**：判据要在批次二 T2 随「深色不归零」反转一起改，'
-              '现在补阳性样本会与仍按 v1 口径写的原件对打，绿了也不可信。'
-              '⇒ 收尾清单里这句不算通过：本尺自检随批次二 T2 落地。')
-        usage()
-        return 2
-    if argv:
-        print('未知参数：' + ' '.join(argv))
-        usage()
-        return 2
+def scan(bullet_src=None):
+    """一次投影核对。bullet_src=None 读真实契约；selftest 传入变异样本复用全部判据。
+
+    返回 (rc, .shadow( 挂载点数)。挂载点计数进返回值是为了让 selftest 钉住
+    「阴性不是判据没跑到」——照 audit_motion 的口径。
+    """
     fails = []
     notes = []
-    want = contract_from_design()
+    want = contract_from_design() if bullet_src is None else parse_bullets(bullet_src)
     if not want:
-        fails.append('[契约解析] 没从 DESIGN.md 抓到 contact/card/floating 三行，尺子失明')
+        fails.append('[契约解析] 没从 DESIGN.md §Elevation 抓到任何一档三件齐全（blur/y/%）的'
+                     ' bullet（cardContact/cardAmbient/floating/pillFloat），尺子失明')
         print('\n'.join(fails))
-        return 1
+        return 1, 0
     got = tokens()
+    # 交叉对表两向都要咬：want 来自散文契约、CONTRACT 来自本尺头部（与 YAML §2(a) 同源）。
+    # 只比 want→tokens 会留 fail-open 面：契约行被删/缺 y 退化成少一档时 want 里根本没有那档，
+    # [缺档] 永不触发，尺子对着残缺契约"0 偏差"（selftest 阳性 5/6 第一跑就是靠这个漏洞抓到本修）。
     for name, spec in want.items():
         if name not in got:
-            fails.append(f'[缺档] ShadowTokens 没有 {name} 档，契约 §1048 有')
+            fails.append(f'[缺档] ShadowTokens 没有 {name} 档，契约 §Elevation 有')
             continue
         g = got[name]
         # 偏移与模糊半径严格比，百分比容差 1 个点（hex alpha 只能表达到 ~0.4% 粒度）
         if g[0] != spec[0] or g[1] != spec[1] or abs(g[2] - spec[2]) > 1:
             fails.append(f'[值不符] {name} 实测 blur/offset/alpha = {g[0]}/{g[1]}px/{g[2]}%，'
                          f'契约是 {spec[0]}/{spec[1]}px/{spec[2]}%')
+    # 反向：want 必须恰好是 CONTRACT 四档——契约多一档（尺未同步）或少一档（被删/缺 y 解析退化）都报。
+    # selftest 阳性 5（删整行）与 6（单条缺 y）都落在这里，不再依赖 tokens 侧的 [缺档]。
+    extra = sorted(set(want) - set(CONTRACT))
+    missing = sorted(set(CONTRACT) - set(want))
+    if want and (extra or missing):
+        fails.append(f'[契约漂移] §Elevation 解析出 {sorted(want)}，与本尺 CONTRACT 四档不符：'
+                     f'多出={extra or []} 缺失={missing or []}'
+                     '（改契约档位必须同批改本尺 CONTRACT，T8 规矩；缺 y 退化也走这条）')
     for name in AMBIENT:
         if name in got and got[name][1] != 0:
             fails.append(f'[环境影] {name} 档带偏移 {got[name][1]}px，'
-                         f'契约 §1050 末行要求分段栏与弹层用无偏移环境影')
+                         f'契约 §Elevation 末行要求分段栏与弹层用无偏移环境影')
         if name in got and name not in ('contact',):
             used = any(name in open(p, encoding='utf-8').read() for p in sources())
             if not used and name in TOKEN_NOTE:
@@ -162,21 +217,136 @@ def main():
             window = '\n'.join(lines[max(0, i - 2):i + 3])
             if not GATE.search(window):
                 fails.append(f'[深色未归零] {rel}:{i + 1} .shadow( 未见 isDark/ColorMode/glassOn '
-                             f'门控（决议 8：深色侧零阴影，层次靠亮度阶梯）')
+                             f'门控（决议 8 旧口径；**反转随 T4**，见 GATE 处 TODO(T4) 与 ledger R32）')
             if re.search(r'hero', cur_builder, re.I) and 'floating' not in seg:
                 notes.append(f'[hero 复查] {rel}:{i + 1} builder {cur_builder}() 上带影，'
                              f'决议 4 要求 hero 永不带影（若该 builder 只是名字含 hero 的容器，忽略此条）')
     print(f'扫描 {len(sources())} 个界面文件，.shadow( 挂载点 {n_shadow} 处；'
-          f'契约三档值 {want}')
+          f'契约四档值 {want}')
     for n in notes:
         print('  · ' + n)
     if not fails:
         print('投影偏差 0 处')
-        return 0
+        return 0, n_shadow
     for f in fails:
         print('  ✗ ' + f)
     print(f'投影偏差 {len(fails)} 处')
-    return 1
+    return 1, n_shadow
+
+
+def main():
+    argv = sys.argv[1:]
+    # 批次一全批评审 Important-1 附项 + T2′：`--selftest` 以前是退 2 占位
+    # （"给了这个参数就报错退出"，绝不让"elevation --selftest 通过"成为没发生过的事）。
+    # T2′ 档名映射落地后自检**真跑**（阳性 7 + 阴性 6 + 文档锁 1），不再退 2。
+    if argv[:1] == ['--selftest']:
+        return selftest()
+    if argv:
+        print('未知参数：' + ' '.join(argv))
+        usage()
+        return 2
+    rc, _ = scan()
+    return rc
+
+
+# ---------------------------------------------------------------- selftest 样本
+# 单变量变异：每条只动一处，报不出来就是判据失效而不是"样本没造对"。
+
+# 真实扫描的期望读数（selftest 断言锁死；漂移即 FAIL，改代码/改契约时必须两处同批动）
+RUN_RC, RUN_SHADOW = 0, 4
+
+
+def edited(old, new):
+    """对 BULLETS 基线做一处 str.replace 变异（找不到旧串 = 样本失配，直接判 FAIL）。"""
+    text = '\n'.join(BULLETS)
+    if old not in text:
+        raise AssertionError('selftest 样本失配（基线 bullet 里没有）：' + old[:60])
+    return text.replace(old, new, 1)
+
+
+def selftest():
+    checks = []  # (名称, 是否成立, 读数说明)
+
+    def expect(name, ok, detail):
+        checks.append((name, ok, detail))
+
+    # ---- 阳性 1-4：四档三件逐项单变量篡改必须报（容差外才算抓到）
+    positives = [
+        ('blur+1', lambda: edited('`cardContact` (1px blur', '`cardContact` (2px blur'),
+         '[值不符] cardContact'),
+        ('offsetY+1', lambda: edited('`floating` (16px blur, 6px y', '`floating` (16px blur, 7px y'),
+         '[值不符] floating'),
+        ('alpha+2pp(容差外)', lambda: edited('`cardAmbient` (10px blur, 3px y, 7%',
+                                             '`cardAmbient` (10px blur, 3px y, 9%'),
+         '[值不符] cardAmbient'),
+        ('pillFloat blur 篡改(新映射面)', lambda: edited('`pillFloat` (8px blur', '`pillFloat` (6px blur'),
+         '[值不符] pillFloat'),
+    ]
+    for tag, mk, needle in positives:
+        rc, n = scan(mk())
+        expect(f'阳性 {tag}', rc == 1, f'rc={rc} 应报 {needle!r}')
+
+    # ---- 阳性 5：删掉一档整行 → want 少一档，[契约漂移] 报（不靠 tokens 侧 [缺档]）
+    rc, n = scan('\n'.join(BULLETS[:3]))
+    expect('阳性 删 pillFloat 整行', rc == 1 and n == RUN_SHADOW,
+           f'rc={rc} 挂载点={n}，应落 [契约漂移] 缺失=[\'pillFloat\']')
+
+    # ---- 阳性 6-7：散文缺 `Npx y` 造成解析退化——必须报 [契约漂移] 或报失明，不许静默绿（R27③）
+    rc, _ = scan(edited('- `cardContact` (1px blur, 0px y, 3% black)',
+                        '- `contact` (1px blur, 3% black)'))
+    expect('阳性 单条缺 y(旧式 contact)', rc == 1, f'rc={rc}，应落 [契约漂移] 缺失=[\'cardContact\']')
+    rc, _ = scan('\n'.join([
+        '- `contact` (1px blur, 3% black): x',
+        '- `card` (10px blur, 7% black): x',
+        '- `floating` (16px blur, 9% black): x',
+        '- `pillFloat` (8px blur, 15% black): x',
+    ]))
+    expect('阳性 四条全缺 y(尺子失明)', rc == 1, f'rc={rc}，应落 [契约解析] 失明分支')
+
+    # ---- 阴性 1：当前真实代码 + 新契约必须 0 偏差
+    rc, n = scan()
+    expect('阴性 真跑 0 偏差', rc == 0 and n == RUN_SHADOW, f'rc={rc} 挂载点={n}')
+    # ---- 阴性 2：真实契约解析恰等于 CONTRACT 四档（档名与三件全对）
+    want = contract_from_design()
+    expect('阴性 解析==CONTRACT', want == CONTRACT, f'解析出 {want}')
+    # ---- 阴性 3：字面跑（BULLETS 逐字，不读 DESIGN）——契约行本身解析得 4 档，
+    #       真实代码对其 0 偏差、挂载点恰 RUN_SHADOW（「阴性不是判据没跑到」）
+    rc3, n3 = scan('\n'.join(BULLETS))
+    expect('阴性 字面跑 0 偏差且挂载点钉死', rc3 == RUN_RC and n3 == RUN_SHADOW,
+           f'rc={rc3} 挂载点={n3}（钉死 {RUN_RC}/{RUN_SHADOW}）')
+    # ---- 阴性 4：tokens() 必须命中全部新档名且 blur/offset 与 CONTRACT 严格一致
+    got = tokens()
+    ok4 = all(name in got and got[name][0] == spec[0] and got[name][1] == spec[1]
+              and abs(got[name][2] - spec[2]) <= 1 for name, spec in CONTRACT.items())
+    expect('阴性 tokens 覆盖新四档', ok4,
+           f'tokens={ {k: got[k] for k in CONTRACT if k in got} }')
+    # ---- 阴性 5：兼容期旧别名 contact/card 仍在（4 个页面在用；T4 删时这条该红，是删除信号）
+    ok5 = 'contact' in got and 'card' in got
+    expect('阴性 旧别名仍在(兼容期)', ok5, f"contact={got.get('contact')} card={got.get('card')}")
+    # ---- 阴性 6：旧名三件齐全时归一到新名（兼容期不误红）
+    legacy = parse_bullets('- `contact` (1px blur, 0px y, 3% black): x\n'
+                           '- `card` (10px blur, 3px y, 7% black): x')
+    expect('阴性 旧名归一不误红', legacy == {'cardContact': (1, 0, 3), 'cardAmbient': (10, 3, 7)},
+           f'解析出 {legacy}')
+
+    doc = re.search(r'selftest 共 (\d+) 条断言 = 阳性 (\d+) 类 \+ 阴性 (\d+) 类', __doc__)
+    n_pos = sum(1 for name, _, _ in checks if name.startswith('阳性'))
+    n_neg = sum(1 for name, _, _ in checks if name.startswith('阴性'))
+    doc_ok = bool(doc) and int(doc.group(1)) == len(checks) + 1 \
+        and int(doc.group(2)) == n_pos and int(doc.group(3)) == n_neg
+    expect('文档数字锁', doc_ok,
+           f'docstring={doc.groups() if doc else None} 实跑=阳性{n_pos}/阴性{n_neg}/共{len(checks)}+1锁')
+
+    bad = [c for c in checks if not c[1]]
+    n_pos = sum(1 for name, _, _ in checks if name.startswith('阳性'))
+    n_neg = sum(1 for name, _, _ in checks if name.startswith('阴性'))
+    for name, ok, detail in checks:
+        print(('  OK ' if ok else '  FAIL ') + name + '：' + detail)
+    if bad:
+        print(f'selftest FAIL：{len(bad)} 条不成立 → 尺子读数不可信，先修尺再谈过闸')
+        return 1
+    print(f'selftest PASS：{len(checks)} 条成立（阳性 {n_pos} 类抓到 / 阴性 {n_neg} 类不误抓 / 文档锁 1 条）')
+    return 0
 
 
 if __name__ == '__main__':

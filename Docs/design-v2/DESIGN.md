@@ -270,9 +270,11 @@ layout:
   tab_side_margin: "18px"
   tab_bottom_gap: "18px"
 elevation:
-  contact: "0px 0px 1px 0px rgba(0,0,0,0.03)"
-  card: "0px 3px 10px 0px rgba(0,0,0,0.07)"
+  none: "0px 0px 0px 0px rgba(0,0,0,0)"
+  cardContact: "0px 0px 1px 0px rgba(0,0,0,0.03)"
+  cardAmbient: "0px 3px 10px 0px rgba(0,0,0,0.07)"
   floating: "0px 6px 16px 0px rgba(0,0,0,0.09)"
+  pillFloat: "0px 3px 8px 0px rgba(0,0,0,0.15)"
   segmented: "0px 0px 8px 0px rgba(0,0,0,0.06)"
   popover: "0px 0px 8px 0px rgba(0,0,0,0.07)"
 motion:
@@ -338,7 +340,7 @@ components:
     rounded: "{rounded.lg}"
     padding: "16px"
     innerGap: "12px"
-    elevation: "{elevation.card}"
+    elevation: "{elevation.cardAmbient}"
   top-bar-immersive:
     backgroundColor: "{colors.canvas}"
     textColor: "{colors.ink}"
@@ -397,7 +399,9 @@ components:
     backgroundColor: "{colors.canvas}"
     textColor: "{colors.muted}"
     typography: "{typography.hierarchy.callout}"
-    iconColor: "{colors.faint}"
+    iconColor: "{colors.muted}"
+    titleTypography: "{typography.hierarchy.title}"
+    titleFont: "serif"
   destination-picker:
     backgroundColor: "{colors.canvas}"
     titleFont: "serif"
@@ -578,7 +582,7 @@ components:
     statLabelColor: "{colors.muted}"
     rounded: "{rounded.lg}"
     padding: "16px"
-    elevation: "{elevation.card}"
+    elevation: "{elevation.cardAmbient}"
     statGap: "12px"
     numeralFeature: "tnum"
   widget-card:
@@ -1052,12 +1056,13 @@ The waterfall's rhythm — 12px gutters, 3:4 covers, 20px cards on 16px padding 
 
 Three devices, in strict order of preference: **surface color step → whitespace → shadow.**
 
-- `contact` (1px blur, 3% black): the crisp edge under a card; never alone.
-- `card` (10px blur, 3px y, 7% black): itinerary cards, summary card, sheets — composed with `contact` since ArkUI renders one shadow layer per node.
+- `cardContact` (1px blur, 0px y, 3% black): the crisp edge under a card; never alone.
+- `cardAmbient` (10px blur, 3px y, 7% black): itinerary cards, summary card, sheets — layered under `cardContact` by two nested containers, since ArkUI renders one shadow layer per node.
 - `floating` (16px blur, 6px y, 9% black): sheets, popovers, the dock.
+- `pillFloat` (8px blur, 3px y, 15% black): floating pills and drag-elevated rows.
 - Segmented bars and popovers use flat ambient (no offset).
 
-In dark mode drop the shadow and add a luminance step instead; raising shadow alpha on `#121212` produces mud.
+Shadow is black-with-alpha, which is theme-neutral: it stays in dark mode and carries no zeroing branch. Only large-area drops (`bar_shadow`) are promoted to a paired resource (light `#2E1A1A1E`, dark `#8C000000`). Note: the 有径 app's four page-level `.shadow()` sites still carry a legacy dark-zeroing branch pending the T4 migration; the gate is flipped in that batch, not here.
 
 The app's real depth device is **blur**, and the written blur radius belongs to a closed list of exactly three bar surfaces — ① the top bar (`components.top-bar-immersive`), ② the floating dock (`components.floating-dock`), ③ the sticky day divider (`components.day-header` in its sticky variant) — all three at blur 50 with a 1px `glass-bar-border` stroke and a 92px gradient mask fading content into the bar. ④ Sheets and menus are **material surfaces, not blur surfaces**: where system material is available it takes over the panel, and the self-drawn fallback is exactly the opaque `components.sheet-modal` recipe above (`surface-elevated` + `floating` elevation + scrim), which invents no blur value. The segmented control is **not a fifth glass surface**: it carries only its own in-component value (`components.segmented-control.blur: 20`), the single written exception, scoped inside one component and never readable by the bar gate. **When system material (沉浸光感) is active, the surface must zero out its own background, border, and shadow** — otherwise you get a second ring around the bar and a hard grey seam under the header. Every material feature must sit behind an explicit API-level gate with a self-drawn glass/stroke/solid fallback that looks the same. The bar surface is gated by the **absolute** scroll offset (`scrolled ? 50 : 0`), never by per-frame delta, because a spring-back negative delta turns the blur off at rest.
 
@@ -1092,7 +1097,7 @@ Shared first, then each product's own layer. A component that exists in both app
 Dark mode note: a solid `primary` button in dark mode paints `#0A84FF` with a `#121212` ink label, not white — see Colors §4.
 
 
-**Cards.** `surface-elevated`, 20px radius, 16px padding, 12px internal gap, `card` shadow. Structure: 3:4 media on 6px radius, optional `title` line (serif), `body` excerpt, meta row in `caption` / `faint`, tag pills bottom-left, action icons bottom-right. No border on cards in light mode — the fill step does the separating.
+**Cards.** `surface-elevated`, 20px radius, 16px padding, 12px internal gap, `cardAmbient` shadow. Structure: 3:4 media on 6px radius, optional `title` line (serif), `body` excerpt, meta row in `caption` / `faint`, tag pills bottom-left, action icons bottom-right. No border on cards in light mode — the fill step does the separating.
 
 **Segmented control.** The signature navigator: 36px tall, pill-ish 30px radius, smoked-glass track (`glass-segment-bg` 10% + 1px border) with blur 20, and a selection pill in `glass-selection-surface` with a blue-tinted shadow. Selected item text is `ink`, unselected `muted`. Pressing squishes the track to 0.94 with a spring back. When system material is active, the self-drawn stroke and shadow must go to zero.
 

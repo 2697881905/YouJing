@@ -6,7 +6,7 @@
  * 三条曲线的**控制点**用 ICurve.interpolate 的曲线指纹锁住（否则换一档贝塞尔今天全绿），
  * 顺带证明 §1 那条「自定义贝塞尔在 ArkTS 可用」不只是抄姊妹 App 的结论。
  * ShadowTokens 一段是 T10 前置半步的锁：契约 v2 四档新投影值 + contact/card 的别名关系
- * + `floating` 本轮刻意不改的 #17（T2 与契约 YAML 同批改值时这条必红，是预期的删除信号）。
+ * + `floating` 的 #18（T2′ 契约批已把 #17 校正为有据 9.4% 的 #18，与 §Elevation 九% 同批）。
  */
 
 import { describe, it, expect, TestType, Size, Level } from '@ohos/hypium';
@@ -163,17 +163,16 @@ export default function styleConfigTest(): void {
       expect(ShadowTokens.pillFloat.offsetX).assertEqual(0);
       expect(ShadowTokens.pillFloat.offsetY).assertEqual(3);
       expect(ShadowTokens.pillFloat.color).assertEqual('#26000000');
-      // 旧档一个都没动（简报 §0.2「只加不改不删」；现存 4 个页面调用点还在用旧名）：
+      // 旧档 radius/offset 一个都没动（现存 4 个页面调用点还在用旧名）；
+      // floating.color 是 T2′ 契约批唯一改值：#17→#18（有据 9.4%，对齐 §Elevation "9% black"）。
       expect(ShadowTokens.floating.radius).assertEqual(16);
       expect(ShadowTokens.floating.offsetY).assertEqual(6);
-      // #17 是**本轮刻意不改**的那一条（契约 YAML 的 9% 由散文三行供值，改 #18 随 T2
-      // 与契约 YAML 同批）。钉在这里是防止有人提前替 T2 改值——改了这条必红。
-      expect(ShadowTokens.floating.color).assertEqual('#17000000');
+      expect(ShadowTokens.floating.color).assertEqual('#18000000');
       // 别名关系（简报 §5.3 要的那条）。口径修正记在 task-10 报告：
       // `ShadowTokens.card === ShadowTokens.cardAmbient` 是**引用**相等，而两条
       // ElevationSpec 必须是各自的内联字面量，否则 tools/audit_elevation.py 的 tokens()
       // 正则（认 `名字: { radius: …`）在 contact/card 上打空、刚转绿的尺立刻报 [缺档]。
-      // ⇒ 这里按**四字段全等**锁别名，效果同向且更强：T2 删 `contact`/`card` 时
+      // ⇒ 这里按**四字段全等**锁别名，效果同向且更强：T4 删 `contact`/`card` 时
       // 这条会因字段不存在而编译失败/断言红，那是**预期的删除信号**，不是回归。
       expect(ShadowTokens.contact.radius === ShadowTokens.cardContact.radius
         && ShadowTokens.contact.offsetX === ShadowTokens.cardContact.offsetX
