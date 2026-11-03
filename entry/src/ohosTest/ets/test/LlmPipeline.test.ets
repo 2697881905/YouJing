@@ -152,6 +152,20 @@ class FixedIdTransport implements LlmTransport {
   }
 }
 
+/** 模型给的总费用与各天合计不一致（真实输出 4200 vs 3100） */
+class CostMismatchTransport implements LlmTransport {
+  complete(idempotencyKey?: string): Promise<string> {
+    const o: Obj = JSON.parse(JSON.stringify(MockTrip.TRIP)) as Obj;
+    const overview: Obj = o['overview'] as Obj;
+    overview['totalCost'] = 4200;
+    const days: Object[] = o['days'] as Object[];
+    for (let i = 0; i < days.length; i++) {
+      (days[i] as Obj)['dailyCost'] = 1000 + i * 50;
+    }
+    return Promise.resolve(JSON.stringify(o));
+  }
+}
+
 /** 模型在多天复用同一个活动 id：TripDao 主键会撞 UNIQUE */
 class DupActivityIdTransport implements LlmTransport {
   complete(idempotencyKey?: string): Promise<string> {
@@ -378,6 +392,14 @@ export default function llmPipelineTest(): void {
       expect(trip.budget).assertEqual(5000);
       expect(trip.destination).assertEqual('北京');
       expect(trip.style).assertEqual(TravelStyle.LEISURE);
+    });
+
+    it('total_cost_equals_sum_of_daily', TestType.FUNCTION | Size.MEDIUMTEST | Level.LEVEL1, async () => {
+      const trip: Trip = await LlmClient.generateTrip(
+        makeParamsFor(['t-l1'], 3), makeLongSpots(1), makeArea(), new CostMismatchTransport());
+      const sum: number = trip.days.reduce((acc: number, d) => acc + d.dailyCost, 0);
+      expect(trip.overview.totalCost).assertEqual(sum);
+      expect(trip.overview.totalCost).assertEqual(3150);
     });
 
     it('mints_unique_activity_ids', TestType.FUNCTION | Size.MEDIUMTEST | Level.LEVEL1, async () => {

@@ -379,6 +379,14 @@ export class LlmClient {
             acts[ai].id = `d${di + 1}-a${ai + 1}`;
           }
         }
+        // 总费用以各天合计为准：规则 7 只说「约等于」，真实输出出现过
+        // totalCost=4200 / ΣdailyCost=3100（差 26%），费用页展示总览、每日卡展示 dailyCost，
+        // 用户会看到同一趟行程两个数。合计是唯一自洽的口径。
+        let sumDaily: number = 0;
+        for (const d of trip.days) {
+          sumDaily += d.dailyCost > 0 ? d.dailyCost : 0;
+        }
+        trip.overview.totalCost = sumDaily;
         // 地址/坐标以景点库为准回填（提示词第 12 条要求模型留空，省输出 token 也免幻觉）
         const filled: number = backfillActivityPlaces(trip, spots);
         const hours: number = backfillOpeningHours(trip, spots);
