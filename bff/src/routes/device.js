@@ -8,8 +8,13 @@ const router = Router();
 router.post('/activate', async (req, res, next) => {
   try {
     const { deviceId, unionId } = req.body;
-    if (!deviceId) {
-      return res.status(400).json({ error: 'MISSING_DEVICE_ID', message: '缺少 deviceId' });
+    // 边界校验：非字符串/空串/超长会在 better-sqlite3 里抛成 500，也会把账号表撑脏。
+    if (typeof deviceId !== 'string' || deviceId.trim().length === 0 || deviceId.length > 128) {
+      return res.status(400).json({ error: 'MISSING_DEVICE_ID', message: '缺少或非法的 deviceId' });
+    }
+    if (unionId !== undefined && unionId !== null && unionId !== '' &&
+      (typeof unionId !== 'string' || unionId.length > 128)) {
+      return res.status(400).json({ error: 'INVALID_UNION_ID', message: '非法的 unionId' });
     }
 
     const db = req.db;

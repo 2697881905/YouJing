@@ -161,6 +161,11 @@
 
 ### Fixed
 
+- 2026-11-03（§5ci 续 132）：**设备激活入口补边界**。数字/对象/超长 `deviceId` 会被
+  better-sqlite3 抛成 500 或撑脏 account 表；现在 `deviceId` 必须非空字符串 ≤128、
+  `unionId` 出现时必须非空字符串 ≤128，否则 400 且不建账号。`bff npm test` 76/76。
+  （身份冒用本身仍是 D10，本轮只治形状。）
+
 - 2026-11-03（§5ci 续 131）：**收据校验入口补边界**。`productType` 不是 `pass|subscription`、
   或订阅 `productId` 不在白名单时，现在在调用校验服务前就 400（以前会回 `verified:true` 但什么都不发，
   未知商品 id 还会被按月付 1990 发货）。`bff npm test` 73/73。

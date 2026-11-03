@@ -6467,3 +6467,14 @@ if (hasSubscription()) return usedToday < dailyCap;  // ← 直接返回，后�
 - 回归：`iap-verify.test.js` 新增一例（两种非法输入都 400、订单数不变），
   `bff npm test` **72→73/73**。
 - 说明：校验服务**先**被调用还是先做边界校验，顺序有意——非法请求不该消耗一次外部校验。
+
+#### 续 132（2026-11-03）设备激活入口补边界：脏 deviceId/unionId 不再落成 500 或脏账号
+
+`/v1/device/activate` 原来只判 `if (!deviceId)`：数字/对象/超长字符串会一路进
+better-sqlite3 抛成 500，或者把 account 表撑脏（deviceId 是账号键，unionId 是 union 键）。
+
+- 现在：`deviceId` 必须是非空字符串且 ≤128；`unionId` 缺省/空串按游客，出现时必须是非空字符串且 ≤128；
+  违反分别回 `400 MISSING_DEVICE_ID` / `400 INVALID_UNION_ID`，不建账号。
+- 回归：`device-validate.test.js` 3 例（正对照激活成功 / 四种非法 deviceId 都 400 且账号数不变 /
+  unionId 非法与空串），`bff npm test` **73→76/76**。
+- 身份冒用本身是 D10（信任 unionId 的值），本轮只治「形状」：**不核对身份，只拒绝脏输入**。
