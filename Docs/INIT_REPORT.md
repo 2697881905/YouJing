@@ -5476,6 +5476,11 @@ D5 换 `deviceId` 白拿 3 次（无 unionId 即建 `anon-<deviceId>`，端侧 d
 D6 `quota.js:1` `DAILY_CAP=20` 按**天**数，方案写 20 次/**月**，成本敞口约 30 倍；
 D7 `/v1/iap/notify` 只 log 后回 `200 {}` ⇒ 到期/续费/退款永不改变权益；
 另 D8 同一 `purchaseToken` 重复提交 → **500 SQLITE_CONSTRAINT_UNIQUE**（裸 INSERT，未处理约束）。
+D9（**读码推断、非探针实测**）端侧对「订阅到期/退款」无感知：`routes/trip.js:105-110` 的 `quota`
+不含 `subscription`，`ai/LlmClient.ets:279-288` 把 `subscription/dailyCap` 从本地缓存**原样结转**
+（该处注释已写明 `remainingToday` 实为 `usedToday` ⇒ 形状差异是**刻意绕过**、不是漏字段），
+而 `data/EntitlementStore.ets:23` 的 5 分钟 TTL 由每次 `update()` 刷新（`:134-135`）——
+生成间隔小于 5 分钟就永不过期，叠加 D7 空转回调，到期与退款在端上没有生效路径。
 
 **探针自己的一处假绿（已修，值得记）**：第一版把「伪造 pass 换生成额度」放在账号 1 上跑，读出 PASS。
 根因是账号 1 此时已有（伪造来的）订阅，`determineQuotaSource` 优先返回 `subscription`，
