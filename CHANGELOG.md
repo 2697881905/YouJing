@@ -179,6 +179,11 @@
 
 ### Fixed
 
+- 2026-11-03（§5ci 续 157）：**过期但 status=active 的缓存不再自相矛盾**。
+  「我的」会员卡曾显示「未开通会员 · 本月已用 N/20」，付费页也可能误说「本月次数已用完」；
+  现在两页统一用 `subscriptionActive(status, periodEnd, today)` 判定在期。
+  双 HAP 编译通过；真机 hypium 因设备被占用未复跑（如实登记）。
+
 - 2026-11-03（§5ci 续 156）：**`/health` 真查一次库**。此前只回静态 ok，DB 损坏/只读
   仍被判健康；现在 `SELECT 1` 失败回 503 degraded，探针启动门也要求 `db=ok`。
   `bff npm test` 93/93，真实进程探针 23/23 无回归。

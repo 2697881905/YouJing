@@ -40,13 +40,14 @@ export struct PricingPage {
   aboutToAppear(): void {
     // 订阅用户用满每月额度时也会被送到这页：不能再说「解锁」「生成免费」
     const ent = EntitlementStore.get();
-    const hasSub: boolean = ent.subscription !== null && ent.subscription.status === 'active';
-    this.headline = pricingHeadline(hasSub, ent.usedToday, ent.dailyCap);
-    this.subtitle = pricingSubtitle(hasSub, ent.usedToday, ent.dailyCap);
     const periodEnd: string = ent.subscription === null ? '' : ent.subscription.periodEnd;
     const status: string = ent.subscription === null ? '' : ent.subscription.status;
-    this.isMember = subscriptionActive(status, periodEnd, DateUtils.todayIso());
+    const today: string = DateUtils.todayIso();
+    this.isMember = subscriptionActive(status, periodEnd, today);
     this.memberEnd = periodEnd.length >= 10 ? periodEnd.slice(0, 10) : '';
+    // 标题文案也按「在期」算：过期缓存不能再被说成「本月次数已用完」
+    this.headline = pricingHeadline(this.isMember, ent.usedToday, ent.dailyCap);
+    this.subtitle = pricingSubtitle(this.isMember, ent.usedToday, ent.dailyCap);
     this.passOwned = this.tripId.length > 0 && EntitlementStore.hasPass(this.tripId);
   }
 
