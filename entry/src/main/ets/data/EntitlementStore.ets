@@ -110,6 +110,8 @@ export function generateAllowed(hasSubscription: boolean, usedToday: number, dai
 }
 
 export class EntitlementStore {
+  /** 权益变更广播键：页面用 @StorageProp + @Watch 跟着刷新 */
+  static readonly TICK_KEY: string = 'entitlementTick';
   private static cached: Entitlement = emptyEntitlement();
   private static cachedAt: number = 0;
   private static prefs: preferences.Preferences | null = null;
@@ -187,6 +189,8 @@ export class EntitlementStore {
   static async update(entitlement: Entitlement): Promise<void> {
     EntitlementStore.cached = entitlement;
     EntitlementStore.cachedAt = Date.now();
+    // 已打开的页面（如「我的」会员卡）要即时跟着变：买完 pop 回来不会触发 onShow
+    AppStorage.setOrCreate(EntitlementStore.TICK_KEY, EntitlementStore.cachedAt);
     const prefs: preferences.Preferences | null = EntitlementStore.prefs;
     if (prefs === null) {
       return;
@@ -203,6 +207,7 @@ export class EntitlementStore {
   static async clear(): Promise<void> {
     EntitlementStore.cached = emptyEntitlement();
     EntitlementStore.cachedAt = 0;
+    AppStorage.setOrCreate(EntitlementStore.TICK_KEY, Date.now());
     const prefs: preferences.Preferences | null = EntitlementStore.prefs;
     if (prefs === null) {
       return;

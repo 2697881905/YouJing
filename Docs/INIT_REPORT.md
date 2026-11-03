@@ -6714,3 +6714,14 @@ D10 之后华为账号激活会把自己的 `device_id` 写成这台设备，而
 - **真机走查**：装机后从首页点「我的」→ dump 读到「未开通会员 + 生成免费；导出与无限重排
   需解锁」，截图确认排版与勋章卡同一视觉；点该卡落到付费页（「解锁完整行程」文案不变）。
 - **未验**：订阅/通行证生效态的真机画面（要真实购买凭证）；本轮验的是判定与默认态。
+
+#### 续 149（2026-11-03）会员卡随权益变更即时刷新
+
+「我的」页是页签根页，从付费页 `pop()` 回来不会触发 `aboutToAppear` 或 dock 广播，
+刚买到的会员状态要切一次页签才出现。现在 `EntitlementStore.update()/clear()` 都会
+`AppStorage.setOrCreate('entitlementTick', now)`，`MinePage` 用
+`@StorageProp(TICK_KEY) + @Watch` 只重算会员卡（不重复读勋章）。
+
+- 键名收在 `EntitlementStore.TICK_KEY`，避免页面/数据层各写一份字符串。
+- 回归：`EntitlementMerge` 新增一例（`update` 后 tick > 0），真机 hypium **231→232/232**。
+- **未验**：真机购买后返回的即时刷新（要真实购买凭证）；本轮验的是广播通路本身。

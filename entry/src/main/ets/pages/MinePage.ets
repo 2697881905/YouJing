@@ -60,6 +60,8 @@ export struct MinePage {
   @StorageProp(TAB_SHOWN_KEY) @Watch('onDockShown') dockTick: string = '';
   /** 登录态：'' 水合中 / guest / huawei。资料区要跟它即时变 */
   @StorageProp(AUTH_STATE_KEY) authState: string = '';
+  /** 权益变更（购买/刷新/登出）时即时刷新会员卡 */
+  @StorageProp(EntitlementStore.TICK_KEY) @Watch('onEntitlementTick') entTick: number = 0;
   @State private badgeCount: number = 0;
   @State private cityCount: number = 0;
   /** 会员卡：订阅/通行证状态（付费后 App 内唯一能看到权益的地方） */
@@ -82,6 +84,14 @@ export struct MinePage {
     this.reload();
   }
 
+  private onEntitlementTick(): void {
+    this.refreshMembership();
+  }
+
+  private refreshMembership(): void {
+    this.refreshMembership();
+  }
+
   private reload(): void {
     const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
     BadgeDao.listMine(ctx).then((rows: BadgeRecord[]): void => {
@@ -92,13 +102,7 @@ export struct MinePage {
       // 读失败只让卡片显示 0：这是概览，不是勋章墙本体，不该拦住这一格
       Logger.warn('Ui.Mine', `勋章计数读取失败: ${err.message}`);
     });
-    const ent = EntitlementStore.get();
-    const hasSub: boolean = ent.subscription !== null && ent.subscription.status === 'active';
-    const periodEnd: string = ent.subscription === null ? '' : ent.subscription.periodEnd;
-    const status: MembershipStatus = membershipStatus(hasSub, periodEnd, ent.passes.length, DateUtils.todayIso());
-    this.memberTitle = status.title;
-    this.memberDetail = status.detail;
-    this.memberActive = status.active;
+    this.refreshMembership();
   }
 
   private confirmLogout(): void {

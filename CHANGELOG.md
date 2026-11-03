@@ -171,6 +171,11 @@
 
 ### Fixed
 
+- 2026-11-03（§5ci 续 149）：**会员卡随权益变更即时刷新**。付费页 pop 回来不触发
+  `aboutToAppear`/dock 广播，买到的会员要切页签才显示。`EntitlementStore.update/clear`
+  现在广播 `entitlementTick`，MinePage 用 `@StorageProp + @Watch` 只重算会员卡。
+  新增一例 hypium，真机 232/232。
+
 - 2026-11-03（§5ci 续 147）：**收据入库并发幂等**。同一收据并发提交会撞
   `purchase_token`/`uk_pass` UNIQUE 打成 500；四处改为 `INSERT OR IGNORE` + 重取。
   新增订阅/通行证并发各一例，`bff npm test` 91/91。

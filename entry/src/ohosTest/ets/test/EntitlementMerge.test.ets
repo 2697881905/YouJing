@@ -9,7 +9,7 @@
 
 import { describe, it, expect, TestType, Size, Level } from '@ohos/hypium';
 import {
-  Entitlement, QuotaSnapshot, mergeQuotaSnapshot, SubscriptionInfo
+  Entitlement, QuotaSnapshot, mergeQuotaSnapshot, SubscriptionInfo, EntitlementStore
 } from '../../../main/ets/data/EntitlementStore';
 
 function baseEntitlement(): Entitlement {
@@ -53,6 +53,13 @@ export default function entitlementMergeTest(): void {
       expect(got !== null).assertTrue();
       expect(got === null ? '' : got.status).assertEqual('expired');
       expect(got === null ? '' : got.periodEnd).assertEqual('2026-11-01 00:00:00');
+    });
+
+    it('update_bumps_tick_for_open_pages', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, async () => {
+      // 「我的」会员卡靠这个 tick 在买完返回时即时刷新（pop 回来不触发 onShow）
+      await EntitlementStore.update(baseEntitlement());
+      const tick: number = AppStorage.get<number>(EntitlementStore.TICK_KEY) ?? 0;
+      expect(tick > 0).assertTrue();
     });
 
     it('daily_cap_follows_server', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
