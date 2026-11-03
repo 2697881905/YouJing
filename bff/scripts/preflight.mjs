@@ -89,7 +89,19 @@ if (process.env.IAP_NOTIFY_PUBLIC_KEY) {
   bad('IAP_NOTIFY_PUBLIC_KEY 未配置', 'notify 会按 fail-closed 返回 503，到期与退款无法生效');
 }
 
-// 4) 数据库路径能否在容器/云函数里落地 ------------------------------------
+// 4) 设备激活不能信任客户端自报的 unionId（账号冒用） ----------------------
+// 端侧登录后把 unionId 放进请求体；BFF 直接拿它建/取账号并签发设备票据。
+// 只要知道他人 unionId，就能换到对方的票据与权益（含订阅/通行证）。
+// 正解：端侧改传 Account Kit 的 idToken，服务端验签 + 校验 audience(Client ID)。
+const device = read('src/routes/device.js');
+if (/verifyHuaweiIdToken|idToken/.test(device)) {
+  ok('设备激活校验华为 idToken（unionId 不再自报）');
+} else {
+  bad('设备激活信任客户端 unionId', 'unionId 直接取自 req.body ⇒ 账号可被冒用；' +
+    '修法：端侧传 idToken，服务端验签并校验 audience');
+}
+
+// 5) 数据库路径能否在容器/云函数里落地 ------------------------------------
 const db = read('src/db.js');
 if (/join\(__dirname,\s*'\.\.',\s*'data',\s*'youjing\.db'\)/.test(db) && !/process\.env\.DB_PATH/.test(db)) {
   warn('DB 路径硬编码', 'src/db.js 写死 ../data/youjing.db 且不读 DB_PATH；' +
@@ -98,14 +110,14 @@ if (/join\(__dirname,\s*'\.\.',\s*'data',\s*'youjing\.db'\)/.test(db) && !/proce
   ok('DB 路径可配置');
 }
 
-// 5) Prompt/Schema 生成物是否在库且与 SOT 同步（hash 由 npm test 校验） ----
+// 6) Prompt/Schema 生成物是否在库且与 SOT 同步（hash 由 npm test 校验） ----
 if (existsSync(join(ROOT, 'src', 'prompt', 'generated', 'manifest.json'))) {
   ok('Prompt/Schema 生成物在位（hash 由 npm test 校验）');
 } else {
   bad('缺 Prompt/Schema 生成物', '先跑 npm run sync:prompt');
 }
 
-// 6) 若本机已在跑，顺手探一次 /health -------------------------------------
+// 7) 若本机已在跑，顺手探一次 /health -------------------------------------
 const port = process.env.PORT || 3000;
 try {
   const resp = await fetch(`http://127.0.0.1:${port}/health`, { signal: AbortSignal.timeout(1200) });
