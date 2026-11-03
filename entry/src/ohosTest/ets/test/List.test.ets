@@ -31,6 +31,7 @@ import entitlementMergeTest from './EntitlementMerge.test';
 import pricingCopyTest from './PricingCopy.test';
 import entitlementExportTest from './EntitlementExport.test';
 import entitlementGateTest from './EntitlementGate.test';
+import bffErrorMapTest from './BffErrorMap.test';
 
 export default function testsuite() {
   tripParserTest();
@@ -66,4 +67,5 @@ export default function testsuite() {
   pricingCopyTest();
   entitlementExportTest();
   entitlementGateTest();
+  bffErrorMapTest();
 }

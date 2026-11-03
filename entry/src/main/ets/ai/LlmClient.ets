@@ -27,6 +27,7 @@ import { DateUtils } from '../utils/DateUtils';
 import { ApiConfig } from '../common/config/ApiConfig';
 import { isMapCity } from '../common/constants/Cities';
 import { GenerationChannel } from '../utils/GenerationChannel';
+import { bffErrorCode } from '../utils/BffErrorMap';
 import { DeviceTokenStore } from '../data/DeviceTokenStore';
 import { DeviceActivator } from '../data/DeviceActivator';
 import { EntitlementStore, Entitlement, PassInfo, SubscriptionInfo, QuotaSnapshot, mergeQuotaSnapshot } from '../data/EntitlementStore';
@@ -264,26 +265,11 @@ export class HttpLlmTransport implements LlmTransport {
       });
       if (resp.responseCode < 200 || resp.responseCode >= 300) {
         const code: number = resp.responseCode;
-        const respBody: string = String(resp.result).slice(0, 160);
-        if (code === 401) {
-          throw new AppError(ErrorCode.CLOUD_TOKEN_INVALID, `BFF 401: ${respBody}`);
-        }
-        if (code === 402) {
-          throw new AppError(ErrorCode.CLOUD_QUOTA_EXHAUSTED, `BFF 402: ${respBody}`);
-        }
-        if (code === 429) {
-          throw new AppError(ErrorCode.CLOUD_RATE_LIMITED, `BFF 429: ${respBody}`);
-        }
-        if (code === 409) {
-          throw new AppError(ErrorCode.CLOUD_IDEMPOTENCY_CONFLICT, `BFF 409: ${respBody}`);
-        }
-        // 5xx 是**服务端/上游**出问题，不是用户网络：BFF 对上游 4xx、模型输出校验失败、
-        // JSON 解析失败都回 502。此前一律报 NETWORK_REQUEST_FAILED，屏7 会说「网络不通或超时」，
-        // 用户会去切 WiFi 而真正该做的是等一会儿重试或改用本机生成。
-        if (code >= 500) {
-          throw new AppError(ErrorCode.LLM_UNAVAILABLE, `BFF ${code}: ${respBody}`);
-        }
-        throw new AppError(ErrorCode.NETWORK_REQUEST_FAILED, `BFF HTTP ${code}: ${respBody}`);
+        const rawBody: string = String(resp.result);
+        const respBody: string = rawBody.slice(0, 160);
+        // 状态码 → 错误码的映射收在 utils/BffErrorMap（纯函数、可进 hypium）：
+        // 5xx 里「上游挂了」与「模型内容不合格」要给两套完全不同的屏7 文案。
+        throw new AppError(bffErrorCode(code, rawBody.slice(0, 2000)), `BFF ${code}: ${respBody}`);
       }
 
       // BFF 返回 { trip, quota } 格式：trip 是已解析的 JSON 对象，quota 是更新后的权益快照
