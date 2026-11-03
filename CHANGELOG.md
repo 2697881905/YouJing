@@ -155,6 +155,11 @@
 
 ### Fixed
 
+- 2026-11-03（§5ci 续 120）：**上游限流改为透传 429，端上 6003 文案从不可达变成可达**。
+  BFF 此前把所有非 2xx 包成 502，客户端只能落「连不上行程服务」；
+  现在上游 429 → HTTP 429 `LLM_RATE_LIMITED`，与端侧既有 `CLOUD_RATE_LIMITED`
+  文案对齐；失败不扣额度。回归：`trip-route.integration.test.js` 新增一例，`bff npm test` 63/63。
+
 - 2026-11-03（§5ci 续 119）：**`tips` 从「产而不消费」接到分享摘要**。
   `Trip.tips` 是 Schema 必填、模型每次都产，却零消费（不落库、界面与导出都不读），
   每次生成白付输出 token。现由 `IcsBuilder.plainSummary` 在 summary/highlights 后输出

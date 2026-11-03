@@ -6278,3 +6278,18 @@ D1 的根因就一行：`bff/src/services/iap.js` 的 `verifyPurchase()` 恒 `re
 - 真机 hypium **210/210**（用例数是改既有断言，没有新增 it）；双 HAP 全新构建安装。
 - **未验**：真模型 tips 的实际质量（当前提示词对它零约束，模型自由发挥；
   若后续发现空洞提醒，再加一条提示词规则收敛，不预先加）。
+
+#### 续 120（2026-11-03）上游限流改为透传 429：端上 6003 文案从不可达变成可达
+
+端侧 `HttpLlmTransport` 早就有 429 → `CLOUD_RATE_LIMITED(6003)` 分支，
+`FailureCopy` 也写好了「请求太频繁 / 等一分钟再试；重试不会再扣一次额度」——
+但 BFF 的 `proxyLlmRequest` 把所有非 2xx 一律包成 502，客户端只能落 5xx 分支，
+屏7 说「连不上行程服务」，用户会去查网络而不是等待。**又一条「写了但永远走不到」的通路。**
+
+- `bff/src/services/llm.js`：上游 `resp.status === 429` 时抛 `HttpError(429, 'LLM_RATE_LIMITED')`，
+  其余保持 502 `LLM_UPSTREAM_ERROR`（不把鉴权错误等也误报成限流）。
+- 路由的 catch 本来就把 `err.status` 原样 `next()`，错误中间件按 429 返回；失败行也记 429。
+- 回归：`trip-route.integration.test.js` 新增一例——限流上游返回 429 时，
+  HTTP 状态是 **429 而不是 502**、`error=LLM_RATE_LIMITED`、`gift` 未被扣。
+  `bff npm test` **62→63/63**。
+- **未验**：真机上没有制造过 DeepSeek 429（要真打到限流阈值）；本轮证的是服务端映射与不扣额度。

@@ -222,3 +222,26 @@ test('quota 回传 subscription 快照：到期后为 null、额度退回赠送�
   assert.equal(second.body.quota.source, 'gift', '过期后应退回赠送档');
   assert.equal(second.body.quota.giftRemaining, 2);
 });
+
+test('上游 429 映射 429 LLM_RATE_LIMITED：端上 6003 文案不再不可达，且不扣额度', async () => {
+  const busyUpstream = http.createServer((_req, res) => {
+    res.writeHead(429, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: { message: 'rate limited' } }));
+  });
+  await new Promise((resolve) => busyUpstream.listen(0, '127.0.0.1', resolve));
+  const oldBase = process.env.LLM_BASE_URL;
+  process.env.LLM_BASE_URL = `http://127.0.0.1:${busyUpstream.address().port}/v1`;
+  try {
+    const r = await post(11, 'route-key-429', payloadFor());
+    assert.equal(r.status, 429, '上游限流必须透传 429，不能包成 502');
+    assert.equal(r.body.error, 'LLM_RATE_LIMITED');
+    const gift = db.prepare(
+      `SELECT COALESCE(SUM(delta),0) AS total FROM quota_ledger
+       WHERE account_id = 11 AND source = 'gift' AND state = 'committed'`
+    ).get();
+    assert.equal(gift.total, 0, '限流失败不该扣 gift');
+  } finally {
+    process.env.LLM_BASE_URL = oldBase;
+    busyUpstream.close();
+  }
+});

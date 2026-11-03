@@ -46,6 +46,13 @@ export async function proxyLlmRequest(messages, options = {}) {
     const text = await resp.text();
     console.log(`[llm] http=${resp.status} format=${body.response_format.type} ` +
       `error=${text.slice(0, 160)}`);
+    // 上游限流要原样透出 429：端侧 `HttpLlmTransport` 对 429 → CLOUD_RATE_LIMITED(6003)
+    // 有专门文案（「等一分钟再试；重试不会再扣一次额度」），此前被包成 502 后
+    // 端上只能落 5xx 分支说「连不上行程服务」，用户会去查网络而不是等待。
+    if (resp.status === 429) {
+      throw new HttpError(429, 'LLM_RATE_LIMITED',
+        `LLM upstream 429: ${text.slice(0, 200)}`);
+    }
     throw new HttpError(502, 'LLM_UPSTREAM_ERROR',
       `LLM upstream ${resp.status}: ${text.slice(0, 200)}`);
   }
