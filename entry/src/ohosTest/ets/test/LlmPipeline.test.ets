@@ -152,6 +152,22 @@ class FixedIdTransport implements LlmTransport {
   }
 }
 
+/** 模型在多天复用同一个活动 id：TripDao 主键会撞 UNIQUE */
+class DupActivityIdTransport implements LlmTransport {
+  complete(idempotencyKey?: string): Promise<string> {
+    const o: Obj = JSON.parse(JSON.stringify(MockTrip.TRIP)) as Obj;
+    const days: Object[] = o['days'] as Object[];
+    for (const dayObj of days) {
+      const day: Obj = dayObj as Obj;
+      const acts: Object[] = day['activities'] as Object[];
+      for (const actObj of acts) {
+        (actObj as Obj)['id'] = 'dup-id';
+      }
+    }
+    return Promise.resolve(JSON.stringify(o));
+  }
+}
+
 /** 模拟规则 18 失效：模型把「书院门附近午餐」写成 food 活动，同时保留一条真正的游览餐饮 */
 class MealDupTransport implements LlmTransport {
   complete(idempotencyKey?: string): Promise<string> {
@@ -362,6 +378,20 @@ export default function llmPipelineTest(): void {
       expect(trip.budget).assertEqual(5000);
       expect(trip.destination).assertEqual('北京');
       expect(trip.style).assertEqual(TravelStyle.LEISURE);
+    });
+
+    it('mints_unique_activity_ids', TestType.FUNCTION | Size.MEDIUMTEST | Level.LEVEL1, async () => {
+      const trip: Trip = await LlmClient.generateTrip(
+        makeParamsFor(['t-l1'], 3), makeLongSpots(1), makeArea(), new DupActivityIdTransport());
+      const ids: string[] = [];
+      for (const day of trip.days) {
+        for (const act of day.activities) {
+          ids.push(act.id);
+        }
+      }
+      expect(ids.length > 0).assertTrue();
+      expect(new Set(ids).size).assertEqual(ids.length);
+      expect(trip.days[0].activities[0].id).assertEqual('d1-a1');
     });
 
     it('drops_generic_meal_food_activity', TestType.FUNCTION | Size.MEDIUMTEST | Level.LEVEL1, async () => {

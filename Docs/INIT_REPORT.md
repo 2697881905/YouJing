@@ -6666,3 +6666,14 @@ D10 之后华为账号激活会把自己的 `device_id` 写成这台设备，而
 - 回归：`device-validate.test.js` 新增「同一游客 deviceId 三路并发」；
   `device-idtoken.test.js` 新增「同一华为账号两路并发」。都断言全部 200 且只建一个账号。
   `bff npm test` **87→89/89**。
+
+#### 续 145（2026-11-03）活动 id 落库前重铸：重复 id 不再让整趟保存撞 UNIQUE
+
+`TripDao` 的 activity 主键是 `${tripId}:${活动 id}`；模型若在多天复用同一个 id
+（例如每天都写 `a1`），第二条 INSERT 会撞 UNIQUE，整趟保存回滚——**而模型额度已经扣了**。
+解析器/校验器此前都不保证 id 唯一。
+
+- `LlmClient.generateTrip` 在落库前按天序重铸：`d{天}-a{序}`（与离线引擎同形，天然唯一）。
+  编辑流程不经过这里，既有行程的活动 id 与打卡不受影响。
+- 回归：`LlmPipeline` 新增 `mints_unique_activity_ids`——让假模型把所有活动 id 都写成
+  `dup-id`，生成后断言全趟 id 不重复且首个是 `d1-a1`。真机 hypium **226→227/227**。

@@ -369,6 +369,16 @@ export class LlmClient {
         if (dropped > 0) {
           Logger.info(TAG, `剔除与餐次重复的 food 活动 ${dropped} 条`);
         }
+        // 活动 id 必须在整趟内唯一：TripDao 的主键是 `${tripId}:${activity.id}`，
+        // 模型若在多天复用同一个 id（如每天都用 "a1"），第二条 INSERT 撞 UNIQUE，
+        // 整趟保存回滚——而模型额度已经扣了。按天序重铸成 d{n}-a{m}（与离线引擎同形）；
+        // 编辑流程不经过这里，不会动用户既有 id/打卡。
+        for (let di = 0; di < trip.days.length; di++) {
+          const acts: Activity[] = trip.days[di].activities;
+          for (let ai = 0; ai < acts.length; ai++) {
+            acts[ai].id = `d${di + 1}-a${ai + 1}`;
+          }
+        }
         // 地址/坐标以景点库为准回填（提示词第 12 条要求模型留空，省输出 token 也免幻觉）
         const filled: number = backfillActivityPlaces(trip, spots);
         const hours: number = backfillOpeningHours(trip, spots);
