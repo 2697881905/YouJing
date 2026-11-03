@@ -208,6 +208,9 @@ export struct SpotPickPage {
   private confirm(): void {
     let final: SelectedSpot[] = this.priorities;
     if (final.length === 0) {
+      this.getUIContext().getPromptAction().showToast({
+        message: '已为你自动选了前 8 个热门景点', duration: 1800
+      });
       final = this.all.slice(0, 8).map((s: Spot, i: number): SelectedSpot => {
         const sel: SelectedSpot = { spotId: s.id, priority: i < 3 ? SpotPriority.MUST : SpotPriority.WANT };
         return sel;
@@ -326,9 +329,7 @@ export struct SpotPickPage {
   }
 
   private backToInput(): void {
-    if (this.pathStack.popToName('TripInput') < 0) {
-      this.pathStack.pushPath({ name: 'TripInput' });
-    }
+    this.pathStack.pop();
   }
 
   @Builder
@@ -429,7 +430,21 @@ export struct SpotPickPage {
             top: SpaceTokens.md, bottom: SpaceTokens.md })
 
 
-          if (this.loaded && this.all.length === 0) {
+          if (!this.loaded) {
+            Column() {
+              LoadingProgress()
+                .width(48)
+                .height(48)
+                .color(ColorTokens.primary)
+              Text('正在加载景点…')
+                .fontSize(TypeTokens.caption.size)
+                .fontColor(ColorTokens.muted)
+                .margin({ top: SpaceTokens.md })
+            }
+            .width('100%')
+            .layoutWeight(1)
+            .justifyContent(FlexAlign.Center)
+          } else if (this.all.length === 0) {
             this.emptyState()
           } else {
             if (this.mapCity) {

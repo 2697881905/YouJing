@@ -69,6 +69,7 @@ export struct TripsPage {
   }
   @StorageProp('isDarkMode') isDark: boolean = false;
   @State private trips: TripCardData[] = [];
+  @State private loading: boolean = true;
   /** 周年横幅：今天月日落在某条跨年历史行程区间内才出现；无命中时两条都为空 */
   @State private anniversaryId: string = '';
   @State private anniversaryLine: string = '';
@@ -79,16 +80,14 @@ export struct TripsPage {
   /** 列表数据只从 RDB 取，刷新动作与首启共用一条路径（Refresh 需要 Promise 收尾） */
   private reload(): Promise<void> {
     const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    this.loading = true;
     return TripDao.listSummaries(ctx).then((rows: TripSummary[]) => {
       const list: TripCardData[] = [];
       const today: string = DateUtils.todayIso();
       const anniversaries: AnniversaryTrip[] = [];
       for (const r of rows) {
         const span: number = DateUtils.spanDays(r.startDate, r.endDate);
-        // 在途口径只有一处实现（TripWindow：ISO 串直接比大小，不许用 spanDays 差值判）
         const onTrip: boolean = TripWindow.isActiveOn(r.startDate, r.endDate, today);
-        // 三态而不是两态：未出发与已结束此前都叫「已生成」，进度条一个 0 一个 100，
-        // 于是同一天出发的几条过去行程在列表里长得一模一样（§5.13 的根因）
         let progress: number = 100;
         let phase: string = 'past';
         let statusLine: string = '已结束';
@@ -106,7 +105,6 @@ export struct TripsPage {
         } else {
           progressLabel = '已结束 · 100%';
         }
-        // 有打卡证据的过去行程才把落点改成回顾；没有证据时仍进详情
         const reviewable: boolean = phase === 'past' && r.checkinCount > 0;
         if (reviewable) {
           progressLabel = '已结束 · 可回顾';
@@ -129,6 +127,11 @@ export struct TripsPage {
       this.anniversaryId = hit === null ? '' : hit.id;
       this.anniversaryLine = hit === null ? '' : anniversaryText(hit, today);
       this.trips = list;
+      this.loading = false;
+    }).catch((err: Error) => {
+      this.loading = false;
+      Logger.error('Ui.Trips', `行程列表加载失败: ${err.message}`);
+      this.getUIContext().getPromptAction().showToast({ message: '行程列表加载失败', duration: 1500 });
     });
   }
 
@@ -407,7 +410,20 @@ export struct TripsPage {
             .margin({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.sm })
         }
 
-        if (this.trips.length === 0) {
+        if (this.loading) {
+          Column() {
+            LoadingProgress()
+              .width(48)
+              .height(48)
+              .color(ColorTokens.primary)
+            Text('正在加载行程…')
+              .fontSize(TypeTokens.caption.size)
+              .fontColor(ColorTokens.muted)
+              .margin({ top: SpaceTokens.md })
+          }
+          .layoutWeight(1)
+          .justifyContent(FlexAlign.Center)
+        } else if (this.trips.length === 0) {
           // 帧 7991fe5b 的空状态间距是逐段的（图标 16 / 标题 8 / 说明 24），
           // 不是一条均等 gap；说明限宽 240 才能落回稿件的标准双行折行。
           Column() {

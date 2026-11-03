@@ -1,13 +1,19 @@
 /**
  * 屏1 首启与静默登录（帧 77ed8d08）——五格导航后它是「规划」格的根页。
- * 必改表已落：bottom-section gap 10→8；preview-badge padding 2→0；
- * preview-foot padding 10→8；stop-body padding 10→8；
- * transit-leg margin-left 64→48、padding 10→8。
- * 状态栏 mock 为设备 chrome，不实现。
+ * 2026-11-03 主功能页化（对齐「有据」家族契约 v2）：
+ * - 标题栏交还官方 HdsChrome（Index 挂 `mainTitle: '规划'` 的 bar，与其余四格同构），
+ *   本页不再自绘品牌块（字牌 + 英文 overline + 标语是首启门面的残留，不是工作台形态）。
+ * - 内容按主功能页骨架重排：创建入口（serif 页题 + 副题 + 唯一实心主按钮）
+ *   → 草稿续办卡（field-row 卡形态：overline + headline 值 + chevron，契约行卡规格）
+ *   → 「规划预览」分区 overline + 预览卡（spine 几何与屏8 同源）。
+ * - 组件级对齐：预览卡头的实心蓝 pill 摘除（动作色不做标签，改 muted「示例数据」标注）；
+ *   交通腿对齐屏8 口径（透明无填充 + 2px dashed 主轴段，去胶囊边框——solid pill 是
+ *   stitch 预检第 3 条点名的已知破坏）；承诺块补 reason-block 的 2px primary 左条
+ *   （契约 reason-block.leftRule，与屏8/屏10 同款）。
+ * - 内容 Scroll 化：固定 Column 在大字号/小屏上会把预览卡裁掉，主功能页一律可滚，
+ *   底部预留 floatingDockClearance，末行不再藏进 dock。
  *
- * 这一屏曾经兼着「最近行程」列表（当时历史行程没有别的落点）。五格落地后
- * 列表归「行程」格，这里回到纯门面：品牌 + 两颗 CTA + 规划预览卡，
- * 不读行程数据，所以也没有 dock 切回重取一说。
+ * 状态栏 mock 为设备 chrome，不实现。这一屏不读行程数据（历史行程归「行程」格）。
  */
 
 import { APP_NAV, enterPlanningFlow, markDraftDirty, DRAFT_DIRTY_KEY, isDraftDirty } from '../common/constants/AppNav';
@@ -21,10 +27,12 @@ import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton
 import { AccountStore } from '../data/AccountStore';
 import { PlanDraft } from '../data/PlanDraft';
 import { AccountKind, AccountState } from '../model/Account';
+import { TripBasicInput } from '../model/PlanParams';
 import { TripDao } from '../data/TripDao';
 import { WidgetSync } from '../widget/TodayCard';
 import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
+import { DateUtils } from '../utils/DateUtils';
 import { KEY_WINDOW_WIDTH_VP, BP_MD_MIN_VP } from '../utils/breakpointCenter';
 import { symmetricInsetForCap } from '../utils/responsive';
 
@@ -101,6 +109,27 @@ export struct YoujingStartPage {
     this.pathStack.pushPath({ name: 'TripInput' });
   }
 
+  /** 草稿卡首行：目的地 · 日期（日期无效时只报目的地，不编一个日期出来） */
+  private draftHeadline(): string {
+    const b: TripBasicInput = PlanDraft.get().basic;
+    if (DateUtils.isValidIsoDate(b.startDate) && DateUtils.isValidIsoDate(b.endDate)) {
+      return `${b.destination} · ${this.fmt(b.startDate)}–${this.fmt(b.endDate)}`;
+    }
+    return b.destination;
+  }
+
+  /** 草稿卡次行：人数是草稿里确定已填的一项 */
+  private draftMeta(): string {
+    const b: TripBasicInput = PlanDraft.get().basic;
+    return `${b.people} 位同行`;
+  }
+
+  /** 与屏2 同一口径的日期短格式：2026-06-10 → 6月10日 */
+  private fmt(dateStr: string): string {
+    const parts: string[] = dateStr.split('-');
+    return `${Number(parts[1])}月${Number(parts[2])}日`;
+  }
+
   private stops: PreviewStop[] = [
     { time: '09:30', name: '清水寺', meta: '东山区 · 停留 1小时30分钟', dotColor: ColorTokens.primary },
     { time: '10:45', name: '二年坂', meta: '古街漫步 · 停留 45分钟', dotColor: ColorTokens.primary },
@@ -164,16 +193,25 @@ export struct YoujingStartPage {
       }
       .alignItems(HorizontalAlign.Start)
       .layoutWeight(1)
-      .padding({ left: SpaceTokens.sm, bottom: SpaceTokens.sm })
+      .padding({ left: SpaceTokens.sm })
     }
     .alignItems(VerticalAlign.Top)
     .width('100%')
     .height(ROW_HEIGHT)
   }
 
+  /**
+   * 交通腿与屏8 同构：透明、无填充、无圆角，主轴段是 2px dashed
+   * （solid pill 是 stitch 预检第 3 条点名的已知破坏，预览卡曾是最后一个没改的）。
+   */
   @Builder
   transitLeg(leg: PreviewLeg) {
     Row() {
+      Column().width(LayoutTokens.itineraryTimeGutter)
+      Column()
+        .width(LayoutTokens.routeLineWidth)
+        .height(LayoutTokens.transitLegHeight)
+        .border({ width: { left: LayoutTokens.routeLineWidth }, color: ColorTokens.separator, style: BorderStyle.Dashed })
       Row({ space: SpaceTokens.sm }) {
         SymbolGlyph($r('sys.symbol.figure_walk'))
           .fontSize(IconSizes.control)
@@ -184,46 +222,34 @@ export struct YoujingStartPage {
           .fontColor(ColorTokens.muted)
           .fontFeature("'tnum' on")
       }
-      .height(LayoutTokens.transitLegHeight)
-      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
-      .borderRadius(RadiusTokens.capsule)
-      .border({ width: LayoutTokens.routeLineWidth, style: BorderStyle.Dashed, color: ColorTokens.separator, radius: RadiusTokens.capsule })
-      .layoutWeight(1)
+      .alignItems(VerticalAlign.Center)
+      .padding({ left: SpaceTokens.sm })
     }
     .width('100%')
-    .padding({ left: SpaceTokens.fiveXl })
-    .margin({ bottom: SpaceTokens.sm })
+    .height(LayoutTokens.transitLegHeight)
+    .alignItems(VerticalAlign.Center)
+    .margin({ top: SpaceTokens.md, bottom: SpaceTokens.md })
   }
 
   build() {
-    Column() {
-      Column({ space: SpaceTokens.sm }) {
-        Row() {
-          Text('有径')
-            .fontSize(TypeTokens.display.size)
-            .fontWeight(700)
-            .fontFamily(TypeTokens.display.family)
-            .fontColor(ColorTokens.ink)
-          Text('TRACEABLE ROUTES')
-            .fontSize(TypeTokens.overline.size)
-            .fontWeight(600)
-            .fontColor(ColorTokens.primary)
-            .letterSpacing(0)
-            .margin({ left: SpaceTokens.sm })
-            .offset({ y: -4 })
-        }
-        .alignItems(VerticalAlign.Bottom)
-
-        Text('有迹可循，有径可行')
-          .fontSize(TypeTokens.small.size)
-          .fontColor(ColorTokens.body)
-      }
-      .alignItems(HorizontalAlign.Start)
-      .margin({ top: SpaceTokens.xs, bottom: SpaceTokens.lg })
-
-      // 主操作放在首屏可见处：原来钉在屏底，dock 一浮上来就压住它，
-      // 列表一长更是把它整个挤出屏幕（实拍复验时踩到）
+    Scroll() {
       Column() {
+        // ① 创建入口：serif 页题 + 副题（屏2 同款页题档与文案，主功能页从这里的排版起算）
+        Column({ space: SpaceTokens.sm }) {
+          Text('开启一次有迹可循的旅程')
+            .fontSize(TypeTokens.title.size)
+            .fontWeight(700)
+            .fontFamily(TypeTokens.title.family)
+            .fontColor(ColorTokens.ink)
+          Text('设定出行基础参数，AI 将基于本地精选数据库构建动线')
+            .fontSize(TypeTokens.small.size)
+            .fontColor(ColorTokens.body)
+        }
+        .alignItems(HorizontalAlign.Start)
+        .width('100%')
+        .margin({ top: SpaceTokens.md, bottom: SpaceTokens.md })
+
+        // ② 唯一实心主按钮（契约：一屏一颗 primary，其余 outline）
         YoujingButton({
           variant: YoujingButtonVariant.PRIMARY,
           label: this.starting ? '正在准备…' : '开始规划新行程',
@@ -235,100 +261,132 @@ export struct YoujingStartPage {
           }
         })
 
-      // 次级档（禁令 1：一屏只许一颗实心主按钮）。草稿被动过时才出现。
-      // 点它**不 fresh()**：屏2/屏3/屏4/屏5 都从 `PlanDraft` 起值，
-      // 所以从屏2 重进就是接着上次的进度走（§5q/§5w 那条主链缺口的收口）
-      if (this.draftDirty) {
-        YoujingButton({
-          variant: YoujingButtonVariant.SECONDARY,
-          label: '继续未完成的规划',
-          fullWidth: true,
-          onAction: (): void => {
-            enterPlanningFlow('TripInput');
-          }
-        })
-          .margin({ top: SpaceTokens.sm })
-      }
-      }
-      .width('100%')
-      .margin({ bottom: SpaceTokens.lg })
-
-      // 预览卡常驻。它原来在「本机已有真行程」时收起，理由是假数据会挤掉真数据
-      // ——但那段时间首页同时挂着「最近行程」列表，两件事确实抢屏高。
-      // 五格导航落地后历史行程归「行程」格，这一屏只剩规划，假数据不再和谁抢，
-      // 收起反而让老用户看到一个空半屏的门面。
-      ImmersiveSurface({ radius: RadiusTokens.card, surfaceWidth: '100%' }) {
-        Column() {
+        // ③ 草稿续办卡：field-row 卡形态（overline 标签 + headline 值 + chevron），
+        // 整卡可点。点它**不 fresh()**：屏2/屏3/屏4/屏5 都从 `PlanDraft` 起值，
+        // 从屏2 重进就是接着上次的进度走（§5q/§5w 那条主链缺口的收口）
+        if (this.draftDirty) {
           Row() {
-            Text('Day 1 · 京都 东山步道')
-              .fontSize(TypeTokens.title.size)
-              .fontWeight(700)
-              .fontFamily(TypeTokens.title.family)
-              .fontColor(ColorTokens.ink)
-              .layoutWeight(1)
-            Text('规划预览')
-              .fontSize(TypeTokens.overline.size)
-              .fontWeight(600)
-              .fontColor(ColorTokens.onPrimary)
-              .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
-              .height(22)
-              .borderRadius(RadiusTokens.pill)
-              .backgroundColor(ColorTokens.primary)
+            Column({ space: SpaceTokens.xs }) {
+              Text('未完成的规划')
+                .fontSize(TypeTokens.overline.size)
+                .fontWeight(600)
+                .fontColor(ColorTokens.muted)
+              Text(this.draftHeadline())
+                .fontSize(TypeTokens.headline.size)
+                .fontWeight(600)
+                .fontColor(ColorTokens.ink)
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+              Text(this.draftMeta())
+                .fontSize(TypeTokens.caption.size)
+                .fontWeight(450)
+                .fontColor(ColorTokens.muted)
+                .fontFeature("'tnum' on")
+            }
+            .alignItems(HorizontalAlign.Start)
+            .layoutWeight(1)
+
+            // chevron 是「这行能点开」的 affordance：按契约取 muted，不用 faint（2.67:1 不过 3:1）
+            SymbolGlyph($r('sys.symbol.chevron_right'))
+              .fontSize(IconSizes.control)
+              .fontColor([ColorTokens.muted])
           }
           .alignItems(VerticalAlign.Center)
           .width('100%')
-          .padding({ bottom: SpaceTokens.sm })
-          .border({ width: { bottom: LayoutTokens.hairlineWidth }, color: ColorTokens.separator })
-
-          Column() {
-            ForEach(this.stops, (stop: PreviewStop, index: number) => {
-              this.timelineRow(stop, index)
-              if (index < this.legs.length) {
-                this.transitLeg(this.legs[index])
-              }
-            }, (stop: PreviewStop, index: number): string => `start-preview-${index}-${stop.time}`)
-          }
-          .width('100%')
-          .alignItems(HorizontalAlign.Start)
-          .margin({ top: SpaceTokens.sm })
-
-          Column() {
-            Text('结构化路线承诺')
-              .fontSize(TypeTokens.overline.size)
-              .fontWeight(600)
-              .fontColor(ColorTokens.muted)
-            Text('基于本地精选数据库与步行动线计算，每个站点均明确耗时与预约状态。')
-              .fontSize(TypeTokens.caption.size)
-              .fontColor(ColorTokens.body)
-              .lineHeight(TypeTokens.caption.lineHeight)
-              .margin({ top: SpaceTokens.xs })
-          }
-          .alignItems(HorizontalAlign.Start)
-          .width('100%')
-          .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
-          .borderRadius(RadiusTokens.reason)
-          .backgroundColor(ColorTokens.surfacePanel)
-          .margin({ top: SpaceTokens.xs })
+          .padding(SpaceTokens.lg)
+          .borderRadius(RadiusTokens.card)
+          .backgroundColor(ColorTokens.surfaceElevated)
+          .margin({ top: SpaceTokens.md })
+          .accessibilityText('继续未完成的规划')
+          .onClick((): void => {
+            enterPlanningFlow('TripInput');
+          })
         }
-        .padding(SpaceTokens.lg)
-        .borderRadius(RadiusTokens.card)
-        .backgroundColor(ColorTokens.surfaceElevated)
-        .width('100%')
+
+        // ④ 分区 overline（屏11「分类支出」同款 section label），不再用实心蓝 pill 当标签
+        Text('规划预览')
+          .fontSize(TypeTokens.overline.size)
+          .fontWeight(600)
+          .fontColor(ColorTokens.muted)
+          .width('100%')
+          .margin({ top: SpaceTokens.xl, bottom: SpaceTokens.md })
+
+        // ⑤ 预览卡：spine 几何与屏8 同源（52 时间槽 / 24 节点 / 76 行 / 44 交通腿）
+        ImmersiveSurface({ radius: RadiusTokens.card, surfaceWidth: '100%' }) {
+          Column() {
+            Row() {
+              Text('Day 1 · 京都 东山步道')
+                .fontSize(TypeTokens.title.size)
+                .fontWeight(700)
+                .fontFamily(TypeTokens.title.family)
+                .fontColor(ColorTokens.ink)
+                .layoutWeight(1)
+              // mock 示例按屏4「京都（示例数据）」同一口径如实标注，不谎报为正式内置库
+              Text('示例数据')
+                .fontSize(TypeTokens.caption.size)
+                .fontWeight(450)
+                .fontColor(ColorTokens.muted)
+            }
+            .alignItems(VerticalAlign.Center)
+            .width('100%')
+            .padding({ bottom: SpaceTokens.sm })
+            .border({ width: { bottom: LayoutTokens.hairlineWidth }, color: ColorTokens.separator })
+
+            Column() {
+              ForEach(this.stops, (stop: PreviewStop, index: number) => {
+                this.timelineRow(stop, index)
+                if (index < this.legs.length) {
+                  this.transitLeg(this.legs[index])
+                }
+              }, (stop: PreviewStop, index: number): string => `start-preview-${index}-${stop.time}`)
+            }
+            .width('100%')
+            .alignItems(HorizontalAlign.Start)
+            .margin({ top: SpaceTokens.sm })
+
+            // 承诺块 = 契约 reason-block：surfacePanel + 2px primary 左条（补上此前缺的左条）
+            Column() {
+              Text('结构化路线承诺')
+                .fontSize(TypeTokens.overline.size)
+                .fontWeight(600)
+                .fontColor(ColorTokens.muted)
+              Text('基于本地精选数据库与步行动线计算，每个站点均明确耗时与预约状态。')
+                .fontSize(TypeTokens.small.size)
+                .fontColor(ColorTokens.ink)
+                .lineHeight(TypeTokens.small.lineHeight)
+                .margin({ top: SpaceTokens.xs })
+            }
+            .alignItems(HorizontalAlign.Start)
+            .width('100%')
+            .padding(SpaceTokens.md)
+            .borderRadius(RadiusTokens.reason)
+            .backgroundColor(ColorTokens.surfacePanel)
+            .border({ width: { left: 2 }, color: ColorTokens.primary })
+            .margin({ top: SpaceTokens.md })
+          }
+          .padding(SpaceTokens.lg)
+          .borderRadius(RadiusTokens.card)
+          .backgroundColor(ColorTokens.surfaceElevated)
+          .width('100%')
+        }
       }
+      .width('100%')
+      .alignItems(HorizontalAlign.Start)
+      // 左右内缩走对称内缩而不是 maxWidth：卡片子级全是 width('100%')，
+      // 给父 Column 加 constraintSize.maxWidth 只会左贴边、右侧空出一条（实测更坏）。
+      // 折叠屏展开（窗口 707vp）时预览卡原本通铺 642vp、三行节点右侧 55% 全白。
+      .padding({
+        left: symmetricInsetForCap(this.windowWidthVp, BP_MD_MIN_VP, SpaceTokens.lg),
+        right: symmetricInsetForCap(this.windowWidthVp, BP_MD_MIN_VP, SpaceTokens.lg),
+        // 悬浮 dock 压在滚动内容上：末行（预览卡承诺块）要能滚出 dock 顶边
+        bottom: LayoutTokens.floatingDockClearance
+      })
     }
     .width('100%')
     .height('100%')
-    .alignItems(HorizontalAlign.Start)
-    // 这一屏挂在有悬浮 dock 的 tab 上且自身不滚动：整页给 dock 让出净空，
-    // 最后一行才不会藏到 dock 底下。
-    // 左右内缩走对称内缩而不是 maxWidth：这屏的卡片子级全是 width('100%')，
-    // 给父 Column 加 constraintSize.maxWidth 只会左贴边、右侧空出一条（实测更坏）。
-    // 折叠屏展开（窗口 707vp）时预览卡原本通铺 642vp、三行节点右侧 55% 全白。
-    .padding({
-      left: symmetricInsetForCap(this.windowWidthVp, BP_MD_MIN_VP, SpaceTokens.lg),
-      right: symmetricInsetForCap(this.windowWidthVp, BP_MD_MIN_VP, SpaceTokens.lg),
-      bottom: LayoutTokens.floatingDockClearance
-    })
+    .scrollBar(BarState.Off)
+    .edgeEffect(EdgeEffect.Spring)
+    .align(Alignment.Top)
     .backgroundColor(ColorTokens.canvas)
   }
 }

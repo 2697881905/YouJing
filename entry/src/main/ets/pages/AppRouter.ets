@@ -26,6 +26,7 @@ import { AreaMorePage } from './AreaMorePage';
 import { ComingSoonPage } from './ComingSoonPage';
 import { BadgePage } from './BadgePage';
 import { TripReviewPage } from './TripReviewPage';
+import { PricingPage } from './PricingPage';
 import { BuildConfig } from '../common/constants/BuildConfig';
 
 /**
@@ -81,6 +82,8 @@ export function routerMap(name: string, param: object) {
     BadgePage()
   } else if (name === 'Review') {
     TripReviewPage({ tripId: tripIdOf(param) })
+  } else if (name === 'Pricing') {
+    PricingPage()
   } else {
     ComingSoonPage({
       title: BuildConfig.IS_DEBUG ? `未识别路由 [${name}]` : '这个页面'

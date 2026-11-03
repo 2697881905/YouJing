@@ -4,19 +4,18 @@
  * 传输抽象：
  * - MockLlmTransport：离线闭环（当前默认，用户拍板）。按请求参数确定性地合成
  *   合法 Trip JSON，走完整「响应→守卫→Trip」链路，等价验证真实管线；
- * - HttpLlmTransport：直连备选。端点与超时取 ApiConfig 单点；Key 开发期走 ApiConfig
- *   （skip-worktree 防误提交，禁止硬编码进逻辑），上架前迁系统凭据存储。小艺 Skill 通道在阶段 9 接入。
+ * - HttpLlmTransport：BFF 中转。端侧发送业务参数（destination/startDate/...），
+ *   BFF 内部构建 prompt、注入 Key、扣减配额、转发 LLM，返回 { trip, quota }。
+ *   端侧不再构建 prompt，不再解析 chat/completions 信封。
  *
  * 失败策略（§4.1-5）：解析失败重试一次，再失败抛 TRIP_GENERATE_RETRY_EXHAUSTED，
- * 由调用方进屏7降级。
+ * 由调用方进屏7降级。401（票据失效）时先重新激活设备再重试。
  */
 
 import { http } from '@kit.NetworkKit';
-import { buffer } from '@kit.ArkTS';
+import { common } from '@kit.AbilityKit';
 import { BusinessError } from '@kit.BasicServicesKit';
-import { LlmRequest, PromptBuilder } from './PromptBuilder';
 import { TripExpect, TripParser } from './TripParser';
-import { TripSchema } from './TripSchema';
 import { Trip, TripDay, Activity, Meal, MealType, ActivityCategory, ActivityStatus, IntensityLevel, TransportInfo } from '../model/Trip';
 import { PlanParams, SelectedSpot, TripBasicInput, PaceOption, PaceRule } from '../model/PlanParams';
 import { Spot } from '../model/Spot';
@@ -25,14 +24,18 @@ import { backfillActivityPlaces, backfillOpeningHours } from '../utils/TripEnric
 import { DateUtils } from '../utils/DateUtils';
 import { ApiConfig } from '../common/config/ApiConfig';
 import { MockConfig } from '../common/config/MockConfig';
+import { DeviceTokenStore } from '../data/DeviceTokenStore';
+import { DeviceActivator } from '../data/DeviceActivator';
+import { EntitlementStore, Entitlement, PassInfo } from '../data/EntitlementStore';
 import { Logger } from '../common/logger/Logger';
 import { AppError } from '../common/error/AppError';
 import { ErrorCode } from '../common/error/ErrorCode';
+import { TripGeneratePayload, buildTripGeneratePayload } from './TripRequestPayload';
 
 const TAG: string = 'Ai.LlmClient';
 
 export interface LlmTransport {
-  complete(req: LlmRequest): Promise<string>;
+  complete(idempotencyKey?: string): Promise<string>;
 }
 
 /** 离线闭环传输：从请求上下文确定性合成合法 Trip JSON */
@@ -47,8 +50,8 @@ export class MockLlmTransport implements LlmTransport {
     this.area = area;
   }
 
-  complete(req: LlmRequest): Promise<string> {
-    Logger.info(TAG, `MockTransport system=${req.system.length}B user=${req.user.length}B`);
+  complete(idempotencyKey?: string): Promise<string> {
+    Logger.info(TAG, 'MockTransport synthesize');
     return Promise.resolve(this.synthesize());
   }
 
@@ -185,105 +188,63 @@ export class MockLlmTransport implements LlmTransport {
   }
 }
 
+/** BFF /v1/trip/generate 响应格式 */
+interface BffQuotaResponse {
+  source?: string;
+  remainingToday?: number;
+  giftRemaining?: number;
+  passes?: PassInfo[];
+}
+
+interface BffTripResponse {
+  trip?: Record<string, Object>;
+  quota?: BffQuotaResponse;
+}
+
 /**
- * 直连备选传输：端点未就绪即抛 LLM_UNAVAILABLE（禁止硬编码，配置单点）。
- * 鉴权与超时同走 ApiConfig：Key 为空时请求不带 Authorization 头（只告警），
- * 超时参数显式下发，真超时报 NETWORK_TIMEOUT、其余报 NETWORK_REQUEST_FAILED。
+ * BFF 中转传输：端侧发送业务参数，BFF 内部构建 prompt + 注入 Key + 扣减配额 + 转发 LLM。
+ * 端侧不再构建 OpenAI chat/completions 格式，不再解析 choices 信封。
+ * BFF 返回 { trip, quota }，端侧提取 trip 交 TripParser 守卫，quota 更新 EntitlementStore。
  */
-/** OpenAI 兼容 chat/completions 响应信封（只声明本端点用得到的字段） */
-interface ChatError {
-  message?: string;
-}
-
-interface ChatMessage {
-  role?: string;
-  content?: string;
-}
-
-interface ChatChoice {
-  index?: number;
-  message?: ChatMessage;
-  finish_reason?: string;
-}
-
-interface ChatUsageBreakdown {
-  reasoning_tokens?: number;
-}
-
-interface ChatUsage {
-  prompt_tokens?: number;
-  completion_tokens?: number;
-  prompt_cache_hit_tokens?: number;
-  /** 思考 token 混在 completion_tokens 里计费，单列出来才能定位「贵在思考」 */
-  completion_tokens_details?: ChatUsageBreakdown;
-}
-
-interface ChatCompletion {
-  id?: string;
-  model?: string;
-  choices?: ChatChoice[];
-  error?: ChatError;
-  usage?: ChatUsage;
-}
-
 export class HttpLlmTransport implements LlmTransport {
-  async complete(req: LlmRequest): Promise<string> {
-    if (ApiConfig.BASE_URL.length === 0 || ApiConfig.LLM_CHAT_ENDPOINT.length === 0) {
-      throw new AppError(ErrorCode.LLM_UNAVAILABLE, 'LLM 端点未配置（ApiConfig 占位）');
+  private params: PlanParams;
+  private spots: Spot[];
+  private area: Area;
+  private passId: string;
+
+  constructor(params: PlanParams, spots: Spot[], area: Area, passId?: string) {
+    this.params = params;
+    this.spots = spots;
+    this.area = area;
+    this.passId = passId !== undefined ? passId : '';
+  }
+
+  async complete(idempotencyKey?: string): Promise<string> {
+    if (ApiConfig.BFF_BASE_URL.length === 0 || ApiConfig.LLM_CHAT_ENDPOINT.length === 0) {
+      throw new AppError(ErrorCode.LLM_UNAVAILABLE, 'BFF 端点未配置（ApiConfig 占位）');
     }
-    const body: Record<string, Object> = {};
-    // 消息字面量带具名 Record 标注（工程纪律：对象字面量必须对应具名类型）
-    const messages: Object[] = [
-      { 'role': 'system', 'content': req.system } as Record<string, string>,
-      { 'role': 'user', 'content': req.user } as Record<string, string>
-    ];
-    body['messages'] = messages;
-    // OpenAI 兼容端点缺 model 会直接 400（2026-10-27 直连实测）；本地网关不需要时留空不发
-    if (ApiConfig.LLM_MODEL.length > 0) {
-      body['model'] = ApiConfig.LLM_MODEL;
-    }
-    // 两项都是账单开关，不能交给服务端默认值：
-    // deepseek-flash 默认开思考（effort=high），思维链 token 按输出价计费；
-    // 旧别名 deepseek-chat 恰好是非思考变体，所以以前「没配也便宜」纯属运气。
-    if (ApiConfig.LLM_THINKING_DISABLED) {
-      const thinking: Record<string, string> = {};
-      thinking['type'] = 'disabled';
-      body['thinking'] = thinking;
-    }
-    if (ApiConfig.LLM_MAX_TOKENS > 0) {
-      body['max_tokens'] = ApiConfig.LLM_MAX_TOKENS;
-    }
-    // §4.3 第二层防线：response_format 强制模型遵循 Schema（strict），
-    // schema 本体与第一层 Prompt 内嵌、第三层 TripParser 守卫同源（TripSchema.TRIP_JSON_SCHEMA）
-    // 端点不支持 strict Schema 时降级为 json_object：第二层防线让位给第一、三层，
-    // 而不是每次都吃 400（DeepSeek 实测 json_schema 不可用）
-    if (req.jsonSchemaStrict && ApiConfig.SUPPORTS_JSON_SCHEMA) {
-      const jsonSchema: Record<string, Object> = {};
-      jsonSchema['name'] = 'Trip';
-      jsonSchema['schema'] = JSON.parse(TripSchema.TRIP_JSON_SCHEMA);
-      jsonSchema['strict'] = true;
-      const responseFormat: Record<string, Object> = {};
-      responseFormat['type'] = 'json_schema';
-      responseFormat['json_schema'] = jsonSchema;
-      body['response_format'] = responseFormat;
-    } else {
-      const responseFormat: Record<string, Object> = {};
-      responseFormat['type'] = 'json_object';
-      body['response_format'] = responseFormat;
-    }
+
+    // 端侧 SOT：完整 PlanParams + Spot[] + Area，字段与 PromptBuilder.userPrompt 一一对应。
+    // 旧 sparse 字段（selectedSpots: string[]、selectedArea: string）不再发送；
+    // BFF 仍保留 sparse 分支，供旧客户端使用。
+    const body: TripGeneratePayload = buildTripGeneratePayload(
+      this.params, this.spots, this.area, this.passId, !EntitlementStore.hasSubscription());
+
     const reqHandle = http.createHttp();
     try {
-      // 鉴权注入点：Key 走 ApiConfig 单点（上架前迁系统凭据存储，见接入方案 §三-2）。
-      // Key 为空只告警不阻断——留出免鉴权本地网关的调试通路，误配会以 HTTP 401 露出。
       const headers: Record<string, string> = {};
       headers['Content-Type'] = 'application/json';
-      if (ApiConfig.API_KEY.length > 0) {
-        headers['Authorization'] = `Bearer ${ApiConfig.API_KEY}`;
+      const token: string = DeviceTokenStore.getToken();
+      if (token.length > 0) {
+        headers['Authorization'] = `Bearer ${token}`;
       } else {
-        Logger.warn(TAG, 'LLM Key 未配置（ApiConfig.API_KEY 为空），本次请求不带鉴权头');
+        Logger.warn(TAG, '设备票据未获取（DeviceTokenStore 无 token），本次请求不带鉴权头');
+      }
+      if (idempotencyKey !== undefined && idempotencyKey.length > 0) {
+        headers['Idempotency-Key'] = idempotencyKey;
       }
       const resp: http.HttpResponse = await reqHandle.request(
-        `${ApiConfig.BASE_URL}${ApiConfig.LLM_CHAT_ENDPOINT}`, {
+        `${ApiConfig.BFF_BASE_URL}${ApiConfig.LLM_CHAT_ENDPOINT}`, {
         method: http.RequestMethod.POST,
         header: headers,
         extraData: JSON.stringify(body),
@@ -292,44 +253,48 @@ export class HttpLlmTransport implements LlmTransport {
         readTimeout: ApiConfig.READ_TIMEOUT_MS
       });
       if (resp.responseCode < 200 || resp.responseCode >= 300) {
-        throw new AppError(ErrorCode.NETWORK_REQUEST_FAILED,
-          `LLM HTTP ${resp.responseCode}: ${String(resp.result).slice(0, 160)}`);
+        const code: number = resp.responseCode;
+        const respBody: string = String(resp.result).slice(0, 160);
+        if (code === 401) {
+          throw new AppError(ErrorCode.CLOUD_TOKEN_INVALID, `BFF 401: ${respBody}`);
+        }
+        if (code === 402) {
+          throw new AppError(ErrorCode.CLOUD_QUOTA_EXHAUSTED, `BFF 402: ${respBody}`);
+        }
+        if (code === 429) {
+          throw new AppError(ErrorCode.CLOUD_RATE_LIMITED, `BFF 429: ${respBody}`);
+        }
+        if (code === 409) {
+          throw new AppError(ErrorCode.CLOUD_IDEMPOTENCY_CONFLICT, `BFF 409: ${respBody}`);
+        }
+        throw new AppError(ErrorCode.NETWORK_REQUEST_FAILED, `BFF HTTP ${code}: ${respBody}`);
       }
-      // 返回的是 **chat/completions 信封**，模型文本在 choices[0].message.content 里。
-      // 此前这里直接把整个 resp.result 交出去，TripParser 拿到的顶层键是
-      // id/model/choices/usage → 必然报「days: 期望 array」，真机两次实测都是这个形状。
-      const env: ChatCompletion = JSON.parse(String(resp.result)) as ChatCompletion;
-      const choices: ChatChoice[] | undefined = env.choices;
-      if (choices === undefined || choices.length === 0) {
-        const errEnv: ChatError | undefined = env.error;
-        const msg: string = errEnv !== undefined && errEnv.message !== undefined ? errEnv.message : '';
-        throw new AppError(ErrorCode.SCHEMA_VALIDATION_FAILED,
-          msg.length > 0 ? `LLM 返回错误: ${msg}` : 'LLM 响应里没有 choices');
+
+      // BFF 返回 { trip, quota } 格式：trip 是已解析的 JSON 对象，quota 是更新后的权益快照
+      const env: BffTripResponse = JSON.parse(String(resp.result)) as BffTripResponse;
+      if (env.trip === undefined || env.trip === null) {
+        throw new AppError(ErrorCode.SCHEMA_VALIDATION_FAILED, 'BFF 响应缺 trip 字段');
       }
-      // 用量必须落日志：按 token 计费的通道，端上不记用量就没法回答「这次花了多少钱」，
-      // 也没法定位「贵在哪一段」（缓存命中数直接决定输入侧单价，思考 token 单列才能识别思考计费）
-      const u: ChatUsage | undefined = env.usage;
-      const fr: string = choices[0].finish_reason === undefined ? '?' : choices[0].finish_reason;
-      if (u !== undefined) {
-        const detail: ChatUsageBreakdown | undefined = u.completion_tokens_details;
-        const reason: number = detail !== undefined && detail.reasoning_tokens !== undefined ?
-          detail.reasoning_tokens : 0;
-        Logger.info(TAG, `LLM 用量 model=${env.model === undefined ? '?' : env.model} ` +
-          `in=${u.prompt_tokens === undefined ? 0 : u.prompt_tokens} ` +
-          `(cache 命中 ${u.prompt_cache_hit_tokens === undefined ? 0 : u.prompt_cache_hit_tokens}) ` +
-          `out=${u.completion_tokens === undefined ? 0 : u.completion_tokens} ` +
-          `(思考 ${reason}) 结束=${fr}`);
+
+      // 用 quota 快照更新权益缓存（BFF 返回的 remainingToday 实为 usedToday）
+      if (env.quota !== undefined && env.quota !== null) {
+        const current: Entitlement = EntitlementStore.get();
+        const updated: Entitlement = {
+          subscription: current.subscription,
+          passes: env.quota.passes !== undefined ? env.quota.passes : current.passes,
+          giftRemaining: env.quota.giftRemaining !== undefined ? env.quota.giftRemaining : current.giftRemaining,
+          usedToday: env.quota.remainingToday !== undefined ? env.quota.remainingToday : current.usedToday,
+          dailyCap: current.dailyCap
+        };
+        try {
+          await EntitlementStore.update(updated);
+        } catch (err) {
+          Logger.warn(TAG, `权益缓存更新失败: ${(err as Error).message}`);
+        }
       }
-      if (fr === 'length') {
-        Logger.warn(TAG, `LLM 输出被 max_tokens=${ApiConfig.LLM_MAX_TOKENS} 截断，` +
-          `TripParser 会判失败并重试一次（账单翻倍）`);
-      }
-      const message: ChatMessage | undefined = choices[0].message;
-      const content: string | undefined = message === undefined ? undefined : message.content;
-      if (content === undefined || content.length === 0) {
-        throw new AppError(ErrorCode.SCHEMA_VALIDATION_FAILED, 'LLM 响应缺 choices[0].message.content');
-      }
-      return content;
+
+      // TripParser 需要字符串输入，把 BFF 返回的 trip 对象重新序列化
+      return JSON.stringify(env.trip);
     } catch (err) {
       if (err instanceof AppError) {
         throw err;
@@ -351,22 +316,30 @@ export class HttpLlmTransport implements LlmTransport {
 }
 
 export class LlmClient {
-  /** 全链路：Prompt → transport → 守卫 → Trip；失败重试一次 */
+  /**
+   * 全链路：transport → 守卫 → Trip；失败重试一次。
+   * 401（票据失效）时先重新激活设备再重试，避免拿过期 token 反复打 401。
+   */
   static async generateTrip(params: PlanParams, spots: Spot[], area: Area,
-    transport?: LlmTransport): Promise<Trip> {
+    transport?: LlmTransport, context?: common.Context, passId?: string): Promise<Trip> {
+    // 开发态旁路：BFF 没配就退回端侧合成，否则放开门禁也只是把"跳付费页"换成
+    // "LLM_UNAVAILABLE 报错页"。配了 BFF 时本开关不改变传输选择，只放开权益判断。
+    const devLocal: boolean = MockConfig.USE_MOCK_DATA
+      || (ApiConfig.DEV_SKIP_BFF && ApiConfig.BFF_BASE_URL.length === 0);
     const t: LlmTransport = transport !== undefined ? transport
-      : (MockConfig.USE_MOCK_DATA ? new MockLlmTransport(params, spots, area) : new HttpLlmTransport());
-    const req: LlmRequest = PromptBuilder.buildRequest(params, spots, area);
+      : (devLocal ? new MockLlmTransport(params, spots, area)
+        : new HttpLlmTransport(params, spots, area, passId));
     // 天数与出发日以用户输入为准：模型多吐一天时按窗口截断，少吐则失败重试
     const expect: TripExpect = {
       days: DateUtils.spanDays(params.basic.startDate, params.basic.endDate),
       startDate: params.basic.startDate
     };
     let lastErr: Error | null = null;
+    const idempotencyKey: string = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     for (let attempt = 0; attempt < 2; attempt++) {
       let raw: string = '';
       try {
-        raw = await t.complete(req);
+        raw = await t.complete(idempotencyKey);
         const trip: Trip = TripParser.parseTrip(raw, expect);
         // 地址/坐标以景点库为准回填（提示词第 12 条要求模型留空，省输出 token 也免幻觉）
         const filled: number = backfillActivityPlaces(trip, spots);
@@ -380,6 +353,12 @@ export class LlmClient {
         // 失败时模型原文不落库；不留片段就无法判断是非法 JSON、多吐一天还是缺字段
         if (raw.length > 0) {
           Logger.warn(TAG, `原始输出前 240 字: ${LlmClient.excerpt(raw)}`);
+        }
+        // A1: 票据失效时重新激活设备，下次重试将使用新 token
+        if (err instanceof AppError && (err as AppError).code === ErrorCode.CLOUD_TOKEN_INVALID
+          && context !== undefined && attempt === 0) {
+          Logger.info(TAG, '票据失效，尝试重新激活设备');
+          await DeviceActivator.reactivate(context);
         }
       }
     }

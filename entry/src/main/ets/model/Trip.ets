@@ -130,4 +130,6 @@ export interface Trip {
   days: TripDay[];
   /** 小贴士 */
   tips: string[];
+  /** 行程通行证 ID（商业化方案 §3）；空串 = 未购买通行证 */
+  passId?: string;
 }

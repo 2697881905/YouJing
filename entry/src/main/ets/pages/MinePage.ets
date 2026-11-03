@@ -23,6 +23,7 @@ import { BadgeGroup, BadgeRecord, badgeCityCount, badgeTotal, buildBadgeBoard } 
 import { ProfileStore } from '../data/ProfileStore';
 import { LegalDocReader } from '../components/LegalDocReader';
 import { Logger } from '../common/logger/Logger';
+import { PlanDraft } from '../data/PlanDraft';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
@@ -320,6 +321,7 @@ export struct MinePage {
       .titleBar(HdsChrome.bar({
         mainTitle: '我的',
         menu: [HdsChrome.item($r('sys.symbol.plus'), '新建行程', (): void => {
+          PlanDraft.fresh();
           enterPlanningFlow('TripInput');
         }), HdsChrome.item($r('sys.symbol.medal'), '我的勋章', (): void => {
           this.pathStack.pushPath({ name: 'Badges' });

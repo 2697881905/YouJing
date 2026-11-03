@@ -21,13 +21,17 @@ import { PrivacyConsentDialog } from '../components/PrivacyConsentDialog';
 import { LoginView } from './LoginView';
 import { Logger } from '../common/logger/Logger';
 import { AccountStore } from '../data/AccountStore';
+import { EntitlementStore } from '../data/EntitlementStore';
+import { DeviceTokenStore } from '../data/DeviceTokenStore';
+import { DeviceActivator } from '../data/DeviceActivator';
 import { common } from '@kit.AbilityKit';
 import { YoujingStartPage } from './YoujingStartPage';
 import { MapPage } from './MapPage';
 import { ExpensePage } from './ExpensePage';
 import { TripsPage } from './TripsPage';
 import { MinePage } from './MinePage';
-import { HdsNavigation, HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
+import { HdsNavigation, HdsNavigationTitleMode, HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
+import { HdsChrome } from '../design/HdsChrome';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
@@ -80,38 +84,35 @@ struct Index {
 
   aboutToAppear(): void {
     this.currentTab = this.wantTab;
-    // 冷启直接深链到地图格时 onChange 不触发（同值），带子会留在 EntryAbility 涂的画布色 ——
-    // 初始这一格也要同步一次，不然"冷启落地图格"这条路上色差仍在
     this.syncTopStrip(this.wantTab);
-    // 明示同意闸门：自己把同意态读出来再决定开不开弹窗。
-    // 不在 EntryAbility 里预读——preferences 是异步的，aboutToAppear 可能抢跑，
-    // 那样每次冷启都会给已同意的用户重问一遍。
     const ctx: common.Context = this.getUIContext().getHostContext() as common.Context;
     ConsentStore.init(ctx)
       .then((agreed: boolean): void => {
-        if (!agreed) {
+        if (agreed) {
+          this.bootstrap(ctx);
+        } else {
           this.consentDialog.open();
         }
       })
       .catch((): void => {
         this.consentDialog.open();
       });
-    // 全新进程里 AppStorage 是空的：不种一条活跃行程，地图/费用 tab 只能对着占位发呆。
-    // 但必须先等登录态恢复——DAO 一律按 AccountStore.uid() 收口分区，
-    // 而 aboutToAppear 跑在 EntryAbility.bootstrap 的 await init 之前，
-    // 直接用游客键种出来的行程 id 到真账号分区里查不到，地图 tab 会对着空底图。
-    if ((AppStorage.get<string>(ACTIVE_TRIP_KEY) ?? '').length === 0) {
-      const ctx: common.Context = this.getUIContext().getHostContext() as common.Context;
-      AccountStore.init(ctx)
-        .then((): Promise<TripSummary[]> => TripDao.listSummaries(ctx))
-        .then((rows: TripSummary[]): void => {
-          if (rows.length > 0) {
-            AppStorage.setOrCreate(ACTIVE_TRIP_KEY, rows[0].id);
-          }
-        })
-        .catch((): void => {
-        });
-    }
+  }
+
+  private bootstrap(ctx: common.Context): void {
+    DeviceTokenStore.init(ctx)
+      .then((): Promise<boolean> => DeviceActivator.activate(ctx))
+      .catch((): void => {});
+    EntitlementStore.init(ctx).catch((): void => {});
+    AccountStore.init(ctx)
+      .then((): Promise<TripSummary[]> => TripDao.listSummaries(ctx))
+      .then((rows: TripSummary[]): void => {
+        if (rows.length > 0) {
+          AppStorage.setOrCreate(ACTIVE_TRIP_KEY, rows[0].id);
+        }
+      })
+      .catch((): void => {
+      });
   }
 
   /**
@@ -147,9 +148,10 @@ struct Index {
   private consentDialog: CustomDialogController = new CustomDialogController({
     builder: PrivacyConsentDialog({
       onAgree: (): void => {
-        // agree() 先同步置位（AppStorage + 内存），落盘是异步的；关窗不等落盘
         ConsentStore.agree().catch((): void => {});
         this.consentDialog.close();
+        const ctx: common.Context = this.getUIContext().getHostContext() as common.Context;
+        this.bootstrap(ctx);
       },
       onDecline: (): void => {
         ConsentStore.decline();
@@ -197,14 +199,18 @@ struct Index {
       }
       .tabBar(this.tabLabel(TAB_ITINERARY))
 
-      // 规划 tab：门面 + 屏2→屏6 向导链都走 APP_NAV（主链 16 个文件的字段不动）
+      // 规划 tab：门面 + 屏2→屏6 向导链都走 APP_NAV（主链 16 个文件的字段不动）。
+      // 2026-11-03 主功能页化：挂官方标题栏（与其余四格同构），页面内不再自绘品牌块——
+      // 「规划」页作为主功能页从官方栏起排，滚动磨砂走 HdsChrome 的既定两态。
       TabContent() {
         HdsNavigation(APP_NAV) {
           YoujingStartPage()
         }
         .navDestination(routerMap)
         .mode(NavigationMode.Stack)
-        .hideTitleBar(true)
+        .titleMode(HdsNavigationTitleMode.MINI)
+        .hideBackButton(true)
+        .titleBar(HdsChrome.bar({ mainTitle: '规划' }))
         .backgroundColor($r('app.color.canvas'))
       }
       .tabBar(this.tabLabel(TAB_PLAN))
@@ -265,8 +271,9 @@ struct Index {
 
   build() {
     Column() {
-      if (this.authState === '') {
-        // 登录态还没水合完：什么都不画。画了就会让已登录用户每次冷启闪一下登录页
+      if (this.consentAgreed !== '1') {
+        Blank()
+      } else if (this.authState === '') {
         Blank()
       } else if (this.authState !== 'huawei' && !this.guestChosen) {
         LoginView({

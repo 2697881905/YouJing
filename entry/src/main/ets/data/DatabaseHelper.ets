@@ -7,7 +7,7 @@
  * - 版本号驱动迁移：onUpgrade 按 old→new 逐级执行，多条迁移放事务，成功才写新版本号；
  * - 过滤列建索引；单条记录 ≤2MB（行程 JSON 列远小于该值，tips/highlights 为文本）。
  *
- * 表结构（v8）：
+ * 表结构（v10）：
  *   trip        行程聚合根（overview/tips 展平为列与 JSON 文本；user_id 为账号分区键）
  *   trip_day    单日（tripId+dayIndex 索引）
  *   activity    活动节点（含 transport 三列与 reason；tripId+dayIndex 索引）
@@ -32,7 +32,7 @@ import { AppError } from '../common/error/AppError';
 import { ErrorCode } from '../common/error/ErrorCode';
 
 const STORE_NAME: string = 'youjing.db';
-const DB_VERSION: number = 9;
+const DB_VERSION: number = 10;
 const TAG: string = 'Data.DatabaseHelper';
 
 const SQL_CREATE_TRIP: string = `CREATE TABLE IF NOT EXISTS trip (
@@ -40,7 +40,7 @@ const SQL_CREATE_TRIP: string = `CREATE TABLE IF NOT EXISTS trip (
   people INTEGER NOT NULL, budget INTEGER NOT NULL, style TEXT NOT NULL,
   total_cost INTEGER NOT NULL DEFAULT 0, summary TEXT NOT NULL DEFAULT '',
   highlights TEXT NOT NULL DEFAULT '[]', tips TEXT NOT NULL DEFAULT '[]',
-  updated_at INTEGER NOT NULL, user_id TEXT NOT NULL DEFAULT '${AccountConfig.GUEST_UID}')`;
+  updated_at INTEGER NOT NULL)`;
 
 const SQL_CREATE_TRIP_DAY: string = `CREATE TABLE IF NOT EXISTS trip_day (
   id INTEGER PRIMARY KEY AUTOINCREMENT, trip_id TEXT NOT NULL, day_index INTEGER NOT NULL,
@@ -57,7 +57,7 @@ const SQL_CREATE_ACTIVITY: string = `CREATE TABLE IF NOT EXISTS activity (
 const SQL_CREATE_MEAL: string = `CREATE TABLE IF NOT EXISTS meal (
   id INTEGER PRIMARY KEY AUTOINCREMENT, trip_id TEXT NOT NULL, day_index INTEGER NOT NULL,
   type TEXT NOT NULL, name TEXT NOT NULL, location TEXT NOT NULL DEFAULT '',
-  note TEXT, estimated_cost INTEGER NOT NULL DEFAULT 0, time TEXT NOT NULL DEFAULT '')`;
+  note TEXT, estimated_cost INTEGER NOT NULL DEFAULT 0)`;
 
 const SQL_CREATE_SPOT: string = `CREATE TABLE IF NOT EXISTS spot (
   id TEXT PRIMARY KEY, name TEXT NOT NULL, city TEXT NOT NULL, tags TEXT NOT NULL DEFAULT '[]',
@@ -67,8 +67,7 @@ const SQL_CREATE_SPOT: string = `CREATE TABLE IF NOT EXISTS spot (
   district TEXT NOT NULL DEFAULT '', nearest_metro TEXT NOT NULL DEFAULT '', entrance_tip TEXT,
   requires_booking INTEGER NOT NULL DEFAULT 0, booking_method TEXT, advance_days INTEGER,
   release_time TEXT, closed_day TEXT, difficulty TEXT,
-  source TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT '',
-  confidence TEXT NOT NULL DEFAULT '')`;
+  source TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT '')`;
 
 const SQL_CREATE_AREA: string = `CREATE TABLE IF NOT EXISTS area (
   id TEXT PRIMARY KEY, name TEXT NOT NULL, city TEXT NOT NULL, longitude REAL NOT NULL DEFAULT 0,
@@ -147,6 +146,10 @@ const SQL_V9_CLEAN_ORPHANS: string[] = [
   'DELETE FROM trip_day WHERE trip_id NOT IN (SELECT id FROM trip)'
 ];
 
+/** v9 → v10：行程绑定通行证（商业化方案 §3）。空串 = 未购买通行证 */
+const SQL_V10_ADD_TRIP_PASS_ID: string =
+  `ALTER TABLE trip ADD COLUMN pass_id TEXT NOT NULL DEFAULT ''`;
+
 export class DatabaseHelper {
   private static storePromise: Promise<relationalStore.RdbStore> | null = null;
   /** 单写通道：所有写事务排队串行，规避 RDB busy（§8 风险表） */
@@ -207,51 +210,50 @@ export class DatabaseHelper {
     await store.beginTransaction();
     try {
       if (oldVersion === 0) {
-        // 全新建表
-        store.executeSql(SQL_CREATE_TRIP);
-        store.executeSql(SQL_CREATE_TRIP_DAY);
-        store.executeSql(SQL_CREATE_ACTIVITY);
-        store.executeSql(SQL_CREATE_MEAL);
-        store.executeSql(SQL_CREATE_SPOT);
-        store.executeSql(SQL_CREATE_AREA);
-        store.executeSql(SQL_CREATE_EXPENSE);
-        store.executeSql(SQL_CREATE_CHECKIN);
+        await store.executeSql(SQL_CREATE_TRIP);
+        await store.executeSql(SQL_CREATE_TRIP_DAY);
+        await store.executeSql(SQL_CREATE_ACTIVITY);
+        await store.executeSql(SQL_CREATE_MEAL);
+        await store.executeSql(SQL_CREATE_SPOT);
+        await store.executeSql(SQL_CREATE_AREA);
+        await store.executeSql(SQL_CREATE_EXPENSE);
+        await store.executeSql(SQL_CREATE_CHECKIN);
       }
-      // 累积式迁移：每个 if 独立判断，跨级升级时全部命中、逐级补齐
       if (oldVersion < 2) {
-        store.executeSql(SQL_V2_ADD_TRIP_USER_ID);
+        await store.executeSql(SQL_V2_ADD_TRIP_USER_ID);
       }
       if (oldVersion < 3) {
-        store.executeSql(SQL_CREATE_EXPENSE);
+        await store.executeSql(SQL_CREATE_EXPENSE);
       }
       if (oldVersion < 4) {
-        store.executeSql(SQL_CREATE_CHECKIN);
-        store.executeSql(SQL_V4_ADD_EXPENSE_ACTIVITY);
+        await store.executeSql(SQL_CREATE_CHECKIN);
+        await store.executeSql(SQL_V4_ADD_EXPENSE_ACTIVITY);
       }
       if (oldVersion < 5) {
-        store.executeSql(SQL_V5_ADD_SPOT_CONFIDENCE);
+        await store.executeSql(SQL_V5_ADD_SPOT_CONFIDENCE);
       }
       if (oldVersion < 6) {
-        store.executeSql(SQL_V6_ADD_MEAL_TIME);
+        await store.executeSql(SQL_V6_ADD_MEAL_TIME);
       }
       if (oldVersion < 7) {
-        store.executeSql(SQL_V7_ADD_TRIP_CATEGORY_BUDGET);
+        await store.executeSql(SQL_V7_ADD_TRIP_CATEGORY_BUDGET);
       }
       if (oldVersion < 8) {
         for (const sql of SQL_V8_CHECKIN_EVIDENCE) {
-          store.executeSql(sql);
+          await store.executeSql(sql);
         }
       }
       if (oldVersion < 9) {
         for (const sql of SQL_V9_CLEAN_ORPHANS) {
-          store.executeSql(sql);
+          await store.executeSql(sql);
         }
       }
-      // 索引 DDL 全部 IF NOT EXISTS，逐级迁移后统一补齐
-      for (const idx of SQL_INDEXES) {
-        store.executeSql(idx);
+      if (oldVersion < 10) {
+        await store.executeSql(SQL_V10_ADD_TRIP_PASS_ID);
       }
-      // 后续版本在此逐级追加：if (oldVersion < 6) { ...ALTER/CREATE... }
+      for (const idx of SQL_INDEXES) {
+        await store.executeSql(idx);
+      }
       store.version = DB_VERSION;
       await store.commit();
       Logger.info(TAG, `迁移完成 ${oldVersion} → ${DB_VERSION}`);

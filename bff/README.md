@@ -1,0 +1,127 @@
+# 有径 BFF
+
+设备激活、权益/配额、LLM 代理、IAP 校验。当前是开发期 BFF 原型（Express + SQLite）。
+
+## Prompt / Schema 同源
+
+单一事实源（SOT）在端侧，不在 BFF 手写第二份：
+
+```
+entry/src/main/ets/ai/PromptBuilder.ets   # 17 条系统规则 + userPrompt
+entry/src/main/ets/ai/TripSchema.ets      # JSON Schema + 枚举
+entry/src/main/ets/utils/DateUtils.ets    # 天数/日期口径
+entry/src/main/ets/model/{PlanParams,Spot,Area}.ets  # 仅类型，供 tsc 解析
+```
+
+同步方式：
+
+```bash
+cd bff
+npm run sync:prompt
+```
+
+脚本用 tsc 把上述 `.ets` 转成 CommonJS，写到 `src/prompt/generated/`，并生成
+`manifest.json`（源文件与生成物的 sha256）。BFF 运行期只加载生成物；
+`npm test` 会校验 hash，entry/ 侧 SOT 改了但没重跑同步时测试会直接失败。
+
+> 不要手改 `src/prompt/generated/` 下的文件。要改提示词或 Schema，必须先改 entry/
+> 侧 SOT，再 `npm run sync:prompt`。
+
+## 用户消息的两种形态
+
+- **rich**：请求带 `spots[]`（含 `suggestedDuration/longitude/latitude/booking` 等）与
+  `area`（含 `priceTier/metroLines/anchorStations/airportMinutes/trainStationMinutes`）时，
+  BFF 直接调用 ets `PromptBuilder.userPrompt`，与端侧同一份代码。
+- **sparse**：旧客户端、或 rich 关键字段缺失时的回退。BFF 不伪造
+  停留时长/坐标/预约/开放时间，用户消息里明确写出缺口，只让模型排名称与顺序。
+
+当前端侧 `HttpLlmTransport` 已通过 `entry/src/main/ets/ai/TripRequestPayload.ets`
+发 rich payload；sparse 分支只用于旧客户端/缺字段回退。
+
+端侧改 `TripRequestPayload.ets` / `Spot.ets` / `Area.ets` 的字段后：
+
+```bash
+cd bff
+npm test
+```
+
+`test/entry-payload-contract.test.js` 会逐字段比对端侧接口与 BFF rich 分支；
+缺字段直接红。若同时改了 `PromptBuilder.ets` / `TripSchema.ets`，先
+`npm run sync:prompt` 再跑测试。
+
+## 结构化输出
+
+默认：
+
+```js
+response_format: {
+  type: 'json_schema',
+  json_schema: { name: 'trip', strict: true, schema: <TripSchema.TRIP_JSON_SCHEMA> }
+}
+```
+
+上游不支持 `json_schema` 时，显式降级：
+
+```bash
+LLM_RESPONSE_FORMAT=json_object
+```
+
+**实测判据（2026-11-03，DeepSeek 官方 `deepseek-chat`）**：`json_schema` 返回 HTTP 400，
+错误文案为 `This response_format type is unavailable now`；改 `json_object` 后同一请求
+HTTP 200，提示词里仍内嵌完整 Schema，BFF 仍用同一份 Schema 校验。看到 400/422 且文案
+含 `response_format ... unavailable` 就应降级，不要把降级当成通过。
+
+提示词里仍内嵌完整 Schema；BFF 收到响应后还会用同一份 Schema 做服务端校验
+（`src/prompt/trip-validator.js`），不合法直接 502，不落库、不扣额度。
+校验还兜底「每天至少 lunch + dinner 各一条」；缺任一条直接 502。
+
+上游 HTTP 4xx/5xx 统一映射为 **502 `LLM_UPSTREAM_ERROR`**，客户端不会再看到误导性的 500。
+
+## 幂等语义
+
+有效身份 = `scopeKey(accountId, Idempotency-Key)` + `requestHash(规范化请求体)`：
+
+| 情况 | 状态码 | 行为 |
+|---|---|---|
+| 首次请求 | 200 | 正常生成；成功响应体原样写入 `trip_request.response_json` |
+| 同键 + 同体 + 已成功 | 200 | 原样重放首次响应体，带 `Idempotency-Replayed: true` 头 |
+| 同键 + 不同体 | 422 `IDEMPOTENCY_KEY_REUSED` | 不重放、不覆盖旧行 |
+| 同键 + 同体 + 进行中 | 409 `IDEMPOTENCY_IN_PROGRESS` | 提示稍后重试 |
+| 同键 + 同体 + 上次失败 | 200/502 | 复用同一行重跑；配额已释放，会重新预占 |
+| 已成功但 `response_json` 缺失/损坏 | 500 `IDEMPOTENCY_STATE_CORRUPT` | 拒绝拿请求参数冒充 Trip |
+
+请求体规范化：对象键排序、数组保序、忽略 `undefined` 键；账号/设备标识参与作用域，
+避免跨用户撞键。
+
+并发认领：路由用 `ON CONFLICT ... DO UPDATE ... WHERE status='failed'` 把行抢占为
+`pending`；同一 key 并发时只有第一个请求 `changes=1`，其余直接 409，不会各自调 LLM
+造成双扣费/双写。
+
+## 测试
+
+```bash
+cd bff
+npm test
+```
+
+`node:test`，不依赖 express / better-sqlite3 / 网络：
+
+- `test/prompt.test.js`：17 条规则、Schema 内嵌、rich/sparse 拼装、response_format、SOT hash
+- `test/trip-validator.test.js`：合法/非法 Trip（必填、枚举、类型、空数组、天数、日期倒挂、时刻顺序、午晚各一）
+- `test/idempotency.test.js`：重放、同键不同体、进行中、失败重跑、损坏响应、规范化 hash
+- `test/entry-payload-contract.test.js`：端侧 `TripGeneratePayload` / `Spot` / `Area` / `SelectedSpot`
+  与 BFF rich 分支逐字段比对
+- `test/trip-route.integration.test.js`：真实 Express + SQLite 路由（UPSERT、配额快照、重放、
+  同键不同体 422、并发 409、上游 4xx 502、校验失败 502 不扣额）
+
+## 已知边界
+
+- DeepSeek 官方 `deepseek-chat` 当前不支持 `json_schema`，本地 `.env` 用
+  `LLM_RESPONSE_FORMAT=json_object`；换到支持 `json_schema` 的模型/端点时可切回。
+- 端侧已发 rich；`Spot`/`Area` 的 optional 字段缺失时 JSON 会省略，BFF 的 prompt 对应位置
+  会如实显示「未获取/以官方为准」，不会补 0 或伪造。
+- BFF 仍未接真实 IAP 验签、notify 验签与正式 JWT 密钥；这些不在本次「真实生成通道」范围内。
+- 当前验证：`npm test` 42/42 全绿，主 HAP + ohosTest HAP 编译通过；真实网络已做一次
+  `json_schema`（400）+ 一次 `json_object`（200）验收；真机 UI 未验证。
+- 2026-11-03 的真实 200 响应第 3 天缺晚餐；本规则加上后同类输出会被 502，需要重试。
+  未再烧真实调用复验，后续真机/联网验收时应确认模型能补齐晚餐。

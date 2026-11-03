@@ -1,0 +1,164 @@
+/**
+ * 权益缓存与导出校验（商业化方案 §4.2 / §8）。
+ *
+ * 契约：
+ * - 权益数据由 BFF /v1/entitlement 返回，端上缓存到 preferences（TTL 5 分钟）；
+ * - canExport() 是导出付费墙的判定入口：订阅有效或该行程有通行证即放行；
+ * - 离线时用缓存判定，缓存过期或无缓存时默认拒绝导出（保守策略）；
+ * - **例外**：`ApiConfig.DEV_SKIP_BFF` 为真时整套门禁放开（开发机本地开关，仓库版恒 false）。
+ *   没这条例外，BFF 未部署（`BFF_BASE_URL` 空串 → 永不写入缓存）会让
+ *   `canGenerate()` 恒 false，点「生成行程」直接跳付费页，主路径整条死掉。
+ */
+
+import { preferences } from '@kit.ArkData';
+import { common } from '@kit.AbilityKit';
+import { Logger } from '../common/logger/Logger';
+import { ApiConfig } from '../common/config/ApiConfig';
+import { AccountStore } from './AccountStore';
+
+const TAG: string = 'Data.EntitlementStore';
+const PREFS_NAME: string = 'youjing_entitlement';
+const KEY_ENTITLEMENT: string = 'entitlement_json';
+const KEY_CACHED_AT: string = 'cached_at';
+const CACHE_TTL_MS: number = 5 * 60 * 1000;
+
+export interface PassInfo {
+  localTripId: string;
+  status: string;
+  expiresAt: string | null;
+}
+
+export interface SubscriptionInfo {
+  status: string;
+  periodEnd: string;
+}
+
+export interface Entitlement {
+  subscription: SubscriptionInfo | null;
+  passes: PassInfo[];
+  giftRemaining: number;
+  usedToday: number;
+  dailyCap: number;
+}
+
+function emptyEntitlement(): Entitlement {
+  return {
+    subscription: null,
+    passes: [],
+    giftRemaining: 0,
+    usedToday: 0,
+    dailyCap: 0
+  };
+}
+
+export class EntitlementStore {
+  private static cached: Entitlement = emptyEntitlement();
+  private static cachedAt: number = 0;
+  private static prefs: preferences.Preferences | null = null;
+
+  static async init(context: common.Context): Promise<void> {
+    try {
+      EntitlementStore.prefs =
+        await preferences.getPreferences(context, PREFS_NAME);
+      const rawJson: preferences.ValueType =
+        EntitlementStore.prefs.getSync(KEY_ENTITLEMENT, '');
+      const rawAt: preferences.ValueType =
+        EntitlementStore.prefs.getSync(KEY_CACHED_AT, 0);
+      if (typeof rawJson === 'string' && rawJson.length > 0) {
+        EntitlementStore.cached = JSON.parse(rawJson) as Entitlement;
+        EntitlementStore.cachedAt = typeof rawAt === 'number' ? rawAt : 0;
+      }
+      Logger.info(TAG, `权益缓存恢复 valid=${EntitlementStore.isCacheValid()}`);
+      if (ApiConfig.DEV_SKIP_BFF) {
+        Logger.warn(TAG, 'DEV_SKIP_BFF=1：权益门禁已放开（仅开发机本地配置，仓库版恒 false）');
+      }
+    } catch (err) {
+      Logger.warn(TAG, `权益缓存读取失败: ${(err as Error).message}`);
+    }
+  }
+
+  static get(): Entitlement {
+    return EntitlementStore.cached;
+  }
+
+  static isCacheValid(): boolean {
+    return Date.now() - EntitlementStore.cachedAt < CACHE_TTL_MS;
+  }
+
+  static hasSubscription(): boolean {
+    const sub: SubscriptionInfo | null = EntitlementStore.cached.subscription;
+    return sub !== null && sub.status === 'active';
+  }
+
+  static hasPass(tripId: string): boolean {
+    return EntitlementStore.cached.passes.some((p: PassInfo): boolean =>
+      p.localTripId === tripId && p.status === 'active');
+  }
+
+  /** 开发态旁路：见文件头契约最后一条与 ApiConfig.DEV_SKIP_BFF 的注释。 */
+  static devBypass(): boolean {
+    return ApiConfig.DEV_SKIP_BFF;
+  }
+
+  static canExport(tripId: string): boolean {
+    if (EntitlementStore.devBypass()) {
+      return true;
+    }
+    if (!EntitlementStore.isCacheValid() || AccountStore.isGuest()) {
+      return false;
+    }
+    return EntitlementStore.hasSubscription() || EntitlementStore.hasPass(tripId);
+  }
+
+  static hasGiftQuota(): boolean {
+    return EntitlementStore.cached.giftRemaining > 0;
+  }
+
+  static canGenerate(): boolean {
+    if (EntitlementStore.devBypass()) {
+      return true;
+    }
+    if (!EntitlementStore.isCacheValid()) {
+      return false;
+    }
+    if (EntitlementStore.hasSubscription()) {
+      return EntitlementStore.cached.usedToday < EntitlementStore.cached.dailyCap;
+    }
+    if (AccountStore.isGuest()) {
+      return EntitlementStore.hasGiftQuota();
+    }
+    return EntitlementStore.hasGiftQuota();
+  }
+
+  static async update(entitlement: Entitlement): Promise<void> {
+    EntitlementStore.cached = entitlement;
+    EntitlementStore.cachedAt = Date.now();
+    const prefs: preferences.Preferences | null = EntitlementStore.prefs;
+    if (prefs === null) {
+      return;
+    }
+    try {
+      prefs.putSync(KEY_ENTITLEMENT, JSON.stringify(entitlement));
+      prefs.putSync(KEY_CACHED_AT, EntitlementStore.cachedAt);
+      await prefs.flush();
+    } catch (err) {
+      Logger.warn(TAG, `权益缓存写入失败: ${(err as Error).message}`);
+    }
+  }
+
+  static async clear(): Promise<void> {
+    EntitlementStore.cached = emptyEntitlement();
+    EntitlementStore.cachedAt = 0;
+    const prefs: preferences.Preferences | null = EntitlementStore.prefs;
+    if (prefs === null) {
+      return;
+    }
+    try {
+      prefs.deleteSync(KEY_ENTITLEMENT);
+      prefs.deleteSync(KEY_CACHED_AT);
+      await prefs.flush();
+    } catch (err) {
+      Logger.warn(TAG, `权益缓存清除失败: ${(err as Error).message}`);
+    }
+  }
+}

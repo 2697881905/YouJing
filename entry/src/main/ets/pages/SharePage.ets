@@ -18,6 +18,8 @@ import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton
 import { TripDao } from '../data/TripDao';
 import { ShareExporter } from '../data/ShareExporter';
 import { IcsBuilder } from '../utils/IcsBuilder';
+import { EntitlementStore } from '../data/EntitlementStore';
+import { APP_NAV } from '../common/constants/AppNav';
 import { Trip } from '../model/Trip';
 import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
@@ -52,6 +54,7 @@ export struct SharePage {
     { symbol: $r('sys.symbol.calendar'), title: '导出日历文件 (.ics)', desc: '本机生成，可导入任意日历应用' }
   ];
   private trip: Trip | null = null;
+  private pathStack: NavPathStack = APP_NAV;
 
   aboutToAppear(): void {
     if (this.tripId.length === 0) {
@@ -106,6 +109,10 @@ export struct SharePage {
     const trip: Trip | null = this.trip;
     if (trip === null) {
       this.toast('行程未就绪');
+      return;
+    }
+    if (!EntitlementStore.canExport(this.tripId)) {
+      this.pathStack.pushPath({ name: 'Pricing' });
       return;
     }
     // 提醒提前量与 CalendarSync 同一口径：固定提前 1 天（Activity 不带 advanceDays）
@@ -347,6 +354,9 @@ export struct SharePage {
     .backgroundColor(ColorTokens.canvas)
     .titleBar(HdsChrome.bar({ mainTitle: '分享与导出' }))
     .titleMode(HdsNavDestinationTitleMode.MINI)
+    .onReady((ctx: NavDestinationContext): void => {
+      this.pathStack = ctx.pathStack;
+    })
   }
 
 }

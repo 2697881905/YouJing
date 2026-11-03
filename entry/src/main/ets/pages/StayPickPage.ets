@@ -62,11 +62,13 @@ export struct StayPickPage {
   /** 任意城市：住宿区按区县聚合，档位/通勤未校准 */
   private mapCity: boolean = false;
 
+  @State private loaded: boolean = false;
+
   aboutToAppear(): void {
     const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
     const city: string = PlanDraft.get().basic.destination;
     this.mapCity = isMapCity(city);
-    // 先取景点坐标、再排区域候选：两条 Promise 链式衔接，不用「谁先回来算谁」
+    this.loaded = false;
     this.loadSpotPoints(ctx, city).then((): Promise<Area[]> => {
       return PlanRepository.loadAreas(ctx, city);
     }).then((areas: Area[]) => {
@@ -78,16 +80,16 @@ export struct StayPickPage {
         list.push(this.makePick(top[i], i));
       }
       this.picks = list;
-      // 回退到这一屏时保住上次选的那一片：原来无条件重置成 list[0]，
-      // 用户从后面几步回来换住宿，选中态会跳回第一个候选
       const remembered: string = PlanDraft.get().selectedArea.areaId;
       const keep: AreaPick | undefined =
         list.find((p: AreaPick): boolean => p.area.id === remembered);
       this.selectedId = keep !== undefined ? keep.area.id : (list.length > 0 ? list[0].area.id : '');
       this.applyStops(top);
+      this.loaded = true;
       Logger.info('Ui.StayPick',
         `候选片区 ${areas.length} → 统一排序取前 ${AREA_CANDIDATES} → 展示 ${list.length}`);
     }).catch((err: Error) => {
+      this.loaded = true;
       Logger.error('Ui.StayPick', `区域库加载失败: ${err.message}`);
     });
   }
@@ -411,15 +413,30 @@ export struct StayPickPage {
     HdsNavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
         Column() {
-          // 主链进度
-          Column() {
-            FlowSteps({ step: FLOW_STEP_STAY_PICK })
-          }
-          .width('100%')
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md })
+          if (!this.loaded) {
+            Column() {
+              LoadingProgress()
+                .width(48)
+                .height(48)
+                .color(ColorTokens.primary)
+              Text('正在加载住宿区域…')
+                .fontSize(TypeTokens.caption.size)
+                .fontColor(ColorTokens.muted)
+                .margin({ top: SpaceTokens.md })
+            }
+            .width('100%')
+            .layoutWeight(1)
+            .justifyContent(FlexAlign.Center)
+          } else {
+            // 主链进度
+            Column() {
+              FlowSteps({ step: FLOW_STEP_STAY_PICK })
+            }
+            .width('100%')
+            .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md })
 
-          // 官方 List：地图面板一个 ListItem，三张候选卡各成一个 ListItem（卡间距在卡片自己身上）
-          List() {
+            // 官方 List：地图面板一个 ListItem，三张候选卡各成一个 ListItem（卡间距在卡片自己身上）
+            List() {
             if (this.mapCity) {
               ListItem() {
                 this.mapSourceNotice()
@@ -500,46 +517,47 @@ export struct StayPickPage {
           // 滚动预留跟着钉底条抬高的一档补回来
           .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
             bottom: LayoutTokens.stickyBarScrollReserve + LayoutTokens.floatingDockClearance })
+          }
         }
         .width('100%')
         .height('100%')
 
-        Column() {
-          Row({ space: SpaceTokens.md }) {
-            YoujingButton({
-              variant: YoujingButtonVariant.SECONDARY,
-              // 地图区县按住宿供给、种子片区按距离——按钮文案跟着判据走，不说假话
-              label: this.mapCity ? '帮我选（住得最方便）' : '帮我选（离景点最近）',
-              buttonWidth: 200,
-              onAction: (): void => {
-                this.autoPickArea();
-              }
-            })
-            // `.layoutWeight(1)` 挂在自定义组件 YoujingButton 上不生效（框架忽略），
-            // 主键于是一直是默认死宽 150：sm 上「200 + 150 + 间距 24」超过内容宽 331.5vp，
-            // Blank/权重都不吸收，主键被顶出屏幕右缘 46px（真机实测 orig[713..1182]）。
-            // 权重交给原生包装层，主键用 fullWidth 吃剩余宽：
-            // 「就住这里」4 字约需 96vp，sm 剩余 107.5vp 放得下；md 剩余更宽，按钮自然摊开。
-            Column() {
+        if (this.loaded) {
+          Column() {
+            Row({ space: SpaceTokens.md }) {
               YoujingButton({
-                variant: YoujingButtonVariant.PRIMARY,
-                label: '就住这里',
-                fullWidth: true,
+                variant: YoujingButtonVariant.SECONDARY,
+                label: this.mapCity ? '帮我选（住得最方便）' : '帮我选（离景点最近）',
+                buttonWidth: 200,
                 onAction: (): void => {
-                  PlanDraft.get().selectedArea = { areaId: this.selectedId };
-                  markDraftDirty(true);
-                  this.pathStack.pushPath({ name: 'Generating' });
+                  this.autoPickArea();
                 }
               })
+              Column() {
+                YoujingButton({
+                  variant: YoujingButtonVariant.PRIMARY,
+                  label: '就住这里',
+                  fullWidth: true,
+                  disabled: this.selectedId.length === 0,
+                  onAction: (): void => {
+                    if (this.selectedId.length === 0) {
+                      this.toast('请先选择一个住宿区域');
+                      return;
+                    }
+                    PlanDraft.get().selectedArea = { areaId: this.selectedId };
+                    markDraftDirty(true);
+                    this.pathStack.pushPath({ name: 'Generating' });
+                  }
+                })
+              }
+              .layoutWeight(1)
             }
-            .layoutWeight(1)
           }
+          .width('100%')
+          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md,
+            bottom: LayoutTokens.floatingDockClearance })
+          .backgroundColor(ColorTokens.canvas)
         }
-        .width('100%')
-        // 吸底 CTA 条让位实测 dock 净空（原来只有 lg=16）
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md,
-          bottom: LayoutTokens.floatingDockClearance })
-        .backgroundColor(ColorTokens.canvas)
       }
     }
     // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）

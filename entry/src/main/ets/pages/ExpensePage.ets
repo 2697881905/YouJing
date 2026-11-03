@@ -26,6 +26,7 @@ import { Trip } from '../model/Trip';
 import { DateUtils } from '../utils/DateUtils';
 import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
 import { Logger } from '../common/logger/Logger';
+import { PlanDraft } from '../data/PlanDraft';
 import { common } from '@kit.AbilityKit';
 import { HdsNavigation, HdsNavigationTitleMode, HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { routerMap } from './AppRouter';
@@ -897,6 +898,7 @@ export struct ExpensePage {
                 .fontWeight(600)
                 .buttonStyle(ButtonStyleMode.EMPHASIZED)
                 .onClick((): void => {
+                  PlanDraft.fresh();
                   enterPlanningFlow('TripInput');
                 })
             } else {

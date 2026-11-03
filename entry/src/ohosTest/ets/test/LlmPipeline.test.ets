@@ -104,7 +104,7 @@ function makePaceParams(paces: PaceOption[], stopCount: number): PlanParams {
 class BrokenTransport implements LlmTransport {
   calls: number = 0;
 
-  complete(req: LlmRequest): Promise<string> {
+  complete(idempotencyKey?: string): Promise<string> {
     this.calls += 1;
     return Promise.resolve('这不是 JSON');
   }
@@ -112,7 +112,7 @@ class BrokenTransport implements LlmTransport {
 
 /** 1 天请求却被模型拆成两天、dayIndex 重复——2026-10-31 真机失败形态 */
 class TwoDaysForOneDayTransport implements LlmTransport {
-  complete(req: LlmRequest): Promise<string> {
+  complete(idempotencyKey?: string): Promise<string> {
     const o: Obj = JSON.parse(JSON.stringify(MockTrip.TRIP)) as Obj;
     o['startDate'] = '2026-10-31';
     o['endDate'] = '2026-10-31';

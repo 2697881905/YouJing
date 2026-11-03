@@ -24,6 +24,7 @@ import { TimeText } from '../utils/TimeText';
 import { TimelineNode } from '../components/TimelineNode';
 import { TripMapView } from '../components/TripMapView';
 import { AccessFlags, CalendarSync, SyncResult } from '../data/CalendarSync';
+import { EntitlementStore } from '../data/EntitlementStore';
 import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
 import { ImmersiveSegmentBar, SegmentedItem } from '../components/ImmersiveSegmentBar';
@@ -301,6 +302,9 @@ export struct ItineraryPage {
     CalendarSync.requestPermission(ctx).then((granted: boolean): Promise<SyncResult> => {
       if (!granted) {
         throw new Error('未授予日历权限');
+      }
+      if (!EntitlementStore.canExport(trip.id)) {
+        throw new Error('导出需解锁通行证或订阅');
       }
       return CalendarSync.syncTrip(ctx, trip, flags);
     }).then((r: SyncResult): void => {

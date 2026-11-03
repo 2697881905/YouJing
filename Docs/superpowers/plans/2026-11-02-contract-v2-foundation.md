@@ -983,3 +983,14 @@ git commit -m "docs(取证): 契约v2 基座全量回归——顶栏模糊首次
 - 契约 `motion` 其余 13 项（`page 420`/`emphasis 460`/`stagger 40`/`shared-element 380`/`press-opacity 0.92`/`press-slide-scale 0.94`/`success-scale`/`enter-scale`/`spring*`/`frame-rates`）按「无消费方不声明」本轮不加，P3 随用随补。
 - `~/Pictures/…/tools/audit.sh` 与 `audit_dark.sh` 默认读另一份 `~/Documents/StitchDesign/DESIGN.md`（审 frames 用），本次不同步 —— 已知分叉。
 - 若真机在 T4/T6/T9 期间被真人取走：该点之后的复拍一律 `[待验证]`，保留已完成提交，不代解锁、不猜结论。
+
+
+---
+
+## 附录：批次一之后的范围变更（2026-11-02，用户第二次拍板）
+
+用户原话「继续推进UI开发，组件全量对标有据」⇒ **R23 撤销 spec §7 第 2 项**「消费方 ≥2 才建件」。本计划的 T2/T4/T6/T9 仍以 CodeArts 的 29 条在飞改动落地为前置，**不受 R23 影响的可以先做的**记为 **T10（家族件库 · 未挂载）**：
+
+- 允许文件：`entry/src/main/ets/components/**`（新建件文件）、`entry/src/main/ets/design/ShadowTokens.ets`（**只加不改**：新增 `none`/`cardContact`/`cardAmbient`/`pillFloat`，保留 `contact`/`card` 供现存 4 个页面调用点，别名删除归 T2 原子批）、`entry/src/main/resources/{base,dark}/element/color.json`（加 `bar_shadow` 成对）、`entry/src/main/ets/design/ColorTokens.ets`（加 `barShadow`）、`entry/src/ohosTest/ets/test/StyleConfig.test.ets`（token 镜像断言）。
+- **禁止**：`pages/**`、`data/**`、`ai/**`、`model/**`、`common/**`、`bff/**`、`Docs/design-v1|v2/**`、`~/Pictures/**`；不许反转 `audit_elevation` 的深色判据（那需要删 4 个页面的 isDark 分支，属 T2）；不许挂载任何件（挂载即像素变化，须逐屏复拍）。
+- 依据的原子顺序（§3）：「先在仓库 token 补同名字段，再往契约加行」是唯一可分步的方向 ⇒ 本任务把 `cardContact`/`cardAmbient`/`pillFloat`/`bar_shadow` **先落在代码侧**，T2 再改契约 elevation 散文与反转尺。

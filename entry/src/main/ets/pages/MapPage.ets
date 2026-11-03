@@ -14,6 +14,7 @@ import { TripWindow } from '../utils/TripWindow';
 import { DateUtils } from '../utils/DateUtils';
 import { TripMapView } from '../components/TripMapView';
 import { Logger } from '../common/logger/Logger';
+import { PlanDraft } from '../data/PlanDraft';
 import { common } from '@kit.AbilityKit';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
@@ -124,13 +125,19 @@ export struct MapPage {
    * `ACTIVE_TRIP_KEY` 现在只服费用页（记账跟着刚看的那条走才对）。
    * push 形态（带 tripId 参数）不受影响，照旧显示传进来的那条。
    */
+  private resolveSeq: number = 0;
+
   private resolveAndReload(): void {
     if (!this.rootMode || this.tripId.length > 0) {
       this.reload();
       return;
     }
+    const mySeq: number = ++this.resolveSeq;
     const ctx: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
     TripDao.listSummaries(ctx).then((rows: TripSummary[]): void => {
+      if (mySeq !== this.resolveSeq) {
+        return;
+      }
       const today: string = DateUtils.todayIso();
       for (const r of rows) {
         if (TripWindow.isActiveOn(r.startDate, r.endDate, today)) {
@@ -141,12 +148,14 @@ export struct MapPage {
           return;
         }
       }
-      // 没有在途行程：给一张空底图 + 一条能点的出路，不悄悄拿历史行程顶上
       this.onTripShown = false;
       this.noOnTrip = true;
       this.loaded = true;
       Logger.info('Ui.MapPage', '本机没有在途行程，地图页出引导空态');
     }).catch((err: Error): void => {
+      if (mySeq !== this.resolveSeq) {
+        return;
+      }
       this.noOnTrip = true;
       this.loaded = true;
       Logger.warn('Ui.MapPage', `取在途行程失败: ${err.message}`);
@@ -407,8 +416,6 @@ export struct MapPage {
             .shadow(this.isDark ? { radius: 0 } : ShadowTokens.floating)
           } else if (this.loaded) {
             if (this.rootMode && this.noOnTrip) {
-              // 「今天没有在途行程」是状态不是错误，说清并给一条出路；
-              // 裸 Text 挂 onClick 会被第 8 把尺 R4 判成自绘按钮，这里用官方 Button
               Button({ type: ButtonType.Normal, stateEffect: true }) {
                 Text('今天没有在途行程 · 去规划一趟')
                   .fontSize(TypeTokens.caption.size)
@@ -419,10 +426,9 @@ export struct MapPage {
               .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
               .backgroundColor(ColorTokens.surfaceElevated)
               .borderRadius(RadiusTokens.pill)
-              // 和上面站点条分支同一格净空：这个 Stack 是 alignContent Bottom，
-              // 不给净空整颗药丸就坐在 dock 背后（站点条分支 :343 一直有）
               .margin({ bottom: LayoutTokens.floatingDockClearance })
               .onClick((): void => {
+                PlanDraft.fresh();
                 enterPlanningFlow('TripInput');
               })
             } else {
@@ -435,6 +441,16 @@ export struct MapPage {
                 .backgroundColor(ColorTokens.surfaceElevated)
                 .margin({ bottom: LayoutTokens.floatingDockClearance })
             }
+          } else {
+            Column() {
+              LoadingProgress()
+                .width(36)
+                .height(36)
+                .color(ColorTokens.primary)
+            }
+            .justifyContent(FlexAlign.Center)
+            .height(36)
+            .margin({ bottom: LayoutTokens.floatingDockClearance })
           }
 
         }

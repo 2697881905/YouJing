@@ -37,4 +37,12 @@ export class ErrorCode {
   // ---- 5xxx 账号 ----
   static readonly ACCOUNT_LOGIN_FAILED: number = 5001; // UnionID 静默登录失败（未登录华为账号 / AGC 未配置）
   static readonly ACCOUNT_PREFERENCES_FAILED: number = 5002; // 登录态持久化读写失败
+
+  // ---- 6xxx 云端（BFF / 权益 / 计费）----
+  static readonly CLOUD_TOKEN_INVALID: number = 6001; // 票据失效或未激活，需重新调 /v1/device/activate
+  static readonly CLOUD_QUOTA_EXHAUSTED: number = 6002; // 额度用尽，跳 PricingPage
+  static readonly CLOUD_RATE_LIMITED: number = 6003; // 频率超限，提示稍后重试
+  static readonly CLOUD_IDEMPOTENCY_CONFLICT: number = 6004; // 幂等键冲突，不应重试
+  static readonly CLOUD_PASS_NOT_FOUND: number = 6005; // 通行证不存在或不属于该账号
+  static readonly CLOUD_IAP_VERIFY_FAILED: number = 6006; // IAP 校验失败
 }

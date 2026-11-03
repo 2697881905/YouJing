@@ -59,7 +59,8 @@ export class TripDao {
         total_cost: trip.overview.totalCost, summary: trip.overview.summary,
         highlights: JSON.stringify(trip.overview.highlights), tips: JSON.stringify(trip.tips),
         updated_at: Date.now(), user_id: AccountStore.uid(),
-        category_budget: JSON.stringify(trip.categoryBudgets === undefined ? [] : trip.categoryBudgets)
+        category_budget: JSON.stringify(trip.categoryBudgets === undefined ? [] : trip.categoryBudgets),
+        pass_id: trip.passId === undefined ? '' : trip.passId
       };
       store.insertSync('trip', tripRow);
       for (const day of trip.days) {
@@ -131,7 +132,8 @@ export class TripDao {
           },
           days: [],
           tips: parseStringArray(rs.getString(rs.getColumnIndex('tips'))),
-          categoryBudgets: parseCategoryBudgets(rs.getString(rs.getColumnIndex('category_budget')))
+          categoryBudgets: parseCategoryBudgets(rs.getString(rs.getColumnIndex('category_budget'))),
+          passId: rs.getString(rs.getColumnIndex('pass_id'))
         };
         return t;
       });
@@ -256,7 +258,7 @@ export class TripDao {
     list: CategoryBudget[]): Promise<void> {
     const json: string = JSON.stringify(list);
     return DatabaseHelper.write(context, async (store: relationalStore.RdbStore): Promise<void> => {
-      store.executeSql('UPDATE trip SET category_budget = ?, updated_at = ? WHERE id = ? AND user_id = ?',
+      await store.executeSql('UPDATE trip SET category_budget = ?, updated_at = ? WHERE id = ? AND user_id = ?',
         [json, Date.now(), tripId, AccountStore.uid()]);
       Logger.info(TAG, `saveCategoryBudgets ${tripId} n=${list.length}`);
     });

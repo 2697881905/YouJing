@@ -81,35 +81,41 @@ export class CalendarSync {
 
     result.removed = await CalendarSync.clearPrevious(context, manager, trip.id);
 
-    for (const day of trip.days) {
-      for (const act of day.activities) {
-        if (!CalendarSync.isBookingNode(act)) {
-          continue;
+    try {
+      for (const day of trip.days) {
+        for (const act of day.activities) {
+          if (!CalendarSync.isBookingNode(act)) {
+            continue;
+          }
+          const start: number = toMillis(day.date, act.time);
+          const end: number = toMillis(day.date, act.endTime);
+          if (start === 0) {
+            Logger.warn(TAG, `跳过非法时间 ${day.date} ${act.time} ${act.title}`);
+            continue;
+          }
+          const event: calendarManager.Event = {
+            type: calendarManager.EventType.NORMAL,
+            title: `${act.title} · 需预约`,
+            startTime: start,
+            endTime: end > start ? end : start + 3600000,
+            description: act.reason === undefined ? act.location : `${act.location}\n${act.reason}`,
+            location: { location: act.address.length > 0 ? act.address : act.location },
+            reminderTime: flags.remind ? [1440] : undefined
+          };
+          const id: number = await calendar.addEvent(event);
+          result.bookingEvents++;
+          await CalendarSync.rememberEvent(context, trip.id, id);
         }
-        const start: number = toMillis(day.date, act.time);
-        const end: number = toMillis(day.date, act.endTime);
-        if (start === 0) {
-          Logger.warn(TAG, `跳过非法时间 ${day.date} ${act.time} ${act.title}`);
-          continue;
-        }
-        const event: calendarManager.Event = {
-          type: calendarManager.EventType.NORMAL,
-          title: `${act.title} · 需预约`,
-          startTime: start,
-          endTime: end > start ? end : start + 3600000,
-          description: act.reason === undefined ? act.location : `${act.location}\n${act.reason}`,
-          location: { location: act.address.length > 0 ? act.address : act.location },
-          reminderTime: flags.remind ? [1440] : undefined
-        };
-        const id: number = await calendar.addEvent(event);
-        result.bookingEvents++;
-        await CalendarSync.rememberEvent(context, trip.id, id);
+        await CalendarSync.addDayEvent(context, calendar, trip.id, day);
+        result.dayEvents++;
       }
-      await CalendarSync.addDayEvent(context, calendar, trip.id, day);
-      result.dayEvents++;
+      Logger.info(TAG, `写入日历 trip=${trip.id} 预约=${result.bookingEvents} 全天=${result.dayEvents} 清理=${result.removed}`);
+      return result;
+    } catch (err) {
+      Logger.error(TAG, `日历写入中途失败，清理已写入的事件: ${(err as Error).message}`);
+      await CalendarSync.clearPrevious(context, manager, trip.id);
+      throw err as Error;
     }
-    Logger.info(TAG, `写入日历 trip=${trip.id} 预约=${result.bookingEvents} 全天=${result.dayEvents} 清理=${result.removed}`);
-    return result;
   }
 
   private static async addDayEvent(context: common.UIAbilityContext, calendar: calendarManager.Calendar,

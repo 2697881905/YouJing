@@ -206,16 +206,23 @@ export struct OnTripPage {
     return this.getUIContext().getHostContext() as common.Context;
   }
 
+  /** 串行化 reload：快速连点只保留最后一次的结果 */
+  private reloadSeq: number = 0;
+
   private async reload(): Promise<void> {
     if (this.tripId.length === 0) {
       Logger.warn('Ui.OnTrip', '无 tripId，旅行中页保持空态');
       return;
     }
+    const mySeq: number = ++this.reloadSeq;
     const context: common.Context = this.ctx();
     const now: string = clockNow();
     this.clock = now;
     try {
       const trip: Trip | null = await TripDao.loadTrip(context, this.tripId);
+      if (mySeq !== this.reloadSeq) {
+        return;
+      }
       if (trip === null) {
         this.trip = null;
         this.day = null;
@@ -315,6 +322,9 @@ export struct OnTripPage {
         ? `${nx.transportMode} ${nx.transportMin}分钟${nx.transportDetail.length > 0 ? ` · ${nx.transportDetail}` : ''}`
         : '';
       await this.buildRows(marks);
+      if (mySeq !== this.reloadSeq) {
+        return;
+      }
       this.syncArrivalWatcher();
       this.refreshWeather(day);
     } catch (err) {

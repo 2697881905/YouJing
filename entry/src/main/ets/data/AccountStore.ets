@@ -17,6 +17,7 @@ import { AccountKind, AccountState } from '../model/Account';
 import { Logger } from '../common/logger/Logger';
 import { AppError } from '../common/error/AppError';
 import { ErrorCode } from '../common/error/ErrorCode';
+import { EntitlementStore } from './EntitlementStore';
 
 const TAG: string = 'Data.AccountStore';
 
@@ -112,6 +113,7 @@ export class AccountStore {
       }
       await AccountStore.persist(unionId);
       Logger.info(TAG, `静默登录成功 uid=${AccountStore.masked()}`);
+      await EntitlementStore.clear();
     } catch (err) {
       Logger.warn(TAG, `静默登录失败，退回游客分区: ${(err as Error).message}`);
     }
@@ -125,6 +127,7 @@ export class AccountStore {
   static async logout(): Promise<void> {
     AccountStore.current = guestState();
     AccountStore.publish();
+    await EntitlementStore.clear();
     const prefs: preferences.Preferences | null = AccountStore.prefs;
     if (prefs === null) {
       return;

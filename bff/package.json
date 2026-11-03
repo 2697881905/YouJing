@@ -1,0 +1,21 @@
+{
+  "name": "youjing-bff",
+  "version": "1.0.0",
+  "description": "有径 BFF — 设备激活、权益管理、配额扣减、LLM 代理、IAP 校验",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "migrate": "node src/db.js",
+    "sync:prompt": "node scripts/sync-prompt-contract.mjs",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "better-sqlite3": "^11.3.0",
+    "jsonwebtoken": "^9.0.2",
+    "uuid": "^10.0.0",
+    "dotenv": "^16.4.5"
+  }
+}

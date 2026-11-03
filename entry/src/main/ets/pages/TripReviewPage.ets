@@ -26,6 +26,7 @@ import { TripDao } from '../data/TripDao';
 import { BadgeDao } from '../data/BadgeDao';
 import { ExpenseDao } from '../data/ExpenseDao';
 import { ShareExporter } from '../data/ShareExporter';
+import { EntitlementStore } from '../data/EntitlementStore';
 import { Trip } from '../model/Trip';
 import { Badge, BadgeGroup, BadgeRecord, badgeDateText, buildBadgeBoard } from '../utils/BadgeBoard';
 import { ReviewDay, ReviewItem, ReviewView, buildReview, reviewTimeText } from '../utils/TripReview';
@@ -146,6 +147,10 @@ export struct TripReviewPage {
     const review: ReviewView | null = this.review;
     const trip: Trip | null = this.trip;
     if (this.sharing || review === null || trip === null) {
+      return;
+    }
+    if (!EntitlementStore.canExport(this.tripId)) {
+      this.pathStack.pushPath({ name: 'Pricing' });
       return;
     }
     this.sharing = true;
