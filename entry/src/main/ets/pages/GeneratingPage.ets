@@ -27,6 +27,7 @@ import { AppError } from '../common/error/AppError';
 import { ErrorCode } from '../common/error/ErrorCode';
 import { isMapCity } from '../common/constants/Cities';
 import { EntitlementStore } from '../data/EntitlementStore';
+import { GenerationChannel } from '../utils/GenerationChannel';
 import { common } from '@kit.AbilityKit';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
@@ -96,7 +97,9 @@ export struct GeneratingPage {
         transit: draft.transit, paces: draft.paces,
         selectedSpots: draft.selectedSpots, selectedArea: draft.selectedArea
       };
-      if (!EntitlementStore.canGenerate()) {
+      // 端侧规则引擎合成（免费档）不依赖 BFF 权益，不该被额度拦；只有真要打 BFF 才问额度。
+      // 判据与 ai/LlmClient 的传输选择同源于 utils/GenerationChannel。
+      if (GenerationChannel.needsEntitlement() && !EntitlementStore.canGenerate()) {
         throw new AppError(ErrorCode.CLOUD_QUOTA_EXHAUSTED, '生成额度已用完');
       }
       const trip: Trip = await LlmClient.generateTrip(params, spots, area, undefined, context, this.localTripId);

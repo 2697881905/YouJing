@@ -23,7 +23,7 @@ import { Area } from '../model/Area';
 import { backfillActivityPlaces, backfillOpeningHours } from '../utils/TripEnrich';
 import { DateUtils } from '../utils/DateUtils';
 import { ApiConfig } from '../common/config/ApiConfig';
-import { MockConfig } from '../common/config/MockConfig';
+import { GenerationChannel } from '../utils/GenerationChannel';
 import { DeviceTokenStore } from '../data/DeviceTokenStore';
 import { DeviceActivator } from '../data/DeviceActivator';
 import { EntitlementStore, Entitlement, PassInfo } from '../data/EntitlementStore';
@@ -322,10 +322,9 @@ export class LlmClient {
    */
   static async generateTrip(params: PlanParams, spots: Spot[], area: Area,
     transport?: LlmTransport, context?: common.Context, passId?: string): Promise<Trip> {
-    // 开发态旁路：BFF 没配就退回端侧合成，否则放开门禁也只是把"跳付费页"换成
-    // "LLM_UNAVAILABLE 报错页"。配了 BFF 时本开关不改变传输选择，只放开权益判断。
-    const devLocal: boolean = MockConfig.USE_MOCK_DATA
-      || (ApiConfig.DEV_SKIP_BFF && ApiConfig.BFF_BASE_URL.length === 0);
+    // 传输选择与页面门禁必须同一把尺，判据收在 utils/GenerationChannel（干净检出时
+    // BFF 未配置 ⇒ 走端侧规则引擎合成；配了 BFF 才走 HTTP 代理）。
+    const devLocal: boolean = GenerationChannel.isLocal();
     const t: LlmTransport = transport !== undefined ? transport
       : (devLocal ? new MockLlmTransport(params, spots, area)
         : new HttpLlmTransport(params, spots, area, passId));

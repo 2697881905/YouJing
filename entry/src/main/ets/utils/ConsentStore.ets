@@ -20,7 +20,8 @@ const KEY_AGREED: string = 'privacyAgreedAt';
 const KEY_VERSION: string = 'privacyVersion';
 
 /** 协议版本。改《隐私政策》/《用户协议》正文时同步抬这个值 */
-export const CONSENT_VERSION: string = 'v2';
+/** v3 = 2026-11-03 隐私政策「生成行程时会发出去什么」与协议「生成质量」改为如实分述本机/云端两种形态 */
+export const CONSENT_VERSION: string = 'v3';
 
 /** AppStorage 键：UI 侧用它做响应式闸门（@StorageProp + @Watch） */
 export const CONSENT_AGREED_KEY: string = 'privacyAgreed';
