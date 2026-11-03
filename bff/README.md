@@ -114,6 +114,27 @@ npm test
 - `test/trip-route.integration.test.js`：真实 Express + SQLite 路由（UPSERT、配额快照、重放、
   同键不同体 422、并发 409、上游 4xx 502、校验失败 502 不扣额）
 
+## 上线前自检与部署清单
+
+```bash
+cd bff && npm run preflight
+```
+
+把「部署到公网之前必须成立的事」做成可执行闸门。**当前退出码是 1 —— 这不是闸门坏了，
+是两条阻断项还没修**；修完自然转绿，不要为了让它变绿去改它。
+
+| 检查 | 现在 | 意味着什么 |
+| --- | --- | --- |
+| JWT_SECRET 非缺省/非示例 | PASS | 缺省时 `middleware/auth.js` 会退回硬编码开发密钥，任何人都能自签设备票据 |
+| DEEPSEEK_API_KEY 已配 | PASS | 否则 LLM 代理直接 500 |
+| IAP 校验非恒真 | **FAIL** | `src/services/iap.js` 无条件 `verified:true` ⇒ 假收据换订阅与通行证，并兑换成真额度 |
+| `/v1/iap` 有统一鉴权、notify 验签 | **FAIL** | 续费/退款事件可被任何人伪造 |
+| DB 路径可配置 | WARN | `src/db.js` 写死 `../data/youjing.db` 且不读 `DB_PATH`；上云（只读根文件系统/云函数）前要支持环境变量或挂载卷 |
+| Prompt/Schema 生成物在位 | PASS | hash 一致性由 `npm test` 校验 |
+
+自检覆盖不到、部署时必须人工确认的三件事：**TLS 终止**、**按 IP/账号限流**、
+**日志脱敏**（不要把 `Authorization` 和请求体原样落盘——请求体里有行程参数）。
+
 ## 已知边界
 
 - DeepSeek 官方 `deepseek-chat` 当前不支持 `json_schema`，本地 `.env` 用
@@ -121,7 +142,10 @@ npm test
 - 端侧已发 rich；`Spot`/`Area` 的 optional 字段缺失时 JSON 会省略，BFF 的 prompt 对应位置
   会如实显示「未获取/以官方为准」，不会补 0 或伪造。
 - BFF 仍未接真实 IAP 验签、notify 验签与正式 JWT 密钥；这些不在本次「真实生成通道」范围内。
-- 当前验证：`npm test` 42/42 全绿，主 HAP + ohosTest HAP 编译通过；真实网络已做一次
-  `json_schema`（400）+ 一次 `json_object`（200）验收；真机 UI 未验证。
+  2026-11-03 又收了两条：订阅上限改为**按月**（与商业化方案 §2 及付费页文案一致）、
+  收据重放改为**幂等**（不再把 UNIQUE 约束抛成 500）。仍未修的见上面「上线前自检」表。
+- 当前验证：`npm test` **46/46** 全绿，主 HAP + ohosTest HAP 编译通过；真实网络已做一次
+  `json_schema`（400）+ 一次 `json_object`（200）验收；真机 UI 未验证（BFF 尚未部署，
+  端侧到 BFF 这一段一次都没在真机跑过）。
 - 2026-11-03 的真实 200 响应第 3 天缺晚餐；本规则加上后同类输出会被 502，需要重试。
   未再烧真实调用复验，后续真机/联网验收时应确认模型能补齐晚餐。
