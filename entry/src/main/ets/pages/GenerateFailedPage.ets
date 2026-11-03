@@ -51,6 +51,10 @@ export struct GenerateFailedPage {
     { title: '把每天的节奏调松', desc: '改成每天 3 站，给通勤留余量', route: 'PreferenceQA' }
   ];
 
+  /** 顶栏磨砂两态：由**绝对**滚动偏移驱动（每帧增量会被松手回弹的负帧打灭，契约 §Translucency） */
+  @State private barScrolled: boolean = false;
+  private barScroller: Scroller = new Scroller();
+
   /**
    * 标题下面那行**一律是给人读的一句原因**（按错误码映射，debug/release 同一句）。
    * 原始 `detail` 不再直接铺出来——真机截图里它曾以「两次生成均失败: days 不能为空数组」
@@ -99,13 +103,22 @@ export struct GenerateFailedPage {
     }
   }
 
+  /** 绝对滚动偏移 → 顶栏磨砂开关（>0 即开，静止归零） */
+  private syncBarScroll(): void {
+    const y: number = this.barScroller.currentOffset().yOffset;
+    const on: boolean = y > 0;
+    if (on !== this.barScrolled) {
+      this.barScrolled = on;
+    }
+  }
+
   build() {
     HdsNavDestination() {
       // 原来正文与三颗动作钮叠在同一个 Stack(Bottom) 里：正文不滚、动作条浮在上面，
       // md 实拍「换一片住宿再试」的说明行被「再试一次」压掉半行。
       // 改成常规两段布局：正文段吃剩余高并可滚，动作段排在流内，永远不再互相盖。
       Column() {
-        Scroll() {
+        Scroll(this.barScroller) {
           Column() {
             SymbolGlyph($r('sys.symbol.exclamationmark_circle'))
               .fontSize(IconSizes.display)
@@ -178,6 +191,9 @@ export struct GenerateFailedPage {
         .width('100%')
         .align(Alignment.Top)
         .scrollBar(BarState.Off)
+        .onDidScroll((): void => {
+          this.syncBarScroll();
+        })
 
         Column({ space: SpaceTokens.sm }) {
           YoujingButton({
@@ -227,7 +243,7 @@ export struct GenerateFailedPage {
     }
     // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
     .backgroundColor(ColorTokens.canvas)
-    .titleBar(HdsChrome.bar({ mainTitle: '生成受阻' }))
+    .titleBar(HdsChrome.bar({ mainTitle: '生成受阻', scrolled: this.barScrolled }))
     .titleMode(HdsNavDestinationTitleMode.MINI)
   }
 }

@@ -61,6 +61,9 @@ export struct MinePage {
   @State private cityCount: number = 0;
   /** 非空 = 就地展开这份法务文书。不 push 路由：CustomDialog/页内展开才没有"返回后这页什么态"的竞态 */
   @State private reading: string = '';
+  /** 顶栏磨砂两态：由**绝对**滚动偏移驱动（每帧增量会被松手回弹的负帧打灭，契约 §Translucency） */
+  @State private barScrolled: boolean = false;
+  private barScroller: Scroller = new Scroller();
 
   private onDockShown(): void {
     if (isTabShownTick(this.dockTick, TAB_MINE)) {
@@ -232,7 +235,7 @@ export struct MinePage {
           }
         })
       } else {
-        List({ space: SpaceTokens.md }) {
+        List({ space: SpaceTokens.md, scroller: this.barScroller }) {
           ListItem() {
             this.profileHeader()
           }
@@ -286,6 +289,9 @@ export struct MinePage {
         // 末行住在悬浮 dock 底下，按实测净空让位（与 TripsPage/BadgePage 同一写法）
         .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
           bottom: LayoutTokens.floatingDockClearance })
+        .onDidScroll((): void => {
+          this.syncBarScroll();
+        })
       }
     }
     .width('100%')
@@ -311,6 +317,15 @@ export struct MinePage {
     this.getUIContext().getPromptAction().showToast({ message: '可在首页点「开始规划新行程」时登录' });
   }
 
+  /** 绝对滚动偏移 → 顶栏磨砂开关（>0 即开，静止归零） */
+  private syncBarScroll(): void {
+    const y: number = this.barScroller.currentOffset().yOffset;
+    const on: boolean = y > 0;
+    if (on !== this.barScrolled) {
+      this.barScrolled = on;
+    }
+  }
+
   build() {
     if (this.rootMode) {
       HdsNavigation(this.pathStack) {
@@ -320,6 +335,7 @@ export struct MinePage {
       .hideBackButton(true)
       .titleBar(HdsChrome.bar({
         mainTitle: '我的',
+        scrolled: this.barScrolled,
         menu: [HdsChrome.item($r('sys.symbol.plus'), '新建行程', (): void => {
           PlanDraft.fresh();
           enterPlanningFlow('TripInput');
@@ -337,7 +353,7 @@ export struct MinePage {
       }
       // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
       .backgroundColor(ColorTokens.canvas)
-      .titleBar(HdsChrome.bar({ mainTitle: '我的' }))
+      .titleBar(HdsChrome.bar({ mainTitle: '我的', scrolled: this.barScrolled }))
       .titleMode(HdsNavDestinationTitleMode.MINI)
     }
   }

@@ -73,6 +73,9 @@ export struct ItineraryPage {
   /** 时间线滚动器：点地图落点要把对应行带回视野（切片1 A）。
    *  必须是 ListScroller——scrollToItemInGroup 只在子类上，基类 Scroller 没有这个方法 */
   private listScroller: ListScroller = new ListScroller();
+  /** 顶栏磨砂两态：由**绝对**滚动偏移驱动（每帧增量会被松手回弹的负帧打灭，契约 §Translucency）。
+   *  偏移直接读上面那枚 listScroller，不建第二个实例 */
+  @State private barScrolled: boolean = false;
   /** 地图面板镜头指令，'focus:<index>:<seq>'，与地图页同一口径 */
   @State private mapRequest: string = '';
   /** 被地图落点点中的行，1.6s 后自动褪色——滚动本身在行已可见时给不出反馈 */
@@ -1190,6 +1193,15 @@ export struct ItineraryPage {
     .backgroundColor(ColorTokens.canvas)
   }
 
+  /** 绝对滚动偏移 → 顶栏磨砂开关（>0 即开，静止归零）；偏移取自复用的 listScroller */
+  private syncBarScroll(): void {
+    const y: number = this.listScroller.currentOffset().yOffset;
+    const on: boolean = y > 0;
+    if (on !== this.barScrolled) {
+      this.barScrolled = on;
+    }
+  }
+
   build() {
     HdsNavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
@@ -1356,6 +1368,9 @@ export struct ItineraryPage {
           // 时间轴是单列长内容，不能按断点分栏（会打断主轴竖线），
           // 所以宽屏走"收窄 + 居中"这条路
           .width(longFormMaxWidth(this.bp, LayoutTokens.contentMaxWidth))
+          .onDidScroll((): void => {
+            this.syncBarScroll();
+          })
         }
         .width('100%')
         .height('100%')
@@ -1385,6 +1400,7 @@ export struct ItineraryPage {
     .backgroundColor(ColorTokens.canvas)
     .titleBar(HdsChrome.bar({
       mainTitle: this.titleText,
+      scrolled: this.barScrolled,
       menu: [
         HdsChrome.item($r('sys.symbol.share'), '分享行程', (): void => {
           this.pathStack.pushPath({ name: 'Share', param: this.tripId });

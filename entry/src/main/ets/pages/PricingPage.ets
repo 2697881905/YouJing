@@ -165,7 +165,8 @@ export struct PricingPage {
       .backgroundColor(ColorTokens.canvas)
     }
     .backgroundColor(ColorTokens.canvas)
-    .titleBar(HdsChrome.bar({ mainTitle: '解锁行程' }))
+    // 整页是 Column 直排、没有 Scroll/List 可挂 scroller，磨砂等不到滚动帧 → 显式关掉滚动特效
+    .titleBar(HdsChrome.bar({ mainTitle: '解锁行程', scrollable: false }))
     .titleMode(HdsNavDestinationTitleMode.MINI)
     .onReady((ctx: NavDestinationContext): void => {
       this.pathStack = ctx.pathStack;

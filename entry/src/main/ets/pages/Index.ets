@@ -12,7 +12,7 @@
  * 首帧就在目标 tab；运行期（App 已存活时的 onNewWant）才用 changeIndex。
  */
 
-import { APP_NAV, ACTIVE_TRIP_KEY, TAB_INDEX_KEY, TAB_SWITCH_KEY, DOCK_TABS, announceTabShown, stackOfTab, TAB_PLAN, TAB_ITINERARY, TAB_MAP, TAB_EXPENSE, TAB_MINE } from '../common/constants/AppNav';
+import { APP_NAV, ACTIVE_TRIP_KEY, TAB_INDEX_KEY, TAB_SWITCH_KEY, DOCK_TABS, announceTabShown, stackOfTab, TAB_PLAN, TAB_ITINERARY, TAB_MAP, TAB_EXPENSE, TAB_MINE, PLAN_SCROLL_KEY } from '../common/constants/AppNav';
 import { routerMap } from './AppRouter';
 import { TripDao, TripSummary } from '../data/TripDao';
 import { AUTH_STATE_KEY } from '../data/AccountStore';
@@ -69,6 +69,8 @@ struct Index {
    * 只换系统带不换这里，顶边会多出第二条色差（真机实测带子 56、栏区 18）。
    */
   @StorageProp(TOP_STRIP_KEY) stripName: string = STRIP_CANVAS;
+  /** 规划格的顶栏磨砂：滚动容器在 YoujingStartPage 里，状态经 PLAN_SCROLL_KEY 递过来 */
+  @StorageProp(PLAN_SCROLL_KEY) planBarScrolled: boolean = false;
   private hdsController: HdsTabsController = new HdsTabsController();
 
   /** 解析 'index:timestamp' 并切到该页签；同页签或解析不出就什么都不做 */
@@ -210,7 +212,7 @@ struct Index {
         .mode(NavigationMode.Stack)
         .titleMode(HdsNavigationTitleMode.MINI)
         .hideBackButton(true)
-        .titleBar(HdsChrome.bar({ mainTitle: '规划' }))
+        .titleBar(HdsChrome.bar({ mainTitle: '规划', scrolled: this.planBarScrolled }))
         .backgroundColor($r('app.color.canvas'))
       }
       .tabBar(this.tabLabel(TAB_PLAN))

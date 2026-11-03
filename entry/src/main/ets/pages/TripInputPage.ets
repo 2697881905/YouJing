@@ -64,6 +64,9 @@ export struct TripInputPage {
   @State private pvPick: string = '';
   @State private pvNotes: string = '';
   @State private pvCanGenerate: boolean = false;
+  /** 顶栏磨砂两态：由**绝对**滚动偏移驱动（每帧增量会被松手回弹的负帧打灭，契约 §Translucency） */
+  @State private barScrolled: boolean = false;
+  private barScroller: Scroller = new Scroller();
   /** 数据读取期间用户可能按返回；await 回来后不再写已销毁页面的状态 */
   private alive: boolean = true;
   private basePartyOptions: number[] = [1, 2, 4];
@@ -699,10 +702,19 @@ export struct TripInputPage {
     .alignItems(HorizontalAlign.Start)
   }
 
+  /** 绝对滚动偏移 → 顶栏磨砂开关（>0 即开，静止归零） */
+  private syncBarScroll(): void {
+    const y: number = this.barScroller.currentOffset().yOffset;
+    const on: boolean = y > 0;
+    if (on !== this.barScrolled) {
+      this.barScrolled = on;
+    }
+  }
+
   build() {
     HdsNavDestination() {
       Column() {
-        Scroll() {
+        Scroll(this.barScroller) {
           Column() {
             // §5.7 的重复只发生在第二行：帧声明的衬线大标题是「开启一次有迹可循的旅程」，
             // 而它下面那句「设定出行基础参数，AI 将基于…」与顶栏副标题一字不差，
@@ -947,6 +959,9 @@ export struct TripInputPage {
         .layoutWeight(1)
         .scrollBar(BarState.Off)
         .align(Alignment.Top)
+        .onDidScroll((): void => {
+          this.syncBarScroll();
+        })
 
         Column() {
           YoujingButton({
@@ -993,7 +1008,7 @@ export struct TripInputPage {
     }
     // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
     .backgroundColor(ColorTokens.canvas)
-    .titleBar(HdsChrome.bar({ mainTitle: '有径', subTitle: '设定出行基础参数' }))
+    .titleBar(HdsChrome.bar({ mainTitle: '有径', subTitle: '设定出行基础参数', scrolled: this.barScrolled }))
     .titleMode(HdsNavDestinationTitleMode.MINI)
   }
 }

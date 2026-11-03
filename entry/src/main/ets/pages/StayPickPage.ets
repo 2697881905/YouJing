@@ -51,7 +51,9 @@ export struct StayPickPage {
   @StorageProp(KEY_CURRENT_BREAKPOINT) bp: string = 'sm';
 
   private pathStack: NavPathStack = APP_NAV;
-  @StorageProp('isDarkMode') isDark: boolean = false;
+  /** 顶栏磨砂两态：由**绝对**滚动偏移驱动（每帧增量会被松手回弹的负帧打灭，契约 §Translucency） */
+  @State private barScrolled: boolean = false;
+  private barScroller: Scroller = new Scroller();
   @State private selectedId: string = '';
   @State private picks: AreaPick[] = [];
   /** 候选片区落点：坐标可用时才上真实底图，否则保留图例 */
@@ -210,7 +212,7 @@ export struct StayPickPage {
       $r('sys.symbol.ellipsis_circle'), '查看更多区域', (): void => {
         this.openAreaMore();
       })];
-    return HdsChrome.bar({ mainTitle: '住哪一片', menu: items });
+    return HdsChrome.bar({ mainTitle: '住哪一片', menu: items, scrolled: this.barScrolled });
   }
 
   /** 角标只描述 Area.group 这一个真字段，不再按位次猜「交通枢纽」 */
@@ -360,7 +362,7 @@ export struct StayPickPage {
     .padding(SpaceTokens.lg)
     .borderRadius(RadiusTokens.card)
     .backgroundColor(ColorTokens.canvas)
-    .shadow(this.isDark ? { radius: 0 } : ShadowTokens.card)
+    .shadow(ShadowTokens.cardAmbient)
     .border({
       width: this.selectedId === pick.area.id ? 1 : 0,
       color: ColorTokens.primary,
@@ -409,6 +411,15 @@ export struct StayPickPage {
     .margin({ bottom: SpaceTokens.md })
   }
 
+  /** 绝对滚动偏移 → 顶栏磨砂开关（>0 即开，静止归零） */
+  private syncBarScroll(): void {
+    const y: number = this.barScroller.currentOffset().yOffset;
+    const on: boolean = y > 0;
+    if (on !== this.barScrolled) {
+      this.barScrolled = on;
+    }
+  }
+
   build() {
     HdsNavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
@@ -436,7 +447,7 @@ export struct StayPickPage {
             .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md })
 
             // 官方 List：地图面板一个 ListItem，三张候选卡各成一个 ListItem（卡间距在卡片自己身上）
-            List() {
+            List({ scroller: this.barScroller }) {
             if (this.mapCity) {
               ListItem() {
                 this.mapSourceNotice()
@@ -517,6 +528,9 @@ export struct StayPickPage {
           // 滚动预留跟着钉底条抬高的一档补回来
           .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
             bottom: LayoutTokens.stickyBarScrollReserve + LayoutTokens.floatingDockClearance })
+          .onDidScroll((): void => {
+            this.syncBarScroll();
+          })
           }
         }
         .width('100%')

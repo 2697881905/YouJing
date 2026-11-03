@@ -59,6 +59,9 @@ export struct SpotPickPage {
   /** Map Kit 城市：空态/重试/来源提示与种子城市分开说 */
   @State private mapCity: boolean = false;
   @State private loadFailed: boolean = false;
+  /** 顶栏磨砂两态：由**绝对**滚动偏移驱动（每帧增量会被松手回弹的负帧打灭，契约 §Translucency） */
+  @State private barScrolled: boolean = false;
+  private barScroller: Scroller = new Scroller();
   private destination: string = '';
   private days: number = 3;
 
@@ -413,7 +416,16 @@ export struct SpotPickPage {
       $r('sys.symbol.plus'), '推荐更多', (): void => {
         this.markMore();
       })];
-    return HdsChrome.bar({ mainTitle: '选想去的地方', menu: items });
+    return HdsChrome.bar({ mainTitle: '选想去的地方', menu: items, scrolled: this.barScrolled });
+  }
+
+  /** 绝对滚动偏移 → 顶栏磨砂开关（>0 即开，静止归零） */
+  private syncBarScroll(): void {
+    const y: number = this.barScroller.currentOffset().yOffset;
+    const on: boolean = y > 0;
+    if (on !== this.barScrolled) {
+      this.barScrolled = on;
+    }
   }
 
   build() {
@@ -492,7 +504,7 @@ export struct SpotPickPage {
             .backgroundColor(ColorTokens.surfacePanel)
 
             // 官方 List + ListItemGroup：分组头吸顶，组间靠留白分隔（禁令 12：不画分隔线）
-            List({ space: SpaceTokens.md }) {
+            List({ space: SpaceTokens.md, scroller: this.barScroller }) {
               if (this.priorities.length > this.days * 4) {
                 ListItem() {
                   Column({ space: SpaceTokens.xs }) {
@@ -534,6 +546,9 @@ export struct SpotPickPage {
             .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
               bottom: LayoutTokens.stickyBarScrollReserve + LayoutTokens.floatingDockClearance })
             .layoutWeight(1)
+            .onDidScroll((): void => {
+              this.syncBarScroll();
+            })
           }
         }
         .width('100%')

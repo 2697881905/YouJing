@@ -168,20 +168,19 @@ export default function styleConfigTest(): void {
       expect(ShadowTokens.floating.radius).assertEqual(16);
       expect(ShadowTokens.floating.offsetY).assertEqual(6);
       expect(ShadowTokens.floating.color).assertEqual('#18000000');
-      // 别名关系（简报 §5.3 要的那条）。口径修正记在 task-10 报告：
-      // `ShadowTokens.card === ShadowTokens.cardAmbient` 是**引用**相等，而两条
-      // ElevationSpec 必须是各自的内联字面量，否则 tools/audit_elevation.py 的 tokens()
-      // 正则（认 `名字: { radius: …`）在 contact/card 上打空、刚转绿的尺立刻报 [缺档]。
-      // ⇒ 这里按**四字段全等**锁别名，效果同向且更强：T4 删 `contact`/`card` 时
-      // 这条会因字段不存在而编译失败/断言红，那是**预期的删除信号**，不是回归。
-      expect(ShadowTokens.contact.radius === ShadowTokens.cardContact.radius
-        && ShadowTokens.contact.offsetX === ShadowTokens.cardContact.offsetX
-        && ShadowTokens.contact.offsetY === ShadowTokens.cardContact.offsetY
-        && ShadowTokens.contact.color === ShadowTokens.cardContact.color).assertTrue();
-      expect(ShadowTokens.card.radius === ShadowTokens.cardAmbient.radius
-        && ShadowTokens.card.offsetX === ShadowTokens.cardAmbient.offsetX
-        && ShadowTokens.card.offsetY === ShadowTokens.cardAmbient.offsetY
-        && ShadowTokens.card.color === ShadowTokens.cardAmbient.color).assertTrue();
+      // 旧别名 contact/card 已在 T4 删除（它们与本条下面这两档同值）。
+      // 原写法是「按四字段全等锁别名」，其注释自己写明：删别名时这条会编译失败，
+      // 那是预期的删除信号而非回归 —— 信号已在 2026-11-03 T4 兑现，故改成直接钉新档的值。
+      // 四字段仍逐条钉：tools/audit_elevation.py 的 tokens() 正则认 `名字: { radius: …`，
+      // 两条 ElevationSpec 必须各自是内联字面量，不能互相引用。
+      expect(ShadowTokens.cardContact.radius).assertEqual(1);
+      expect(ShadowTokens.cardContact.offsetX).assertEqual(0);
+      expect(ShadowTokens.cardContact.offsetY).assertEqual(0);
+      expect(ShadowTokens.cardContact.color).assertEqual('#08000000');
+      expect(ShadowTokens.cardAmbient.radius).assertEqual(10);
+      expect(ShadowTokens.cardAmbient.offsetX).assertEqual(0);
+      expect(ShadowTokens.cardAmbient.offsetY).assertEqual(3);
+      expect(ShadowTokens.cardAmbient.color).assertEqual('#12000000');
       // segmented/popover 是「无偏移环境影」两档，elevation 尺也盯着 offsetY；一起钉住：
       expect(ShadowTokens.segmented.offsetY).assertEqual(0);
       expect(ShadowTokens.popover.offsetY).assertEqual(0);

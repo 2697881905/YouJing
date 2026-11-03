@@ -75,6 +75,15 @@ export const TAB_SWITCH_KEY: string = 'dockTabSwitchRequest';
  */
 export const TAB_SHOWN_KEY: string = 'dockTabShownTick';
 
+/**
+ * AppStorage 键：规划格（首页）的顶栏磨砂两态。
+ *
+ * 为什么这一页要走 AppStorage 而不是像别的页那样自己传 `scrolled`：
+ * 规划格的滚动容器在 `YoujingStartPage` 里，而它的顶栏挂在 `Index` 的
+ * `HdsNavigation(APP_NAV)` 上——状态和消费者隔了一层组件，其余 17 页都是同页自产自销。
+ */
+export const PLAN_SCROLL_KEY: string = 'planBarScrolled';
+
 /** 请求把 dock 切到某个页签，由 Index 的 @Watch 调 changeIndex 落地 */
 export function requestTab(index: number): void {
   AppStorage.setOrCreate(TAB_SWITCH_KEY, `${index}:${Date.now()}`);

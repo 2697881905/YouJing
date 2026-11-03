@@ -30,13 +30,10 @@ export interface ShadowTokensType {
    * 只作**值**用（`.shadow(ShadowTokens.none)` 或零值判据），本轮无消费点。
    */
   none: ElevationSpec;
-  /** 卡片下沿的实边（`contact`≡`cardContact` 同值别名；T4 与门控删除/BaseCard 同原子批删） */
-  contact: ElevationSpec;
-  /** 行程卡 / 摘要卡（`card`≡`cardAmbient` 同值别名；T4 与门控删除/BaseCard 同原子批删） */
-  card: ElevationSpec;
-  /** 契约 v2 新档：卡片接触影（与 contact 同值，命名改为「接触/环境」二分） */
+  /** 契约 v2 档名：卡片接触影。契约要求它从不单独出现（与 cardAmbient 分层），
+   *  ArkUI 一节点只画一层阴影 ⇒ 这条实边由 hairline 描边承担，本档当前无消费点 */
   cardContact: ElevationSpec;
-  /** 契约 v2 新档：卡片环境影（与 card 同值） */
+  /** 行程卡 / 摘要卡的环境影（旧名 `card` 的同值别名已在 T4 删除） */
   cardAmbient: ElevationSpec;
   /** 契约 v2 新档：浮动胶囊的托起影（dock / 浮动 chip，非卡片） */
   pillFloat: ElevationSpec;
@@ -50,8 +47,6 @@ export interface ShadowTokensType {
 
 export const ShadowTokens: ShadowTokensType = {
   none: { radius: 0, offsetX: 0, offsetY: 0, color: '#00000000' },
-  contact: { radius: 1, offsetX: 0, offsetY: 0, color: '#08000000' },
-  card: { radius: 10, offsetX: 0, offsetY: 3, color: '#12000000' },
   cardContact: { radius: 1, offsetX: 0, offsetY: 0, color: '#08000000' },
   cardAmbient: { radius: 10, offsetX: 0, offsetY: 3, color: '#12000000' },
   pillFloat: { radius: 8, offsetX: 0, offsetY: 3, color: '#26000000' },

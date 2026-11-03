@@ -39,6 +39,9 @@ export struct BadgePage {
   /** 城市套章进度：与勋章组同序；没有种子数据的城市 total=0，不画进度 */
   @State private stamps: CityStamp[] = [];
   @State private loading: boolean = true;
+  /** 顶栏磨砂两态：由**绝对**滚动偏移驱动（每帧增量会被松手回弹的负帧打灭，契约 §Translucency） */
+  @State private barScrolled: boolean = false;
+  private barScroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
     this.reload();
@@ -250,6 +253,15 @@ export struct BadgePage {
     .padding(SpaceTokens.lg)
   }
 
+  /** 绝对滚动偏移 → 顶栏磨砂开关（>0 即开，静止归零） */
+  private syncBarScroll(): void {
+    const y: number = this.barScroller.currentOffset().yOffset;
+    const on: boolean = y > 0;
+    if (on !== this.barScrolled) {
+      this.barScrolled = on;
+    }
+  }
+
   build() {
     HdsNavDestination() {
       Column() {
@@ -269,7 +281,7 @@ export struct BadgePage {
         } else if (this.groups.length === 0) {
           this.emptyState()
         } else {
-          List({ space: SpaceTokens.sm }) {
+          List({ space: SpaceTokens.sm, scroller: this.barScroller }) {
             ListItem() {
               this.summaryCard()
             }
@@ -292,6 +304,9 @@ export struct BadgePage {
           .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
             bottom: LayoutTokens.floatingDockClearance })
           .layoutWeight(1)
+          .onDidScroll((): void => {
+            this.syncBarScroll();
+          })
         }
       }
       .width('100%')
@@ -303,7 +318,8 @@ export struct BadgePage {
     .backgroundColor(ColorTokens.canvas)
     .titleBar(HdsChrome.bar({
       mainTitle: '我的勋章',
-      subTitle: this.loading || this.groups.length === 0 ? '' : `共 ${this.totalCount()} 枚`
+      subTitle: this.loading || this.groups.length === 0 ? '' : `共 ${this.totalCount()} 枚`,
+      scrolled: this.barScrolled
     }))
     .titleMode(HdsNavDestinationTitleMode.MINI)
     .onReady((ctx: NavDestinationContext): void => {

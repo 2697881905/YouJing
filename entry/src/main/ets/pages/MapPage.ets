@@ -67,7 +67,6 @@ export struct MapPage {
     this.resolveAndReload();
   }
   @Prop tripId: string = '';
-  @StorageProp('isDarkMode') isDark: boolean = false;
   @State private days: TripDay[] = [];
   /** -1 = 全程 */
   @State private daySel: number = ALL_DAYS;
@@ -177,7 +176,9 @@ export struct MapPage {
       }));
     }
     const sub: string = this.stops.length > 0 ? `${this.stops.length} 站` : '';
-    return HdsChrome.bar({ mainTitle: this.titleText, subTitle: sub, menu: items });
+    // 地图格没有纵向滚动正文（满幅底图 + 横向 chip 轨），关特效避免静止态空糊；
+    // 收窄也不适用：满幅底图按断点内缩反而是错的（见 INIT_REPORT §5ci 宽屏走查段）
+    return HdsChrome.bar({ mainTitle: this.titleText, subTitle: sub, menu: items, scrollable: false });
   }
 
   private reload(): void {
@@ -409,11 +410,12 @@ export struct MapPage {
             .margin({ bottom: LayoutTokens.floatingDockClearance })
             .borderRadius({ topLeft: RadiusTokens.hero, topRight: RadiusTokens.hero })
             // 站点条不是契约四处玻璃面之一（顶栏/分段/dock/吸顶日标题，禁令 9）：
-            // 原挂 THIN 材质属第五处玻璃。改实色 surface-elevated + hairline 描边，
-            // 与深色零阴影口径一致；hitTestBehavior Transparent 让手势穿到地图不变
+            // 原挂 THIN 材质属第五处玻璃。改实色 surface-elevated + hairline 描边；
+            // hitTestBehavior Transparent 让手势穿到地图不变。
+            // 阴影不再按深浅归零：黑 alpha 主题中性（契约 v2 §Elevation，深色下的可见性已列入 T9 实拍判据）
             .backgroundColor(ColorTokens.surfaceElevated)
             .border({ width: LayoutTokens.hairlineWidth, color: ColorTokens.borderSubtle })
-            .shadow(this.isDark ? { radius: 0 } : ShadowTokens.floating)
+            .shadow(ShadowTokens.floating)
           } else if (this.loaded) {
             if (this.rootMode && this.noOnTrip) {
               Button({ type: ButtonType.Normal, stateEffect: true }) {

@@ -147,6 +147,9 @@ export struct OnTripPage {
   /** 到站检测（切片2 T1）：前台定位算出的文案与状态；无权限时保持空/否 */
   @State private arrivalText: string = '';
   @State private arrived: boolean = false;
+  /** 顶栏磨砂两态：由**绝对**滚动偏移驱动（每帧增量会被松手回弹的负帧打灭，契约 §Translucency） */
+  @State private barScrolled: boolean = false;
+  private barScroller: Scroller = new Scroller();
   private watcher: ArrivalWatcher = new ArrivalWatcher();
   private watcherActive: boolean = false;
   /** 权限弹窗还没回来：避免 reload 连点导致重复 start */
@@ -1087,15 +1090,25 @@ export struct OnTripPage {
     return HdsChrome.bar({
       mainTitle: this.dayLabel.length > 0 ? this.dayLabel : '旅行中',
       subTitle: this.clock,
-      menu: items
+      menu: items,
+      scrolled: this.barScrolled
     });
+  }
+
+  /** 绝对滚动偏移 → 顶栏磨砂开关（>0 即开，静止归零） */
+  private syncBarScroll(): void {
+    const y: number = this.barScroller.currentOffset().yOffset;
+    const on: boolean = y > 0;
+    if (on !== this.barScrolled) {
+      this.barScrolled = on;
+    }
   }
 
   build() {
     HdsNavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
       // 官方 List：hero / 下一段 / 打卡分组各占一个 ListItem，分组头吸顶、行间交给 .divider()
-      List({ space: SpaceTokens.lg }) {
+      List({ space: SpaceTokens.lg, scroller: this.barScroller }) {
         if (this.notice.length > 0) {
           ListItem() {
             this.noticeBar()
@@ -1330,6 +1343,9 @@ export struct OnTripPage {
       .width('100%')
       .height('100%')
       .backgroundColor(ColorTokens.canvas)
+      .onDidScroll((): void => {
+        this.syncBarScroll();
+      })
     }
     .width('100%')
     .height('100%')

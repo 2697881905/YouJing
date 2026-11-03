@@ -50,6 +50,9 @@ export struct TripReviewPage {
   @State private sharing: boolean = false;
   @State private days: ReviewDay[] = [];
   @State private newBadges: Badge[] = [];
+  /** 顶栏磨砂两态：必须由**绝对**滚动偏移驱动，每帧增量会被松手回弹的负帧打灭（有据根因，契约 §Translucency） */
+  @State private barScrolled: boolean = false;
+  private barScroller: Scroller = new Scroller();
   @State private summaryText: string = '';
   @State private highlights: string[] = [];
   @State private checkedTotal: number = 0;
@@ -509,9 +512,18 @@ export struct TripReviewPage {
     .alignItems(HorizontalAlign.Start)
   }
 
+  /** 绝对滚动偏移 → 顶栏磨砂开关（>0 即开，静止归零） */
+  private syncBarScroll(): void {
+    const y: number = this.barScroller.currentOffset().yOffset;
+    const on: boolean = y > 0;
+    if (on !== this.barScrolled) {
+      this.barScrolled = on;
+    }
+  }
+
   @Builder
   content() {
-    List({ space: SpaceTokens.md }) {
+    List({ space: SpaceTokens.md, scroller: this.barScroller }) {
       ListItem() {
         this.posterSection()
       }
@@ -554,6 +566,9 @@ export struct TripReviewPage {
       }
     }
     .width('100%')
+    .onDidScroll((): void => {
+      this.syncBarScroll();
+    })
     .layoutWeight(1)
     .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.Spring)
@@ -624,7 +639,7 @@ export struct TripReviewPage {
     }
     // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
     .backgroundColor(ColorTokens.canvas)
-    .titleBar(HdsChrome.bar({ mainTitle: '旅行回顾' }))
+    .titleBar(HdsChrome.bar({ mainTitle: '旅行回顾', scrolled: this.barScrolled }))
     .titleMode(HdsNavDestinationTitleMode.MINI)
     .onReady((ctx: NavDestinationContext): void => {
       this.pathStack = ctx.pathStack;

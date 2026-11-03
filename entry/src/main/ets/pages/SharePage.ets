@@ -53,6 +53,9 @@ export struct SharePage {
     { symbol: $r('sys.symbol.share'), title: '分享行程文本', desc: '经系统分享面板发出行程清单，不含账号信息' },
     { symbol: $r('sys.symbol.calendar'), title: '导出日历文件 (.ics)', desc: '本机生成，可导入任意日历应用' }
   ];
+  /** 顶栏磨砂两态：由**绝对**滚动偏移驱动（每帧增量会被松手回弹的负帧打灭，契约 §Translucency） */
+  @State private barScrolled: boolean = false;
+  private barScroller: Scroller = new Scroller();
   private trip: Trip | null = null;
   private pathStack: NavPathStack = APP_NAV;
 
@@ -179,6 +182,15 @@ export struct SharePage {
     return `全程 ${this.stopCount} 站`;
   }
 
+  /** 绝对滚动偏移 → 顶栏磨砂开关（>0 即开，静止归零） */
+  private syncBarScroll(): void {
+    const y: number = this.barScroller.currentOffset().yOffset;
+    const on: boolean = y > 0;
+    if (on !== this.barScrolled) {
+      this.barScrolled = on;
+    }
+  }
+
   build() {
     HdsNavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
@@ -186,7 +198,7 @@ export struct SharePage {
 
           // 官方 List：抬头 + 行程卡成一个 ListItem，两条动作成一个 ListItemGroup，
           // 行间不再手画 Divider，交给官方 .divider()
-          List() {
+          List({ scroller: this.barScroller }) {
             ListItem() {
               Column() {
                 Text('分享这份行程')
@@ -327,6 +339,9 @@ export struct SharePage {
           // 钉底动作条已撤（见下），只需让出 dock 自身净空
           .padding({ left: this.wideInset(), right: this.wideInset(),
             bottom: LayoutTokens.floatingDockClearance })
+          .onDidScroll((): void => {
+            this.syncBarScroll();
+          })
         }
         .width('100%')
         .height('100%')
@@ -352,7 +367,7 @@ export struct SharePage {
     }
     // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
     .backgroundColor(ColorTokens.canvas)
-    .titleBar(HdsChrome.bar({ mainTitle: '分享与导出' }))
+    .titleBar(HdsChrome.bar({ mainTitle: '分享与导出', scrolled: this.barScrolled }))
     .titleMode(HdsNavDestinationTitleMode.MINI)
     .onReady((ctx: NavDestinationContext): void => {
       this.pathStack = ctx.pathStack;

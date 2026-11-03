@@ -147,6 +147,9 @@ export struct ExpensePage {
   @State private inputAmount: string = '';
   @State private inputName: string = '';
   @State private inputCategory: ExpenseCategory = ExpenseCategory.TICKET;
+  /** 顶栏磨砂两态：由**绝对**滚动偏移驱动（每帧增量会被松手回弹的负帧打灭，契约 §Translucency） */
+  @State private barScrolled: boolean = false;
+  private barScroller: Scroller = new Scroller();
   private segments: SegmentedItem[] = [{ label: '预算' }, { label: '实际' }];
   private trip: Trip | null = null;
   /** 已经因「上下文行程不存在」退回过一次无上下文分支；防异步自循环 */
@@ -747,7 +750,7 @@ export struct ExpensePage {
         // 分段栏是 itemWidth:164 的定宽控件（2×164=328vp 恰好是 sm 的通栏宽），
         // 到了 md 内容通栏之后它会贴左、右边空出一条。让 ListItem 居中对齐：
         // 通栏的子级本身占满，居中不改变它们，只有这枚定宽栏会被摆到中间。
-        List() {
+        List({ scroller: this.barScroller }) {
           ListItem() {
             ImmersiveSegmentBar({
               items: this.segments,
@@ -949,6 +952,9 @@ export struct ExpensePage {
         // 通用 94 比 dock 实占的 112 少 18vp，滚到底按钮下沿仍藏在 dock 底下
         .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.floatingDockClearance })
         .layoutWeight(1)
+        .onDidScroll((): void => {
+          this.syncBarScroll();
+        })
       }
       .width('100%')
       .height('100%')
@@ -967,6 +973,15 @@ export struct ExpensePage {
     .height('100%')
   }
 
+  /** 绝对滚动偏移 → 顶栏磨砂开关（>0 即开，静止归零） */
+  private syncBarScroll(): void {
+    const y: number = this.barScroller.currentOffset().yOffset;
+    const on: boolean = y > 0;
+    if (on !== this.barScrolled) {
+      this.barScrolled = on;
+    }
+  }
+
   build() {
     if (this.rootMode) {
       HdsNavigation(this.pathStack) {
@@ -974,7 +989,7 @@ export struct ExpensePage {
       }
       .titleMode(HdsNavigationTitleMode.MINI)
       .hideBackButton(true)
-      .titleBar(HdsChrome.bar({ mainTitle: '费用' }))
+      .titleBar(HdsChrome.bar({ mainTitle: '费用', scrolled: this.barScrolled }))
       .navDestination(routerMap)
       .mode(NavigationMode.Stack)
       .width('100%')
@@ -985,7 +1000,7 @@ export struct ExpensePage {
       }
       // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
       .backgroundColor(ColorTokens.canvas)
-      .titleBar(HdsChrome.bar({ mainTitle: '费用' }))
+      .titleBar(HdsChrome.bar({ mainTitle: '费用', scrolled: this.barScrolled }))
       .titleMode(HdsNavDestinationTitleMode.MINI)
     }
   }

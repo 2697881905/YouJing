@@ -4,11 +4,10 @@ r"""投影（elevation）契约核对：阴影档与 ShadowTokens 逐档对表�
 T2′（契约 v2）改尺记录：契约 elevation 从三档（contact/card/floating）升六档
 （none/cardContact/cardAmbient/floating/pillFloat/segmented/popover）。本尺的档名映射同步为
 cardContact(1,0,3) / cardAmbient(10,3,7) / floating(16,6,9) / pillFloat(8,3,15)，
-兼容期正则仍收旧名 contact/card（4 个页面调用点在用，别名删除随 T4）。
-**深色判据本轮保持原状（仍要求门控词）**，反转到 T4，见下方 [深色未归零] 处的 TODO(T4)
-与 ledger R32 —— 契约散文那句「pending the T4 migration」就是这条偏差的留痕。
-
-selftest 共 14 条断言 = 阳性 7 类 + 阴性 6 类 + 1 条文档数字锁（三个数自锁）。
+兼容期旧名 contact/card 已随 T4 从 ShadowTokens 删除（散文正则仍收旧名并归一，防有人回抄）。
+**深色判据已按契约 v2 反转**：出现深浅门控即违规，`radius: 0` 只允许由材质门控引出
+（v1 的「深色必须归零」口径作废；材质门控那条 v2 保留，它管的是系统材质接管时表面自归零）。
+selftest 共 17 条断言 = 阳性 10 类 + 阴性 6 类 + 1 条文档数字锁（三个数自锁）。
 阳性样本钉死「改 blur 必报 / 删档与缺 `Npx y` 退化必报 [契约漂移] 或失明 / pillFloat 新映射面必报」，
 阴性样本钉死「当前真实代码 + 新契约 0 偏差、解析恰等于 CONTRACT 四档、字面跑 6 处挂载不误红」。
 
@@ -61,12 +60,23 @@ LEGACY_MAP = {'contact': 'cardContact', 'card': 'cardAmbient'}
 AMBIENT = {'segmented': 8, 'popover': 8}
 # 具名 token 之外允许出现的零值形态
 ZERO_OK = re.compile(r'\{\s*radius:\s*0[^}]*\}')
-# 深色/材质归零的门控写法（v1 口径）
-# TODO(T4): 深色判据在此处**保持要求门控**——现存 4 个页面（TripsPage:327/StayPickPage:363/
-#   MapPage:416/EditItineraryPage:328）仍是 `.shadow(this.isDark ? {radius:0} : …)`，
-#   现在反转 = 立刻点红那 4 行且文件属另一会话。反转、门控删除、contact/card 别名删除、
-#   BaseCard 同属 T4 一个原子批（ledger R32）。
-GATE = re.compile(r'isDark|ColorMode|glassOn|colorMode')
+# 契约 v2 的投影口径：**黑 alpha 主题中性，深色不再归零**（家族契约 §Elevation，2026-11-02 拍板）。
+# 所以这里反过来判：出现深浅门控 = 违规；出现零值只允许由**材质**门控引出（材质接管时表面自己归零，
+# 与深浅无关，那条规则 v2 保留）。T4 已删掉现存 4 处 `this.isDark ? {radius:0} : …`
+# （TripsPage/StayPickPage/MapPage/EditItineraryPage），别名 contact/card 同批停用。
+THEME_GATE = re.compile(r'isDark|ColorMode|colorMode')
+MATERIAL_GATE = re.compile(r'glassOn|isSystemMaterialActive')
+
+
+def gate_problems(window: str) -> list:
+    """投影门控判据（v2 反转后）。单独成函数是为了让 --selftest 能直接喂样本反证它抓得到，
+    而不是只反证契约解析——判据改了却没人测过改动，就是本仓反复踩过的「0 命中假绿」。"""
+    out = []
+    if THEME_GATE.search(window):
+        out.append('[深色仍归零]')
+    elif 'radius: 0' in window and not MATERIAL_GATE.search(window):
+        out.append('[无门控归零]')
+    return out
 
 TOKEN_NOTE = {
     'contact': '契约要求 cardContact 从不单独出现（与 cardAmbient 由两个嵌套容器分层）；'
@@ -212,12 +222,14 @@ def scan(bullet_src=None):
             if not ('ShadowTokens.' in seg or ZERO_OK.search(seg)):
                 fails.append(f'[字面量] {rel}:{i + 1} .shadow( 没走 ShadowTokens：{seg[:60]}')
                 continue
-            if ZERO_OK.search(seg):
-                continue
             window = '\n'.join(lines[max(0, i - 2):i + 3])
-            if not GATE.search(window):
-                fails.append(f'[深色未归零] {rel}:{i + 1} .shadow( 未见 isDark/ColorMode/glassOn '
-                             f'门控（决议 8 旧口径；**反转随 T4**，见 GATE 处 TODO(T4) 与 ledger R32）')
+            for tag in gate_problems(window):
+                if tag == '[深色仍归零]':
+                    fails.append(f'{tag} {rel}:{i + 1} .shadow( 带深浅门控'
+                                 f'（契约 v2：黑 alpha 阴影主题中性，深色保留）')
+                else:
+                    fails.append(f'{tag} {rel}:{i + 1} .shadow( 出现 radius:0 却无材质门控'
+                                 f'（只有系统材质接管时表面才该自归零）')
             if re.search(r'hero', cur_builder, re.I) and 'floating' not in seg:
                 notes.append(f'[hero 复查] {rel}:{i + 1} builder {cur_builder}() 上带影，'
                              f'决议 4 要求 hero 永不带影（若该 builder 只是名字含 hero 的容器，忽略此条）')
@@ -320,9 +332,16 @@ def selftest():
               and abs(got[name][2] - spec[2]) <= 1 for name, spec in CONTRACT.items())
     expect('阴性 tokens 覆盖新四档', ok4,
            f'tokens={ {k: got[k] for k in CONTRACT if k in got} }')
-    # ---- 阴性 5：兼容期旧别名 contact/card 仍在（4 个页面在用；T4 删时这条该红，是删除信号）
-    ok5 = 'contact' in got and 'card' in got
-    expect('阴性 旧别名仍在(兼容期)', ok5, f"contact={got.get('contact')} card={got.get('card')}")
+    # ---- 阴性 5：旧别名 contact/card 已随 T4 删除（这条原本是"删除信号"，信号已兑现）
+    ok5 = 'contact' not in got and 'card' not in got
+    expect('阴性 旧别名已删(T4)', ok5, f"残留={[k for k in ('contact', 'card') if k in got]}")
+    # ---- 阳性 8-10：v2 反转后的门控判据本身要能被抓到（判据改了没人反证 = 假绿）
+    p8 = gate_problems('  .shadow(this.isDark ? { radius: 0 } : ShadowTokens.cardAmbient)')
+    expect('阳性 深色门控(反转判据)', p8 == ['[深色仍归零]'], f'判到 {p8}')
+    p9 = gate_problems('  .shadow(this.glassOn ? ShadowTokens.none : ShadowTokens.cardContact)')
+    expect('阳性 材质门控不误报', p9 == [], f'判到 {p9}')
+    p10 = gate_problems('  const z = { radius: 0 }\n  .shadow(ShadowTokens.floating)')
+    expect('阳性 radius:0 无材质门控', p10 == ['[无门控归零]'], f'判到 {p10}')
     # ---- 阴性 6：旧名三件齐全时归一到新名（兼容期不误红）
     legacy = parse_bullets('- `contact` (1px blur, 0px y, 3% black): x\n'
                            '- `card` (10px blur, 3px y, 7% black): x')

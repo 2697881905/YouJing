@@ -45,7 +45,9 @@ const GRIP_COL_GAP_VP: number = 4;
 @Component
 export struct EditItineraryPage {
   private pathStack: NavPathStack = APP_NAV;
-  @StorageProp('isDarkMode') isDark: boolean = false;
+  /** 顶栏磨砂两态：由**绝对**滚动偏移驱动（每帧增量会被松手回弹的负帧打灭，契约 §Translucency） */
+  @State private barScrolled: boolean = false;
+  private barScroller: Scroller = new Scroller();
   @Prop tripId: string = '';
   @Prop dayIndex: number = 0;
   @State private acts: Activity[] = [];
@@ -325,7 +327,7 @@ export struct EditItineraryPage {
     .padding(SpaceTokens.md)
     .borderRadius(RadiusTokens.card)
     .backgroundColor(ColorTokens.canvas)
-    .shadow(this.isDark ? { radius: 0 } : ShadowTokens.floating)
+    .shadow(ShadowTokens.floating)
   }
 
   @Builder
@@ -621,7 +623,16 @@ export struct EditItineraryPage {
       HdsChrome.item($r('sys.symbol.arrow_counterclockwise'), '撤销修改', (): void => {
         this.undo();
       })];
-    return HdsChrome.bar({ mainTitle: '编辑行程', menu: items });
+    return HdsChrome.bar({ mainTitle: '编辑行程', menu: items, scrolled: this.barScrolled });
+  }
+
+  /** 绝对滚动偏移 → 顶栏磨砂开关（>0 即开，静止归零） */
+  private syncBarScroll(): void {
+    const y: number = this.barScroller.currentOffset().yOffset;
+    const on: boolean = y > 0;
+    if (on !== this.barScrolled) {
+      this.barScrolled = on;
+    }
   }
 
   build() {
@@ -651,7 +662,7 @@ export struct EditItineraryPage {
         } else {
           Column() {
           this.dayHeader()
-          List({ space: SpaceTokens.xs }) {
+          List({ space: SpaceTokens.xs, scroller: this.barScroller }) {
             ForEach(this.acts, (act: Activity, idx: number) => {
               ListItem() {
                 Column() {
@@ -685,6 +696,9 @@ export struct EditItineraryPage {
               this.move(itemIndex, insertIndex > itemIndex ? insertIndex - 1 : insertIndex);
             }
             this.dragIdx = -1;
+          })
+          .onDidScroll((): void => {
+            this.syncBarScroll();
           })
           if (this.gapNote.length > 0) {
             Row({ space: SpaceTokens.sm }) {

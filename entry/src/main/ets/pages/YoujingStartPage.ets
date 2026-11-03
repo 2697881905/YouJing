@@ -16,7 +16,7 @@
  * 状态栏 mock 为设备 chrome，不实现。这一屏不读行程数据（历史行程归「行程」格）。
  */
 
-import { APP_NAV, enterPlanningFlow, markDraftDirty, DRAFT_DIRTY_KEY, isDraftDirty } from '../common/constants/AppNav';
+import { APP_NAV, enterPlanningFlow, markDraftDirty, DRAFT_DIRTY_KEY, isDraftDirty, PLAN_SCROLL_KEY } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
@@ -64,6 +64,22 @@ export struct YoujingStartPage {
 
   private onDraftTick(): void {
     this.draftDirty = isDraftDirty(this.draftTick);
+  }
+
+  private barScroller: Scroller = new Scroller();
+  private barScrolled: boolean = false;
+
+  /**
+   * 绝对滚动偏移 → 顶栏磨砂两态。用**绝对偏移**而不是每帧增量：松手回弹的负增量
+   * 会在静止时把磨砂打灭（有据 2026-10-24 根因，契约 §Translucency）。
+   * 顶栏挂在 Index 的 HdsNavigation 上，所以这一页只能经 AppStorage 把状态递出去。
+   */
+  private syncBarScroll(): void {
+    const on: boolean = this.barScroller.currentOffset().yOffset > 0;
+    if (on !== this.barScrolled) {
+      this.barScrolled = on;
+      AppStorage.setOrCreate(PLAN_SCROLL_KEY, on);
+    }
   }
 
   aboutToAppear(): void {
@@ -232,7 +248,7 @@ export struct YoujingStartPage {
   }
 
   build() {
-    Scroll() {
+    Scroll(this.barScroller) {
       Column() {
         // ① 创建入口：serif 页题 + 副题（屏2 同款页题档与文案，主功能页从这里的排版起算）
         Column({ space: SpaceTokens.sm }) {
@@ -386,6 +402,9 @@ export struct YoujingStartPage {
     .height('100%')
     .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.Spring)
+    .onDidScroll((): void => {
+      this.syncBarScroll();
+    })
     .align(Alignment.Top)
     .backgroundColor(ColorTokens.canvas)
   }

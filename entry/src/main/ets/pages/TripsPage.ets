@@ -67,7 +67,9 @@ export struct TripsPage {
       });
     }
   }
-  @StorageProp('isDarkMode') isDark: boolean = false;
+  /** 顶栏磨砂两态：由**绝对**滚动偏移驱动（每帧增量会被松手回弹的负帧打灭，契约 §Translucency） */
+  @State private barScrolled: boolean = false;
+  private barScroller: Scroller = new Scroller();
   @State private trips: TripCardData[] = [];
   @State private loading: boolean = true;
   /** 周年横幅：今天月日落在某条跨年历史行程区间内才出现；无命中时两条都为空 */
@@ -324,7 +326,7 @@ export struct TripsPage {
     .padding(SpaceTokens.md)
     .borderRadius(RadiusTokens.card)
     .backgroundColor(ColorTokens.canvas)
-    .shadow(this.isDark ? { radius: 0 } : ShadowTokens.card)
+    .shadow(ShadowTokens.cardAmbient)
     }
     .buttonStyle(ButtonStyleMode.TEXTUAL)
     .width('100%')
@@ -467,7 +469,7 @@ export struct TripsPage {
         } else {
           // 官方 Refresh + List：下拉重读 RDB，列表项走 ListItem（原来是 Scroll+Column 手排）
           Refresh({ refreshing: $$this.refreshing }) {
-            List({ space: SpaceTokens.md }) {
+            List({ space: SpaceTokens.md, scroller: this.barScroller }) {
               ForEach(this.visibleTrips(), (t: TripCardData) => {
                 ListItem() {
                   this.tripCard(t)
@@ -490,6 +492,9 @@ export struct TripsPage {
             .scrollBar(BarState.Off)
             .edgeEffect(EdgeEffect.Spring)
             .cachedCount(4)
+            .onDidScroll((): void => {
+              this.syncBarScroll();
+            })
             // 这一页的最后一张卡住在浮动 dock 底下，按实测净空让位。
             .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.floatingDockClearance })
           }
@@ -518,6 +523,15 @@ export struct TripsPage {
     .height('100%')
   }
 
+  /** 绝对滚动偏移 → 顶栏磨砂开关（>0 即开，静止归零） */
+  private syncBarScroll(): void {
+    const y: number = this.barScroller.currentOffset().yOffset;
+    const on: boolean = y > 0;
+    if (on !== this.barScrolled) {
+      this.barScrolled = on;
+    }
+  }
+
   build() {
     if (this.rootMode) {
       HdsNavigation(this.pathStack) {
@@ -527,6 +541,7 @@ export struct TripsPage {
       .hideBackButton(true)
       .titleBar(HdsChrome.bar({
         mainTitle: '行程',
+        scrolled: this.barScrolled,
         subTitle: this.trips.length > 0 ? `${this.trips.length} 条` : '',
         menu: [HdsChrome.item($r('sys.symbol.plus'), '新建行程', (): void => {
           PlanDraft.fresh();
@@ -545,6 +560,7 @@ export struct TripsPage {
       .backgroundColor(ColorTokens.canvas)
       .titleBar(HdsChrome.bar({
         mainTitle: '行程',
+        scrolled: this.barScrolled,
         subTitle: this.trips.length > 0 ? `${this.trips.length} 条` : '',
         menu: [HdsChrome.item($r('sys.symbol.plus'), '新建行程', (): void => {
           PlanDraft.fresh();

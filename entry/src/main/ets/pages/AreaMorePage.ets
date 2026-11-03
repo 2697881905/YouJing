@@ -41,6 +41,9 @@ export struct AreaMorePage {
   @State private loading: boolean = true;
   @State private loadFailed: boolean = false;
   private mapCity: boolean = false;
+  /** 顶栏磨砂两态：由**绝对**滚动偏移驱动（每帧增量会被松手回弹的负帧打灭，契约 §Translucency） */
+  @State private barScrolled: boolean = false;
+  private barScroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
     const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
@@ -157,6 +160,15 @@ export struct AreaMorePage {
     .backgroundColor(ColorTokens.surfaceElevated)
   }
 
+  /** 绝对滚动偏移 → 顶栏磨砂开关（>0 即开，静止归零） */
+  private syncBarScroll(): void {
+    const y: number = this.barScroller.currentOffset().yOffset;
+    const on: boolean = y > 0;
+    if (on !== this.barScrolled) {
+      this.barScrolled = on;
+    }
+  }
+
   build() {
     HdsNavDestination() {
       Column() {
@@ -221,7 +233,7 @@ export struct AreaMorePage {
             .textAlign(TextAlign.Center)
             .margin({ top: SpaceTokens.xl })
         } else {
-          List({ space: SpaceTokens.xs }) {
+          List({ space: SpaceTokens.xs, scroller: this.barScroller }) {
             ForEach(GROUP_ORDER, (g: AreaGroup) => {
               if (this.inGroup(g).length > 0) {
                 ListItemGroup({ header: this.groupHeader(this.groupLabel(g)) }) {
@@ -244,6 +256,9 @@ export struct AreaMorePage {
           .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
             bottom: LayoutTokens.floatingDockClearance })
           .layoutWeight(1)
+          .onDidScroll((): void => {
+            this.syncBarScroll();
+          })
         }
       }
       .width('100%')
@@ -255,7 +270,8 @@ export struct AreaMorePage {
     .backgroundColor(ColorTokens.canvas)
     .titleBar(HdsChrome.bar({
       mainTitle: '全部区域',
-      subTitle: this.areas.length > 0 ? `${this.city} · ${this.areas.length} 片` : this.city
+      subTitle: this.areas.length > 0 ? `${this.city} · ${this.areas.length} 片` : this.city,
+      scrolled: this.barScrolled
     }))
     .titleMode(HdsNavDestinationTitleMode.MINI)
   }

@@ -31,6 +31,9 @@ export struct PreferenceQAPage {
   @State private singleAnswers: string[] = ['leisure', 'comfort', 'public', ''];
   @State private paceAnswers: string[] = [];
   private questions: FlowQuestion[] = QuestionFlowConfig.QUESTIONS;
+  /** 顶栏磨砂两态：由**绝对**滚动偏移驱动（每帧增量会被松手回弹的负帧打灭，契约 §Translucency） */
+  @State private barScrolled: boolean = false;
+  private barScroller: Scroller = new Scroller();
 
   /**
    * 起答从草稿读，不从字面量读。
@@ -122,6 +125,15 @@ export struct PreferenceQAPage {
     }
   }
 
+  /** 绝对滚动偏移 → 顶栏磨砂开关（>0 即开，静止归零） */
+  private syncBarScroll(): void {
+    const y: number = this.barScroller.currentOffset().yOffset;
+    const on: boolean = y > 0;
+    if (on !== this.barScrolled) {
+      this.barScrolled = on;
+    }
+  }
+
   build() {
     HdsNavDestination() {
       Column() {
@@ -153,7 +165,7 @@ export struct PreferenceQAPage {
         .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md })
 
         // 官方 List：题干占一个 ListItem，每个选项一个 ListItem（不再 Scroll+Column 手排间距）
-        List({ space: LayoutTokens.questionOptionGap }) {
+        List({ space: LayoutTokens.questionOptionGap, scroller: this.barScroller }) {
           ListItem() {
             Column() {
               Text(this.questions[this.qIndex].title)
@@ -194,6 +206,9 @@ export struct PreferenceQAPage {
         .cachedCount(6)
         .alignListItem(ListItemAlign.Start)
         .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.bottomScrollReserve })
+        .onDidScroll((): void => {
+          this.syncBarScroll();
+        })
 
         Row({ space: SpaceTokens.md }) {
           YoujingButton({
@@ -235,7 +250,7 @@ export struct PreferenceQAPage {
     }
     // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
     .backgroundColor(ColorTokens.canvas)
-    .titleBar(HdsChrome.bar({ mainTitle: '偏好追问', subTitle: `问题 ${this.qIndex + 1}/${this.questions.length}` }))
+    .titleBar(HdsChrome.bar({ mainTitle: '偏好追问', subTitle: `问题 ${this.qIndex + 1}/${this.questions.length}`, scrolled: this.barScrolled }))
     .titleMode(HdsNavDestinationTitleMode.MINI)
   }
 }
