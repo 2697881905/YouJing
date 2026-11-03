@@ -10,7 +10,7 @@
 
 import { Spot, SpotTag } from '../model/Spot';
 import { Area, AreaPriceTier } from '../model/Area';
-import { SelectedSpot, SpotPriority, PaceRule } from '../model/PlanParams';
+import { SelectedSpot, SpotPriority, PaceRule, PaceOption } from '../model/PlanParams';
 import { Geo, GeoPoint } from './Geo';
 import { Transit } from './Transit';
 import { isMapArea } from './MapCityMapper';
@@ -31,6 +31,28 @@ export class PlanAutoPick {
   /** 节奏 → 每天景点上限：唯一实现在 model/PlanParams 的 PaceRule，这里只是转发给调用方 */
   static dailyCap(pace: string): number {
     return PaceRule.dailyCap(pace);
+  }
+
+  /**
+   * 这一趟的建议上限 = 天数 × 每日上限；多选节奏时取**最大**档
+   * （提示不该比用户自己选的更严）。
+   *
+   * 屏4 的计数行/进度环/无障碍名/超量劝告原来各写一遍 `天数 × 4`，
+   * 完全忽略节奏档：轻松档每天 3 站却被劝到 4、紧凑档每天 6 站却被当成超量。
+   */
+  static capacityOf(dayCount: number, paces: string[]): number {
+    const days: number = Math.max(1, dayCount);
+    let perDay: number = PaceRule.dailyCap(PaceOption.STANDARD);
+    if (paces.length > 0) {
+      perDay = 0;
+      for (const p of paces) {
+        const c: number = PaceRule.dailyCap(p);
+        if (c > perDay) {
+          perDay = c;
+        }
+      }
+    }
+    return Math.max(1, days * perDay);
   }
 
   /**

@@ -19,6 +19,7 @@ import { Spot, SpotTag } from '../model/Spot';
 import { PlanRepository } from '../data/PlanRepository';
 import { PlanDraft } from '../data/PlanDraft';
 import { SelectedSpot, SpotPriority, TripBasicInput } from '../model/PlanParams';
+import { PlanAutoPick } from '../utils/PlanAutoPick';
 import { DateUtils } from '../utils/DateUtils';
 import { Logger } from '../common/logger/Logger';
 import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
@@ -64,6 +65,12 @@ export struct SpotPickPage {
   private barScroller: Scroller = new Scroller();
   private destination: string = '';
   private days: number = 3;
+  /**
+   * 建议上限 = 天数 × 节奏档每日上限。四处提示（计数行 / 进度环 / 无障碍名 / 超量 advisory）
+   * 原来各写一遍 `days * 4`，**完全忽略用户选的节奏**：轻松档每天 3 站却被劝到 4，
+   * 紧凑档每天 6 站却被当成超量。口径取 `PaceRule.dailyCap`（与预选、生成器同一处）。
+   */
+  private capacity: number = 0;
 
   aboutToAppear(): void {
     this.load();
@@ -73,6 +80,7 @@ export struct SpotPickPage {
     const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
     const b: TripBasicInput = PlanDraft.get().basic;
     this.days = DateUtils.spanDays(b.startDate, b.endDate);
+    this.capacity = PlanAutoPick.capacityOf(this.days, PlanDraft.get().paces);
     this.destination = b.destination;
     this.mapCity = isMapCity(b.destination);
     this.loaded = false;
@@ -468,7 +476,7 @@ export struct SpotPickPage {
               .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
             }
             Column({ space: SpaceTokens.xxs }) {
-              Text(`已选 ${this.priorities.length} / 可用 ${this.days} 天 · 建议上限 ${this.days * 4} 个`)
+              Text(`已选 ${this.priorities.length} / 可用 ${this.days} 天 · 建议上限 ${this.capacity} 个`)
                 .fontSize(TypeTokens.caption.size)
                 .fontWeight(450)
                 .fontColor(ColorTokens.body)
@@ -483,7 +491,7 @@ export struct SpotPickPage {
                   .fontColor(ColorTokens.muted)
               }
               Progress({
-                value: Math.round(this.priorities.length * 100 / Math.max(1, this.days * 4)),
+                value: Math.round(this.priorities.length * 100 / Math.max(1, this.capacity)),
                 total: 100,
                 type: ProgressType.Linear
               })
@@ -493,7 +501,7 @@ export struct SpotPickPage {
                 // 进度条不给可及名时，读屏念的是框架的「100.000000」——
                 // 这一屏 dumpLayout 里就是这么显示的，等于把内部比例甩给使用者
                 .accessibilityText(`已选 ${this.priorities.length} 个景点，` +
-                  `按 ${this.days} 天建议上限 ${this.days * 4} 个`)
+                  `按 ${this.days} 天建议上限 ${this.capacity} 个`)
             }
             .justifyContent(FlexAlign.Center)
             .alignItems(HorizontalAlign.Start)
@@ -506,7 +514,7 @@ export struct SpotPickPage {
 
             // 官方 List + ListItemGroup：分组头吸顶，组间靠留白分隔（禁令 12：不画分隔线）
             List({ space: SpaceTokens.sm, scroller: this.barScroller }) {
-              if (this.priorities.length > this.days * 4) {
+              if (this.priorities.length > this.capacity) {
                 ListItem() {
                   Column({ space: SpaceTokens.xxs }) {
                     Text('时间偏紧')

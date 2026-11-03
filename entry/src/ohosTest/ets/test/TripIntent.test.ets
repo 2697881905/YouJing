@@ -136,6 +136,14 @@ export default function tripIntentTest(): void {
       expect(PlanAutoPick.dailyCap('standard')).assertEqual(4);
       expect(PlanAutoPick.dailyCap('packed')).assertEqual(6);
       expect(PlanAutoPick.dailyCap('')).assertEqual(4);
+      // 屏4 的「建议上限」= 天数 × 节奏档每日上限。四处提示原来各写一遍「天数 × 4」，
+      // 轻松档被劝到 4/天、紧凑档被当成超量；多选节奏取最大档（提示不比用户选的更严）。
+      expect(PlanAutoPick.capacityOf(3, ['relaxed'])).assertEqual(9);
+      expect(PlanAutoPick.capacityOf(3, ['standard'])).assertEqual(12);
+      expect(PlanAutoPick.capacityOf(3, ['packed'])).assertEqual(18);
+      expect(PlanAutoPick.capacityOf(3, ['relaxed', 'packed'])).assertEqual(18);
+      expect(PlanAutoPick.capacityOf(3, [])).assertEqual(12);
+      expect(PlanAutoPick.capacityOf(0, ['relaxed']) >= 1).assertTrue();
       const oneDay: SelectedSpot[] = PlanAutoPick.pickSpots(spots, 1, 'standard', ['classic']);
       expect(oneDay.length).assertEqual(4);
       expect(oneDay[0].spotId).assertEqual('s1');
