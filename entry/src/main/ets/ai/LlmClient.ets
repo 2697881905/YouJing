@@ -25,6 +25,7 @@ import { Transit, TransitEstimate } from '../utils/Transit';
 import { GeoPoint } from '../utils/Geo';
 import { DateUtils } from '../utils/DateUtils';
 import { ApiConfig } from '../common/config/ApiConfig';
+import { isMapCity } from '../common/constants/Cities';
 import { GenerationChannel } from '../utils/GenerationChannel';
 import { DeviceTokenStore } from '../data/DeviceTokenStore';
 import { DeviceActivator } from '../data/DeviceActivator';
@@ -77,6 +78,10 @@ export class MockLlmTransport implements LlmTransport {
 
   private synthesize(): string {
     const b: TripBasicInput = this.params.basic;
+    // 地图来源的城市（西安/成都这类非内置库）**从没取过预约信息**：
+    // 不能因为 `requiresBooking=false` 就说「无需预约」——那是没查过，不是查过了不需要。
+    // 提示词规则 15 早已对真模型这么要求，本地合成这里是唯一的漏网。
+    const mapCity: boolean = isMapCity(b.destination);
     const dayCount: number = Math.max(1, this.daysBetween(b.startDate, b.endDate) + 1);
     const caps: number[] = this.dayCaps(dayCount);
     const chosen: SelectedSpot[] = this.params.selectedSpots;
@@ -117,7 +122,9 @@ export class MockLlmTransport implements LlmTransport {
           latitude: spot.latitude,
           status: spot.booking.requiresBooking ? ActivityStatus.NOT_BOOKED : ActivityStatus.NO_NEED,
           category: ActivityCategory.SIGHT,
-          note: spot.booking.requiresBooking ? `预约：${spot.booking.bookingMethod ?? '官方渠道'}（以官方为准）` : undefined,
+          note: spot.booking.requiresBooking
+            ? `预约：${spot.booking.bookingMethod ?? '官方渠道'}（以官方为准）`
+            : (mapCity ? '预约信息未获取，以官方为准' : undefined),
           reason: k === 0 ? '当日首站安排在最开阔时段，动线由近及远。' : undefined,
           transport: k === 0 ? undefined : MockLlmTransport.legTo(prevPoint, spot)
         };

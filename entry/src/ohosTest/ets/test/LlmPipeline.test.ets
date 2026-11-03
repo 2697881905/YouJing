@@ -10,9 +10,10 @@ import { TripSchema } from '../../../main/ets/ai/TripSchema';
 import { PlanParams, SelectedSpot, TravelStyle, TransitPreference, TripBasicInput, SpotPriority, PaceOption } from '../../../main/ets/model/PlanParams';
 import { Spot, SpotTag } from '../../../main/ets/model/Spot';
 import { Area, AreaGroup, AreaPriceTier } from '../../../main/ets/model/Area';
-import { Trip, IntensityLevel } from '../../../main/ets/model/Trip';
+import { Trip, IntensityLevel, Activity } from '../../../main/ets/model/Trip';
 import { DayLoad, DayLoadCalc } from '../../../main/ets/utils/DayLoad';
 import { PlanAutoPick } from '../../../main/ets/utils/PlanAutoPick';
+import { IcsBuilder } from '../../../main/ets/utils/IcsBuilder';
 import { MockTrip } from '../../../main/ets/mock/MockTrip';
 import { AppError } from '../../../main/ets/common/error/AppError';
 import { ErrorCode } from '../../../main/ets/common/error/ErrorCode';
@@ -123,10 +124,10 @@ function makeLongSpots(n: number): Spot[] {
   return out;
 }
 
-/** 按给定景点 id 与天数造参数（STANDARD 节奏 = 每天上限 4） */
-function makeParamsFor(spotIds: string[], days: number): PlanParams {
+/** 按给定景点 id 与天数造参数（STANDARD 节奏 = 每天上限 4）；destination 用于区分种子城与地图城 */
+function makeParamsFor(spotIds: string[], days: number, destination: string = '北京'): PlanParams {
   const basic: TripBasicInput = {
-    destination: '北京', startDate: '2026-07-01',
+    destination: destination, startDate: '2026-07-01',
     endDate: days <= 1 ? '2026-07-01' : (days === 2 ? '2026-07-02' : '2026-07-03'),
     people: 2, budget: 8000
   };
@@ -265,6 +266,23 @@ export default function llmPipelineTest(): void {
       expect(over).assertEqual('');
       // 预选了几个就要排进去几个——这正是 B 条要保证的
       expect(placed).assertEqual(picked.length);
+    });
+
+    it('map_city_never_claims_no_booking_needed', TestType.FUNCTION | Size.MEDIUMTEST | Level.LEVEL1, async () => {
+      const spots: Spot[] = makeLongSpots(2);
+      const ids: string[] = ['t-l1', 't-l2'];
+      // 西安不在内置种子库里 ⇒ 走地图服务取数，预约字段**从没取到**。
+      // `requiresBooking=false` 在那种情况下只表示"没查过"，说「无需预约」等于替景点下结论；
+      // 提示词规则 15 早已要求真模型写「以官方为准」，本地合成是唯一的漏网。
+      const xi: Trip = await genOffline(makeParamsFor(ids, 1, '西安'), spots);
+      const act: Activity = xi.days[0].activities[0];
+      expect(act.note !== undefined && act.note.indexOf('预约信息未获取') >= 0).assertTrue();
+      expect(IcsBuilder.statusLabel(act)).assertEqual('预约信息未获取，以官方为准');
+      // 种子城（预约信息随种子库给出）仍走原口径，不误伤
+      const bj: Trip = await genOffline(makeParamsFor(ids, 1, '北京'), spots);
+      const actB: Activity = bj.days[0].activities[0];
+      expect(actB.note === undefined).assertTrue();
+      expect(IcsBuilder.statusLabel(actB)).assertEqual('无需预约');
     });
 
     it('offline_lays_selected_paces_across_day_segments', TestType.FUNCTION | Size.MEDIUMTEST | Level.LEVEL1, async () => {

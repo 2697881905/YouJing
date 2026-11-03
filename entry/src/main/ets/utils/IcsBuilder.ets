@@ -239,6 +239,11 @@ export class IcsBuilder {
     if (act.status === ActivityStatus.NOT_BOOKED) {
       return '需预约，尚未确认';
     }
+    // NO_NEED 也可能是「预约信息从未取到」（地图来源城市）：那种情况说「无需预约」
+    // 等于替景点下结论。note 已标明未获取时照实说。
+    if (act.note !== undefined && act.note.indexOf('预约信息未获取') >= 0) {
+      return '预约信息未获取，以官方为准';
+    }
     return '无需预约';
   }
 }
