@@ -5988,3 +5988,15 @@ Mac 的局域网地址是 `192.168.2.1`、手机是 `192.168.2.3`，同一网段
 - 新增 hypium `service_down_surfaces_its_own_code`（服务不可用 → 抛 LLM_UNAVAILABLE 而非 RETRY_EXHAUSTED），
   以及 FailureCopy 三条云端码的断言。真机 hypium **204/204**、十五把静态尺 + 七套离线断言全 rc=0。
 - 收尾同前：`ApiConfig` 还原、重编重装、BFF 已停、临时副本已删。
+
+#### 续 106（2026-11-03）BFF 数据库路径可配置——上云的最后一条"非凭证"前置
+
+`npm run preflight` 唯一那条 WARN 说的是实话：`src/db.js` 把库写死在 `../data/youjing.db`，
+容器/云函数（根文件系统只读）上必然起不来。
+
+- 改：`DB_PATH` 环境变量优先；目录不存在时 `mkdirSync(recursive)` 自动建；
+  `console.log` 打实际路径而不是常量。`.env.example` 里加了注释说明。
+- 验证：`DB_PATH=/tmp/bff-vol/youjing.db node -e "initDb()"` ⇒ 在**不存在**的目录上成功建库；
+  `bff: npm test` 46/46；`npm run preflight` 从 **通过3/警告1/阻断2** 变为 **通过4/警告0/阻断2**。
+- 现在剩下的两条阻断**全部**落在支付校验上（IAP 恒真桩、`/v1/iap` 无鉴权/notify 不验签），
+  两者都要真实 IAP 凭证与商户环境才能修并验证——不再是"顺手能补"的范围。

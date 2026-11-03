@@ -1,10 +1,12 @@
 import Database from 'better-sqlite3';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { mkdirSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const DB_PATH = join(__dirname, '..', 'data', 'youjing.db');
+// 上云/容器部署时根文件系统常常只读，数据库必须能挪到挂载卷上（`npm run preflight` 会盯这一条）。
+const DB_PATH = process.env.DB_PATH || join(__dirname, '..', 'data', 'youjing.db');
 
 const DDL = `
 CREATE TABLE IF NOT EXISTS account (
@@ -97,6 +99,9 @@ function ensureColumn(db, table, column, definition) {
 }
 
 export function initDb(path = DB_PATH) {
+  if (path !== ':memory:') {
+    mkdirSync(dirname(path), { recursive: true });
+  }
   const db = new Database(path);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
@@ -104,7 +109,7 @@ export function initDb(path = DB_PATH) {
   // 旧库升级：trip_request 需要 request_hash / response_json 才能正确幂等重放
   ensureColumn(db, 'trip_request', 'request_hash', "TEXT NOT NULL DEFAULT ''");
   ensureColumn(db, 'trip_request', 'response_json', 'TEXT');
-  console.log('[db] SQLite initialized at', DB_PATH);
+  console.log('[db] SQLite initialized at', path);
   return db;
 }
 

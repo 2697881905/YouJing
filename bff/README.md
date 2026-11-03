@@ -129,7 +129,7 @@ cd bff && npm run preflight
 | DEEPSEEK_API_KEY 已配 | PASS | 否则 LLM 代理直接 500 |
 | IAP 校验非恒真 | **FAIL** | `src/services/iap.js` 无条件 `verified:true` ⇒ 假收据换订阅与通行证，并兑换成真额度 |
 | `/v1/iap` 有统一鉴权、notify 验签 | **FAIL** | 续费/退款事件可被任何人伪造 |
-| DB 路径可配置 | WARN | `src/db.js` 写死 `../data/youjing.db` 且不读 `DB_PATH`；上云（只读根文件系统/云函数）前要支持环境变量或挂载卷 |
+| DB 路径可配置 | PASS | 支持 `DB_PATH` 环境变量（容器/云函数把库放到挂载卷上）；目录不存在会自动建 |
 | Prompt/Schema 生成物在位 | PASS | hash 一致性由 `npm test` 校验 |
 
 自检覆盖不到、部署时必须人工确认的三件事：**TLS 终止**、**按 IP/账号限流**、
