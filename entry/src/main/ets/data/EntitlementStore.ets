@@ -4,7 +4,8 @@
  * 契约：
  * - 权益数据由 BFF /v1/entitlement 返回，端上缓存到 preferences（TTL 5 分钟）；
  * - canExport() 是导出付费墙的判定入口：订阅有效或该行程有通行证即放行；
- * - 离线时用缓存判定，缓存过期或无缓存时默认拒绝导出（保守策略）；
+ * - 导出不要求缓存新鲜（缓存只有 5 分钟，而导出的是本机文件、服务端无感知）；
+ *   但**没有任何缓存**时仍拒绝——那说明从没成功拿到过权益。
  * - **例外**：`ApiConfig.DEV_SKIP_BFF` 为真时整套门禁放开（开发机本地开关，仓库版恒 false）。
  *   没这条例外，BFF 未部署（`BFF_BASE_URL` 空串 → 永不写入缓存）会让
  *   `canGenerate()` 恒 false，点「生成行程」直接跳付费页，主路径整条死掉。
@@ -82,6 +83,18 @@ function emptyEntitlement(): Entitlement {
   };
 }
 
+/** 导出放行的纯判定（不含缓存新鲜度——导出的是本机文件，见 canExport 注释）。 */
+export function exportAllowed(devBypass: boolean, isGuest: boolean,
+  hasSubscription: boolean, hasPass: boolean): boolean {
+  if (devBypass) {
+    return true;
+  }
+  if (isGuest) {
+    return false;
+  }
+  return hasSubscription || hasPass;
+}
+
 export class EntitlementStore {
   private static cached: Entitlement = emptyEntitlement();
   private static cachedAt: number = 0;
@@ -132,13 +145,8 @@ export class EntitlementStore {
   }
 
   static canExport(tripId: string): boolean {
-    if (EntitlementStore.devBypass()) {
-      return true;
-    }
-    if (!EntitlementStore.isCacheValid() || AccountStore.isGuest()) {
-      return false;
-    }
-    return EntitlementStore.hasSubscription() || EntitlementStore.hasPass(tripId);
+    return exportAllowed(EntitlementStore.devBypass(), AccountStore.isGuest(),
+      EntitlementStore.hasSubscription(), EntitlementStore.hasPass(tripId));
   }
 
   static hasGiftQuota(): boolean {

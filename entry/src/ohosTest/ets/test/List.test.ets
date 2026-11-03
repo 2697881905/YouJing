@@ -29,6 +29,7 @@ import mapCityMapperTest from './MapCityMapper.test';
 import generationChannelTest from './GenerationChannel.test';
 import entitlementMergeTest from './EntitlementMerge.test';
 import pricingCopyTest from './PricingCopy.test';
+import entitlementExportTest from './EntitlementExport.test';
 
 export default function testsuite() {
   tripParserTest();
@@ -62,4 +63,5 @@ export default function testsuite() {
   generationChannelTest();
   entitlementMergeTest();
   pricingCopyTest();
+  entitlementExportTest();
 }
