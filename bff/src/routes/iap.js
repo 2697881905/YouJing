@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { v4 as uuidv4 } from 'uuid';
 import { verifyPurchase } from '../services/iap.js';
 import { getEntitlement } from '../services/quota.js';
+import { applyNotification, notifySignatureOk } from '../services/iapNotify.js';
 
 const router = Router();
 
@@ -64,6 +64,15 @@ router.post('/verify', async (req, res, next) => {
            VALUES (?, 'pass', 'youjing_pass', 990, ?, 'paid', datetime('now'))`
         ).run(accountId, purchaseToken);
       }
+
+      // 退款回调只拿得到收据号，要把订单绑回这张通行证才撤得掉（D7）。
+      // 老订单没有这层绑定，退款只能记一笔 `NO_ORDER` 之外的 orphan 日志——已买的通行证不会被误撤。
+      const orderRow = db.prepare('SELECT id FROM `order` WHERE purchase_token = ?').get(purchaseToken);
+      if (orderRow) {
+        db.prepare(
+          'UPDATE trip_pass SET order_id = ? WHERE account_id = ? AND local_trip_id = ? AND order_id IS NULL'
+        ).run(orderRow.id, accountId, localTripId);
+      }
     } else if (productType === 'subscription') {
       const productId = req.body.productId || 'youjing_sub_monthly';
       const amountCents = productId === 'youjing_sub_yearly' ? 9800 : 1990;
@@ -97,8 +106,20 @@ router.post('/verify', async (req, res, next) => {
 
 router.post('/notify', (req, res, next) => {
   try {
-    console.log('[iap] notify received', JSON.stringify(req.body).slice(0, 200));
-    res.status(200).json({});
+    const rawBody = req.rawBody || Buffer.from(JSON.stringify(req.body || {}));
+    const signature = notifySignatureOk(
+      rawBody, req.headers.authorization, process.env.IAP_NOTIFY_PUBLIC_KEY
+    );
+    if (!signature.ok) {
+      // NOT_CONFIGURED 是部署态问题（503），其余是这条请求不被信任（401）
+      const status = signature.reason === 'NOT_CONFIGURED' ? 503 : 401;
+      console.warn('[iap] notify rejected', signature.reason);
+      return res.status(status).json({ error: 'NOTIFY_' + signature.reason });
+    }
+
+    const result = applyNotification(req.db, req.body || {}, rawBody);
+    console.log('[iap] notify', result.kind, result.reason || 'applied', 'applied=' + result.applied);
+    res.status(200).json({ ok: true, applied: result.applied, kind: result.kind });
   } catch (err) {
     next(err);
   }

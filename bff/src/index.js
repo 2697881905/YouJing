@@ -13,7 +13,11 @@ const PORT = process.env.PORT || 3000;
 const db = initDb();
 
 const app = express();
-app.use(express.json({ limit: '2mb' }));
+// /v1/iap/notify 要对**原始字节**验 RSA 签名，重序列化后的 body 与华为签的对不上
+app.use(express.json({
+  limit: '2mb',
+  verify: (req, _res, buf) => { req.rawBody = buf; }
+}));
 
 app.use((req, _res, next) => {
   req.db = db;

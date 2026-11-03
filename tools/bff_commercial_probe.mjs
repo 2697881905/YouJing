@@ -57,6 +57,13 @@ process.env.LLM_MODEL = 'probe-model';
 process.env.LLM_RESPONSE_FORMAT = 'json_object';
 process.env.PORT = process.env.PROBE_PORT || '47811';
 
+// IAP 通知验签：本地生成一对 RSA 密钥，把公钥当 IAP_NOTIFY_PUBLIC_KEY 交给真实进程，
+// 用私钥签真签名。**未验**：华为真实回调的字段名/枚举值与 AGC 公钥，要第一封真通知对表。
+const { generateKeyPairSync, createSign } = await import('node:crypto');
+const notifyKeys = generateKeyPairSync('rsa', { modulusLength: 2048 });
+process.env.IAP_NOTIFY_PUBLIC_KEY = notifyKeys.publicKey.export({ type: 'spki', format: 'pem' });
+const NOTIFY_PRIVATE_PEM = notifyKeys.privateKey.export({ type: 'pkcs8', format: 'pem' });
+
 const BASE = `http://127.0.0.1:${process.env.PORT}`;
 
 // 真实进程启动：index.js 在 import 时就 app.listen
@@ -78,11 +85,12 @@ async function waitHealth() {
 async function req(method, path, opts = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (opts.token) headers.Authorization = `Bearer ${opts.token}`;
+  if (opts.signature) headers.Authorization = opts.signature;
   if (opts.key) headers['Idempotency-Key'] = opts.key;
   const resp = await fetch(`${BASE}${path}`, {
     method,
     headers,
-    body: opts.body ? JSON.stringify(opts.body) : undefined
+    body: opts.raw || (opts.body ? JSON.stringify(opts.body) : undefined)
   });
   const text = await resp.text();
   let parsed = null;
@@ -226,15 +234,27 @@ const used = ent.body && ent.body.usedToday;
 gate('订阅档上限值应为 20（窗口=按月，见 quota-window.test.js）', cap === 20,
   `dailyCap=${cap} usedToday=${used}`);
 
-const notify = await req('POST', '/v1/iap/notify', {
-  body: { purchaseToken: 'real-huawei-notify', status: 'RENEWED' }
+// D7 已修（2026-11-03）：通知端点验 RSA-SHA256 签名、落真实权益变更、按 eventId 幂等。
+// 未签名先证「拒收」，再用真签名证「到期真的让订阅失效」——只测拒收等于没测通路。
+const unsigned = await req('POST', '/v1/iap/notify', {
+  body: { notificationType: 'EXPIRED', purchaseToken: 'totally-forged-receipt-123', eventId: 'probe-unsigned' }
 });
+gate('未签名的 IAP 通知被拒绝（不能撤销别人的权益）', unsigned.status === 401,
+  `status=${unsigned.status} error=${unsigned.body && unsigned.body.error}`);
+
+const notifyRaw = JSON.stringify({
+  notificationType: 'EXPIRED',
+  purchaseToken: 'totally-forged-receipt-123',
+  eventId: 'probe-expire-signed'
+});
+const notifySig = createSign('RSA-SHA256').update(notifyRaw).sign(NOTIFY_PRIVATE_PEM, 'base64');
+const notify = await req('POST', '/v1/iap/notify', { raw: notifyRaw, signature: notifySig });
 const entAfterNotify = await req('GET', '/v1/entitlement', { token: tokenA });
-guardAbsent('华为 IAP 服务端通知应能改变权益',
-  notify.status === 200 &&
-  JSON.stringify(entAfterNotify.body) === JSON.stringify(ent.body),
-  `/v1/iap/notify 只 console.log 后回 200 {}，订阅到期/续费/退款都不会改变权益；` +
-  '上架后收入侧对账没有入口');
+gate('已验签的 EXPIRED 通知让订阅失效（真实进程、真签名）',
+  notify.status === 200 && notify.body && notify.body.applied === true &&
+  entAfterNotify.body && entAfterNotify.body.subscription === null,
+  `status=${notify.status} applied=${notify.body && notify.body.applied} ` +
+  `subscription=${JSON.stringify(entAfterNotify.body && entAfterNotify.body.subscription)}`);
 
 const dupToken = await req('POST', '/v1/iap/verify', {
   token: tokenA,

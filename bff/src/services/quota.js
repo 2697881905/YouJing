@@ -10,8 +10,11 @@ const MONTHLY_CAP = 20;
 const GIFT_QUOTA = 3;
 
 export function getEntitlement(db, accountId) {
+  // 必须同时看 status 与 period_end：只信 status 的话，过期订阅在通知送达前会继续送额度
   const sub = db.prepare(
-    `SELECT * FROM subscription WHERE account_id = ? AND status = 'active' ORDER BY period_end DESC LIMIT 1`
+    `SELECT * FROM subscription
+     WHERE account_id = ? AND status = 'active' AND period_end >= datetime('now')
+     ORDER BY period_end DESC LIMIT 1`
   ).get(accountId);
 
   const passes = db.prepare(

@@ -58,13 +58,25 @@ if (/return \{ verified: true/.test(iap)) {
   ok('IAP 校验已实现真实校验');
 }
 
-// 3) /v1/iap 是否挂了统一鉴权 + notify 是否验签 ----------------------------
-const index = read('src/index.js');
-if (/app\.use\('\/v1\/iap',\s*iapRouter\)/.test(index)) {
-  bad('/v1/iap 未挂统一鉴权', "index.js 里是 app.use('/v1/iap', iapRouter)，" +
-    'notify 端点完全不验签，任何人都能伪造续费/退款事件');
+// 3) /v1/iap 两条入口各自的守门方式 -----------------------------------------
+// /verify 用设备票据（内联 jwt.verify）；/notify 是华为推来的，不可能带设备票据，
+// 它必须验 RSA 签名（D7 修复后的形态）。以前这里查"整条 /v1/iap 挂没挂 authMiddleware"，
+// 那个判据会逼着人把华为回调也挂上票据、反而永远收不到通知。
+const iapRoute = read('src/routes/iap.js');
+if (/TOKEN_INVALID/.test(iapRoute) && /jwt\.verify/.test(iapRoute)) {
+  ok('/v1/iap/verify 要求设备票据');
 } else {
-  ok('/v1/iap 已挂鉴权中间件');
+  bad('/v1/iap/verify 未校验设备票据', 'src/routes/iap.js 里找不到 token 校验，假收据可直接入库');
+}
+if (/notifySignatureOk\(/.test(iapRoute) && /IAP_NOTIFY_PUBLIC_KEY/.test(iapRoute)) {
+  ok('/v1/iap/notify 走签名校验');
+} else {
+  bad('/v1/iap/notify 未验签', '任何人都能伪造续费/退款事件改用户权益');
+}
+if (process.env.IAP_NOTIFY_PUBLIC_KEY) {
+  ok('IAP_NOTIFY_PUBLIC_KEY 已配置（值本身需与 AGC 控制台核对）');
+} else {
+  bad('IAP_NOTIFY_PUBLIC_KEY 未配置', 'notify 会按 fail-closed 返回 503，到期与退款无法生效');
 }
 
 // 4) 数据库路径能否在容器/云函数里落地 ------------------------------------

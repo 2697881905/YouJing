@@ -6133,3 +6133,35 @@ Mac 的局域网地址是 `192.168.2.1`、手机是 `192.168.2.3`，同一网段
   要不要改成"按真实在场时长判"依然是产品决定（那会动所有既有行程的读数）。
 - 真机核对：屏8 标签读到 **`活动 8h · 建议 ≤10h`**（改前是 `今日 8h`）；无障碍名同源，一起变。
 - `DayLoad.test` 两条文案断言随之更新；真机 hypium **204/204**、十六把静态尺 + 七套离线断言全 rc=0。
+
+#### 续 114（2026-11-03）华为 IAP 回调从「黑洞」变成验签 + 真落权益（D7 销案）
+
+上一轮商业化验收里，`POST /v1/iap/notify` 只 `console.log` 后回 `200 {}`——到期、退款、续费
+**全部不改变权益**；叠加 `getEntitlement` 只看 `status='active'` 不看 `period_end`，
+订阅过期后服务端还会继续送额度。这两条都在服务端，不需要华为凭证就能修，本轮一并收掉。
+
+- **验签**（新增 `bff/src/services/iapNotify.js`）：`Authorization` 头是 Base64 的 RSA-SHA256
+  签名，对**原始字节**验（`index.js` 的 `express.json({ verify })` 捕获 `req.rawBody`，
+  重序列化后的 body 与华为签的对不上）。`IAP_NOTIFY_PUBLIC_KEY` 未配置时 **fail-closed 回 503**
+  ——这个端点能撤销别人的付费权益，不能默认信任；签名缺失/对不上回 401。
+- **事件**：`EXPIRED` → 订阅 `expired`；`RENEWED` → 从「原到期时间」与「现在」的**较晚者**起算续期
+  （延迟送达/重推不会吞掉一个周期）；`REFUND` → 订单置退款、订阅置 `refunded`、通行证按
+  **购买时绑定的 `order_id`** 撤销（此前通行证与订单没有这层绑定，退款追不回去，一并补上）。
+  `CANCEL` 明确**不算到期**（用户只关了自动续费，仍应给到期满）；认不出的事件只记录、回 200，
+  不改权益也不让华为无限重推。幂等键 `eventId` 落新表 `iap_notify_event`。
+- **`getEntitlement` 同时看 `period_end`**：通知没送到（或还没配公钥）时，过期订阅也不能继续生效。
+- **证据**：
+  - `bff/test/iap-notify.test.js` 新增 **9 例**（本地 RSA 密钥对签真签名）：未配置 503、
+    缺签名/坏签名 401 且权益不变、EXPIRED 生效、同 eventId 重推不二次续期、过期很久的订阅
+    续费从今天算、REFUND 撤销订单+通行证、未知类型不改权益、CANCEL 不断供、period_end 已过不给额度。
+    `npm test` **55/55**。
+  - 真实进程探针（`bash tools/probe_bff_commercial.sh`）：新增两条必守——
+    **未签名通知 401**、**已验签 EXPIRED 让订阅真的失效**（真进程、真签名、真 HTTP）。
+    必守 **15→17/17**、支付守卫缺陷 **6→5 条**（D7 销案）；退出码仍 1 是真话，剩 5 条全要凭证或产品口径。
+  - `npm run preflight`：通过 **4→6 / 警告 0 / 阻断 2**。阻断变成「IAP 恒真桩」与
+    「`IAP_NOTIFY_PUBLIC_KEY` 未配置」；preflight 第 3 条判据也改对了——原来查「整条 `/v1/iap`
+    挂没挂 authMiddleware」会逼人把华为回调也挂上设备票据、反而永远收不到通知，现在分开查
+    `/verify` 要票据、`/notify` 要签名。
+- **未验**：华为真实回调的字段名与枚举值（`CLASSIFY` 词表按华为文档写，要第一封真通知对表）、
+  AGC 控制台公钥的真实值、以及 App 端在订阅到期后的 UI 表现（D9 未动：`/v1/trip` 的 quota
+  仍不回传 `subscription` 快照）。

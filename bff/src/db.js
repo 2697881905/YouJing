@@ -89,6 +89,16 @@ CREATE TABLE IF NOT EXISTS \`order\` (
   refunded_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_order_account ON \`order\`(account_id);
+
+CREATE TABLE IF NOT EXISTS iap_notify_event (
+  event_id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  type TEXT,
+  purchase_token TEXT,
+  applied INTEGER NOT NULL DEFAULT 0,
+  note TEXT,
+  received_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 `;
 
 function ensureColumn(db, table, column, definition) {
