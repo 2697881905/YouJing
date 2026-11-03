@@ -13,6 +13,21 @@ router.post('/verify', async (req, res, next) => {
     if (!purchaseToken || !productType) {
       return res.status(400).json({ error: 'MISSING_PARAMS', message: '缺少 purchaseToken 或 productType' });
     }
+    // 边界校验放在调用校验服务之前：非法商品类型/商品 id 不该先花一次外部校验。
+    if (productType !== 'pass' && productType !== 'subscription') {
+      return res.status(400).json({
+        error: 'UNSUPPORTED_PRODUCT_TYPE',
+        message: `不支持的 productType '${productType}'`
+      });
+    }
+    const requestedProductId = req.body.productId || 'youjing_sub_monthly';
+    if (productType === 'subscription' &&
+      requestedProductId !== 'youjing_sub_monthly' && requestedProductId !== 'youjing_sub_yearly') {
+      return res.status(400).json({
+        error: 'UNKNOWN_PRODUCT_ID',
+        message: `未知订阅商品 '${requestedProductId}'`
+      });
+    }
 
     const iapResult = await verifyPurchase(purchaseToken, productType);
     if (!iapResult.verified) {
@@ -59,7 +74,6 @@ router.post('/verify', async (req, res, next) => {
       if (!localTripId) {
         return res.status(400).json({ error: 'MISSING_TRIP_ID', message: '通行证购买需提供 localTripId' });
       }
-
       const existingPass = db.prepare(
         'SELECT * FROM trip_pass WHERE account_id = ? AND local_trip_id = ? AND status = ?'
       ).get(accountId, localTripId, 'active');
@@ -92,7 +106,7 @@ router.post('/verify', async (req, res, next) => {
         ).run(orderRow.id, accountId, localTripId);
       }
     } else if (productType === 'subscription') {
-      const productId = req.body.productId || 'youjing_sub_monthly';
+      const productId = requestedProductId;
       const amountCents = productId === 'youjing_sub_yearly' ? 9800 : 1990;
       const periodMonths = productId === 'youjing_sub_yearly' ? 12 : 1;
 

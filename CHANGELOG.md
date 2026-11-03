@@ -161,6 +161,10 @@
 
 ### Fixed
 
+- 2026-11-03（§5ci 续 131）：**收据校验入口补边界**。`productType` 不是 `pass|subscription`、
+  或订阅 `productId` 不在白名单时，现在在调用校验服务前就 400（以前会回 `verified:true` 但什么都不发，
+  未知商品 id 还会被按月付 1990 发货）。`bff npm test` 73/73。
+
 - 2026-11-03（§5ci 续 130）：**收据绑定账号**。通行证分支先插 `trip_pass` 再查订单，
   同一张收据换账号提交会白拿一张 active 通行证（收据泄露即可多人复用）。
   现在 `order.purchase_token` 已属他人时返回 `409 RECEIPT_ALREADY_USED`，不落权益；

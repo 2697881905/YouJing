@@ -6454,3 +6454,16 @@ if (hasSubscription()) return usedToday < dailyCap;  // ← 直接返回，后�
   真实进程探针复跑 **23/23 + 1 条缺陷（D5）**，无回归。
 - **未验**：真实华为收据的账号归属（校验服务只回 `verified`）；本轮保证的是
   「收据第一次被谁兑用就归谁，别人再来一律拒绝」。
+
+#### 续 131（2026-11-03）收据校验入口补边界：非法商品类型/未知商品 id 直接 400
+
+`/v1/iap/verify` 原来对 `productType` 不做白名单：传 `foo` 会跳过两个分支、最后回
+`verified:true`（什么都没发）；订阅的 `productId` 也任意，未知 id 会被当成月付 1990/1 个月。
+现在在**调用校验服务之前**拦下：
+
+- `productType` 只接受 `pass|subscription`，否则 `400 UNSUPPORTED_PRODUCT_TYPE`；
+- 订阅的 `productId` 只接受 `youjing_sub_monthly|youjing_sub_yearly`，
+  否则 `400 UNKNOWN_PRODUCT_ID`（不写默认价，避免把未知商品按 19.9/月发货）。
+- 回归：`iap-verify.test.js` 新增一例（两种非法输入都 400、订单数不变），
+  `bff npm test` **72→73/73**。
+- 说明：校验服务**先**被调用还是先做边界校验，顺序有意——非法请求不该消耗一次外部校验。

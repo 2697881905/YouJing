@@ -130,3 +130,27 @@ test('路由层：校验桩拒绝时回 200 verified:false，同样不落库', a
   const passes = db.prepare('SELECT COUNT(*) AS c FROM trip_pass WHERE account_id = ?').get(accountId);
   assert.equal(passes.c, 0, '拒绝的收据不能落通行证');
 });
+
+test('非法 productType / 未知商品 id：400 且不调校验服务、不落库', async () => {
+  setVerifier(`${verifierBase}/ok`);
+  const before = db.prepare('SELECT COUNT(*) AS c FROM `order` WHERE account_id = ?').get(accountId).c;
+
+  const badType = await fetch(`${base}/v1/iap/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ purchaseToken: 'r-1', productType: 'unknown_type' })
+  });
+  assert.equal(badType.status, 400);
+  assert.equal((await badType.json()).error, 'UNSUPPORTED_PRODUCT_TYPE');
+
+  const badProduct = await fetch(`${base}/v1/iap/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ purchaseToken: 'r-2', productType: 'subscription', productId: 'free_forever' })
+  });
+  assert.equal(badProduct.status, 400);
+  assert.equal((await badProduct.json()).error, 'UNKNOWN_PRODUCT_ID');
+
+  const after = db.prepare('SELECT COUNT(*) AS c FROM `order` WHERE account_id = ?').get(accountId).c;
+  assert.equal(after, before, '被边界校验拒绝的请求不能落订单');
+});
