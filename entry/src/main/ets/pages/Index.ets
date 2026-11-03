@@ -21,6 +21,7 @@ import { PrivacyConsentDialog } from '../components/PrivacyConsentDialog';
 import { LoginView } from './LoginView';
 import { Logger } from '../common/logger/Logger';
 import { AccountStore } from '../data/AccountStore';
+import { AccountState } from '../model/Account';
 import { EntitlementStore } from '../data/EntitlementStore';
 import { DeviceTokenStore } from '../data/DeviceTokenStore';
 import { DeviceActivator } from '../data/DeviceActivator';
@@ -102,11 +103,15 @@ struct Index {
   }
 
   private bootstrap(ctx: common.Context): void {
-    DeviceTokenStore.init(ctx)
+    // 顺序有讲究：激活要用「当前账号的 idToken」，而 AccountStore 的登录态是异步恢复的。
+    // 三者并行时曾在亚稳态下把已登录用户按游客激活（D10 之后游客与账号是不同 BFF 账号）。
+    const accountReady: Promise<AccountState> = AccountStore.init(ctx);
+    accountReady
+      .then((): Promise<void> => DeviceTokenStore.init(ctx))
       .then((): Promise<boolean> => DeviceActivator.activate(ctx))
       .catch((): void => {});
     EntitlementStore.init(ctx).catch((): void => {});
-    AccountStore.init(ctx)
+    accountReady
       .then((): Promise<TripSummary[]> => TripDao.listSummaries(ctx))
       .then((rows: TripSummary[]): void => {
         if (rows.length > 0) {

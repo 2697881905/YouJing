@@ -64,6 +64,13 @@ export class AccountStore {
         new authentication.AuthenticationController(context);
       const response: authentication.LoginWithHuaweiIDResponse =
         await controller.executeRequest(request) as authentication.LoginWithHuaweiIDResponse;
+      const unionId: string = response.data === undefined ? '' : response.data.unionID;
+      // 拿回来的必须是当前分区的那个账号：否则宁可放弃这次票据，也不能把身份换成别人。
+      if (unionId.length > 0 && unionId !== AccountStore.uid()) {
+        Logger.warn(TAG, '静默登录返回的 UnionID 与当前分区不一致，放弃本次 idToken');
+        AccountStore.lastIdToken = '';
+        return '';
+      }
       const token: string = response.data === undefined || response.data.idToken === undefined
         ? '' : response.data.idToken;
       AccountStore.lastIdToken = token;
@@ -164,6 +171,7 @@ export class AccountStore {
    */
   static async logout(): Promise<void> {
     AccountStore.current = guestState();
+    AccountStore.lastIdToken = '';
     AccountStore.publish();
     await EntitlementStore.clear();
     const prefs: preferences.Preferences | null = AccountStore.prefs;

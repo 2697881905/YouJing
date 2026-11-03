@@ -6548,3 +6548,21 @@ better-sqlite3 抛成 500，或者把 account 表撑脏（deviceId 是账号键�
   「HUAWEI_CLIENT_ID 未配置」FAIL ⇒ 现在 **通过 8 / 阻断 3**（三项都是部署配置）。
 - **未验**：真实华为环境下 idToken 过期后的自动刷新链条（本轮第二次冷启已同时覆盖
   「首次网络失败→下次重试成功」，但没等到 idToken 自然过期）。
+
+#### 续 137（2026-11-03）D10 之后的三条身份通路收口：冷启竞态、登录后重激活、登出清票据
+
+改成 idToken 身份后，顺着「谁先谁后」读消费方，补了三处：
+
+- **冷启竞态**：`Index.bootstrap` 原来让 `DeviceTokenStore.init → activate` 与 `AccountStore.init`
+  并行；激活要用「当前账号的 idToken」，如果账号态还没恢复，`isGuest()` 会读到默认游客值，
+  把已登录用户按游客激活成 anon 账号。改为 **AccountStore.init → DeviceTokenStore.init → activate**
+  串行（行程列表仍与激活并行，不拖慢首屏）。
+- **登录后 BFF 还持游客票据**：`LoginView` 登录成功、以及首启页「游客→华为」归户成功后，
+  都补了一次 `DeviceActivator.reactivate(ctx)`（先用旧票据清掉、再用新身份 idToken 重新激活）；
+  失败不挡进场，下次冷启还有机会。
+- **身份不匹配守卫**：`AccountStore.refreshIdToken` 会把静默登录返回的 `unionID`
+  与当前分区比较，不一致就放弃这张 idToken（不拿别人身份的票据去激活）；`logout()` 同时清掉
+  内存里的 idToken，避免登出后残留。
+- 真机 hypium **223/223**（本轮无新增用例：这三条都依赖真实账号时序，单测造不出）；
+  双 HAP 全新构建安装。**未验**：真机上「登录瞬间重激活」与冷启竞态复现
+  （前者要登出再登录，会动用户的账号会话，代价不对等；后者是时序问题，只能靠串行化消除）。

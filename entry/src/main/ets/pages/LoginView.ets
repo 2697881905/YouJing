@@ -19,6 +19,7 @@
 
 import { common } from '@kit.AbilityKit';
 import { AccountStore } from '../data/AccountStore';
+import { DeviceActivator } from '../data/DeviceActivator';
 import { AccountState } from '../model/Account';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
@@ -79,6 +80,8 @@ export struct LoginView {
           this.hint = '华为账号登录未完成，可重试，或先用本机游客空间。';
           return;
         }
+        // 登录后 BFF 还持着游客票据：用新身份的 idToken 重新激活一次（幂等，失败不挡进场）
+        DeviceActivator.reactivate(ctx).catch((): void => {});
         this.onSignedIn();
       })
       .catch((err: Error): void => {

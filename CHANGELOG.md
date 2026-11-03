@@ -166,6 +166,12 @@
 
 ### Fixed
 
+- 2026-11-03（§5ci 续 137）：**D10 之后的三条身份通路收口**。① 冷启时 AccountStore 与激活并行，
+  账号态未恢复会把已登录用户按游客激活 —— 改为 `AccountStore.init → DeviceTokenStore.init → activate`
+  串行；② 登录/归户成功后 BFF 仍持游客票据 —— 补 `DeviceActivator.reactivate`；
+  ③ `refreshIdToken` 校验返回的 unionID 必须等于当前分区，登出清掉内存 idToken。
+  真机 hypium 223/223。**未验**：登录瞬间重激活（需登出，代价不对等）。
+
 - 2026-11-03（§5ci 续 136）：**D10 销案：设备激活改用华为 idToken 验签**。
   此前 BFF 直接信任请求体里的 `unionId`，知道他人 unionId 即可换到对方票据与权益。
   现在端侧静默取 Account Kit `idToken`（`AccountStore.refreshIdToken`，不改登录态/不清权益），

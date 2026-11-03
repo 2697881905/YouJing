@@ -25,6 +25,7 @@ import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { ImmersiveSurface } from '../components/ImmersiveSurface';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { AccountStore } from '../data/AccountStore';
+import { DeviceActivator } from '../data/DeviceActivator';
 import { PlanDraft } from '../data/PlanDraft';
 import { AccountKind, AccountState } from '../model/Account';
 import { TripBasicInput } from '../model/PlanParams';
@@ -110,6 +111,8 @@ export struct YoujingStartPage {
         const state: AccountState = await AccountStore.login(ctx);
         if (state.kind === AccountKind.HUAWEI) {
           await TripDao.adoptGuestData(ctx, state.uid);
+          // 归户后 BFF 还持着游客票据：用新身份的 idToken 重新激活（失败不挡进场）
+          await DeviceActivator.reactivate(ctx).catch((): boolean => false);
           // 归户会换掉卡片可读的分区键，立刻回灌一次，别让桌面空等 30 分钟
           WidgetSync.refreshAll(ctx).catch((err: Error) => {
             Logger.warn('Ui.Start', `卡片刷新失败: ${err.message}`);
