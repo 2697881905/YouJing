@@ -154,7 +154,7 @@
   现在：RSA-SHA256 对原始字节验签（`IAP_NOTIFY_PUBLIC_KEY` 未配置 fail-closed 503、签名缺失/不对 401）、
   `EXPIRED` 让订阅失效、`RENEWED` 从较晚者起算续期、`REFUND` 撤订单与通行证（补上通行证↔订单绑定）、
   `CANCEL` 明确不算到期、未知事件不改权益、`eventId` 幂等。
-  证据：`bff/test/iap-notify.test.js` 9 例（本地密钥对签真签名）+ `npm test` 55/55；
+  证据：`bff/test/iap-notify.test.js` 9 例（本地密钥对签真签名）+ `npm test` 56/56；
   真实进程探针新增两条必守（未签名 401、已验签 EXPIRED 真的让订阅失效）⇒ 必守 **17/17**、
   支付守卫缺陷 **6→5**；`npm run preflight` 通过 **6 / 阻断 2**（只剩 IAP 恒真桩与公钥未配置）。
   **未验**：华为真实回调的字段名/枚举值要第一封真通知对表。

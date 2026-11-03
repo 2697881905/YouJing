@@ -80,3 +80,15 @@ test('同一通行证收据重复提交：两次都 200，且只记一单', asyn
   const orders = db.prepare('SELECT COUNT(*) AS c FROM `order` WHERE purchase_token = ?').get(receipt);
   assert.equal(orders.c, 1, '订单不该重复记账');
 });
+
+test('通行证购买时绑上订单号：退款回调只拿收据号也能追回这张通行证', async () => {
+  const receipt = 'receipt-pass-link';
+  const resp = await verify({ purchaseToken: receipt, productType: 'pass', localTripId: 'trip-link' });
+  assert.equal(resp.status, 200);
+
+  const orderId = db.prepare('SELECT id FROM `order` WHERE purchase_token = ?').get(receipt).id;
+  const pass = db.prepare(
+    "SELECT order_id FROM trip_pass WHERE local_trip_id = 'trip-link'"
+  ).get();
+  assert.equal(pass.order_id, orderId, '没有这层绑定，REFUND 通知就只能记一笔孤儿日志、撤不掉通行证');
+});
