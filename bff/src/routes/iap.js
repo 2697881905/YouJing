@@ -80,7 +80,7 @@ router.post('/verify', async (req, res, next) => {
 
       if (!existingPass) {
         db.prepare(
-          `INSERT INTO trip_pass (account_id, local_trip_id, status)
+          `INSERT OR IGNORE INTO trip_pass (account_id, local_trip_id, status)
            VALUES (?, ?, 'active')`
         ).run(accountId, localTripId);
       }
@@ -92,7 +92,7 @@ router.post('/verify', async (req, res, next) => {
       ).get(purchaseToken);
       if (!seenPass) {
         db.prepare(
-          `INSERT INTO \`order\` (account_id, product_type, product_id, amount_cents, purchase_token, status, paid_at)
+          `INSERT OR IGNORE INTO \`order\` (account_id, product_type, product_id, amount_cents, purchase_token, status, paid_at)
            VALUES (?, 'pass', 'youjing_pass', 990, ?, 'paid', datetime('now'))`
         ).run(accountId, purchaseToken);
       }
@@ -116,12 +116,12 @@ router.post('/verify', async (req, res, next) => {
       ).get(purchaseToken);
       if (!seenSub) {
         db.prepare(
-          `INSERT INTO subscription (account_id, product_id, status, period_start, period_end, auto_renew, purchase_token)
+          `INSERT OR IGNORE INTO subscription (account_id, product_id, status, period_start, period_end, auto_renew, purchase_token)
            VALUES (?, ?, 'active', datetime('now'), datetime('now', '+${periodMonths} months'), 1, ?)`
         ).run(accountId, productId, purchaseToken);
 
         db.prepare(
-          `INSERT INTO \`order\` (account_id, product_type, product_id, amount_cents, purchase_token, status, paid_at)
+          `INSERT OR IGNORE INTO \`order\` (account_id, product_type, product_id, amount_cents, purchase_token, status, paid_at)
            VALUES (?, 'subscription', ?, ?, ?, 'paid', datetime('now'))`
         ).run(accountId, productId, amountCents, purchaseToken);
       }

@@ -141,3 +141,34 @@ test('同一订阅收据换账号：同样拒绝，不落订阅', async () => {
   const subs = db.prepare('SELECT COUNT(*) AS c FROM subscription WHERE account_id = ?').get(accountId2);
   assert.equal(subs.c, 0);
 });
+
+test('同一订阅收据并发提交：都 200，只落一行订阅与一单', async () => {
+  const receipt = 'receipt-sub-race';
+  const results = await Promise.all([
+    verify({ purchaseToken: receipt, productType: 'subscription' }),
+    verify({ purchaseToken: receipt, productType: 'subscription' })
+  ]);
+  for (const r of results) {
+    assert.equal(r.status, 200);
+    assert.equal(r.body.verified, true);
+  }
+  const subs = db.prepare('SELECT COUNT(*) AS c FROM subscription WHERE purchase_token = ?').get(receipt);
+  assert.equal(subs.c, 1);
+  const orders = db.prepare('SELECT COUNT(*) AS c FROM `order` WHERE purchase_token = ?').get(receipt);
+  assert.equal(orders.c, 1);
+});
+
+test('同一通行证收据并发提交：都 200，只落一张通行证与一单', async () => {
+  const receipt = 'receipt-pass-race';
+  const results = await Promise.all([
+    verify({ purchaseToken: receipt, productType: 'pass', localTripId: 'trip-race' }),
+    verify({ purchaseToken: receipt, productType: 'pass', localTripId: 'trip-race' })
+  ]);
+  for (const r of results) assert.equal(r.status, 200);
+  const passes = db.prepare(
+    "SELECT COUNT(*) AS c FROM trip_pass WHERE local_trip_id = 'trip-race'"
+  ).get();
+  assert.equal(passes.c, 1);
+  const orders = db.prepare('SELECT COUNT(*) AS c FROM `order` WHERE purchase_token = ?').get(receipt);
+  assert.equal(orders.c, 1);
+});

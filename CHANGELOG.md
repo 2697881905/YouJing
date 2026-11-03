@@ -166,6 +166,10 @@
 
 ### Fixed
 
+- 2026-11-03（§5ci 续 147）：**收据入库并发幂等**。同一收据并发提交会撞
+  `purchase_token`/`uk_pass` UNIQUE 打成 500；四处改为 `INSERT OR IGNORE` + 重取。
+  新增订阅/通行证并发各一例，`bff npm test` 91/91。
+
 - 2026-11-03（§5ci 续 145）：**活动 id 落库前重铸**。模型跨天复用同一个活动 id 时，
   `TripDao` 的 `${tripId}:${id}` 主键会撞 UNIQUE，整趟保存回滚（额度已扣）。
   `generateTrip` 在落库前按天序重铸 `d{天}-a{序}`；编辑流程不受影响。
