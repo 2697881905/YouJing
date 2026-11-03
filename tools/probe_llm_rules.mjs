@@ -173,11 +173,22 @@ for (const [i, day] of (trip.days || []).entries()) {
   });
 }
 
+// 费用一致性（规则 7「约等于」）：费用页展示 overview.totalCost，偏离过大就是口径不一致
+const sumDaily = (trip.days || []).reduce(
+  (s, d) => s + (Number.isFinite(d.dailyCost) ? d.dailyCost : 0), 0);
+const totalCost = trip.overview && Number.isFinite(trip.overview.totalCost)
+  ? trip.overview.totalCost : 0;
+if (sumDaily > 0 && Math.abs(totalCost - sumDaily) > Math.max(500, sumDaily * 0.2)) {
+  warnings.push(`overview.totalCost=${totalCost} 与各天合计 ${sumDaily} 偏差超过 20%`);
+}
+
 console.log(JSON.stringify({
   model: result.usage.model,
   tokens: { prompt: result.usage.promptTokens, completion: result.usage.completionTokens },
   validator: { valid: check.valid, errors: check.errors },
   days: trip.days ? trip.days.length : 0,
+  totalCost,
+  sumDaily,
   tips: Array.isArray(trip.tips) ? trip.tips : [],
   perDay
 }, null, 2));
