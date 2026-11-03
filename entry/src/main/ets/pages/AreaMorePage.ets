@@ -25,7 +25,7 @@ import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
 import { isMapArea } from '../utils/MapCityMapper';
-import { isMapCity } from '../common/constants/Cities';
+import { isMapCity, seedCityListText } from '../common/constants/Cities';
 
 const GROUP_ORDER: AreaGroup[] = [AreaGroup.CORE, AreaGroup.COMMERCIAL, AreaGroup.METRO];
 
@@ -208,7 +208,8 @@ export struct AreaMorePage {
               .fontWeight(700)
               .fontFamily(TypeTokens.title.family)
               .fontColor(ColorTokens.ink)
-            Text(this.mapCity ? '检查网络后重试，或换一座城市' : '首批支持北京、上海、广州、深圳、杨凌，换一座城市试试')
+            Text(this.mapCity ? '检查网络后重试，或换一座城市'
+              : `内置精选片区的城市：${seedCityListText()}；其他城市走地图服务实时取数`)
               .fontSize(TypeTokens.small.size)
               .fontColor(ColorTokens.muted)
               .textAlign(TextAlign.Center)

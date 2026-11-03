@@ -22,6 +22,18 @@ export const CITY_DEFS: CityDef[] = [
 
 export const SUPPORTED_CITIES: string[] = CITY_DEFS.map((c: CityDef): string => c.name);
 
+/**
+ * 空态文案里的内置城市清单，从 `SUPPORTED_CITIES` 生成。
+ *
+ * 原来这句话在 `SpotPickPage` 和 `AreaMorePage` 各手抄了一遍，**已经漂了**
+ * （一份写「北京、上海、广州、深圳」、另一份多了「杨凌」）——同一句话的第二份必然再漂。
+ * 另外两份都写成「首批支持这五城」，而 Stage 2 之后任意地图可查城市都能实时取数，
+ * 这个说法会把产品能力说小，所以文案一并改成「内置精选 / 其他走地图服务」两种来源。
+ */
+export function seedCityListText(): string {
+  return SUPPORTED_CITIES.join('、');
+}
+
 /** 城市面板的热门快捷入口：全部走 Map Kit，不冒充内置种子城市 */
 export const POPULAR_MAP_CITIES: string[] = [
   '西安', '成都', '杭州', '重庆', '南京', '武汉', '长沙', '厦门'

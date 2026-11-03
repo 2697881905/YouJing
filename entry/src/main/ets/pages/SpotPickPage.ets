@@ -29,7 +29,7 @@ import { common } from '@kit.AbilityKit';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import type { HdsNavigationMenuItemOptions, HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
-import { isMapCity } from '../common/constants/Cities';
+import { isMapCity, seedCityListText } from '../common/constants/Cities';
 
 interface SpotGroup {
   label: string;
@@ -370,7 +370,8 @@ export struct SpotPickPage {
         .fontFamily(TypeTokens.title.family)
         .fontColor(ColorTokens.ink)
         .textAlign(TextAlign.Center)
-      Text(this.mapCity ? '检查网络后重试，或换一座城市' : '首批支持北京、上海、广州、深圳，换一座城市试试')
+      Text(this.mapCity ? '检查网络后重试，或换一座城市'
+        : `内置精选景点的城市：${seedCityListText()}；其他城市走地图服务实时取数`)
         .fontSize(TypeTokens.small.size)
         .fontColor(ColorTokens.muted)
         .textAlign(TextAlign.Center)
