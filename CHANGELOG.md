@@ -6,6 +6,15 @@
 
 ### Added
 
+- 2026-11-03（§5ci 续 86）：**P0-B 落地——干净检出的主路径打通**（用户拍 B→A）。
+  新增 `utils/GenerationChannel.ets` 作生成通道唯一判据，门禁与传输选择同读它：
+  BFF 未配置 ⇒ 走端侧规则引擎（免费档、零 token 成本），只有真要打 BFF 才问额度。
+  单变量前后对拍（同一台机、同一份发布形态配置，只换两个调用点）：改前落付费页、
+  改后落屏8 真行程，两张帧都人眼看过。真机 hypium **198/198**、十四把静态尺 + 七套离线断言全 rc=0。
+  隐私政策与用户协议随实现改口（原文「会发给大模型接口」在默认形态下是不实陈述），
+  `CONSENT_VERSION` 按自定规矩 v2→v3。**上架前仍需法务复核。**
+  另登记 D10（免费档默认产出超载日：屏8 自写 `今日 13.7h · 超建议 3.7h`）与
+  D11（`trip_request.params_json` 落了行程骨架，与方案 §1「行程内容永不上传」冲突）。
 - 2026-11-03（§5ci 续 85）：**商业化链路首次作为真实进程验收 + P0 主路径死锁登记** ——
   新增 `tools/probe_bff_commercial.sh` + `tools/bff_commercial_probe.mjs`：`bff/` 此前只被
   `node --test` 用 `initDb(':memory:')` 装配成 in-process express，`src/index.js` **从没真起过进程**，
