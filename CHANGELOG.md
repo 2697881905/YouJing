@@ -179,6 +179,10 @@
 
 ### Fixed
 
+- 2026-11-03（§5ci 续 165）：**已退款收据再次提交回 `verified:false`**。此前重放/恢复购买
+  会拿到 `verified:true`，端侧显示"购买成功"但权益为空。现在按 `order.status` 拒绝兑换，
+  撤销仍由 notify 的 REFUND 事件负责。新增一例，`bff npm test` 96/96。
+
 - 2026-11-03（§5ci 续 164）：**已退款订阅不被迟到的 RENEWED 复活**。renew 分支原来不看状态，
   乱序/伪造的续费通知会把 refunded 改回 active；现在 refunded 直接忽略（expired 仍可续费）。
   新增一例，`bff npm test` 95/95。

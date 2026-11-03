@@ -6909,3 +6909,14 @@ D10 之后华为账号激活会把自己的 `device_id` 写成这台设备，而
   库里仍是 refunded），`bff npm test` **94→95/95**。
 - 说明：测试里没有断言账号级 `subscription=null`——同一账号在前面用例里还有其它在期订阅，
   那是测试串扰；断言落在「这张收据对应的订阅行状态」上。
+
+#### 续 165（2026-11-03）已退款的收据再次提交：verified=false，不再假装成功
+
+`/v1/iap/verify` 对同一收据的重放是幂等的（第二次数也回 `verified:true`）。
+但收据被退款后，「恢复购买」或重放会再次拿到 `verified:true`——端侧据此显示"购买成功"，
+而权益里其实没有这一项。
+
+- 收据归属查询同时读 `order.status`：已退款 ⇒ `200 {verified:false, message:'该收据已退款'}`，
+  也不再走任何入库分支（真正的退款撤销由 notify 的 REFUND 事件完成）。
+- 回归：`iap-idempotency.test.js` 新增一例（通行证收据 → 标记订单退款 → 再验 `verified:false`），
+  `bff npm test` **95→96/96**。

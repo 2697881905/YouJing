@@ -172,3 +172,17 @@ test('同一通行证收据并发提交：都 200，只落一张通行证与一�
   const orders = db.prepare('SELECT COUNT(*) AS c FROM `order` WHERE purchase_token = ?').get(receipt);
   assert.equal(orders.c, 1);
 });
+
+test('已退款的收据再次提交：verified=false，不复活权益', async () => {
+  const receipt = 'receipt-refunded-1';
+  const first = await verify({ purchaseToken: receipt, productType: 'pass', localTripId: 'trip-refunded' });
+  assert.equal(first.status, 200);
+  assert.equal(first.body.verified, true);
+
+  db.prepare("UPDATE `order` SET status = 'refunded', refunded_at = datetime('now') WHERE purchase_token = ?")
+    .run(receipt);
+
+  const again = await verify({ purchaseToken: receipt, productType: 'pass', localTripId: 'trip-refunded' });
+  assert.equal(again.status, 200);
+  assert.equal(again.body.verified, false);
+});

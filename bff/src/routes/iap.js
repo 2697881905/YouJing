@@ -65,13 +65,17 @@ router.post('/verify', async (req, res, next) => {
     // 改前通行证分支先插 `trip_pass` 再查 `order`，订单虽然不重复记账，
     // 但第二个人照样白拿一张 active 通行证（收据一旦泄露就能被多人复用）。
     const receiptOwner = db.prepare(
-      'SELECT account_id FROM `order` WHERE purchase_token = ?'
+      'SELECT account_id, status FROM `order` WHERE purchase_token = ?'
     ).get(purchaseToken);
     if (receiptOwner && receiptOwner.account_id !== accountId) {
       return res.status(409).json({
         error: 'RECEIPT_ALREADY_USED',
         message: '该收据已绑定其他账号'
       });
+    }
+    // 已退款的收据不能再次兑换：否则端侧会显示"购买成功"但权益是空的
+    if (receiptOwner && receiptOwner.status === 'refunded') {
+      return res.status(200).json({ verified: false, message: '该收据已退款' });
     }
 
     if (productType === 'pass') {
