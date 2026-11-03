@@ -166,6 +166,11 @@
 
 ### Fixed
 
+- 2026-11-03（§5ci 续 138）：**「没有票据」不再被当成「额度用尽」送付费页**。
+  设备激活失败（含 idToken 取不到）时 BFF 一次没被调用，旧逻辑却按
+  `CLOUD_QUOTA_EXHAUSTED` 把用户引到买会员；现在无票据按 `LLM_UNAVAILABLE` 报
+  「连不上行程服务 / 等一会儿再试」。真机 hypium 223/223。
+
 - 2026-11-03（§5ci 续 137）：**D10 之后的三条身份通路收口**。① 冷启时 AccountStore 与激活并行，
   账号态未恢复会把已登录用户按游客激活 —— 改为 `AccountStore.init → DeviceTokenStore.init → activate`
   串行；② 登录/归户成功后 BFF 仍持游客票据 —— 补 `DeviceActivator.reactivate`；

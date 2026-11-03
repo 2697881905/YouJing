@@ -27,6 +27,7 @@ import { AppError } from '../common/error/AppError';
 import { ErrorCode } from '../common/error/ErrorCode';
 import { isMapCity } from '../common/constants/Cities';
 import { EntitlementStore } from '../data/EntitlementStore';
+import { DeviceTokenStore } from '../data/DeviceTokenStore';
 import { GenerationChannel } from '../utils/GenerationChannel';
 import { common } from '@kit.AbilityKit';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
@@ -100,6 +101,11 @@ export struct GeneratingPage {
       // 端侧规则引擎合成（免费档）不依赖 BFF 权益，不该被额度拦；只有真要打 BFF 才问额度。
       // 判据与 ai/LlmClient 的传输选择同源于 utils/GenerationChannel。
       if (GenerationChannel.needsEntitlement() && !EntitlementStore.canGenerate(this.localTripId)) {
+        // 没有票据 ≠ 额度用尽：设备激活失败（含 idToken 取不到）时 BFF 一次都没被调用，
+        // 送付费页会让用户以为要买会员。按"服务暂时不可用"报，让他稍后重试。
+        if (!DeviceTokenStore.hasToken()) {
+          throw new AppError(ErrorCode.LLM_UNAVAILABLE, '设备尚未激活（BFF 票据缺失）');
+        }
         throw new AppError(ErrorCode.CLOUD_QUOTA_EXHAUSTED, '生成额度已用完');
       }
       const trip: Trip = await LlmClient.generateTrip(params, spots, area, undefined, context, this.localTripId);
