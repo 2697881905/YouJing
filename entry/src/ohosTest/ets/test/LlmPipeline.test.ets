@@ -313,6 +313,22 @@ export default function llmPipelineTest(): void {
       expect(a.id === b.id).assertFalse();
     });
 
+    it('user_params_win_over_model_echo', TestType.FUNCTION | Size.MEDIUMTEST | Level.LEVEL1, async () => {
+      // 夹具里模型自述是「京都 / 2 人 / 16000 / culture」，用户实际选的是
+      // 「北京 / 3 人 / 5000 / leisure」。人数与预算进 TripDao，费用页预算 = budget × people，
+      // 让模型自述覆盖用户输入会让预算直接错一倍。
+      const params: PlanParams = makeParamsFor(['t-l1'], 3, '北京');
+      params.basic.people = 3;
+      params.basic.budget = 5000;
+      params.style = TravelStyle.LEISURE;
+      const trip: Trip = await LlmClient.generateTrip(params, makeLongSpots(1), makeArea(),
+        new FixedIdTransport());
+      expect(trip.people).assertEqual(3);
+      expect(trip.budget).assertEqual(5000);
+      expect(trip.destination).assertEqual('北京');
+      expect(trip.style).assertEqual(TravelStyle.LEISURE);
+    });
+
     it('offline_lays_selected_paces_across_day_segments', TestType.FUNCTION | Size.MEDIUMTEST | Level.LEVEL1, async () => {
       // 屏3b helper 写「可多选，按天段分别排布」：勾了轻松 + 紧凑就得真的排出松段与紧段，
       // 不能像以前那样按优先级只取一档（那样多选等于白选）

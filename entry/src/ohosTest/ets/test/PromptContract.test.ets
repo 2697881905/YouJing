@@ -101,6 +101,17 @@ export default function promptContractTest(): void {
         expect(sp.indexOf('最后一站结束时间 ≤ 第一站开始时间 + 10 小时') >= 0).assertTrue();
       });
 
+    it('meal_and_stay_rules_match_server_validator',
+      TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+        // BFF validateTrip 每天都要求 lunch + dinner 各一条；提示词不能再留「meals 写空数组」的出口，
+        // 否则模型照做 → BFF 502 → 端侧重试，白烧一次调用（2026-11-03 读码发现的三层漂移）。
+        const sp: string = PromptBuilder.systemPrompt();
+        expect(sp.indexOf('meals 即使当天在赶路也要给出午餐、晚餐各一条') >= 0).assertTrue();
+        expect(sp.indexOf('空数组 []（按第 4 条') < 0).assertTrue();
+        // accommodation 会被导出到 ICS 的「住」行：只准写用户选的住宿区域，禁止编酒店名
+        expect(sp.indexOf('不要编造具体酒店名') >= 0).assertTrue();
+      });
+
     it('schema_enums_match_model_enums_both_ways',
       TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
         const statuses: string[] = [ActivityStatus.BOOKED, ActivityStatus.NOT_BOOKED,

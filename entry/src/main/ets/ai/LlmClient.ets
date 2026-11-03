@@ -356,6 +356,14 @@ export class LlmClient {
         // 2026-11-03 端到端联调时模型返回固定 id `trip-test`，这个碰撞面当场就露出来了。
         // 解析器本身不改（它对外部输入保持忠实），只在落库前的这一个漏斗收口。
         trip.id = `trip-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        // 用户输入优先于模型自述：人数/预算/目的地/风格是用户在屏2/屏3 选的，模型只负责排行程。
+        // 费用页的预算总额 = trip.budget × trip.people，模型把「2 人 / 8000」echo 成「4 人 / 5000」
+        // 会让预算直接错一倍；ICS 分享也会带错人数。日期已在 TripParser.normalizeDays 收口，
+        // 这里补齐同一类字段（2026-11-03 读码发现，此前只有 id 与日期做了归一）。
+        trip.people = params.basic.people;
+        trip.budget = params.basic.budget;
+        trip.destination = params.basic.destination;
+        trip.style = params.style;
         // 地址/坐标以景点库为准回填（提示词第 12 条要求模型留空，省输出 token 也免幻觉）
         const filled: number = backfillActivityPlaces(trip, spots);
         const hours: number = backfillOpeningHours(trip, spots);

@@ -52,7 +52,13 @@ export class PromptBuilder {
     days.push('12. 活动的 address 一律填空串、longitude/latitude 一律填 0：到访地址由 App 按景点库回填，你重写只会写错。location 仍按第 9 条填入口别称。');
     // 真机实测（2026-10-27，thinking 关闭）：首日（抵达日）整个 meals 键被省略，
     // TripParser 报「days[0].meals: 缺字段」→ 重试一次，单次生成账单直接翻倍。
-    days.push('13. 每个 day 必须同时给出 dayIndex、date、theme、intensity、dailyCost、activities、meals 七个键，一个都不能省；某天没有用餐安排时 meals 写空数组 []（按第 4 条正常每天都有午/晚两餐）。');
+    // 真机实测（2026-10-27，thinking 关闭）：首日（抵达日）整个 meals 键被省略，
+    // TripParser 报「days[0].meals: 缺字段」→ 重试一次，单次生成账单直接翻倍。
+    // 2026-11-03 读码发现旧措辞还留了个自相矛盾的出口：「没有用餐安排时 meals 写空数组 []」。
+    // BFF 的 validateTrip 要求每天 lunch/dinner 各至少一条，TripParser 又接受 []——
+    // 模型一旦照做，BFF 502、端侧重试，白烧一次调用。这里统一成「必须两餐」。
+    days.push('13. 每个 day 必须同时给出 dayIndex、date、theme、intensity、dailyCost、activities、meals 七个键，一个都不能省；' +
+      'meals 即使当天在赶路也要给出午餐、晚餐各一条（写便利店/车站简餐这类能落地的名字），不要写空数组。');
     days.push('14. 若景点给出「开放」时段，排期必须落在该时段内；没有开放信息时不要编造开放时间。');
     days.push('15. 景点预约信息为「未获取」时，禁止编造预约方式/提前天数，写「以官方为准」即可。');
     // 真机实测（2026-10-31）：1 天行程只给「同一天至同一天」时，模型拆成两天且 dayIndex 重复
@@ -79,6 +85,10 @@ export class PromptBuilder {
       '（已扣两餐；加用餐正好 10 小时在场窗口）；' +
       '景点活动条数按节奏档上限（轻松 3、标准 4–5、紧凑 6），含交通与用餐的 activities 总数一般不超过 8–10 条。' +
       '超了就删减 optional/want，不要靠压缩停留时长或把活动排到深夜来凑。');
+    // 2026-11-03：accommodation 此前没有任何规则约束。真模型可能编一个具体酒店名，
+    // 而它会被导出到日历 ICS 的「住」行——用户住的根本不是那里，属于凭空造事实。
+    days.push('20. day.accommodation 只填用户消息里的「住宿区域」名称（整趟保持一致），' +
+      '不要编造具体酒店名；不能确定时省略该字段。');
     days.push('JSON Schema:');
     days.push(TripSchema.TRIP_JSON_SCHEMA);
     return days.join('\n');

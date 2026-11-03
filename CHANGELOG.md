@@ -148,6 +148,17 @@
 
 ### Fixed
 
+- 2026-11-03（§5ci 续 117）：**LLM 三层契约再收两条 + 一条新规则**。
+  ① 提示词规则 13 原允许 `meals: []`，而 BFF `validateTrip` 要求每天午/晚各一条 ⇒
+  模型照做就 502 重试、白烧一次调用；改成「赶路也要给出午/晚各一条」。
+  ② `generateTrip` 只归一了 id 与日期，`people/budget/destination/style` 直接用模型自述——
+  费用页预算 = `budget × people`，模型 echo 错人数预算就错一倍；改为落库前以用户 `PlanParams` 为准。
+  ③ 新增规则 20：`accommodation` 只填用户选的住宿区域，禁止编造酒店名（该字段会进 ICS「住」行）。
+  证据：BFF 62/62（规则 19→20）、真机 hypium 210/210（+2 例）；
+  一次真模型 1 天调用 `prompt 1944 + completion 867`（≈¥0.003）输出 validator 通过、
+  午/晚各 1、food 活动 0、住宿=碑林区、355min ≤ 480、09:00→17:30。
+  **未验**：多日行程在新规则下的表现。
+
 - 2026-11-03（§5ci 续 116）：**收据校验改 fail-closed，假收据换订阅的利用链关闭**（D1–D4）。
   `verifyPurchase()` 不再恒真：未配置 `IAP_VERIFY_URL`/`IAP_APP_ID`/`IAP_VERIFY_TOKEN` 时一律拒绝
   （路由 503），配置后只认远端 `verified:true`，超时/5xx/网络错都按未通过。

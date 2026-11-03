@@ -32,9 +32,9 @@ test('prompt-contract 生成物与 entry/ SOT 未漂移', () => {
   }
 });
 
-test('systemPrompt 携带 19 条规则与同源 JSON Schema', () => {
+test('systemPrompt 携带 20 条规则与同源 JSON Schema', () => {
   const prompt = buildSystemPrompt();
-  assert.equal((prompt.match(/^\d+\./gm) || []).length, 19, '规则条数应为 19');
+  assert.equal((prompt.match(/^\d+\./gm) || []).length, 20, '规则条数应为 20');
   assert.ok(prompt.includes('JSON Schema:'));
   assert.ok(prompt.includes(TRIP_JSON_SCHEMA), '系统提示词必须内嵌同源 Schema');
   for (const phrase of [
@@ -44,6 +44,9 @@ test('systemPrompt 携带 19 条规则与同源 JSON Schema', () => {
     'category 只能取',
     '必须覆盖用户标记为 must',
     '餐饮每天至少午餐、晚餐各一条',
+    'meals 即使当天在赶路也要给出午餐、晚餐各一条',
+    '不要写空数组',
+    '不要编造具体酒店名',
     'address 一律填空串',
     '计划天数为 1 时',
     '各段通勤之和不超过 **8 小时（480 分钟）**',
