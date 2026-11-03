@@ -19,6 +19,9 @@ import { PROFILE_NAV, TAB_MINE, TAB_SHOWN_KEY, isTabShownTick, enterPlanningFlow
 import { routerMap } from './AppRouter';
 import { AccountStore, AUTH_STATE_KEY } from '../data/AccountStore';
 import { BadgeDao } from '../data/BadgeDao';
+import { EntitlementStore } from '../data/EntitlementStore';
+import { DateUtils } from '../utils/DateUtils';
+import { membershipStatus, MembershipStatus } from '../utils/MembershipCopy';
 import { BadgeGroup, BadgeRecord, badgeCityCount, badgeTotal, buildBadgeBoard } from '../utils/BadgeBoard';
 import { ProfileStore } from '../data/ProfileStore';
 import { LegalDocReader } from '../components/LegalDocReader';
@@ -59,6 +62,10 @@ export struct MinePage {
   @StorageProp(AUTH_STATE_KEY) authState: string = '';
   @State private badgeCount: number = 0;
   @State private cityCount: number = 0;
+  /** 会员卡：订阅/通行证状态（付费后 App 内唯一能看到权益的地方） */
+  @State private memberTitle: string = '未开通会员';
+  @State private memberDetail: string = '生成免费；导出与无限重排需解锁';
+  @State private memberActive: boolean = false;
   /** 非空 = 就地展开这份法务文书。不 push 路由：CustomDialog/页内展开才没有"返回后这页什么态"的竞态 */
   @State private reading: string = '';
   /** 顶栏磨砂两态：由**绝对**滚动偏移驱动（每帧增量会被松手回弹的负帧打灭，契约 §Translucency） */
@@ -85,6 +92,13 @@ export struct MinePage {
       // 读失败只让卡片显示 0：这是概览，不是勋章墙本体，不该拦住这一格
       Logger.warn('Ui.Mine', `勋章计数读取失败: ${err.message}`);
     });
+    const ent = EntitlementStore.get();
+    const hasSub: boolean = ent.subscription !== null && ent.subscription.status === 'active';
+    const periodEnd: string = ent.subscription === null ? '' : ent.subscription.periodEnd;
+    const status: MembershipStatus = membershipStatus(hasSub, periodEnd, ent.passes.length, DateUtils.todayIso());
+    this.memberTitle = status.title;
+    this.memberDetail = status.detail;
+    this.memberActive = status.active;
   }
 
   private confirmLogout(): void {
@@ -150,6 +164,37 @@ export struct MinePage {
     }
     .width('100%')
     .padding({ top: SpaceTokens.base, bottom: SpaceTokens.base })
+  }
+
+  @Builder
+  memberCard() {
+    Row({ space: SpaceTokens.sm }) {
+      SymbolGlyph($r('sys.symbol.crown'))
+        .fontSize(IconSizes.display)
+        .fontColor([this.memberActive ? ColorTokens.primary : ColorTokens.icon])
+      Column({ space: SpaceTokens.xxs }) {
+        Text(this.memberTitle)
+          .fontSize(TypeTokens.small.size)
+          .fontWeight(600)
+          .fontColor(ColorTokens.ink)
+        Text(this.memberDetail)
+          .fontSize(TypeTokens.caption.size)
+          .fontWeight(450)
+          .fontColor(ColorTokens.muted)
+      }
+      .alignItems(HorizontalAlign.Start)
+      .layoutWeight(1)
+      SymbolGlyph($r('sys.symbol.chevron_right'))
+        .fontSize(IconSizes.control)
+        .fontColor([ColorTokens.muted])
+    }
+    .width('100%')
+    .padding(SpaceTokens.base)
+    .borderRadius(RadiusTokens.card)
+    .backgroundColor(ColorTokens.surfaceElevated)
+    .onClick((): void => {
+      this.pathStack.pushPath({ name: 'Pricing' });
+    })
   }
 
   @Builder
@@ -257,6 +302,9 @@ export struct MinePage {
                 this.goLogin();
               })
             }
+          }
+          ListItem() {
+            this.memberCard()
           }
           ListItem() {
             this.medalCard()
