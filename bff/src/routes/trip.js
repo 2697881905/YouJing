@@ -123,7 +123,8 @@ router.post('/generate', idempotencyMiddleware, async (req, res, next) => {
       // 长行程实测（2026-11-03，7 天 MapKit）：模型偶发输出中途坏掉的 JSON
       //（Expected double-quoted property name at position 3336）。原样重试多半还会坏，
       // 这里带一条修正指令再问一次；仍只扣一次额度。
-      console.log(`[trip] json invalid，发起修正调用: ${parsed.error}`);
+      // 修正调用把 token 预算抬到 16384：免费档 8192 如果是被 length 截断，原预算重问会再截一次。
+      console.log(`[trip] json invalid（finish=${llmResult.usage.finishReason || '?'}），发起修正调用: ${parsed.error}`);
       const repairMessages = messages.concat([
         { role: 'assistant', content: String(llmResult.content).slice(0, 12000) },
         {
@@ -132,7 +133,10 @@ router.post('/generate', idempotencyMiddleware, async (req, res, next) => {
             '请只输出修正后的完整 JSON：字符串内不要出现英文双引号或反斜杠，不要输出任何解释或代码围栏。'
         }
       ]);
-      const repaired = await proxyLlmRequest(repairMessages, callOptions);
+      const repairOptions = Object.assign({}, callOptions, {
+        maxTokens: Math.max(callOptions.maxTokens, 16384)
+      });
+      const repaired = await proxyLlmRequest(repairMessages, repairOptions);
       llmResult = {
         content: repaired.content,
         usage: {

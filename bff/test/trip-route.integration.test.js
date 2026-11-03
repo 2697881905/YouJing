@@ -329,7 +329,7 @@ test('模型首次输出坏 JSON：带修正指令重问一次，成功则照常
       const content = call === 1 ? '{"days": [' : JSON.stringify(validTrip());
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
-        choices: [{ message: { content } }],
+        choices: [{ message: { content }, finish_reason: call === 1 ? 'length' : 'stop' }],
         usage: { prompt_tokens: 10, completion_tokens: 20 }
       }));
     });
@@ -343,6 +343,9 @@ test('模型首次输出坏 JSON：带修正指令重问一次，成功则照常
     assert.equal(call, 2, '坏 JSON 应触发一次修正调用');
     assert.equal(r.body.quota.giftRemaining, 2, '两次模型调用只扣一次额度');
     assert.ok(bodies[1].includes('修正后的完整 JSON'), '第二次请求必须带修正指令');
+    // 免费档首次 8192；修正调用抬到 16384，避免被 length 截断后再次产生坏 JSON
+    assert.equal(JSON.parse(bodies[0]).max_tokens, 8192);
+    assert.equal(JSON.parse(bodies[1]).max_tokens, 16384);
   } finally {
     process.env.LLM_BASE_URL = oldBase;
     flaky.close();

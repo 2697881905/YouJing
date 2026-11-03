@@ -90,7 +90,9 @@ export async function proxyLlmRequest(messages, options = {}) {
     usage: {
       promptTokens: data.usage?.prompt_tokens || 0,
       completionTokens: data.usage?.completion_tokens || 0,
-      model: data.model || config.model
+      model: data.model || config.model,
+      // 'length' = 被 max_tokens 截断；修正重问时据此提高预算
+      finishReason: data.choices?.[0]?.finish_reason || ''
     }
   };
 }

@@ -6768,3 +6768,16 @@ D10 之后华为账号激活会把自己的 `device_id` 写成这台设备，而
   库中 `union_id=AABKND_p4xEcf6kVFclUBMOcPk05U`（真实华为 unionId，非 anon）。
 - 验后：停临时 BFF、删除副本、还原 `ApiConfig`、重编重装发布形态；真机 hypium **234/234**。
 - **未验**：idToken 自然过期（>有效期）后的刷新（本轮只是 401 清票据→下次成功）。
+
+#### 续 153（2026-11-03）修正重问的 token 预算抬到 16384，并记录 finish_reason
+
+续 139 的修正重问沿用了首次调用的 `maxTokens`。免费档是 8192——如果坏 JSON 本来就是
+**被长度截断**造成的，用同样的预算重问会再截一次。现在：
+
+- `proxyLlmRequest` 把 `finish_reason`（`stop`/`length`）带回 usage；
+  `trip.js` 在发起修正时打印 `finish=length` 等，便于判断是不是截断。
+- 修正调用的 `maxTokens = max(首次预算, 16384)`：付费档本来就是 16384，免费档抬到 16384。
+  额度仍只扣一次，token 总数按两次调用合并记账。
+- 回归：坏 JSON 用例的上游现在返回 `finish_reason:length`，断言首次请求
+  `max_tokens=8192`、修正请求 `max_tokens=16384`。`bff npm test` **91/91**
+  （用例数不变，是既有用例加强）。
