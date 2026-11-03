@@ -6,6 +6,7 @@ import {
 import { proxyLlmRequest } from '../services/llm.js';
 import { buildMessages, buildResponseFormat, expectedDayCount, promptMode } from '../prompt/index.js';
 import { validateTrip } from '../prompt/trip-validator.js';
+import { parseFirstJsonObject } from '../lib/json-extract.js';
 import { HttpError } from '../lib/http-error.js';
 
 const router = Router();
@@ -71,8 +72,16 @@ router.post('/generate', idempotencyMiddleware, async (req, res, next) => {
     try {
       trip = JSON.parse(llmResult.content);
     } catch (err) {
-      throw new HttpError(502, 'LLM_INVALID_JSON',
-        `模型输出不是合法 JSON: ${String(llmResult.content).slice(0, 160)}`);
+      // 模型偶发在 JSON 后面补说明文字（2026-11-03 真实输出：
+      // `Unexpected non-whitespace character after JSON at position 1963`）。
+      // 先尝试提取第一个完整对象；仍不行才 502。解析结果照样要过 validateTrip。
+      const salvaged = parseFirstJsonObject(llmResult.content);
+      if (salvaged === null) {
+        throw new HttpError(502, 'LLM_INVALID_JSON',
+          `模型输出不是合法 JSON: ${String(llmResult.content).slice(0, 160)}`);
+      }
+      console.log('[trip] json salvaged：模型在 JSON 之后附带了额外内容，已取第一个完整对象');
+      trip = salvaged;
     }
 
     const check = validateTrip(trip, {

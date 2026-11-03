@@ -268,3 +268,29 @@ test('通行证买家按付费档出提示词（8192→16384、不再追加精�
   assert.ok(!calls[0].body.messages[0].content.includes('输出尽量精简'),
     '付费档不该带免费档的精简后缀');
 });
+
+test('模型在 JSON 后附带说明文字：提取第一个对象后照常 200，不触发重试', async () => {
+  // 2026-11-03 真实输出：JSON.parse 报 Unexpected non-whitespace character after JSON。
+  // 改前会 502 → 端侧整次重试；改后取第一个完整对象并继续走 validateTrip。
+  let chattyCalls = 0;
+  const chattyUpstream = http.createServer((_req, res) => {
+    chattyCalls += 1;
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify(validTrip()) + '\n以上是本次行程，祝旅途愉快。' } }],
+      usage: { prompt_tokens: 13, completion_tokens: 17 }
+    }));
+  });
+  await new Promise((resolve) => chattyUpstream.listen(0, '127.0.0.1', resolve));
+  const oldBase = process.env.LLM_BASE_URL;
+  process.env.LLM_BASE_URL = `http://127.0.0.1:${chattyUpstream.address().port}/v1`;
+  try {
+    const r = await post(13, 'route-key-chatty', payloadFor());
+    assert.equal(r.status, 200);
+    assert.equal(chattyCalls, 1, '兜底成功就不该再打一次上游');
+    assert.equal(r.body.quota.giftRemaining, 2);
+  } finally {
+    process.env.LLM_BASE_URL = oldBase;
+    chattyUpstream.close();
+  }
+});

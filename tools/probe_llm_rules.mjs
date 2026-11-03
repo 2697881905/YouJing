@@ -68,7 +68,9 @@ let trip;
 try {
   trip = JSON.parse(result.content);
 } catch (e) {
-  console.error('JSON 解析失败：', e.message, '\n', result.content.slice(0, 400));
+  console.error('JSON 解析失败：', e.message);
+  console.error('--- 头部 ---\n' + result.content.slice(0, 400));
+  console.error('--- 尾部 ---\n' + result.content.slice(-400));
   process.exit(1);
 }
 
@@ -126,7 +128,9 @@ for (const [i, day] of (trip.days || []).entries()) {
     }
   }
 
-  if (day.accommodation !== undefined && day.accommodation !== areaName) {
+  // 规则 20 的意图是「不要编造具体酒店名」，不是逐字相等：
+  // 真实输出出现过「碑林区（永宁门）」——永宁门是用户消息里的锚定站，属区域内更具体的说明。
+  if (day.accommodation !== undefined && String(day.accommodation).indexOf(areaName) < 0) {
     failures.push(`D${i + 1}: accommodation='${day.accommodation}' 不是用户选的「${areaName}」`);
   }
   perDay.push({
@@ -145,6 +149,7 @@ console.log(JSON.stringify({
   tokens: { prompt: result.usage.promptTokens, completion: result.usage.completionTokens },
   validator: { valid: check.valid, errors: check.errors },
   days: trip.days ? trip.days.length : 0,
+  tips: Array.isArray(trip.tips) ? trip.tips : [],
   perDay
 }, null, 2));
 
