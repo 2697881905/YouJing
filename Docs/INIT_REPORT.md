@@ -6753,3 +6753,18 @@ D10 之后华为账号激活会把自己的 `device_id` 写成这台设备，而
 - 回归：`EntitlementMerge` 新增 `has_pass_matches_trip_only`（`update` 后按行程 id
   命中/不命中），真机 hypium **233→234/234**。
 - **未验**：已解锁态的真机画面（要真实购买凭证）；本轮验的是判定与入口拦截。
+
+#### 续 152（2026-11-03）冷启顺序修复后的最终身份 E2E 复验（真机 + 官方 JWKS）
+
+改了 `Index.bootstrap` 的「先恢复账号态、再激活」顺序后，重新跑了一遍完整链路，
+确认不是只在代码上成立。做法与上一轮相同：隔离 BFF（AGC Client ID + 官方 JWKS）+
+设备临时指向 Mac，验后还原。
+
+- **第一次冷启**：设备上残留上一轮 BFF 的票据（JWT_SECRET 不同）→
+  `权益刷新遇 401，清票据等下次重新激活`（按设计走，不影响账号态）。
+- **第二次冷启**：日志顺序是
+  `恢复登录态 kind=huawei uid=AABKND***`（22:55:47.597/722）→
+  `设备激活成功 token=213字符`（22:55:48.512）；BFF 日志 `[device] activate account=1 kind=huawei`；
+  库中 `union_id=AABKND_p4xEcf6kVFclUBMOcPk05U`（真实华为 unionId，非 anon）。
+- 验后：停临时 BFF、删除副本、还原 `ApiConfig`、重编重装发布形态；真机 hypium **234/234**。
+- **未验**：idToken 自然过期（>有效期）后的刷新（本轮只是 401 清票据→下次成功）。
