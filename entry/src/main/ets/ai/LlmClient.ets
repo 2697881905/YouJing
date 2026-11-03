@@ -29,7 +29,7 @@ import { isMapCity } from '../common/constants/Cities';
 import { GenerationChannel } from '../utils/GenerationChannel';
 import { DeviceTokenStore } from '../data/DeviceTokenStore';
 import { DeviceActivator } from '../data/DeviceActivator';
-import { EntitlementStore, Entitlement, PassInfo } from '../data/EntitlementStore';
+import { EntitlementStore, Entitlement, PassInfo, SubscriptionInfo, QuotaSnapshot, mergeQuotaSnapshot } from '../data/EntitlementStore';
 import { Logger } from '../common/logger/Logger';
 import { AppError } from '../common/error/AppError';
 import { ErrorCode } from '../common/error/ErrorCode';
@@ -201,11 +201,9 @@ export class MockLlmTransport implements LlmTransport {
 }
 
 /** BFF /v1/trip/generate 响应格式 */
-interface BffQuotaResponse {
+interface BffQuotaResponse extends QuotaSnapshot {
   source?: string;
-  remainingToday?: number;
-  giftRemaining?: number;
-  passes?: PassInfo[];
+  subscription?: SubscriptionInfo | null;
 }
 
 interface BffTripResponse {
@@ -294,16 +292,11 @@ export class HttpLlmTransport implements LlmTransport {
         throw new AppError(ErrorCode.SCHEMA_VALIDATION_FAILED, 'BFF 响应缺 trip 字段');
       }
 
-      // 用 quota 快照更新权益缓存（BFF 返回的 remainingToday 实为 usedToday）
+      // 用 quota 快照更新权益缓存（BFF 返回的 remainingToday 实为 usedToday）。
+      // subscription 以服务端为准：到期/退款后服务端回 null，端上必须跟着清掉（D9）。
       if (env.quota !== undefined && env.quota !== null) {
         const current: Entitlement = EntitlementStore.get();
-        const updated: Entitlement = {
-          subscription: current.subscription,
-          passes: env.quota.passes !== undefined ? env.quota.passes : current.passes,
-          giftRemaining: env.quota.giftRemaining !== undefined ? env.quota.giftRemaining : current.giftRemaining,
-          usedToday: env.quota.remainingToday !== undefined ? env.quota.remainingToday : current.usedToday,
-          dailyCap: current.dailyCap
-        };
+        const updated: Entitlement = mergeQuotaSnapshot(current, env.quota);
         try {
           await EntitlementStore.update(updated);
         } catch (err) {

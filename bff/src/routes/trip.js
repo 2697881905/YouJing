@@ -106,7 +106,11 @@ router.post('/generate', idempotencyMiddleware, async (req, res, next) => {
           source: quotaSource,
           remainingToday: entitlement.usedToday,
           giftRemaining: entitlement.giftRemaining,
-          passes: entitlement.passes
+          passes: entitlement.passes,
+          // 订阅快照必须回传（D9）：端侧此前只能把旧 subscription 原样结转，
+          // 到期/退款后要等缓存自然失效，UI 会继续说"订阅有效"。
+          subscription: entitlement.subscription,
+          dailyCap: entitlement.dailyCap
         }
       };
       const responseJson = JSON.stringify(responseBody);

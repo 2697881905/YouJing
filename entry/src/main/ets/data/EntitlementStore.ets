@@ -42,6 +42,36 @@ export interface Entitlement {
   dailyCap: number;
 }
 
+/** BFF `quota` 快照里端侧会消费的字段（其余如 source 只用于日志）。 */
+export interface QuotaSnapshot {
+  subscription?: SubscriptionInfo | null;
+  passes?: PassInfo[];
+  giftRemaining?: number;
+  remainingToday?: number;
+  dailyCap?: number;
+}
+
+/**
+ * 服务端配额快照 → 本地权益缓存。
+ *
+ * 三条不可退化的语义：
+ * 1. 服务端**明确返回 `subscription: null`** 时必须清掉本地值——这是订阅到期/退款
+ *    在端上唯一起作用的通路（D9：此前 `subscription: current.subscription` 原样结转，
+ *    退款后 UI 仍显示订阅有效，直到缓存过期）。
+ * 2. 字段缺省（旧版 BFF 不回传）才沿用旧值，不能用 undefined 把已有权益抹掉。
+ * 3. `dailyCap` 也以服务端为准：上限口径改了（如 20 次/天 → 20 次/月）不该等端侧发版。
+ */
+export function mergeQuotaSnapshot(current: Entitlement, quota: QuotaSnapshot): Entitlement {
+  const merged: Entitlement = {
+    subscription: quota.subscription !== undefined ? quota.subscription : current.subscription,
+    passes: quota.passes !== undefined ? quota.passes : current.passes,
+    giftRemaining: quota.giftRemaining !== undefined ? quota.giftRemaining : current.giftRemaining,
+    usedToday: quota.remainingToday !== undefined ? quota.remainingToday : current.usedToday,
+    dailyCap: quota.dailyCap !== undefined ? quota.dailyCap : current.dailyCap
+  };
+  return merged;
+}
+
 function emptyEntitlement(): Entitlement {
   return {
     subscription: null,

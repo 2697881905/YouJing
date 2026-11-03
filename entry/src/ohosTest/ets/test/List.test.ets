@@ -27,6 +27,7 @@ import tripIntentTest from './TripIntent.test';
 import tripReviewTest from './TripReview.test';
 import mapCityMapperTest from './MapCityMapper.test';
 import generationChannelTest from './GenerationChannel.test';
+import entitlementMergeTest from './EntitlementMerge.test';
 
 export default function testsuite() {
   tripParserTest();
@@ -58,4 +59,5 @@ export default function testsuite() {
   tripReviewTest();
   mapCityMapperTest();
   generationChannelTest();
+  entitlementMergeTest();
 }

@@ -148,6 +148,15 @@
 
 ### Fixed
 
+- 2026-11-03（§5ci 续 115）：**订阅到期/退款在端上终于有生效通路**（D9 销案）。
+  `/v1/trip` 的 `quota` 快照新增 `subscription` 与 `dailyCap`；端侧把合并语义收进
+  `EntitlementStore.mergeQuotaSnapshot()`：服务端**明确回 null 就清掉本地订阅**、
+  字段缺省（旧版 BFF）才沿用旧值、`dailyCap` 以服务端为准。改前 `LlmClient` 把旧
+  `subscription` 原样结转，缓存 TTL 5 分钟且每次生成都刷新 ⇒ 到期/退款后 UI 仍说"订阅有效"。
+  证据：BFF 新用例（在期回 active、过期回 null 且退回赠送档）+ `npm test` **57/57**；
+  `EntitlementMerge` 4 例 + 真机 hypium **208/208**；abc 里 `mergeQuotaSnapshot` 命中 2 次。
+  **未验**：本机 BFF + 真机的端到端「过期 → UI 变化」没有跑。
+
 - 2026-11-03（§5ci 续 114）：**华为 IAP 回调从黑洞变成验签 + 真落权益**（D7 销案）。
   `/v1/iap/notify` 此前只 `console.log` 回 `200 {}`，到期/退款/续费一律不改变权益；同轮发现
   `getEntitlement` 只看 `status='active'` 不看 `period_end`，过期订阅还会继续送额度。

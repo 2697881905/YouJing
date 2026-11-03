@@ -198,3 +198,27 @@ test('BFF 校验失败 502：不落 succeeded、不扣 gift', async () => {
     failingUpstream.close();
   }
 });
+
+test('quota 回传 subscription 快照：到期后为 null、额度退回赠送档（D9）', async () => {
+  const accountId = 9;
+  db.prepare(
+    `INSERT INTO subscription (account_id, product_id, status, period_start, period_end, auto_renew, purchase_token)
+     VALUES (?, 'youjing_sub_monthly', 'active', datetime('now'), datetime('now', '+1 months'), 1, 'route-sub-1')`
+  ).run(accountId);
+
+  const first = await post(accountId, 'route-key-sub-1', payloadFor());
+  assert.equal(first.status, 200);
+  assert.equal(first.body.quota.source, 'subscription');
+  assert.equal(first.body.quota.subscription.status, 'active', '未到期的订阅要回传快照');
+  assert.equal(first.body.quota.dailyCap, 20);
+
+  // 到期（或退款通知已落库）之后：服务端必须回 null，端上据此清掉本地订阅
+  db.prepare(
+    "UPDATE subscription SET period_end = datetime('now','-1 days') WHERE purchase_token = 'route-sub-1'"
+  ).run();
+  const second = await post(accountId, 'route-key-sub-2', payloadFor());
+  assert.equal(second.status, 200);
+  assert.equal(second.body.quota.subscription, null, '过期订阅不能继续回传 active');
+  assert.equal(second.body.quota.source, 'gift', '过期后应退回赠送档');
+  assert.equal(second.body.quota.giftRemaining, 2);
+});

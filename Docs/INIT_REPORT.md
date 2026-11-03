@@ -6165,3 +6165,26 @@ Mac 的局域网地址是 `192.168.2.1`、手机是 `192.168.2.3`，同一网段
 - **未验**：华为真实回调的字段名与枚举值（`CLASSIFY` 词表按华为文档写，要第一封真通知对表）、
   AGC 控制台公钥的真实值、以及 App 端在订阅到期后的 UI 表现（D9 未动：`/v1/trip` 的 quota
   仍不回传 `subscription` 快照）。
+
+#### 续 115（2026-11-03）订阅到期/退款在端上终于有生效通路（D9 销案）
+
+D7 修完服务端之后，端侧还是「看不见」权益变化：`/v1/trip` 的 `quota` 快照里没有 `subscription`，
+`LlmClient` 只能把旧值原样结转，缓存 TTL 5 分钟且每次生成都会刷新——只要用户生成间隔够短，
+付费页会一直说"订阅有效"。这条是读码推断出来的，不是探针抓到的。
+
+- **服务端**（`bff/src/routes/trip.js`）：`quota` 增加 `subscription`（来自 `getEntitlement`，
+  已按 `status + period_end` 过滤）与 `dailyCap`。上限口径以后变了不必等端侧发版。
+- **端侧**：合并语义收进 `EntitlementStore.mergeQuotaSnapshot(current, quota)` 纯函数，
+  三条不可退化的语义写进注释与测试：① 服务端**明确回 `null` 就清掉本地订阅**
+  （到期/退款唯一起作用的通路）；② 字段缺省（旧版 BFF）才沿用旧值；
+  ③ `dailyCap` 以服务端为准。`LlmClient` 改为调用它，不再手写五字段快照。
+- **证据**：
+  - `bff/test/trip-route.integration.test.js` 新增一例：订阅在期时生成 → `quota.subscription.status=active`
+    且 `dailyCap=20`；把 `period_end` 改成昨天再生成 → `subscription=null`、`source` 退回 `gift`、
+    `giftRemaining=2`。`npm test` **57/57**。
+  - `entry/src/ohosTest/ets/test/EntitlementMerge.test.ets` 4 例（null 清掉 / 缺省保留 / 服务端覆盖 /
+    `dailyCap` 跟随服务端）；真机 hypium **204→208/208**（Pocket 2，192.168.2.3:46077，双 HAP 全新构建安装）。
+  - 构建产物自证：`loader_out/*/ets/modules.abc` 里 `mergeQuotaSnapshot` 命中 2 次、
+    `QuotaSnapshot` 3 次（`strings` 直查，避开「构建报成功但产物是旧包」那个坑）。
+- **未验**：本机 BFF + 真机的端到端联调没有跑「订阅过期 → 端上 UI 变化」这一幕；
+  端到端证据目前停在「服务端回 null / 端侧合并函数把 null 清掉」两段各自的测试上。

@@ -69,7 +69,7 @@ tools/                十六把静态尺 + 离线断言脚本
 | 闸门 | 命令 | 当前状态 |
 |---|---|---|
 | ArkTS 编译 | `hvigorw … assembleHap`（主 + `entry@ohosTest`） | 零 error，pre-commit 强制 |
-| 真机单测 | `hdc shell "aa test -b com.youjing.app -m entry_test -s unittest OpenHarmonyTestRunner -s timeout 300000"` | 191/191 |
+| 真机单测 | `hdc shell "aa test -b com.youjing.app -m entry_test -s unittest OpenHarmonyTestRunner -s timeout 300000"` | 208/208 |
 | 纯逻辑离线断言 | `bash tools/verify_map_city.sh` / `verify_trip_intent.sh` / `verify_trip_review.sh` / `verify_replan_logic.sh` / `verify_weather_logic.sh` | 66 / 104 / 57 / 74+26 / 116 全绿 |
 | 商业化链路真实进程验收（**集成探针**，不占「十六把静态尺」计数） | `bash tools/probe_bff_commercial.sh` | import `bff/src/index.js` 起**真进程** + 真 HTTP 走「激活→扣额度→付费墙→付费→高级额度」；跑在 `mktemp -d` 副本里（**不污染开发库**；`DB_PATH` 已支持环境变量，副本仍是最省心的隔离）；上游 LLM 用本机 stub，**真模型花费 0**。2026-11-03 复跑：必守行为 **17/17**、支付守卫缺陷 **5 条**（D6/D7/D8 已修，余下见 `Docs/analysis/商业化链路真实验收-2026-11-03.md`）。**故意不进 `verify_*.sh` 通配**——它要起进程，且当前必然 rc=1（缺陷未修），红是正确信号而不是闸门失可用 |
 | BFF 上线自检（**部署闸门**，不占静态尺计数） | `cd bff && npm run preflight` | 七项检查（JWT 密钥、API Key、IAP 真校验、verify 要票据 / notify 验签、`IAP_NOTIFY_PUBLIC_KEY`、DB 路径可配置、Prompt 生成物）。**当前 通过6/警告0/阻断2**，退出码 1 是真话；已做过反证（喂示例密钥/空 Key 都会红）。README 里写明「不要为了让它变绿去改它」 |
