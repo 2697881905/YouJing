@@ -53,24 +53,37 @@ router.post('/verify', async (req, res, next) => {
         ).run(accountId, localTripId);
       }
 
-      db.prepare(
-        `INSERT INTO \`order\` (account_id, product_type, product_id, amount_cents, purchase_token, status, paid_at)
-         VALUES (?, 'pass', 'youjing_pass', 990, ?, 'paid', datetime('now'))`
-      ).run(accountId, purchaseToken);
+      // 同一张收据重复提交（客户端重试、网络抖动后的重放）必须幂等：
+      // 收据是唯一凭据，第二次不该再记一笔订单，更不该把 UNIQUE 约束抛成 500（§5ci 续 85 的 D8）。
+      const seenPass = db.prepare(
+        'SELECT 1 FROM `order` WHERE purchase_token = ?'
+      ).get(purchaseToken);
+      if (!seenPass) {
+        db.prepare(
+          `INSERT INTO \`order\` (account_id, product_type, product_id, amount_cents, purchase_token, status, paid_at)
+           VALUES (?, 'pass', 'youjing_pass', 990, ?, 'paid', datetime('now'))`
+        ).run(accountId, purchaseToken);
+      }
     } else if (productType === 'subscription') {
       const productId = req.body.productId || 'youjing_sub_monthly';
       const amountCents = productId === 'youjing_sub_yearly' ? 9800 : 1990;
       const periodMonths = productId === 'youjing_sub_yearly' ? 12 : 1;
 
-      db.prepare(
-        `INSERT INTO subscription (account_id, product_id, status, period_start, period_end, auto_renew, purchase_token)
-         VALUES (?, ?, 'active', datetime('now'), datetime('now', '+${periodMonths} months'), 1, ?)`
-      ).run(accountId, productId, purchaseToken);
+      // 同上：subscription.purchase_token 有 UNIQUE 约束，重放会直接 500。
+      const seenSub = db.prepare(
+        'SELECT 1 FROM subscription WHERE purchase_token = ?'
+      ).get(purchaseToken);
+      if (!seenSub) {
+        db.prepare(
+          `INSERT INTO subscription (account_id, product_id, status, period_start, period_end, auto_renew, purchase_token)
+           VALUES (?, ?, 'active', datetime('now'), datetime('now', '+${periodMonths} months'), 1, ?)`
+        ).run(accountId, productId, purchaseToken);
 
-      db.prepare(
-        `INSERT INTO \`order\` (account_id, product_type, product_id, amount_cents, purchase_token, status, paid_at)
-         VALUES (?, 'subscription', ?, ?, ?, 'paid', datetime('now'))`
-      ).run(accountId, productId, amountCents, purchaseToken);
+        db.prepare(
+          `INSERT INTO \`order\` (account_id, product_type, product_id, amount_cents, purchase_token, status, paid_at)
+           VALUES (?, 'subscription', ?, ?, ?, 'paid', datetime('now'))`
+        ).run(accountId, productId, amountCents, purchaseToken);
+      }
     }
 
     const entitlement = getEntitlement(db, accountId);

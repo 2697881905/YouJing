@@ -138,6 +138,13 @@
 
 ### Fixed
 
+- 2026-11-03（§5ci 续 94）：**收据重放改成幂等**（D8）。`/v1/iap/verify` 原是裸 INSERT，
+  而 `subscription.purchase_token` 有 UNIQUE 约束 ⇒ 客户端重试同一张收据会拿到
+  `500 SQLITE_CONSTRAINT_UNIQUE`，明明已购买成功却报成服务端错误。
+  订阅与通行证两条路径都改为「先查收据是否已记账，已有就不再写、返回当前权益」。
+  新增 `bff/test/iap-idempotency.test.js` 两例（两次都 200、只落一行订阅与一单）。
+  探针复跑 **必守 15/15**，支付守卫缺陷仍 6 条（D1/D2/D3/D4/D5/D7，全部依赖真实 IAP 凭证或产品口径）。
+  `bff: npm test` 46/46。
 - 2026-11-03（§5ci 续 93）：**订阅档上限改成真的按月**（D6）。`bff/src/services/quota.js` 原为
   `DAILY_CAP=20` + `start of day`，而商业化方案 §2 与**付费页自己的文案**都写「20 次/月」——
   一个月最多可跑 600 次，成本敞口差约 30 倍且自相矛盾。改为 `MONTHLY_CAP=20` + `start of month`；
