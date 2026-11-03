@@ -9,6 +9,7 @@
 
 import { APP_NAV } from '../common/constants/AppNav';
 import { failureDetail, failureHeadline } from '../common/error/FailureCopy';
+import { ErrorCode } from '../common/error/ErrorCode';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
@@ -64,6 +65,12 @@ export struct GenerateFailedPage {
     // code=0 只有 `aa start --ps route GenerateFailed` 这条直入预览通道会走到，
     // 那时并没有真的失败过，不能对用户承诺"原因已记进日志"
     return this.code === 0 ? '可以先按下面的方法调整后再试一次。' : failureDetail(this.code);
+  }
+
+  /** 服务/网络这一族失败：改行程内容帮不上忙，别把用户往选点页/住宿页/节奏页引 */
+  private isServiceFailure(): boolean {
+    return this.code === ErrorCode.LLM_UNAVAILABLE || this.code === ErrorCode.NETWORK_REQUEST_FAILED ||
+      this.code === ErrorCode.NETWORK_TIMEOUT || this.code === ErrorCode.CLOUD_RATE_LIMITED;
   }
 
   @Builder
@@ -143,6 +150,7 @@ export struct GenerateFailedPage {
                 .textAlign(TextAlign.Center)
             }
 
+            if (!this.isServiceFailure()) {
             Column() {
               Text('需要决定')
                 .fontSize(TypeTokens.overline.size)
@@ -184,6 +192,19 @@ export struct GenerateFailedPage {
             }
             .alignItems(HorizontalAlign.Start)
             .width('100%')
+            }
+            if (this.isServiceFailure()) {
+              // 服务/网络出问题时，「去掉一个景点」「换一片住宿」全帮不上忙——
+              // 照直说，并指向页脚那颗「再试一次」。
+              Text('这次不是行程本身的问题：行程服务暂时没有响应。'
+                + '改景点、换住宿或调节奏都不会让它更快恢复，等一会儿再点「再试一次」。')
+                .fontSize(TypeTokens.small.size)
+                .fontColor(ColorTokens.body)
+                .width('100%')
+                .padding(SpaceTokens.base)
+                .borderRadius(RadiusTokens.card)
+                .backgroundColor(ColorTokens.surfaceElevated)
+            }
           }
           .padding({ left: this.wideInset(), right: this.wideInset() })
         }

@@ -18,6 +18,12 @@ export default function failureCopyTest(): void {
       expect(failureHeadline(ErrorCode.MAP_CITY_DATA_FAILED)).assertEqual('地图数据没取到');
       expect(failureHeadline(ErrorCode.TRIP_NO_SPOT_SELECTED)).assertEqual('还没选景点');
       expect(failureHeadline(ErrorCode.TRIP_NO_AREA_SELECTED)).assertEqual('还没选住宿区域');
+      // 云端错误码此前没有任何文案、全落进「生成没能完成」；补上后各自有可操作的一句话
+      expect(failureHeadline(ErrorCode.CLOUD_TOKEN_INVALID)).assertEqual('登录状态过期了');
+      expect(failureHeadline(ErrorCode.CLOUD_RATE_LIMITED)).assertEqual('请求太频繁');
+      expect(failureHeadline(ErrorCode.CLOUD_IDEMPOTENCY_CONFLICT)).assertEqual('这次请求和上一次重复');
+      expect(failureDetail(ErrorCode.CLOUD_TOKEN_INVALID).indexOf('重新登录') >= 0).assertTrue();
+      expect(failureDetail(ErrorCode.CLOUD_RATE_LIMITED).indexOf('等一分钟') >= 0).assertTrue();
     });
 
     it('unknown_code_falls_back_not_empty', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {

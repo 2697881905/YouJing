@@ -279,6 +279,12 @@ export class HttpLlmTransport implements LlmTransport {
         if (code === 409) {
           throw new AppError(ErrorCode.CLOUD_IDEMPOTENCY_CONFLICT, `BFF 409: ${respBody}`);
         }
+        // 5xx 是**服务端/上游**出问题，不是用户网络：BFF 对上游 4xx、模型输出校验失败、
+        // JSON 解析失败都回 502。此前一律报 NETWORK_REQUEST_FAILED，屏7 会说「网络不通或超时」，
+        // 用户会去切 WiFi 而真正该做的是等一会儿重试或改用本机生成。
+        if (code >= 500) {
+          throw new AppError(ErrorCode.LLM_UNAVAILABLE, `BFF ${code}: ${respBody}`);
+        }
         throw new AppError(ErrorCode.NETWORK_REQUEST_FAILED, `BFF HTTP ${code}: ${respBody}`);
       }
 
@@ -376,6 +382,17 @@ export class LlmClient {
           Logger.info(TAG, '票据失效，尝试重新激活设备');
           await DeviceActivator.reactivate(context);
         }
+      }
+    }
+    // 「两次都没成」这个包装会把真实原因埋掉：服务端 5xx / 网络不通 / 限流 各自都有
+    // 更可操作的文案（屏7 的 FailureCopy），而「试了两次都没排通」只告诉用户"没成"。
+    // 所以这类**外部原因**在重试耗尽后原样上抛；只有"模型给的行程不合格"这类
+    // 内容问题才归到 RETRY_EXHAUSTED（用户能做的事确实只是再试一次）。
+    if (lastErr instanceof AppError) {
+      const c: number = (lastErr as AppError).code;
+      if (c === ErrorCode.LLM_UNAVAILABLE || c === ErrorCode.NETWORK_REQUEST_FAILED ||
+        c === ErrorCode.NETWORK_TIMEOUT || c === ErrorCode.CLOUD_RATE_LIMITED) {
+        throw lastErr;
       }
     }
     throw new AppError(ErrorCode.TRIP_GENERATE_RETRY_EXHAUSTED,

@@ -152,6 +152,13 @@ class FixedIdTransport implements LlmTransport {
   }
 }
 
+/** 每次都以「服务不可用」失败：重试耗尽后应把这个码原样抛出，而不是包装成 RETRY_EXHAUSTED */
+class DownServiceTransport implements LlmTransport {
+  complete(idempotencyKey?: string): Promise<string> {
+    return Promise.reject(new AppError(ErrorCode.LLM_UNAVAILABLE, 'BFF 502'));
+  }
+}
+
 class BrokenTransport implements LlmTransport {
   calls: number = 0;
 
@@ -351,6 +358,17 @@ export default function llmPipelineTest(): void {
         const e: AppError = err as AppError;
         expect(e.code).assertEqual(ErrorCode.TRIP_GENERATE_RETRY_EXHAUSTED);
         expect(broken.calls).assertEqual(2);
+      }
+    });
+
+    it('service_down_surfaces_its_own_code', TestType.FUNCTION | Size.MEDIUMTEST | Level.LEVEL1, async () => {
+      // 服务端 5xx / 网络不通 这类**外部原因**不该被「试了两次都没排通」埋掉：
+      // 屏7 对它们各有更可操作的文案；只有"模型给的行程不合格"才归 RETRY_EXHAUSTED。
+      try {
+        await LlmClient.generateTrip(makeParams(), makeSpots(), makeArea(), new DownServiceTransport());
+        expect('NO_THROW').assertEqual('THROW');
+      } catch (err) {
+        expect((err as AppError).code).assertEqual(ErrorCode.LLM_UNAVAILABLE);
       }
     });
   });

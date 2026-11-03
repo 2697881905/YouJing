@@ -161,6 +161,15 @@
 
 ### Fixed
 
+- 2026-11-03（§5ci 续 105）：**服务端 5xx 被当成「你的网络不通」**。此前非 2xx 一律归
+  `NETWORK_REQUEST_FAILED`，屏7 说「网络不通或超时」；而真相是上游/服务端故障。
+  改为 `>=500` → `LLM_UNAVAILABLE`；并且重试耗尽时**外部原因原样上抛**（不再被
+  「试了两次都没排通」埋掉），只有"模型给的行程不合格"才归 RETRY_EXHAUSTED。
+  补齐 `CLOUD_TOKEN_INVALID`/`CLOUD_RATE_LIMITED`/`CLOUD_IDEMPOTENCY_CONFLICT` 三条屏7 文案；
+  服务类失败时**不再显示那三条改行程的修法**（对宕机没用），改为一句"等一会儿再试"。
+  真机证据：`两次 BFF 500` → `code=1003` → 屏7「连不上行程服务」+ 新提示，三条修法消失。
+  新增 hypium `service_down_surfaces_its_own_code`。真机 hypium **204/204**、
+  十五把静态尺 + 七套离线断言全 rc=0。
 - 2026-11-03（§5ci 续 104）：**权益缓存过期后，持有效票据的用户被永久挡在付费页**（部署第一天就会全体发作）。
   缓存 TTL 只有 5 分钟、门禁在缓存过期时直接 false，而 `DeviceActivator` 看到票据还在就 return true
   从不刷新权益 —— 三者叠加后，冷启一次、过 5 分钟再点生成必进付费页，而票据与额度都正常。

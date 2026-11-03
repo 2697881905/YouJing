@@ -30,6 +30,16 @@ export function failureHeadline(code: number): string {
   if (code === ErrorCode.TRIP_NO_AREA_SELECTED) {
     return '还没选住宿区域';
   }
+  // 云端三兄弟此前没有文案、全落进「生成没能完成」：用户看不出该做什么。
+  if (code === ErrorCode.CLOUD_TOKEN_INVALID) {
+    return '登录状态过期了';
+  }
+  if (code === ErrorCode.CLOUD_RATE_LIMITED) {
+    return '请求太频繁';
+  }
+  if (code === ErrorCode.CLOUD_IDEMPOTENCY_CONFLICT) {
+    return '这次请求和上一次重复';
+  }
   return '生成没能完成';
 }
 
@@ -63,6 +73,15 @@ export function failureDetail(code: number): string {
   }
   if (code === ErrorCode.TRIP_NO_AREA_SELECTED) {
     return '要先定下住哪一片，通勤起点才算得出来';
+  }
+  if (code === ErrorCode.CLOUD_TOKEN_INVALID) {
+    return '重新打开应用会自动恢复登录；还不行就到「我的」里重新登录';
+  }
+  if (code === ErrorCode.CLOUD_RATE_LIMITED) {
+    return '等一分钟再试；重试不会再扣一次额度';
+  }
+  if (code === ErrorCode.CLOUD_IDEMPOTENCY_CONFLICT) {
+    return '再点一次生成就好，不会重复扣额度';
   }
   return '原因已记进本机日志，可以先按下面的方法调整再试';
 }
