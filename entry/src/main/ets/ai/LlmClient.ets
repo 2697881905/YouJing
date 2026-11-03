@@ -238,7 +238,7 @@ export class HttpLlmTransport implements LlmTransport {
     // 旧 sparse 字段（selectedSpots: string[]、selectedArea: string）不再发送；
     // BFF 仍保留 sparse 分支，供旧客户端使用。
     const body: TripGeneratePayload = buildTripGeneratePayload(
-      this.params, this.spots, this.area, this.passId, !EntitlementStore.hasSubscription());
+      this.params, this.spots, this.area, this.passId);
 
     const reqHandle = http.createHttp();
     try {

@@ -45,11 +45,10 @@ export interface TripGeneratePayload {
   /** 完整 Area */
   area: Area;
   passId?: string;
-  freeTier: boolean;
 }
 
 export function buildTripGeneratePayload(params: PlanParams, spots: Spot[], area: Area,
-  passId: string, freeTier: boolean): TripGeneratePayload {
+  passId: string): TripGeneratePayload {
   const selectedArea: SelectedAreaRef = {
     areaId: params.selectedArea.areaId,
     name: area.name
@@ -67,8 +66,7 @@ export function buildTripGeneratePayload(params: PlanParams, spots: Spot[], area
     selectedArea,
     selectedSpots: params.selectedSpots,
     spots,
-    area,
-    freeTier
+    area
   };
   if (passId.length > 0) {
     payload.passId = passId;

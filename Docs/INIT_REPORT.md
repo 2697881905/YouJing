@@ -6293,3 +6293,23 @@ D1 的根因就一行：`bff/src/services/iap.js` 的 `verifyPurchase()` 恒 `re
   HTTP 状态是 **429 而不是 502**、`error=LLM_RATE_LIMITED`、`gift` 未被扣。
   `bff npm test` **62→63/63**。
 - **未验**：真机上没有制造过 DeepSeek 429（要真打到限流阈值）；本轮证的是服务端映射与不扣额度。
+
+#### 续 121（2026-11-03）通行证买家不再被当成免费档（免费/付费判据移到服务端扣费来源）
+
+端侧 `HttpLlmTransport` 用 `!EntitlementStore.hasSubscription()` 算 `freeTier`：
+只要没有订阅就发 `freeTier:true`。**通行证买家（付了 ¥9.9、没有订阅）因此被算成免费档**——
+BFF 给 8192 max_tokens 并在系统提示词后追加「输出尽量精简」，长行程有被截断后重试的风险；
+而通行证按方案是「该行程无限生成」的付费权益。
+
+- **判据移到服务端**：`bff/src/routes/trip.js` 改成 `freeTier = quotaSource === 'gift'`。
+  `quotaSource` 是扣费时真实选中的来源（subscription/pass/gift），不可能被客户端自报污染。
+- **从请求契约里删掉 `freeTier`**：客户端再也不发送这个字段（`TripRequestPayload` 与
+  `buildTripGeneratePayload` 少一个参数），`entry-payload-contract.test.js` 的字段表同步。
+  这消除了「客户端的判断」与「服务端的判断」两个真相源。
+- **回归**（`trip-route.integration.test.js` 三档全钉）：
+  gift → `max_tokens=8192` 且 system 含「输出尽量精简」；
+  subscription → `16384` 且不含后缀；
+  pass → `16384` 且不含后缀、`quota.source=pass`。`bff npm test` **63→64/64**。
+- 真机 hypium **210/210**（客户端只删了字段与一个入参，双 HAP 全新构建安装）。
+- **未验**：真实通行证购买后的端到端生成（尚无 IAP 凭证）；本轮验的是「同一份请求在三种来源下
+  拿到正确的提示词档位」。

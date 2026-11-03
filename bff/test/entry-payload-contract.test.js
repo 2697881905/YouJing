@@ -38,7 +38,7 @@ test('端侧 TripGeneratePayload 覆盖 BFF rich 分支的顶层字段', () => {
     'TripGeneratePayload');
   assertFields(fields, [
     'destination', 'startDate', 'endDate', 'people', 'budget', 'style', 'stayTier',
-    'transit', 'paces', 'selectedArea', 'selectedSpots', 'spots', 'area', 'passId', 'freeTier'
+    'transit', 'paces', 'selectedArea', 'selectedSpots', 'spots', 'area', 'passId'
   ], 'TripGeneratePayload');
   const text = source('entry/src/main/ets/ai/TripRequestPayload.ets');
   assert.ok(text.includes('spots: Spot[]'), 'spots 必须是完整 Spot[]，不能退回 string[]');
@@ -87,7 +87,7 @@ test('builder 确实把 params/spots/area 装进 payload', () => {
     'selectedSpots: params.selectedSpots',
     'selectedArea,',
     'spots,',
-    'area,',
+    '\n    area\n',
     'transit: params.transit',
     'paces: params.paces'
   ]) {

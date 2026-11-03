@@ -101,6 +101,9 @@ test('路由真实 UPSERT：首次 200，配额按提交后快照返回', async 
   assert.equal(calls[0].body.response_format.type, 'json_object');
   assert.ok(Array.isArray(calls[0].body.messages));
   assert.ok(calls[0].body.messages[1].content.includes('已选景点（含完整规划信息）'));
+  // gift 是免费档：8192 token + 精简后缀
+  assert.equal(calls[0].body.max_tokens, 8192);
+  assert.ok(calls[0].body.messages[0].content.includes('输出尽量精简'));
 });
 
 test('幂等重放：同键同体第二次不调上游、字节相同', async () => {
@@ -211,6 +214,9 @@ test('quota 回传 subscription 快照：到期后为 null、额度退回赠送�
   assert.equal(first.body.quota.source, 'subscription');
   assert.equal(first.body.quota.subscription.status, 'active', '未到期的订阅要回传快照');
   assert.equal(first.body.quota.dailyCap, 20);
+  // 订阅是付费档：16384 token、不带精简后缀（端侧此前只按"有没有订阅"算，这里钉服务端口径）
+  assert.equal(calls[calls.length - 1].body.max_tokens, 16384);
+  assert.ok(!calls[calls.length - 1].body.messages[0].content.includes('输出尽量精简'));
 
   // 到期（或退款通知已落库）之后：服务端必须回 null，端上据此清掉本地订阅
   db.prepare(
@@ -244,4 +250,21 @@ test('上游 429 映射 429 LLM_RATE_LIMITED：端上 6003 文案不再不可达
     process.env.LLM_BASE_URL = oldBase;
     busyUpstream.close();
   }
+});
+
+test('通行证买家按付费档出提示词（8192→16384、不再追加精简后缀）', async () => {
+  // 端侧的旧判据是「没有订阅 ⇒ freeTier=true」，通行证买家（付费、无订阅）会被算成免费档。
+  // 服务端改为按实际扣费来源判定：gift=免费档，pass/subscription=付费档。
+  const accountId = 12;
+  db.prepare(
+    "INSERT INTO trip_pass (account_id, local_trip_id, status) VALUES (?, 'trip-pass-ai', 'active')"
+  ).run(accountId);
+  calls.length = 0;
+  const r = await post(accountId, 'route-key-pass-ai', Object.assign(payloadFor(), { passId: 'trip-pass-ai' }));
+  assert.equal(r.status, 200);
+  assert.equal(r.body.quota.source, 'pass');
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].body.max_tokens, 16384, '通行证是付费档，不能吃 8192 的免费上限');
+  assert.ok(!calls[0].body.messages[0].content.includes('输出尽量精简'),
+    '付费档不该带免费档的精简后缀');
 });

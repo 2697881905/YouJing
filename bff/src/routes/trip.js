@@ -53,12 +53,16 @@ router.post('/generate', idempotencyMiddleware, async (req, res, next) => {
   }
 
   try {
-    const messages = buildMessages(body, { freeTier: body.freeTier === true });
+    // 免费档判据由**实际扣费来源**决定，不信客户端自报：端侧只看「有没有订阅」，
+    // 通行证买家（付费、无订阅）会被算成免费档 ⇒ 8192 token 上限 + 精简提示词，
+    // 长行程可能被截断后又重试。gift 才是免费档，subscription/pass 都是付费档。
+    const freeTier = quotaSource === 'gift';
+    const messages = buildMessages(body, { freeTier });
     const responseFormat = buildResponseFormat();
-    console.log(`[trip] account=${accountId} prompt=${promptMode(body)} ` +
-      `response_format=${responseFormat.type}`);
+    console.log(`[trip] account=${accountId} prompt=${promptMode(body)} source=${quotaSource} ` +
+      `freeTier=${freeTier} response_format=${responseFormat.type}`);
     const llmResult = await proxyLlmRequest(messages, {
-      maxTokens: body.freeTier ? 8192 : 16384,
+      maxTokens: freeTier ? 8192 : 16384,
       thinkingDisabled: true,
       responseFormat
     });
