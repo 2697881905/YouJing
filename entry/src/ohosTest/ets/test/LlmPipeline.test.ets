@@ -10,7 +10,7 @@ import { TripSchema } from '../../../main/ets/ai/TripSchema';
 import { PlanParams, SelectedSpot, TravelStyle, TransitPreference, TripBasicInput, SpotPriority, PaceOption } from '../../../main/ets/model/PlanParams';
 import { Spot, SpotTag } from '../../../main/ets/model/Spot';
 import { Area, AreaGroup, AreaPriceTier } from '../../../main/ets/model/Area';
-import { Trip, IntensityLevel, Activity } from '../../../main/ets/model/Trip';
+import { Trip, IntensityLevel, Activity, ActivityCategory } from '../../../main/ets/model/Trip';
 import { DayLoad, DayLoadCalc } from '../../../main/ets/utils/DayLoad';
 import { PlanAutoPick } from '../../../main/ets/utils/PlanAutoPick';
 import { IcsBuilder } from '../../../main/ets/utils/IcsBuilder';
@@ -148,6 +148,41 @@ class FixedIdTransport implements LlmTransport {
   complete(idempotencyKey?: string): Promise<string> {
     const o: Obj = JSON.parse(JSON.stringify(MockTrip.TRIP)) as Obj;
     o['id'] = 'trip-test';
+    return Promise.resolve(JSON.stringify(o));
+  }
+}
+
+/** 模拟规则 18 失效：模型把「书院门附近午餐」写成 food 活动，同时保留一条真正的游览餐饮 */
+class MealDupTransport implements LlmTransport {
+  complete(idempotencyKey?: string): Promise<string> {
+    const o: Obj = JSON.parse(JSON.stringify(MockTrip.TRIP)) as Obj;
+    const days: Object[] = o['days'] as Object[];
+    const day: Obj = days[0] as Obj;
+    const acts: Object[] = day['activities'] as Object[];
+    const dup: Obj = {};
+    dup['id'] = 'd1-dup';
+    dup['time'] = '12:00';
+    dup['endTime'] = '13:00';
+    dup['title'] = '书院门附近午餐';
+    dup['location'] = '';
+    dup['address'] = '';
+    dup['longitude'] = 0;
+    dup['latitude'] = 0;
+    dup['status'] = 'no_need';
+    dup['category'] = 'food';
+    const legit: Obj = {};
+    legit['id'] = 'd1-legit';
+    legit['time'] = '15:00';
+    legit['endTime'] = '16:00';
+    legit['title'] = '回民街小吃巡游';
+    legit['location'] = '';
+    legit['address'] = '';
+    legit['longitude'] = 0;
+    legit['latitude'] = 0;
+    legit['status'] = 'no_need';
+    legit['category'] = 'food';
+    acts.push(dup);
+    acts.push(legit);
     return Promise.resolve(JSON.stringify(o));
   }
 }
@@ -327,6 +362,15 @@ export default function llmPipelineTest(): void {
       expect(trip.budget).assertEqual(5000);
       expect(trip.destination).assertEqual('北京');
       expect(trip.style).assertEqual(TravelStyle.LEISURE);
+    });
+
+    it('drops_generic_meal_food_activity', TestType.FUNCTION | Size.MEDIUMTEST | Level.LEVEL1, async () => {
+      // 规则 18 的结构性兜底：meals 已保证午/晚各一条，标题以餐次词结尾的 food 活动是重复行
+      const trip: Trip = await LlmClient.generateTrip(
+        makeParamsFor(['t-l1'], 3), makeLongSpots(1), makeArea(), new MealDupTransport());
+      const titles: string[] = trip.days[0].activities.map((a: Activity): string => a.title);
+      expect(titles.indexOf('书院门附近午餐') < 0).assertTrue();
+      expect(titles.indexOf('回民街小吃巡游') >= 0).assertTrue();
     });
 
     it('offline_lays_selected_paces_across_day_segments', TestType.FUNCTION | Size.MEDIUMTEST | Level.LEVEL1, async () => {

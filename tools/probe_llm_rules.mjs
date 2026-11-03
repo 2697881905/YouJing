@@ -9,6 +9,7 @@
  *   node tools/probe_llm_rules.mjs --days 1 --yes     # 约 ¥0.003
  *   node tools/probe_llm_rules.mjs --days 3 --yes     # 约 ¥0.005
  *   node tools/probe_llm_rules.mjs --days 1 --yes --free-tier   # 免费档提示词变体
+ *   node tools/probe_llm_rules.mjs --days 1 --yes --mapkit      # 任意城市（MapKit）形态
  * 不带 --yes 只打印将要花的钱与请求规模，不发起调用。
  *
  * 结构类断言（任一不成立则退出码 1）：
@@ -34,6 +35,7 @@ const days = daysArg >= 0 ? Number(args[daysArg + 1]) : 1;
 const confirmed = args.includes('--yes');
 const strict = args.includes('--strict');
 const freeTier = args.includes('--free-tier');
+const mapkit = args.includes('--mapkit');
 
 if (!Number.isInteger(days) || days < 1 || days > 7) {
   console.error('--days 必须是 1–7 的整数');
@@ -51,11 +53,26 @@ body.startDate = '2026-11-10';
 const end = new Date(Date.parse(body.startDate) + (days - 1) * 86400000);
 body.endDate = end.toISOString().slice(0, 10);
 body.selectedSpots = body.spots.map((s) => ({ name: s.name, priority: 'must' }));
+if (mapkit) {
+  // 任意城市（MapKit）形态：没有预约字段、有开放时间、住宿区来自地图服务
+  body.spots[0].provenance = { source: 'MapKit 地点检索', updatedAt: '2026-11-01', confidence: '中' };
+  body.spots[0].booking = { requiresBooking: false };
+  body.spots[0].openingHours = '8:00–22:00';
+  body.area.source = 'MapKit';
+}
 
 const messages = buildMessages(body, { freeTier });
 const promptChars = messages.reduce((sum, m) => sum + m.content.length, 0);
-console.log(`请求：${days} 天 · ${freeTier ? '免费档提示词' : '付费档提示词'} · ` +
+console.log(`请求：${days} 天 · ${freeTier ? '免费档' : '付费档'}提示词 · ` +
+  `${mapkit ? 'MapKit 形态' : '种子城市形态'} · ` +
   `system+user ${promptChars} 字符 · 预计 ¥${(days === 1 ? 0.003 : 0.005)}`);
+if (mapkit) {
+  const user = messages[1].content;
+  if (user.indexOf('预约信息未获取，以官方为准') < 0 || user.indexOf('地图服务区县') < 0) {
+    console.error('MapKit 提示词口径不对：用户消息里缺少「未获取/地图服务区县」');
+    process.exit(1);
+  }
+}
 if (!confirmed) {
   console.log('未带 --yes：只做了预算与请求检查，未发起真实调用。');
   process.exit(0);

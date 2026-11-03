@@ -364,6 +364,25 @@ export class LlmClient {
         trip.budget = params.basic.budget;
         trip.destination = params.basic.destination;
         trip.style = params.style;
+        // 规则 18 的结构性兜底：模型偶发仍把午/晚餐写成 food 活动（2026-11-03 MapKit 变体实测
+        // 出现「书院门附近午餐」），屏8 的当日序列是活动 ∪ 餐次，会出现两行同一顿饭。
+        // meals 已被校验器要求午/晚各一条，所以「标题以餐次词结尾」的 food 活动一定是重复行；
+        // 只砍这一种形态，真正的游览餐饮（回民街小吃巡游、晚餐后逛夜市）不动。
+        const mealTitle = /(早餐|午餐|晚餐|早饭|午饭|晚饭)$/;
+        let dropped: number = 0;
+        for (const day of trip.days) {
+          const kept: Activity[] = day.activities.filter((a: Activity): boolean => {
+            const isDup: boolean = a.category === ActivityCategory.FOOD && mealTitle.test(a.title.trim());
+            if (isDup) {
+              dropped += 1;
+            }
+            return !isDup;
+          });
+          day.activities = kept;
+        }
+        if (dropped > 0) {
+          Logger.info(TAG, `剔除与餐次重复的 food 活动 ${dropped} 条`);
+        }
         // 地址/坐标以景点库为准回填（提示词第 12 条要求模型留空，省输出 token 也免幻觉）
         const filled: number = backfillActivityPlaces(trip, spots);
         const hours: number = backfillOpeningHours(trip, spots);
