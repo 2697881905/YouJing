@@ -10,7 +10,11 @@ router.post('/verify', async (req, res, next) => {
     const db = req.db;
     const { purchaseToken, productType, localTripId } = req.body;
 
-    if (!purchaseToken || !productType) {
+    if (typeof purchaseToken !== 'string' || purchaseToken.length === 0 ||
+      purchaseToken.length > 2048) {
+      return res.status(400).json({ error: 'INVALID_PURCHASE_TOKEN', message: '缺少或非法的 purchaseToken' });
+    }
+    if (typeof productType !== 'string' || productType.length === 0) {
       return res.status(400).json({ error: 'MISSING_PARAMS', message: '缺少 purchaseToken 或 productType' });
     }
     // 边界校验放在调用校验服务之前：非法商品类型/商品 id 不该先花一次外部校验。
@@ -71,8 +75,9 @@ router.post('/verify', async (req, res, next) => {
     }
 
     if (productType === 'pass') {
-      if (!localTripId) {
-        return res.status(400).json({ error: 'MISSING_TRIP_ID', message: '通行证购买需提供 localTripId' });
+      if (typeof localTripId !== 'string' || localTripId.trim().length === 0 ||
+        localTripId.length > 128) {
+        return res.status(400).json({ error: 'MISSING_TRIP_ID', message: '通行证购买需提供合法 localTripId' });
       }
       const existingPass = db.prepare(
         'SELECT * FROM trip_pass WHERE account_id = ? AND local_trip_id = ? AND status = ?'

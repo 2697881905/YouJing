@@ -6840,3 +6840,14 @@ D10 之后华为账号激活会把自己的 `device_id` 写成这台设备，而
 - **处理中把通行证/月付/年付/恢复购买四个键一起禁用**（`YoujingButton.disabled`），
   避免连点；此前只有内部 `purchasing` 守卫，视觉上仍可点。
 - 回归：双 HAP **编译通过**；设备前台仍是系统桌面（按纪律不抢），真机 hypium/画面未复跑。
+
+#### 续 159（2026-11-03）收据接口补入参形状校验：脏 token/行程 id 不再进校验服务或落库
+
+`/v1/iap/verify` 此前只判 `if (!purchaseToken)` 与 `if (!localTripId)`：
+对象型 purchaseToken 会进校验服务、超长字符串会原样传给外部接口；
+`localTripId` 也没有长度上限（body 上限 2MB，可撑脏 `trip_pass`）。
+
+- `purchaseToken` 必须是非空字符串且 ≤2048；`localTripId` 必须是非空白字符串且 ≤128；
+  违反分别回 `400 INVALID_PURCHASE_TOKEN` / `400 MISSING_TRIP_ID`，且都在**调用校验服务之前**。
+- 回归：`iap-verify.test.js` 新增一例（对象 token、2049 字符 token、129 字符 tripId 全 400、
+  订单数不变），`bff npm test` **93→94/94**。

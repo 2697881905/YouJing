@@ -154,3 +154,33 @@ test('非法 productType / 未知商品 id：400 且不调校验服务、不落�
   const after = db.prepare('SELECT COUNT(*) AS c FROM `order` WHERE account_id = ?').get(accountId).c;
   assert.equal(after, before, '被边界校验拒绝的请求不能落订单');
 });
+
+test('收据/行程 id 形状非法：400，不调校验服务、不落库', async () => {
+  setVerifier(`${verifierBase}/ok`);
+  const before = db.prepare('SELECT COUNT(*) AS c FROM `order` WHERE account_id = ?').get(accountId).c;
+
+  const send = async (body) => {
+    const resp = await fetch(`${base}/v1/iap/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body)
+    });
+    return { status: resp.status, body: await resp.json() };
+  };
+
+  const objToken = await send({ purchaseToken: { evil: true }, productType: 'subscription' });
+  assert.equal(objToken.status, 400);
+  assert.equal(objToken.body.error, 'INVALID_PURCHASE_TOKEN');
+
+  const longToken = await send({ purchaseToken: 'x'.repeat(2049), productType: 'subscription' });
+  assert.equal(longToken.status, 400);
+
+  const longTrip = await send({
+    purchaseToken: 'r-pass-long', productType: 'pass', localTripId: 't'.repeat(129)
+  });
+  assert.equal(longTrip.status, 400);
+  assert.equal(longTrip.body.error, 'MISSING_TRIP_ID');
+
+  const after = db.prepare('SELECT COUNT(*) AS c FROM `order` WHERE account_id = ?').get(accountId).c;
+  assert.equal(after, before);
+});
