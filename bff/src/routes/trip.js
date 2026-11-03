@@ -48,6 +48,13 @@ function validateGenerateRequest(body) {
   if (body.endDate < body.startDate) {
     return 'endDate 不能早于 startDate';
   }
+  if (body.startDate < '2020-01-01' || body.endDate > '2100-12-31') {
+    return '日期超出支持范围（2020-01-01 至 2100-12-31）';
+  }
+  const dayCount = expectedDayCount(body);
+  if (dayCount < 1 || dayCount > 30) {
+    return '行程天数必须在 1–30 天';
+  }
   if (!Number.isInteger(body.people) || body.people < 1 || body.people > 30) {
     return 'people 必须是 1–30 的整数';
   }

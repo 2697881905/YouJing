@@ -302,7 +302,10 @@ test('核心参数非法：400，不扣额度、不打上游', async () => {
     { ...payloadFor(), startDate: '2026/11/06' },
     { ...payloadFor(), endDate: '2026-11-05' },
     { ...payloadFor(), people: 0 },
-    { ...payloadFor(), budget: -1 }
+    { ...payloadFor(), budget: -1 },
+    { ...payloadFor(), startDate: '1999-01-01' },
+    { ...payloadFor(), endDate: '2101-01-01' },
+    { ...payloadFor(), startDate: '2026-11-06', endDate: '2026-12-30' }
   ];
   for (const body of cases) {
     const r = await post(14, 'route-key-bad-' + Math.random().toString(36).slice(2), body);
