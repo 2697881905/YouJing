@@ -28,7 +28,7 @@ type Obj = Record<string, Object>;
 const TAG: string = 'Data.Seeder';
 const SEED_DATE: string = '2026-10-23';
 /** 种子结构版本：jsonl 字段或坐标数据一变就 bump，触发已装机 upsert 回填 */
-const SEED_VERSION: string = 'v2-geo-3-yl';
+const SEED_VERSION: string = 'v2-geo-4';
 const SEED_PREFS: string = 'youjing_seed';
 const KEY_SEED_VERSION: string = 'version';
 /** 坐标缺失时片区不落点（0 会被 MapStops.usable 滤掉），比按城市质心插错地方诚实 */

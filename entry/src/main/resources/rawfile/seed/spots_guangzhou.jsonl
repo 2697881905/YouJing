@@ -9,7 +9,7 @@
 {"id":"gz-009","n":"石室圣心大教堂","d":"越秀区","t":["classic"],"dur":60,"pop":82,"bk":{"req":false,"m":"","adv":0,"rel":"","closed":"弥撒时段","diff":""},"la":23.11446,"lo":113.26033}
 {"id":"gz-010","n":"中山纪念堂","d":"越秀区","t":["classic"],"dur":90,"pop":80,"bk":{"req":false,"m":"","adv":0,"rel":"","closed":"","diff":""},"la":23.13291,"lo":113.26466}
 {"id":"gz-011","n":"华南国家植物园","d":"天河区","t":["family","niche"],"dur":240,"pop":82,"bk":{"req":false,"m":"","adv":0,"rel":"","closed":"","diff":""},"la":23.18252,"lo":113.3689}
-{"id":"gz-012","n":"白云山","d":"白云区","t":["classic","family"],"dur":240,"pop":88,"bk":{"req":false,"m":"","adv":0,"rel":"","closed":"","diff":""},"la":23.17025,"lo":113.5703}
+{"id":"gz-012","n":"白云山","d":"白云区","t":["classic","family"],"dur":240,"pop":88,"bk":{"req":false,"m":"","adv":0,"rel":"","closed":"","diff":""},"la":23.18703,"lo":113.2998}
 {"id":"gz-013","n":"长隆野生动物世界","d":"番禺区","t":["must_see","family"],"dur":360,"pop":95,"bk":{"req":true,"m":"官方APP购票","adv":7,"rel":"00:00","closed":"","diff":"中"},"la":23.00264,"lo":113.31468}
 {"id":"gz-014","n":"长隆欢乐世界","d":"番禺区","t":["family"],"dur":300,"pop":88,"bk":{"req":true,"m":"官方APP购票","adv":7,"rel":"00:00","closed":"","diff":"中"},"la":22.99992,"lo":113.33111}
 {"id":"gz-015","n":"广东省博物馆","d":"天河区","t":["classic","family"],"dur":150,"pop":87,"bk":{"req":true,"m":"官网预约","adv":7,"rel":"17:00","closed":"","diff":"难"},"la":23.1148,"lo":113.32684}
@@ -22,7 +22,7 @@
 {"id":"gz-022","n":"百万葵园","d":"南沙区","t":["family"],"dur":180,"pop":65,"bk":{"req":false,"m":"","adv":0,"rel":"","closed":"","diff":""},"la":22.62816,"lo":113.62005}
 {"id":"gz-023","n":"大夫山森林公园","d":"番禺区","t":["family"],"dur":180,"pop":70,"bk":{"req":false,"m":"","adv":0,"rel":"","closed":"","diff":""},"la":22.95203,"lo":113.31219}
 {"id":"gz-024","n":"海珠国家湿地","d":"海珠区","t":["niche","family"],"dur":150,"pop":76,"bk":{"req":false,"m":"","adv":0,"rel":"","closed":"","diff":""},"la":23.07762,"lo":113.33901}
-{"id":"gz-025","n":"西关大屋-泮塘五约","d":"荔湾区","t":["niche"],"dur":90,"pop":72,"bk":{"req":false,"m":"","adv":0,"rel":"","closed":"","diff":""},"la":23.12156,"lo":113.23197}
+{"id":"gz-025","n":"西关大屋-泮塘五约","d":"荔湾区","t":["niche"],"dur":90,"pop":72,"bk":{"req":false,"m":"","adv":0,"rel":"","closed":"","diff":""},"la":23.12438,"lo":113.23382}
 {"id":"gz-026","n":"荔湾湖公园","d":"荔湾区","t":["niche"],"dur":90,"pop":70,"bk":{"req":false,"m":"","adv":0,"rel":"","closed":"","diff":""},"la":23.12156,"lo":113.23197}
 {"id":"gz-027","n":"粤海关博物馆","d":"荔湾区","t":["classic"],"dur":60,"pop":73,"bk":{"req":true,"m":"公众号预约","adv":3,"rel":"09:00","closed":"周一","diff":"易"},"la":23.10731,"lo":113.25106}
 {"id":"gz-028","n":"广州动物园","d":"越秀区","t":["family"],"dur":180,"pop":80,"bk":{"req":false,"m":"","adv":0,"rel":"","closed":"","diff":""},"la":23.14028,"lo":113.30541}

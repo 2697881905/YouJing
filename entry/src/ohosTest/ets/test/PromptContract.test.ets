@@ -95,7 +95,10 @@ export default function promptContractTest(): void {
         const sp: string = PromptBuilder.systemPrompt();
         expect(sp.indexOf('不得把行程拆成') >= 0).assertTrue();
         expect(sp.indexOf('最后一天等于 endDate') >= 0).assertTrue();
-        expect(sp.indexOf('停留 + 通勤总时长不超过 10 小时') >= 0).assertTrue();
+        // 规则 17 的措辞在 2026-11-03 改过两次（先去掉自相矛盾的 21:00 边界，再对齐 480 预算）：
+        // 这里钉「语义」而不钉旧句子——当日活动+通勤的预算与「末站 = 首站 + 10 小时」两条都要在。
+        expect(sp.indexOf('各段通勤之和不超过 **8 小时（480 分钟）**') >= 0).assertTrue();
+        expect(sp.indexOf('最后一站结束时间 ≤ 第一站开始时间 + 10 小时') >= 0).assertTrue();
       });
 
     it('schema_enums_match_model_enums_both_ways',
