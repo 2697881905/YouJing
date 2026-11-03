@@ -2,7 +2,8 @@ import { HttpError } from '../lib/http-error.js';
 
 const DEFAULT_LLM_BASE_URL = 'https://api.deepseek.com/v1';
 const DEFAULT_LLM_MODEL = 'deepseek-flash';
-const DEFAULT_TIMEOUT_MS = 60000;
+// 45s 是给「修正重问」留的余量：一次失败最多两次顺序调用，2×45 = 90s < 端侧读超时 120s。
+const DEFAULT_TIMEOUT_MS = 45000;
 
 function llmTimeoutMs() {
   const raw = Number(process.env.LLM_TIMEOUT_MS);
