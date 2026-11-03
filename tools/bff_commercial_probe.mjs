@@ -91,7 +91,11 @@ async function waitHealth() {
   for (let i = 0; i < 60; i += 1) {
     try {
       const r = await fetch(`${BASE}/health`);
-      if (r.ok) return true;
+      if (r.ok) {
+        const body = await r.json();
+        // 健康检查必须真的查过库（db:'ok'），只回静态 status 不算数
+        if (body.status === 'ok' && body.db === 'ok') return true;
+      }
     } catch (e) {
       // 还没起来，继续等
     }

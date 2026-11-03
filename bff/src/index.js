@@ -26,7 +26,14 @@ app.use((req, _res, next) => {
 });
 
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok' });
+  // 真查一次库：只回静态 ok 时，DB 损坏/只读也会被负载均衡当成健康实例。
+  try {
+    db.prepare('SELECT 1 AS ok').get();
+    res.json({ status: 'ok', db: 'ok' });
+  } catch (err) {
+    console.error('[health] db check failed:', err.message);
+    res.status(503).json({ status: 'degraded', db: 'error' });
+  }
 });
 
 app.use('/v1/device', deviceRouter);
