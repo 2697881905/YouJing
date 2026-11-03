@@ -6,6 +6,23 @@
 
 ### Added
 
+- 2026-11-03（§5ci 续 85）：**商业化链路首次作为真实进程验收 + P0 主路径死锁登记** ——
+  新增 `tools/probe_bff_commercial.sh` + `tools/bff_commercial_probe.mjs`：`bff/` 此前只被
+  `node --test` 用 `initDb(':memory:')` 装配成 in-process express，`src/index.js` **从没真起过进程**，
+  `grep -rn iap bff/test/` 零命中 ⇒ 付费路径零测试覆盖。探针证明成立的部分：真实进程可启动、
+  扣额度 `gift 3→2→…→0`、**同键重放不双扣且上游调用数 1→1**、第四次 **402 QUOTA_EXHAUSTED**
+  （付费墙可诚实到达）、端侧 402/401/429/409 → 错误码映射齐备（`LlmClient.ets:258-269`）。
+  登记缺陷 **D1–D9**：假 `purchaseToken` 即可换 active 订阅并**兑换成真额度**（利用链闭合）、
+  假收据换 trip pass 使导出墙失效、无 unionId 即建 `anon-<deviceId>` 白拿 3 次、
+  `DAILY_CAP=20` 按**天**而方案写 20 次/**月**（敞口约 30 倍）、`/v1/iap/notify` 空转、
+  重复收据打 500、端侧 `subscription` 只由缓存结转 ⇒ 对到期/退款无感知。
+  **P0**：干净检出/提审构建点「生成行程」**100% 跳付费页**（`ApiConfig` 仓库版 `BFF_BASE_URL:''`
+  + `DEV_SKIP_BFF:false` → `DeviceActivator.ets:39-42` 不激活 → `canGenerate()` 恒 false →
+  `GeneratingPage.ets:99→127`），而付费页又要打同一个不存在的 BFF；方案 §2 承诺的
+  「免费=本机规则引擎零成本」在 release 形态**没有出口**（本地合成挂在 dev 开关后，
+  且服务端 `freeTier` 只是缩短提示词、**照样烧 token**）。解法 A/B 代价见
+  `Docs/analysis/商业化链路真实验收-2026-11-03.md` §7；**属产品决定，未替用户拍**。
+  本轮**零改动他人 24 个在飞文件、零设备写入、零 LLM 花费、未动 `bff/data`**。
 - 2026-11-02（§5ci 续 84）：**契约 v2 第一批（批次一：T1′/T3/T5/T7/T8）落库** ——
   家族契约对齐「有据」的**第一批**，只碰契约/token/尺/文档，**不含页面接线**
   （T4 接线取证、T6 间距契约名迁移、T9 收尾属批次二，起点是另一会话那 21 个在飞文件先提交；
