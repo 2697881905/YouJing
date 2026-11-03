@@ -136,6 +136,19 @@
   （同一坑 2026-10 踩过一次，见记忆 `skip-worktree-config-must-stay-compilable`）。
   这把尺现在是红的，红得对。
 
+### Changed
+
+- 2026-11-03（§5ci 续 95）：**间距档改用契约名，逐坐标与逐像素验过零变化**（契约 v2 T6）。
+  此前实现名与契约名整体错一档（契约 xxs 在实现里叫 xs……），跨 App 复制组件时同一个 `md`
+  在有据是 20、在有径是 12。按值一一映射改 **645 个调用点 / 36 个文件**，
+  删掉零消费的 twoXl/fourXl/lgLoose/threeXl/bottomReserve，`ALLOWED_SPACINGS` 收成契约八档 + 0。
+  证据：`audit_geometry` 别名改恒等后偏差 0 项；真机同一屏改前/改后各一帧 + 一份 dump
+  ⇒ **61 节点对 61 节点、内容坐标完全一致**，唯一差异是状态栏时钟；裁掉状态栏后像素差均值 **0.000**。
+  新增 hypium `SpaceTokensContract`（八档值 + 18/28/94 不在封闭集）。真机 hypium **201/201**。
+  工具坑：zsh 不对未加引号变量分词（perl 收到整串文件名，第一次跑其实没改）、
+  BSD grep 不认 `-Z`、以及只改 main 会漏掉 ohosTest 里的 FamilyProbePage。
+  语义别名（itemGap/pagePadding…）本轮**没有新增**：必须有真消费方才值得存在。
+
 ### Fixed
 
 - 2026-11-03（§5ci 续 94）：**收据重放改成幂等**（D8）。`/v1/iap/verify` 原是裸 INSERT，

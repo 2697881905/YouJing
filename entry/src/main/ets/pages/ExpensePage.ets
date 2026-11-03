@@ -375,7 +375,7 @@ export struct ExpensePage {
 
   @Builder
   categoryRow(cat: CategorySpend) {
-    Row({ space: SpaceTokens.sm }) {
+    Row({ space: SpaceTokens.xs }) {
       Circle()
         .width(8)
         .height(8)
@@ -402,14 +402,14 @@ export struct ExpensePage {
             .fontSize(TypeTokens.overline.size)
             .fontColor(cat.over ? ColorTokens.danger : ColorTokens.muted)
             .fontFeature("'tnum' on")
-            .margin({ top: SpaceTokens.xs })
+            .margin({ top: SpaceTokens.xxs })
         }
       }
       .alignItems(HorizontalAlign.End)
       .width(84)
     }
     .width('100%')
-    .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+    .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
   }
 
   @Builder
@@ -461,11 +461,11 @@ export struct ExpensePage {
         .fontWeight(700)
         .fontFamily(TypeTokens.title.family)
         .fontColor(ColorTokens.ink)
-        .margin({ top: SpaceTokens.xl })
+        .margin({ top: SpaceTokens.lg })
       Text('金额与名称只存本机行程')
         .fontSize(TypeTokens.small.size)
         .fontColor(ColorTokens.body)
-        .margin({ top: SpaceTokens.xs, bottom: SpaceTokens.lg })
+        .margin({ top: SpaceTokens.xxs, bottom: SpaceTokens.base })
 
       TextInput({ placeholder: '金额（元）', text: this.inputAmount })
         .type(InputType.Number)
@@ -491,7 +491,7 @@ export struct ExpensePage {
         .backgroundColor(ColorTokens.surfacePanel)
         .borderRadius(RadiusTokens.reason)
         .height(LayoutTokens.composeFieldHeight)
-        .margin({ top: SpaceTokens.sm })
+        .margin({ top: SpaceTokens.xs })
         .onChange((v: string) => {
           this.inputName = v;
         })
@@ -501,18 +501,18 @@ export struct ExpensePage {
         })
 
       // 一行六枚、等宽：wrap 成两行时第二行落进 300vp 视口之外（含默认选中项）
-      Row({ space: SpaceTokens.xs }) {
+      Row({ space: SpaceTokens.xxs }) {
         ForEach(CATEGORY_LABELS, (option: CategoryOption) => {
           this.categoryChip(option)
         }, (option: CategoryOption): string => `rec-${option.value}-${this.inputCategory === option.value}`)
       }
       .width('100%')
-      .margin({ top: SpaceTokens.md })
+      .margin({ top: SpaceTokens.sm })
 
         }
         .alignItems(HorizontalAlign.Start)
         .width('100%')
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+        .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
       }
       .width('100%')
       // 定高上限（不是 '100%'）：滚动视口整体落在键盘之上的可见区内，
@@ -529,16 +529,16 @@ export struct ExpensePage {
           this.saveExpense();
         }
       })
-        .margin({ top: SpaceTokens.sm, bottom: SpaceTokens.md })
+        .margin({ top: SpaceTokens.xs, bottom: SpaceTokens.sm })
     }
     .width('100%')
-    .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: SpaceTokens.xl })
+    .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.lg })
     .backgroundColor(ColorTokens.canvas)
   }
 
   @Builder
   budgetField(option: CategoryOption, idx: number) {
-    Row({ space: SpaceTokens.sm }) {
+    Row({ space: SpaceTokens.xs }) {
       Text(option.label)
         .fontSize(TypeTokens.body.size)
         .fontColor(ColorTokens.ink)
@@ -563,7 +563,7 @@ export struct ExpensePage {
     }
     .width('100%')
     .alignItems(VerticalAlign.Center)
-    .margin({ top: SpaceTokens.sm })
+    .margin({ top: SpaceTokens.xs })
   }
 
   @Builder
@@ -578,13 +578,13 @@ export struct ExpensePage {
             .fontWeight(700)
             .fontFamily(TypeTokens.title.family)
             .fontColor(ColorTokens.ink)
-            .margin({ top: SpaceTokens.xl })
+            .margin({ top: SpaceTokens.lg })
           Text(`合计 ${yuan(this.budgetDraftSum())} · 行程总预算 ${yuan(this.budgetTotal)}`)
             .fontSize(TypeTokens.small.size)
             .fontColor(this.budgetDraftSum() > this.budgetTotal && this.budgetTotal > 0
               ? ColorTokens.danger : ColorTokens.body)
             .fontFeature("'tnum' on")
-            .margin({ top: SpaceTokens.xs, bottom: SpaceTokens.md })
+            .margin({ top: SpaceTokens.xxs, bottom: SpaceTokens.sm })
 
           ForEach(CATEGORY_LABELS, (option: CategoryOption, idx: number) => {
             this.budgetField(option, idx)
@@ -592,7 +592,7 @@ export struct ExpensePage {
         }
         .alignItems(HorizontalAlign.Start)
         .width('100%')
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+        .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
       }
       .width('100%')
       // 上限 200 而不是 320：真机实测键盘弹起后键盘顶在 y≈1700/2690，
@@ -610,10 +610,10 @@ export struct ExpensePage {
           this.saveBudgets();
         }
       })
-        .margin({ top: SpaceTokens.sm, bottom: SpaceTokens.md })
+        .margin({ top: SpaceTokens.xs, bottom: SpaceTokens.sm })
     }
     .width('100%')
-    .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: SpaceTokens.xl })
+    .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.lg })
     .backgroundColor(ColorTokens.canvas)
   }
 
@@ -632,7 +632,7 @@ export struct ExpensePage {
       .fontWeight(600)
       .fontColor(ColorTokens.muted)
       .width('100%')
-      .padding({ top: SpaceTokens.lg, bottom: SpaceTokens.sm })
+      .padding({ top: SpaceTokens.base, bottom: SpaceTokens.xs })
   }
 
   /** 分类支出这一组的头：左边标题、右边进「分类预算」工作表 */
@@ -649,7 +649,7 @@ export struct ExpensePage {
         .fontColor(ColorTokens.primary)
         .fontSize(TypeTokens.overline.size)
         .height(LayoutTokens.minTouchTarget)
-        .padding({ left: SpaceTokens.sm, right: SpaceTokens.xs })
+        .padding({ left: SpaceTokens.xs, right: SpaceTokens.xxs })
         .accessibilityText('设置各分类预算上限')
         .enabled(!this.noTrip)
         .onClick((): void => {
@@ -657,7 +657,7 @@ export struct ExpensePage {
         })
     }
     .width('100%')
-    .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.xs })
+    .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xxs })
     .alignItems(VerticalAlign.Center)
   }
 
@@ -681,7 +681,7 @@ export struct ExpensePage {
         .fontFeature("'tnum' on")
     }
     .width('100%')
-    .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+    .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
   }
 
   /** 官方行级动作：误记一笔可以左滑删掉（ExpenseDao.delete 此前无调用方） */
@@ -707,7 +707,7 @@ export struct ExpensePage {
     .alignItems(VerticalAlign.Center)
     .width(84)
     .height('100%')
-    .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
   }
 
   private confirmDeleteReceipt(r: Receipt): void {
@@ -763,7 +763,7 @@ export struct ExpensePage {
               a11yLabel: '支出维度切换'
             })
           }
-          .margin({ bottom: SpaceTokens.lg })
+          .margin({ bottom: SpaceTokens.base })
 
           ListItem() {
             // hero 面板：永不带影（决议 4）
@@ -776,7 +776,7 @@ export struct ExpensePage {
                   .fontWeight(600)
                   .fontColor(ColorTokens.ink)
                   .fontFeature("'tnum' on")
-                  .margin({ bottom: SpaceTokens.xs })
+                  .margin({ bottom: SpaceTokens.xxs })
               }
               Text(this.seg === 0 ?
                 // 两个数量的是不同的东西：预算=人均×人数（用户给的），
@@ -791,7 +791,7 @@ export struct ExpensePage {
                 .fontWeight(600)
                 .fontColor(ColorTokens.muted)
                 .fontFeature("'tnum' on")
-              Row({ space: SpaceTokens.sm }) {
+              Row({ space: SpaceTokens.xs }) {
                 Text(yuan(this.spent))
                   .fontSize(TypeTokens.display.size)
                   .fontWeight(700)
@@ -801,15 +801,15 @@ export struct ExpensePage {
                   .fontSize(TypeTokens.caption.size)
                   .fontWeight(450)
                   .fontColor(ColorTokens.muted)
-                  .margin({ bottom: SpaceTokens.xs })
+                  .margin({ bottom: SpaceTokens.xxs })
               }
               .alignItems(VerticalAlign.Bottom)
-              .margin({ top: SpaceTokens.xs })
+              .margin({ top: SpaceTokens.xxs })
 
               // 进度条原来单独一条、无读数：已花 0 时它就是一个灰底空轨，
               // 实拍读起来是「hero 卡里的一条分隔线」（§5.14 同一类）。
               // 给它一个同排的百分数读数，轨色也压到 surface-sunken 与卡面分开
-              Row({ space: SpaceTokens.sm }) {
+              Row({ space: SpaceTokens.xs }) {
                 Progress({ value: this.spentPct(), total: 100, type: ProgressType.Linear })
                   .color(this.spent > this.budgetTotal ? ColorTokens.danger : ColorTokens.primary)
                   .backgroundColor(ColorTokens.surfaceSunken)
@@ -823,7 +823,7 @@ export struct ExpensePage {
               }
               .alignItems(VerticalAlign.Center)
               .width('100%')
-              .margin({ top: SpaceTokens.md })
+              .margin({ top: SpaceTokens.sm })
 
               Text(this.spent > this.budgetTotal ?
                 `超支 ${yuan(this.spent - this.budgetTotal)}${this.topCategory.length > 0 ? ` · 主要来自${this.topCategory}` : ''}` :
@@ -832,11 +832,11 @@ export struct ExpensePage {
                 .fontWeight(450)
                 .fontColor(this.spent > this.budgetTotal ? ColorTokens.danger : ColorTokens.body)
                 .fontFeature("'tnum' on")
-                .margin({ top: SpaceTokens.sm })
+                .margin({ top: SpaceTokens.xs })
             }
             .alignItems(HorizontalAlign.Start)
             .width('100%')
-            .padding(SpaceTokens.lg)
+            .padding(SpaceTokens.base)
             .borderRadius(RadiusTokens.hero)
             .backgroundColor(ColorTokens.surfaceElevated)
           }
@@ -848,7 +848,7 @@ export struct ExpensePage {
                   .fontSize(TypeTokens.caption.size)
                   .fontColor(ColorTokens.muted)
                   .width('100%')
-                  .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+                  .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
               }
             }
             ForEach(this.currentCats(), (cat: CategorySpend) => {
@@ -858,11 +858,11 @@ export struct ExpensePage {
             }, (cat: CategorySpend): string => `cat-${this.seg}-${cat.name}-${cat.amount}-${cat.pct}`)
           }
           .divider({ strokeWidth: LayoutTokens.hairlineWidth, color: ColorTokens.separator })
-          .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+          .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
           .backgroundColor(ColorTokens.canvas)
           .borderRadius(RadiusTokens.card)
           .clip(true)
-          .margin({ top: SpaceTokens.sm })
+          .margin({ top: SpaceTokens.xs })
 
           ListItemGroup({ header: this.sectionHeader('最近记账') }) {
             if (this.receipts.length === 0) {
@@ -871,7 +871,7 @@ export struct ExpensePage {
                   .fontSize(TypeTokens.caption.size)
                   .fontColor(ColorTokens.muted)
                   .width('100%')
-                  .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+                  .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
               }
             }
             ForEach(this.receipts, (r: Receipt) => {
@@ -882,11 +882,11 @@ export struct ExpensePage {
             }, (r: Receipt): string => `rc-${r.id}-${r.time}-${r.name}-${r.amount}`)
           }
           .divider({ strokeWidth: LayoutTokens.hairlineWidth, color: ColorTokens.separator })
-          .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+          .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
           .backgroundColor(ColorTokens.canvas)
           .borderRadius(RadiusTokens.card)
           .clip(true)
-          .margin({ top: SpaceTokens.sm })
+          .margin({ top: SpaceTokens.xs })
 
           ListItem() {
             // 没有行程时这颗按钮是"点了没反应"的死控件（记账要有行程上下文才能落库），
@@ -907,7 +907,7 @@ export struct ExpensePage {
             } else {
             // 记一笔：官方胶囊 Button（原来是 44 高 + 1px 描边的自绘 Pill）
             Button() {
-              Row({ space: SpaceTokens.xs }) {
+              Row({ space: SpaceTokens.xxs }) {
                 SymbolGlyph($r('sys.symbol.plus'))
                   .fontSize(IconSizes.control)
                   .fontColor([ColorTokens.ink])
@@ -935,7 +935,7 @@ export struct ExpensePage {
             })
             }
           }
-          .margin({ top: SpaceTokens.xl })
+          .margin({ top: SpaceTokens.lg })
         }
         // 这一屏不并栏：List 里装的是「总览 + 预算/实际切换 + 分类条形 + 最近记账 + 钉底记一笔」，
         // 是一份报告而不是卡片墙。md 实测 lanes(2) 把官方分段栏压成 50..1075（左半屏）、
@@ -950,7 +950,7 @@ export struct ExpensePage {
         .cachedCount(6)
         // 「+ 记一笔」是这条 List 的最后一行，而 dock 是浮在内容上的：
         // 通用 94 比 dock 实占的 112 少 18vp，滚到底按钮下沿仍藏在 dock 底下
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.floatingDockClearance })
+        .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: LayoutTokens.floatingDockClearance })
         .layoutWeight(1)
         .onDidScroll((): void => {
           this.syncBarScroll();

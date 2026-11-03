@@ -53,8 +53,8 @@ const SKELETON_DEFAULT_WIDTH: number = 160;
 export struct Skeleton {
   /** 骨架条整体宽（默认铺满父容器；屏6 现写骨架用 160/56/52 三档定宽） */
   @Prop skeletonWidth: Length = '100%';
-  /** 骨架条整体高：有据默认 SpaceTokens.base(16) → 有径同值档 SpaceTokens.lg(16) */
-  @Prop skeletonHeight: number = SpaceTokens.lg;
+  /** 骨架条整体高：有据默认 SpaceTokens.base(16) → 有径同值档 SpaceTokens.base(16) */
+  @Prop skeletonHeight: number = SpaceTokens.base;
   /** 圆角档：契约 skeleton rounded.md → 有径 RadiusTokens.reason */
   @Prop radius: number = RadiusTokens.reason;
   /** 流光带的位移；负值 = 整条藏在左边外，第一帧不会「闪一下再走」 */

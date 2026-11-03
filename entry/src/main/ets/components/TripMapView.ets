@@ -292,7 +292,7 @@ export struct TripMapView {
         .width('100%')
         .height('100%')
       if (this.mapError.length > 0) {
-        Column({ space: SpaceTokens.xs }) {
+        Column({ space: SpaceTokens.xxs }) {
           Text('底图没出来')
             .fontSize(TypeTokens.body.size)
             .fontWeight(600)
@@ -305,7 +305,7 @@ export struct TripMapView {
         .width('100%')
         .height('100%')
         .justifyContent(FlexAlign.Center)
-        .padding({ left: SpaceTokens.xl, right: SpaceTokens.xl })
+        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
         .backgroundColor(ColorTokens.surfaceSubtle)
       } else if (!this.ready) {
         Column()

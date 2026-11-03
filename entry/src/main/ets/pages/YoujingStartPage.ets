@@ -184,11 +184,11 @@ export struct YoujingStartPage {
         .fontColor(ColorTokens.ink)
         .textAlign(TextAlign.End)
         .fontFeature("'tnum' on")
-        .padding({ right: SpaceTokens.md, top: SpaceTokens.xs })
+        .padding({ right: SpaceTokens.sm, top: SpaceTokens.xxs })
       Stack({ alignContent: Alignment.Top }) {
         Column()
           .width(LayoutTokens.routeLineWidth)
-          .height(index === this.stops.length - 1 ? SpaceTokens.md : ROW_HEIGHT)
+          .height(index === this.stops.length - 1 ? SpaceTokens.sm : ROW_HEIGHT)
           .backgroundColor(ColorTokens.surfaceSunken)
         this.spineNode(stop.dotColor)
       }
@@ -209,7 +209,7 @@ export struct YoujingStartPage {
       }
       .alignItems(HorizontalAlign.Start)
       .layoutWeight(1)
-      .padding({ left: SpaceTokens.sm })
+      .padding({ left: SpaceTokens.xs })
     }
     .alignItems(VerticalAlign.Top)
     .width('100%')
@@ -228,7 +228,7 @@ export struct YoujingStartPage {
         .width(LayoutTokens.routeLineWidth)
         .height(LayoutTokens.transitLegHeight)
         .border({ width: { left: LayoutTokens.routeLineWidth }, color: ColorTokens.separator, style: BorderStyle.Dashed })
-      Row({ space: SpaceTokens.sm }) {
+      Row({ space: SpaceTokens.xs }) {
         SymbolGlyph($r('sys.symbol.figure_walk'))
           .fontSize(IconSizes.control)
           .fontColor([ColorTokens.icon])
@@ -239,19 +239,19 @@ export struct YoujingStartPage {
           .fontFeature("'tnum' on")
       }
       .alignItems(VerticalAlign.Center)
-      .padding({ left: SpaceTokens.sm })
+      .padding({ left: SpaceTokens.xs })
     }
     .width('100%')
     .height(LayoutTokens.transitLegHeight)
     .alignItems(VerticalAlign.Center)
-    .margin({ top: SpaceTokens.md, bottom: SpaceTokens.md })
+    .margin({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
   }
 
   build() {
     Scroll(this.barScroller) {
       Column() {
         // ① 创建入口：serif 页题 + 副题（屏2 同款页题档与文案，主功能页从这里的排版起算）
-        Column({ space: SpaceTokens.sm }) {
+        Column({ space: SpaceTokens.xs }) {
           Text('开启一次有迹可循的旅程')
             .fontSize(TypeTokens.title.size)
             .fontWeight(700)
@@ -263,7 +263,7 @@ export struct YoujingStartPage {
         }
         .alignItems(HorizontalAlign.Start)
         .width('100%')
-        .margin({ top: SpaceTokens.md, bottom: SpaceTokens.md })
+        .margin({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
 
         // ② 唯一实心主按钮（契约：一屏一颗 primary，其余 outline）
         YoujingButton({
@@ -282,7 +282,7 @@ export struct YoujingStartPage {
         // 从屏2 重进就是接着上次的进度走（§5q/§5w 那条主链缺口的收口）
         if (this.draftDirty) {
           Row() {
-            Column({ space: SpaceTokens.xs }) {
+            Column({ space: SpaceTokens.xxs }) {
               Text('未完成的规划')
                 .fontSize(TypeTokens.overline.size)
                 .fontWeight(600)
@@ -309,10 +309,10 @@ export struct YoujingStartPage {
           }
           .alignItems(VerticalAlign.Center)
           .width('100%')
-          .padding(SpaceTokens.lg)
+          .padding(SpaceTokens.base)
           .borderRadius(RadiusTokens.card)
           .backgroundColor(ColorTokens.surfaceElevated)
-          .margin({ top: SpaceTokens.md })
+          .margin({ top: SpaceTokens.sm })
           .accessibilityText('继续未完成的规划')
           .onClick((): void => {
             enterPlanningFlow('TripInput');
@@ -325,7 +325,7 @@ export struct YoujingStartPage {
           .fontWeight(600)
           .fontColor(ColorTokens.muted)
           .width('100%')
-          .margin({ top: SpaceTokens.xl, bottom: SpaceTokens.md })
+          .margin({ top: SpaceTokens.lg, bottom: SpaceTokens.sm })
 
         // ⑤ 预览卡：spine 几何与屏8 同源（52 时间槽 / 24 节点 / 76 行 / 44 交通腿）
         ImmersiveSurface({ radius: RadiusTokens.card, surfaceWidth: '100%' }) {
@@ -345,7 +345,7 @@ export struct YoujingStartPage {
             }
             .alignItems(VerticalAlign.Center)
             .width('100%')
-            .padding({ bottom: SpaceTokens.sm })
+            .padding({ bottom: SpaceTokens.xs })
             .border({ width: { bottom: LayoutTokens.hairlineWidth }, color: ColorTokens.separator })
 
             Column() {
@@ -358,7 +358,7 @@ export struct YoujingStartPage {
             }
             .width('100%')
             .alignItems(HorizontalAlign.Start)
-            .margin({ top: SpaceTokens.sm })
+            .margin({ top: SpaceTokens.xs })
 
             // 承诺块 = 契约 reason-block：surfacePanel + 2px primary 左条（补上此前缺的左条）
             Column() {
@@ -370,17 +370,17 @@ export struct YoujingStartPage {
                 .fontSize(TypeTokens.small.size)
                 .fontColor(ColorTokens.ink)
                 .lineHeight(TypeTokens.small.lineHeight)
-                .margin({ top: SpaceTokens.xs })
+                .margin({ top: SpaceTokens.xxs })
             }
             .alignItems(HorizontalAlign.Start)
             .width('100%')
-            .padding(SpaceTokens.md)
+            .padding(SpaceTokens.sm)
             .borderRadius(RadiusTokens.reason)
             .backgroundColor(ColorTokens.surfacePanel)
             .border({ width: { left: 2 }, color: ColorTokens.primary })
-            .margin({ top: SpaceTokens.md })
+            .margin({ top: SpaceTokens.sm })
           }
-          .padding(SpaceTokens.lg)
+          .padding(SpaceTokens.base)
           .borderRadius(RadiusTokens.card)
           .backgroundColor(ColorTokens.surfaceElevated)
           .width('100%')
@@ -392,8 +392,8 @@ export struct YoujingStartPage {
       // 给父 Column 加 constraintSize.maxWidth 只会左贴边、右侧空出一条（实测更坏）。
       // 折叠屏展开（窗口 707vp）时预览卡原本通铺 642vp、三行节点右侧 55% 全白。
       .padding({
-        left: symmetricInsetForCap(this.windowWidthVp, BP_MD_MIN_VP, SpaceTokens.lg),
-        right: symmetricInsetForCap(this.windowWidthVp, BP_MD_MIN_VP, SpaceTokens.lg),
+        left: symmetricInsetForCap(this.windowWidthVp, BP_MD_MIN_VP, SpaceTokens.base),
+        right: symmetricInsetForCap(this.windowWidthVp, BP_MD_MIN_VP, SpaceTokens.base),
         // 悬浮 dock 压在滚动内容上：末行（预览卡承诺块）要能滚出 dock 顶边
         bottom: LayoutTokens.floatingDockClearance
       })

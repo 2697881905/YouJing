@@ -77,7 +77,7 @@ export struct EmptyState {
   }
 
   build() {
-    Column({ space: SpaceTokens.md }) {
+    Column({ space: SpaceTokens.sm }) {
       SymbolGlyph(this.icon)
         .fontSize(IconSizes.display)
         .fontColor([ColorTokens.muted])
@@ -109,8 +109,8 @@ export struct EmptyState {
       }
     }
     .width('100%')
-    // 有据 SpaceTokens.xl = 24 → 有径同名值档 SpaceTokens.xl
-    .padding({ left: SpaceTokens.xl, right: SpaceTokens.xl })
+    // 有据 SpaceTokens.lg = 24 → 有径同名值档 SpaceTokens.lg
+    .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
     .alignItems(HorizontalAlign.Center)
     // 整组读成一个「空态」而不是三段散装文字
     .accessibilityGroup(true)

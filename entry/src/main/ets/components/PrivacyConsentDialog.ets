@@ -49,7 +49,7 @@ export struct PrivacyConsentDialog {
   }
 
   build() {
-    Column({ space: SpaceTokens.md }) {
+    Column({ space: SpaceTokens.sm }) {
       if (this.reading.length > 0) {
         LegalDocReader({
           kind: this.reading,
@@ -71,12 +71,12 @@ export struct PrivacyConsentDialog {
         .fontColor(ColorTokens.body)
         .lineHeight(TypeTokens.small.lineHeight)
 
-      Row({ space: SpaceTokens.lg }) {
+      Row({ space: SpaceTokens.base }) {
         this.docLink('《隐私政策》', 'privacy')
         this.docLink('《用户协议》', 'agreement')
       }
 
-      Column({ space: SpaceTokens.sm }) {
+      Column({ space: SpaceTokens.xs }) {
         YoujingButton({
           variant: YoujingButtonVariant.PRIMARY,
           label: '同意并继续',
@@ -94,7 +94,7 @@ export struct PrivacyConsentDialog {
           }
         })
       }
-      .margin({ top: SpaceTokens.xs })
+      .margin({ top: SpaceTokens.xxs })
       }
     }
     .width('100%')

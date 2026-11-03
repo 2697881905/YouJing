@@ -128,7 +128,7 @@ struct Index {
    */
   @Builder
   tabLabel(idx: number) {
-    Column({ space: SpaceTokens.xs }) {
+    Column({ space: SpaceTokens.xxs }) {
       SymbolGlyph(DOCK_TABS[idx].symbol)
         .fontSize(IconSizes.control)
         .fontColor([this.currentTab === idx ? ColorTokens.primary : ColorTokens.icon])

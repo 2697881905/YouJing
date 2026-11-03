@@ -94,7 +94,7 @@ export struct LoginView {
       // 根 Column 必须铺满整屏当底色，不能自己收窄（两侧会出色带）；
       // 上限加在这一层内容容器上，根改成居中
       Column() {
-      Column({ space: SpaceTokens.sm }) {
+      Column({ space: SpaceTokens.xs }) {
         Text('有径')
           .fontSize(TypeTokens.display.size)
           .fontWeight(TypeTokens.display.weight)
@@ -109,9 +109,9 @@ export struct LoginView {
           .fontColor(ColorTokens.body)
       }
       .alignItems(HorizontalAlign.Start)
-      .margin({ bottom: SpaceTokens.xl })
+      .margin({ bottom: SpaceTokens.lg })
 
-      Column({ space: SpaceTokens.md }) {
+      Column({ space: SpaceTokens.sm }) {
         Text('登录后开始规划')
           .fontSize(TypeTokens.title.size)
           .fontWeight(TypeTokens.title.weight)
@@ -124,14 +124,14 @@ export struct LoginView {
           .lineHeight(TypeTokens.small.lineHeight)
       }
       .alignItems(HorizontalAlign.Start)
-      .margin({ bottom: SpaceTokens.xl })
+      .margin({ bottom: SpaceTokens.lg })
 
       // 官方 Checkbox + 文本行：未勾选即禁用登录入口（明示同意，不做默认勾选）。
       // 整行可点：`Checkbox` 实测只有 24×24vp（模拟器 dumpLayout bounds
       // [76,1815][151,1890] ÷ 3.125），低于契约 44vp 最小热区，
       // 只点那 24vp 在模拟器上甚至点不动（§5u）。行内《隐私政策》/《用户协议》
       // 是 Span 自己的 onClick，子级先命中，不与整行开关冲突。
-      Row({ space: SpaceTokens.sm }) {
+      Row({ space: SpaceTokens.xs }) {
         Checkbox()
           .select(this.agreed)
           .selectedColor(ColorTokens.primary)
@@ -162,7 +162,7 @@ export struct LoginView {
       .width('100%')
       .height(LayoutTokens.minTouchTarget)
       .alignItems(VerticalAlign.Center)
-      .margin({ bottom: SpaceTokens.lg })
+      .margin({ bottom: SpaceTokens.base })
       .onClick((): void => {
         this.agreed = !this.agreed;
       })
@@ -182,7 +182,7 @@ export struct LoginView {
         Text(this.hint)
           .fontSize(TypeTokens.caption.size)
           .fontColor(ColorTokens.danger)
-          .margin({ top: SpaceTokens.sm })
+          .margin({ top: SpaceTokens.xs })
           .width('100%')
       }
 
@@ -194,7 +194,7 @@ export struct LoginView {
           this.onGuest();
         }
       })
-        .margin({ top: SpaceTokens.sm })
+        .margin({ top: SpaceTokens.xs })
       }
       .alignItems(HorizontalAlign.Start)
       // 一个节点上只留一条 .width()：longFormMaxWidth 在 sm 档返回 '100%'，
@@ -208,8 +208,8 @@ export struct LoginView {
     .padding({
       left: LayoutTokens.pagePaddingWide,
       right: LayoutTokens.pagePaddingWide,
-      top: SpaceTokens.xl,
-      bottom: SpaceTokens.xl
+      top: SpaceTokens.lg,
+      bottom: SpaceTokens.lg
     })
     .backgroundColor(ColorTokens.canvas)
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])

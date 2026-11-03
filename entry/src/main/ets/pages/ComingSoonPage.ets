@@ -22,7 +22,7 @@ export struct ComingSoonPage {
 
   build() {
     NavDestination() {
-      Column({ space: SpaceTokens.md }) {
+      Column({ space: SpaceTokens.sm }) {
         Text(this.title)
           .fontSize(TypeTokens.title.size)
           .fontWeight(700)
@@ -44,7 +44,7 @@ export struct ComingSoonPage {
             }
           }
         })
-          .margin({ top: SpaceTokens.xl })
+          .margin({ top: SpaceTokens.lg })
           .alignSelf(ItemAlign.Start)
       }
       .width('100%')

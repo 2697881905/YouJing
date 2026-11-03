@@ -73,7 +73,7 @@ export struct FamilyProbePage {
   }
 
   build() {
-    Column({ space: SpaceTokens.md }) {
+    Column({ space: SpaceTokens.sm }) {
       // 1/8 Pressable —— @BuilderParam content + 普通函数成员 action
       Pressable({
         content: this.probeContent,
@@ -95,7 +95,7 @@ export struct FamilyProbePage {
       // 3/8 Skeleton —— 显式传满三个 @Prop，让件内装饰器组合全走一遍
       Skeleton({
         skeletonWidth: '100%',
-        skeletonHeight: SpaceTokens.lg,
+        skeletonHeight: SpaceTokens.base,
         radius: RadiusTokens.reason
       })
 

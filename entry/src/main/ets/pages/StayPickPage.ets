@@ -247,7 +247,7 @@ export struct StayPickPage {
 
   @Builder
   mapChip(pick: AreaPick) {
-    Row({ space: SpaceTokens.xs }) {
+    Row({ space: SpaceTokens.xxs }) {
       Circle()
         .width(6)
         .height(6)
@@ -257,10 +257,10 @@ export struct StayPickPage {
         .fontWeight(450)
         .fontColor(ColorTokens.ink)
     }
-    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs, bottom: SpaceTokens.xs })
+    .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs, top: SpaceTokens.xxs, bottom: SpaceTokens.xxs })
     .borderRadius(RadiusTokens.media)
     .backgroundColor(ColorTokens.surfaceElevated)
-    .margin(SpaceTokens.xs)
+    .margin(SpaceTokens.xxs)
   }
 
   private dotColor(group: AreaGroup): Resource {
@@ -274,7 +274,7 @@ export struct StayPickPage {
   areaCard(pick: AreaPick) {
     Column() {
       Row() {
-        Column({ space: SpaceTokens.xs }) {
+        Column({ space: SpaceTokens.xxs }) {
           Text(pick.area.name)
             .fontSize(TypeTokens.headline.size)
             .fontWeight(600)
@@ -306,10 +306,10 @@ export struct StayPickPage {
           .fontWeight(600)
           .fontColor(pick.aiRank === 1 ? ColorTokens.onPrimary : ColorTokens.body)
           .height(22)
-          .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+          .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs })
           .borderRadius(RadiusTokens.pill)
           .backgroundColor(pick.aiRank === 1 ? ColorTokens.primary : ColorTokens.surfaceSubtle)
-          .margin({ right: SpaceTokens.sm })
+          .margin({ right: SpaceTokens.xs })
 
         if (this.selectedId === pick.area.id) {
           SymbolGlyph($r('sys.symbol.checkmark'))
@@ -328,15 +328,15 @@ export struct StayPickPage {
         Text(pick.reason)
           .fontSize(TypeTokens.small.size)
           .fontColor(ColorTokens.ink)
-          .margin({ top: SpaceTokens.xs })
+          .margin({ top: SpaceTokens.xxs })
       }
       .alignItems(HorizontalAlign.Start)
       .width('100%')
-      .padding(SpaceTokens.md)
+      .padding(SpaceTokens.sm)
       .borderRadius(RadiusTokens.reason)
       .backgroundColor(ColorTokens.surfacePanel)
       .border({ width: { left: 2 }, color: ColorTokens.primary })
-      .margin({ top: SpaceTokens.md })
+      .margin({ top: SpaceTokens.sm })
 
       // 通勤三列（底稿为 到首个景点/日均通勤/舒适型房源，三项均需路径规划与住宿库存，
       // 内置库没有；换成区域库真有的三个字段，版式不变）。
@@ -347,7 +347,7 @@ export struct StayPickPage {
           .fontWeight(450)
           .fontColor(ColorTokens.muted)
           .width('100%')
-          .margin({ top: SpaceTokens.md })
+          .margin({ top: SpaceTokens.sm })
       } else {
         Row() {
           this.commuteCol(`${pick.area.airportMinutes}分钟`, '到机场')
@@ -355,11 +355,11 @@ export struct StayPickPage {
           this.commuteCol(pick.area.diningDensity, '餐饮密度')
         }
         .width('100%')
-        .margin({ top: SpaceTokens.md })
+        .margin({ top: SpaceTokens.sm })
       }
     }
     .width('100%')
-    .padding(SpaceTokens.lg)
+    .padding(SpaceTokens.base)
     .borderRadius(RadiusTokens.card)
     // 契约 card.backgroundColor = surface-elevated；填 canvas 时深色档卡片无边界（TripsPage 同批实拍）
     .backgroundColor(ColorTokens.surfaceElevated)
@@ -369,7 +369,7 @@ export struct StayPickPage {
       color: ColorTokens.primary,
       radius: RadiusTokens.card
     })
-    .margin({ bottom: SpaceTokens.md })
+    .margin({ bottom: SpaceTokens.sm })
     .onClick(() => {
       this.selectedId = pick.area.id;
     })
@@ -394,7 +394,7 @@ export struct StayPickPage {
 
   @Builder
   mapSourceNotice() {
-    Column({ space: SpaceTokens.xs }) {
+    Column({ space: SpaceTokens.xxs }) {
       Text('住宿区来自地图服务')
         .fontSize(TypeTokens.overline.size)
         .fontWeight(600)
@@ -406,10 +406,10 @@ export struct StayPickPage {
     }
     .alignItems(HorizontalAlign.Start)
     .width('100%')
-    .padding(SpaceTokens.md)
+    .padding(SpaceTokens.sm)
     .borderRadius(RadiusTokens.reason)
     .backgroundColor(ColorTokens.surfacePanel)
-    .margin({ bottom: SpaceTokens.md })
+    .margin({ bottom: SpaceTokens.sm })
   }
 
   /** 绝对滚动偏移 → 顶栏磨砂开关（>0 即开，静止归零） */
@@ -434,7 +434,7 @@ export struct StayPickPage {
               Text('正在加载住宿区域…')
                 .fontSize(TypeTokens.caption.size)
                 .fontColor(ColorTokens.muted)
-                .margin({ top: SpaceTokens.md })
+                .margin({ top: SpaceTokens.sm })
             }
             .width('100%')
             .layoutWeight(1)
@@ -445,7 +445,7 @@ export struct StayPickPage {
               FlowSteps({ step: FLOW_STEP_STAY_PICK })
             }
             .width('100%')
-            .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md })
+            .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.sm })
 
             // 官方 List：地图面板一个 ListItem，三张候选卡各成一个 ListItem（卡间距在卡片自己身上）
             List({ scroller: this.barScroller }) {
@@ -471,7 +471,7 @@ export struct StayPickPage {
                     .fontWeight(450)
                     .fontColor(ColorTokens.ink)
                     .height(28)
-                    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+                    .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs })
                     .borderRadius(RadiusTokens.pill)
                     .backgroundColor(ColorTokens.canvas)
                     .margin(LayoutTokens.mapOverlayInset - 8)
@@ -483,7 +483,7 @@ export struct StayPickPage {
                       angle: 180,
                       colors: [[ColorTokens.routeBgTop, 0], [ColorTokens.routeBgBottom, 1]]
                     })
-                  Column({ space: SpaceTokens.sm }) {
+                  Column({ space: SpaceTokens.xs }) {
                     Text('本次候选的三片')
                       .fontSize(TypeTokens.overline.size)
                       .fontWeight(600)
@@ -504,14 +504,14 @@ export struct StayPickPage {
                   .width('100%')
                   .height('100%')
                   .justifyContent(FlexAlign.Center)
-                  .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+                  .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
                 }
               }
               .width('100%')
               .height(LayoutTokens.mapHeightCompact)
               .borderRadius(RadiusTokens.card)
               .clip(true)
-              .margin({ bottom: SpaceTokens.md })
+              .margin({ bottom: SpaceTokens.sm })
             }
 
             ForEach(this.picks, (pick: AreaPick) => {
@@ -527,7 +527,7 @@ export struct StayPickPage {
           .cachedCount(4)
           .alignListItem(ListItemAlign.Start)
           // 滚动预留跟着钉底条抬高的一档补回来
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
+          .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
             bottom: LayoutTokens.stickyBarScrollReserve + LayoutTokens.floatingDockClearance })
           .onDidScroll((): void => {
             this.syncBarScroll();
@@ -539,7 +539,7 @@ export struct StayPickPage {
 
         if (this.loaded) {
           Column() {
-            Row({ space: SpaceTokens.md }) {
+            Row({ space: SpaceTokens.sm }) {
               YoujingButton({
                 variant: YoujingButtonVariant.SECONDARY,
                 label: this.mapCity ? '帮我选（住得最方便）' : '帮我选（离景点最近）',
@@ -569,7 +569,7 @@ export struct StayPickPage {
             }
           }
           .width('100%')
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md,
+          .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.sm,
             bottom: LayoutTokens.floatingDockClearance })
           .backgroundColor(ColorTokens.canvas)
         }

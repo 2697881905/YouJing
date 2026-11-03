@@ -44,7 +44,7 @@ export struct YoujingButton {
 
   build() {
     Button() {
-      Row({ space: SpaceTokens.xs }) {
+      Row({ space: SpaceTokens.xxs }) {
         if (this.leadingSymbol !== undefined) {
           SymbolGlyph(this.leadingSymbol)
             .fontSize(IconSizes.control)

@@ -34,7 +34,7 @@ export struct GenerateFailedPage {
 
   /** 宽屏下的左右内缩：手机档原样返回 base（等于没改），折叠屏展开把内容收成 600vp 一栏 */
   private wideInset(): number {
-    return symmetricInsetForCap(this.windowWidthVp, BP_MD_MIN_VP, SpaceTokens.lg);
+    return symmetricInsetForCap(this.windowWidthVp, BP_MD_MIN_VP, SpaceTokens.base);
   }
   private pathStack: NavPathStack = APP_NAV;
   @Prop code: number = 0;
@@ -88,7 +88,7 @@ export struct GenerateFailedPage {
         .fontColor([ColorTokens.muted])
     }
     .width('100%')
-    .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+    .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
   }
 
   /**
@@ -123,7 +123,7 @@ export struct GenerateFailedPage {
             SymbolGlyph($r('sys.symbol.exclamationmark_circle'))
               .fontSize(IconSizes.display)
               .fontColor([ColorTokens.warning])
-              .margin({ top: SpaceTokens.fiveXl, bottom: SpaceTokens.lg })
+              .margin({ top: SpaceTokens.xxl, bottom: SpaceTokens.base })
             Text(failureHeadline(this.code))
               .fontSize(TypeTokens.title.size)
               .fontWeight(700)
@@ -132,14 +132,14 @@ export struct GenerateFailedPage {
             Text(this.detailText())
               .fontSize(TypeTokens.small.size)
               .fontColor(ColorTokens.body)
-              .margin({ top: SpaceTokens.xs, bottom: SpaceTokens.xl })
+              .margin({ top: SpaceTokens.xxs, bottom: SpaceTokens.lg })
               .textAlign(TextAlign.Center)
             // 原始诊断仍要在，但不能占用户读的那一行：debug 版另起一小行、明确标「调试」
             if (BuildConfig.IS_DEBUG && this.detail.length > 0) {
               Text(`调试：${this.detail}`)
                 .fontSize(TypeTokens.caption.size)
                 .fontColor(ColorTokens.muted)
-                .margin({ top: SpaceTokens.xs, bottom: SpaceTokens.md })
+                .margin({ top: SpaceTokens.xxs, bottom: SpaceTokens.sm })
                 .textAlign(TextAlign.Center)
             }
 
@@ -148,13 +148,13 @@ export struct GenerateFailedPage {
                 .fontSize(TypeTokens.overline.size)
                 .fontWeight(600)
                 .fontColor(ColorTokens.muted)
-                .margin({ bottom: SpaceTokens.sm })
+                .margin({ bottom: SpaceTokens.xs })
               Column() {
                 Text(`${this.fixes.length} 条可行修法`)
                   .fontSize(TypeTokens.overline.size)
                   .fontWeight(600)
                   .fontColor(ColorTokens.muted)
-                  .margin({ bottom: SpaceTokens.xs })
+                  .margin({ bottom: SpaceTokens.xxs })
                 ForEach(this.fixes, (fix: FixOption, idx: number) => {
                   // 官方 Button 承载整行：原来是裸 Column + onClick——没有按压态、
                   // 不是可聚焦控件，读屏与外接键盘都跳不过去
@@ -178,7 +178,7 @@ export struct GenerateFailedPage {
               }
               .alignItems(HorizontalAlign.Start)
               .width('100%')
-              .padding(SpaceTokens.lg)
+              .padding(SpaceTokens.base)
               .borderRadius(RadiusTokens.card)
               .backgroundColor(ColorTokens.surfaceElevated)
             }
@@ -195,7 +195,7 @@ export struct GenerateFailedPage {
           this.syncBarScroll();
         })
 
-        Column({ space: SpaceTokens.sm }) {
+        Column({ space: SpaceTokens.xs }) {
           YoujingButton({
             variant: YoujingButtonVariant.PRIMARY,
             label: '再试一次',

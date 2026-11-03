@@ -143,11 +143,11 @@ export struct PreferenceQAPage {
           FlowSteps({ step: FLOW_STEP_PREFERENCE_QA })
         }
         .width('100%')
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md })
+        .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.sm })
 
         // 契约 question-card 进度形态：6px 圆点串（active primary / 其余 surface-sunken）
         // + overline「问题 N/M」——原来是一条 4px 通栏轨道，与组件规格对不上
-        Row({ space: SpaceTokens.xs }) {
+        Row({ space: SpaceTokens.xxs }) {
           ForEach(this.questions, (q: FlowQuestion, i: number) => {
             Circle()
               .width(LayoutTokens.questionProgressDot)
@@ -159,10 +159,10 @@ export struct PreferenceQAPage {
             .fontWeight(600)
             .fontColor(ColorTokens.muted)
             .fontFeature("'tnum' on")
-            .margin({ left: SpaceTokens.sm })
+            .margin({ left: SpaceTokens.xs })
         }
         .width('100%')
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md })
+        .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.sm })
 
         // 官方 List：题干占一个 ListItem，每个选项一个 ListItem（不再 Scroll+Column 手排间距）
         List({ space: LayoutTokens.questionOptionGap, scroller: this.barScroller }) {
@@ -173,11 +173,11 @@ export struct PreferenceQAPage {
                 .fontWeight(700)
                 .fontFamily(TypeTokens.title.family)
                 .fontColor(ColorTokens.ink)
-                .margin({ top: SpaceTokens.xl, bottom: SpaceTokens.xs })
+                .margin({ top: SpaceTokens.lg, bottom: SpaceTokens.xxs })
               Text(this.questions[this.qIndex].helper === undefined ? '' : this.questions[this.qIndex].helper as string)
                 .fontSize(TypeTokens.small.size)
                 .fontColor(ColorTokens.body)
-                .margin({ bottom: SpaceTokens.lg })
+                .margin({ bottom: SpaceTokens.base })
             }
             .alignItems(HorizontalAlign.Start)
             .width('100%')
@@ -205,12 +205,12 @@ export struct PreferenceQAPage {
         .edgeEffect(EdgeEffect.Spring)
         .cachedCount(6)
         .alignListItem(ListItemAlign.Start)
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.bottomScrollReserve })
+        .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: LayoutTokens.bottomScrollReserve })
         .onDidScroll((): void => {
           this.syncBarScroll();
         })
 
-        Row({ space: SpaceTokens.md }) {
+        Row({ space: SpaceTokens.sm }) {
           YoujingButton({
             variant: YoujingButtonVariant.SECONDARY,
             label: '上一题',
@@ -241,7 +241,7 @@ export struct PreferenceQAPage {
           })
         }
         .width('100%')
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md,
+        .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.sm,
           bottom: LayoutTokens.floatingDockClearance })
       }
       .width('100%')

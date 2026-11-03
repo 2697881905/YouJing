@@ -97,12 +97,12 @@ export struct AreaMorePage {
       .fontWeight(600)
       .fontColor(ColorTokens.muted)
       .width('100%')
-      .padding({ top: SpaceTokens.md, bottom: SpaceTokens.xs })
+      .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.xxs })
   }
 
   @Builder
   areaRow(a: Area) {
-    Row({ space: SpaceTokens.md }) {
+    Row({ space: SpaceTokens.sm }) {
       Column() {
         Text(a.name)
           .fontSize(TypeTokens.body.size)
@@ -146,7 +146,7 @@ export struct AreaMorePage {
         .fontSize(TypeTokens.body.size)
         .fontWeight(600)
         .height(LayoutTokens.minTouchTarget)
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+        .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
         .type(ButtonType.Capsule)
         .buttonStyle(ButtonStyleMode.NORMAL)
         .onClick((): void => {
@@ -155,7 +155,7 @@ export struct AreaMorePage {
     }
     .alignItems(VerticalAlign.Center)
     .width('100%')
-    .padding(SpaceTokens.lg)
+    .padding(SpaceTokens.base)
     .borderRadius(RadiusTokens.card)
     .backgroundColor(ColorTokens.surfaceElevated)
   }
@@ -180,11 +180,11 @@ export struct AreaMorePage {
             .onChange((v: string): void => {
               this.keyword = v;
             })
-            .margin({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.sm })
+            .margin({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.xs })
         }
 
         if (this.loading) {
-          Column({ space: SpaceTokens.md }) {
+          Column({ space: SpaceTokens.sm }) {
             LoadingProgress()
               .width(IconSizes.display)
               .height(IconSizes.display)
@@ -197,7 +197,7 @@ export struct AreaMorePage {
           .justifyContent(FlexAlign.Center)
         } else if (this.areas.length === 0) {
           // 空态（契约 empty-state 规格：48px 展示档图标 + title + callout + 一个主按钮）
-          Column({ space: SpaceTokens.md }) {
+          Column({ space: SpaceTokens.sm }) {
             SymbolGlyph($r('sys.symbol.map'))
               .fontSize(IconSizes.display)
               .fontColor([ColorTokens.muted])
@@ -225,16 +225,16 @@ export struct AreaMorePage {
           .width('100%')
           .layoutWeight(1)
           .justifyContent(FlexAlign.Center)
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+          .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
         } else if (this.visible().length === 0) {
           Text(`没有匹配「${this.keyword}」的区域`)
             .fontSize(TypeTokens.small.size)
             .fontColor(ColorTokens.muted)
             .width('100%')
             .textAlign(TextAlign.Center)
-            .margin({ top: SpaceTokens.xl })
+            .margin({ top: SpaceTokens.lg })
         } else {
-          List({ space: SpaceTokens.xs, scroller: this.barScroller }) {
+          List({ space: SpaceTokens.xxs, scroller: this.barScroller }) {
             ForEach(GROUP_ORDER, (g: AreaGroup) => {
               if (this.inGroup(g).length > 0) {
                 ListItemGroup({ header: this.groupHeader(this.groupLabel(g)) }) {
@@ -254,7 +254,7 @@ export struct AreaMorePage {
           .cachedCount(6)
           // 真机实拍（§5o）：这一屏最后一片区域整行压在浮动 dock 底下，
           // dock 是覆盖层，滚动容器不给净空就会被盖住——四个 tab 下的页面里只有这屏漏了
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
+          .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
             bottom: LayoutTokens.floatingDockClearance })
           .layoutWeight(1)
           .onDidScroll((): void => {

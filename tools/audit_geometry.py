@@ -29,8 +29,10 @@ ETS_FILES = (sorted(glob.glob(os.path.join(ROOT, 'entry/src/main/ets/pages/*.ets
 # 契约名 → 本项目 token 字段名（命名不同是有意为之：token 用语义名，不用尺度名）
 RADIUS_ALIAS = {'none': 'none', 'xs': 'media', 'sm': 'capsule', 'md': 'reason',
                 'lg': 'card', 'xl': 'hero', 'floating-bar': 'dock', 'pill': 'pill'}
-SPACE_ALIAS = {'xxs': 'xs', 'xs': 'sm', 'sm': 'md', 'base': 'lg', 'md': 'twoXl',
-               'lg': 'xl', 'xl': 'fourXl', 'xxl': 'fiveXl'}
+# 契约名 == 实现名（2026-11-03 契约 v2 T6 改名后恒等）：此前是整体错一档的映射，
+# 留着旧映射会在改名当晚把每一档都报成偏差。
+SPACE_ALIAS = {'xxs': 'xxs', 'xs': 'xs', 'sm': 'sm', 'base': 'base',
+               'md': 'md', 'lg': 'lg', 'xl': 'xl', 'xxl': 'xxl'}
 # layout 里不进 LayoutTokens 的键：断点/比例/列数不是尺寸；圆角和字号各有自己的表
 LAYOUT_SKIP = {'media-aspect-ratio': '比例，不是尺寸',
                'breakpoint-compact': '断点：当前只做 compact 竖屏，宽屏未立项',

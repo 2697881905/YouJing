@@ -46,9 +46,9 @@ export struct StatRow {
   @Prop items: StatItem[] = [];
 
   build() {
-    Row({ space: SpaceTokens.lg }) {
+    Row({ space: SpaceTokens.base }) {
       ForEach(this.items, (item: StatItem) => {
-        Column({ space: SpaceTokens.xs }) {
+        Column({ space: SpaceTokens.xxs }) {
           Text(item.value)
             .fontSize(TypeTokens.headline.size)
             .fontWeight(TypeTokens.headline.weight)

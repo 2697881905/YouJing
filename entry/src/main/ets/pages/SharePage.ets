@@ -42,7 +42,7 @@ export struct SharePage {
 
   /** 宽屏下的左右内缩：手机档原样返回 base（等于没改），折叠屏展开把内容收成 600vp 一栏 */
   private wideInset(): number {
-    return symmetricInsetForCap(this.windowWidthVp, BP_MD_MIN_VP, SpaceTokens.lg);
+    return symmetricInsetForCap(this.windowWidthVp, BP_MD_MIN_VP, SpaceTokens.base);
   }
   @Prop tripId: string = '';
   @State private subtitle: string = '';
@@ -130,7 +130,7 @@ export struct SharePage {
   @Builder
   optionRow(opt: ShareOption) {
     Column() {
-      Row({ space: SpaceTokens.md }) {
+      Row({ space: SpaceTokens.sm }) {
         Column() {
           SymbolGlyph(opt.symbol)
             .fontSize(IconSizes.control)
@@ -157,7 +157,7 @@ export struct SharePage {
 
       }
       .width('100%')
-      .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+      .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
     }
     .width('100%')
   }
@@ -206,12 +206,12 @@ export struct SharePage {
                   .fontWeight(700)
                   .fontFamily(TypeTokens.title.family)
                   .fontColor(ColorTokens.ink)
-                  .margin({ top: SpaceTokens.lg })
+                  .margin({ top: SpaceTokens.base })
                 Text(this.subtitle.length > 0 ? this.subtitle : '行程未就绪')
                   .fontSize(TypeTokens.small.size)
                   .fontColor(ColorTokens.body)
                   .fontFeature("'tnum' on")
-                  .margin({ top: SpaceTokens.xs, bottom: SpaceTokens.xl })
+                  .margin({ top: SpaceTokens.xxs, bottom: SpaceTokens.lg })
 
                 Column() {
                   // 底稿这块是「路线图带」：编号圆点串在一条线上，下面压一道浅色河带。
@@ -250,14 +250,14 @@ export struct SharePage {
                     .fontWeight(450)
                     .fontColor(ColorTokens.muted)
                     .fontFeature("'tnum' on")
-                    .margin({ top: SpaceTokens.xs })
+                    .margin({ top: SpaceTokens.xxs })
 
                   Column()
                     .width('100%')
                     .height(10)
                     .borderRadius(RadiusTokens.pill)
                     .backgroundColor(ColorTokens.surfaceSubtle)
-                    .margin({ top: SpaceTokens.md, bottom: SpaceTokens.lg })
+                    .margin({ top: SpaceTokens.sm, bottom: SpaceTokens.base })
 
                   Row() {
                     // 三个数在 build 内直读状态变量：@Builder 形参是值快照，行程异步到达后不会刷新
@@ -297,10 +297,10 @@ export struct SharePage {
                   }
                   .width('100%')
                   .justifyContent(FlexAlign.SpaceAround)
-                  .margin({ top: SpaceTokens.md })
+                  .margin({ top: SpaceTokens.sm })
                 }
                 .width('100%')
-                .padding(SpaceTokens.lg)
+                .padding(SpaceTokens.base)
                 .borderRadius(RadiusTokens.card)
                 .backgroundColor(ColorTokens.surfaceElevated)
               }
@@ -324,11 +324,11 @@ export struct SharePage {
                 })
               }
               .divider({ strokeWidth: LayoutTokens.hairlineWidth, color: ColorTokens.separator })
-              .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+              .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
               .backgroundColor(ColorTokens.surfaceSubtle)
               .borderRadius(RadiusTokens.card)
               .clip(true)
-              .margin({ top: SpaceTokens.xl })
+              .margin({ top: SpaceTokens.lg })
             }
           }
           .layoutWeight(1)
@@ -349,7 +349,7 @@ export struct SharePage {
         // 底稿屏16 没有钉底动作条：两个动作就是列表里那两行。
         // 原来这里又摆一颗「导出 .ics」+一颗「分享行程文本」，与上面两行完全重复
         // （同一屏两套入口，正是"业务流程混乱"的形态之一），撤掉，只留常驻的诚实说明。
-        Column({ space: SpaceTokens.sm }) {
+        Column({ space: SpaceTokens.xs }) {
           Text('内容在本机生成，不上传服务器、不含账号信息')
             .fontSize(TypeTokens.caption.size)
             .fontWeight(450)

@@ -493,16 +493,16 @@ export struct TripInputPage {
 
   @Builder
   citySheet() {
-    Column({ space: SpaceTokens.sm }) {
+    Column({ space: SpaceTokens.xs }) {
       Text('其他城市')
         .fontSize(TypeTokens.overline.size)
         .fontWeight(600)
         .fontColor(ColorTokens.muted)
         .width('100%')
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+        .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
       // 主操作固定在滚动区外：键盘压缩窗口时百分比高的 Scroll 可能不进可滚状态，
       // 放在里面的「使用」会点不到（tools/audit_scroll_actions.py 的同类缺陷）
-      Row({ space: SpaceTokens.sm }) {
+      Row({ space: SpaceTokens.xs }) {
         TextInput({ text: this.otherCity, placeholder: '输入城市名，如西安' })
           .height(LayoutTokens.minTouchTarget)
           .fontSize(TypeTokens.small.size)
@@ -522,13 +522,13 @@ export struct TripInputPage {
       }
       .width('100%')
       // 往下让出系统半模态关闭 ✕ 的高度，否则「使用」按钮会被 ✕ 压住/切掉右缘
-      .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.xl })
+      .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.lg })
       Text('未内置城市会用地图服务检索；开放时间与预约以官方为准')
         .fontSize(TypeTokens.caption.size)
         .fontWeight(450)
         .fontColor(ColorTokens.muted)
         .width('100%')
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+        .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
 
       Scroll() {
         Column() {
@@ -537,8 +537,8 @@ export struct TripInputPage {
             .fontWeight(600)
             .fontColor(ColorTokens.muted)
             .width('100%')
-            .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.sm,
-              bottom: SpaceTokens.xs })
+            .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.xs,
+              bottom: SpaceTokens.xxs })
           Flex({ wrap: FlexWrap.Wrap }) {
             ForEach(POPULAR_MAP_CITIES, (c: string) => {
               Button(c)
@@ -546,7 +546,7 @@ export struct TripInputPage {
                 .fontWeight(this.city === c ? 600 : 450)
                 .fontColor(this.city === c ? ColorTokens.ink : ColorTokens.body)
                 .height(LayoutTokens.minTouchTarget)
-                .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+                .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
                 .type(ButtonType.Capsule)
                 .buttonStyle(ButtonStyleMode.NORMAL)
                 .backgroundColor(this.city === c ? ColorTokens.primaryTint : ColorTokens.surfaceElevated)
@@ -554,7 +554,7 @@ export struct TripInputPage {
                   width: this.city === c ? LayoutTokens.glassBorderWidth : 0,
                   color: ColorTokens.primary
                 })
-                .margin({ right: SpaceTokens.sm, bottom: SpaceTokens.sm })
+                .margin({ right: SpaceTokens.xs, bottom: SpaceTokens.xs })
                 .accessibilityText(`选择热门城市 ${c}`)
                 .onClick((): void => {
                   this.city = c;
@@ -563,15 +563,15 @@ export struct TripInputPage {
             }, (c: string): string => `hot-city-${c}`)
           }
           .width('100%')
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+          .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
 
           Text('内置数据城市')
             .fontSize(TypeTokens.overline.size)
             .fontWeight(600)
             .fontColor(ColorTokens.muted)
             .width('100%')
-            .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.sm,
-              bottom: SpaceTokens.xs })
+            .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.xs,
+              bottom: SpaceTokens.xxs })
 
           ForEach(CITIES, (c: string) => {
             // 官方 Button 承载整行：原来是裸 Row + onClick，读屏进不去也没有按压态。
@@ -591,7 +591,7 @@ export struct TripInputPage {
               }
               .width('100%')
               .height(LayoutTokens.minTouchTarget)
-              .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+              .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
             }
             .buttonStyle(ButtonStyleMode.TEXTUAL)
             .width('100%')
@@ -612,7 +612,7 @@ export struct TripInputPage {
     }
     .width('100%')
     .height('100%')
-    .padding({ top: SpaceTokens.md, bottom: SpaceTokens.md })
+    .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
     .alignItems(HorizontalAlign.Start)
     .backgroundColor(ColorTokens.canvas)
   }
@@ -641,7 +641,7 @@ export struct TripInputPage {
   @Builder
   intentSheet() {
     Column() {
-      Column({ space: SpaceTokens.xs }) {
+      Column({ space: SpaceTokens.xxs }) {
         Text('识别结果')
           .fontSize(TypeTokens.headline.size)
           .fontWeight(700)
@@ -653,10 +653,10 @@ export struct TripInputPage {
       }
       .alignItems(HorizontalAlign.Start)
       .width('100%')
-      .padding({ top: SpaceTokens.md, bottom: SpaceTokens.sm })
+      .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.xs })
 
       Scroll() {
-        Column({ space: SpaceTokens.xs }) {
+        Column({ space: SpaceTokens.xxs }) {
           this.intentRow('目的地', this.pvCity)
           this.intentRow('日期', this.pvWhen)
           this.intentRow('人数', this.pvPeople)
@@ -670,7 +670,7 @@ export struct TripInputPage {
               .fontColor(ColorTokens.muted)
               .lineHeight(TypeTokens.caption.size * 1.5)
               .width('100%')
-              .margin({ top: SpaceTokens.sm })
+              .margin({ top: SpaceTokens.xs })
           }
         }
         .alignItems(HorizontalAlign.Start)
@@ -680,7 +680,7 @@ export struct TripInputPage {
       .scrollBar(BarState.Off)
       .align(Alignment.Top)
 
-      Column({ space: SpaceTokens.sm }) {
+      Column({ space: SpaceTokens.xs }) {
         YoujingButton({
           variant: YoujingButtonVariant.PRIMARY,
           label: '直接生成行程',
@@ -701,11 +701,11 @@ export struct TripInputPage {
         })
       }
       .width('100%')
-      .padding({ top: SpaceTokens.md })
+      .padding({ top: SpaceTokens.sm })
     }
     .width('100%')
     .height('100%')
-    .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: SpaceTokens.lg })
+    .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.base })
     .backgroundColor(ColorTokens.canvas)
     .alignItems(HorizontalAlign.Start)
   }
@@ -727,7 +727,7 @@ export struct TripInputPage {
             // §5.7 的重复只发生在第二行：帧声明的衬线大标题是「开启一次有迹可循的旅程」，
             // 而它下面那句「设定出行基础参数，AI 将基于…」与顶栏副标题一字不差，
             // 所以删掉重复的那一行、保留帧的衬线槽，再用步骤进度占住腾出的高度
-            Column({ space: SpaceTokens.sm }) {
+            Column({ space: SpaceTokens.xs }) {
               Text('开启一次有迹可循的旅程')
                 .fontSize(TypeTokens.title.size)
                 .fontWeight(700)
@@ -737,10 +737,10 @@ export struct TripInputPage {
             }
             .alignItems(HorizontalAlign.Start)
             .width('100%')
-            .margin({ top: SpaceTokens.lg, bottom: SpaceTokens.lg })
+            .margin({ top: SpaceTokens.base, bottom: SpaceTokens.base })
 
             // 一句话成行程：本地解析，识别结果先给预览，再由用户决定直接生成或去逐屏调整
-            Column({ space: SpaceTokens.sm }) {
+            Column({ space: SpaceTokens.xs }) {
               Text('一句话成行程')
                 .fontSize(TypeTokens.body.size)
                 .fontWeight(600)
@@ -773,7 +773,7 @@ export struct TripInputPage {
                   .fontColor(ColorTokens.danger)
                   .width('100%')
               }
-              Row({ space: SpaceTokens.sm }) {
+              Row({ space: SpaceTokens.xs }) {
                 // 实心主按钮留给底部「开始规划」，这里用次按钮，避免同屏双实心蓝
                 YoujingButton({
                   variant: YoujingButtonVariant.SECONDARY,
@@ -798,12 +798,12 @@ export struct TripInputPage {
             }
             .alignItems(HorizontalAlign.Start)
             .width('100%')
-            .padding(SpaceTokens.md)
+            .padding(SpaceTokens.sm)
             .borderRadius(RadiusTokens.card)
             .backgroundColor(ColorTokens.surfaceSubtle)
-            .margin({ bottom: SpaceTokens.lg })
+            .margin({ bottom: SpaceTokens.base })
 
-            Column({ space: SpaceTokens.md }) {
+            Column({ space: SpaceTokens.sm }) {
               // 目的地
               Button({ type: ButtonType.Normal, stateEffect: true }) {
                 Row() {
@@ -813,7 +813,7 @@ export struct TripInputPage {
                       .fontSize(TypeTokens.headline.size)
                       .fontWeight(600)
                       .fontColor(ColorTokens.ink)
-                      .margin({ top: SpaceTokens.xs })
+                      .margin({ top: SpaceTokens.xxs })
                   }
                   .alignItems(HorizontalAlign.Start)
                   .layoutWeight(1)
@@ -821,7 +821,7 @@ export struct TripInputPage {
                   this.chevron()
                 }
                 .width('100%')
-                .padding(SpaceTokens.md)
+                .padding(SpaceTokens.sm)
                 .borderRadius(RadiusTokens.card)
                 .backgroundColor(ColorTokens.surfaceSubtle)
               }
@@ -845,13 +845,13 @@ export struct TripInputPage {
                       .fontWeight(600)
                       .fontColor(ColorTokens.ink)
                       .fontFeature("'tnum' on")
-                      .margin({ top: SpaceTokens.xs })
+                      .margin({ top: SpaceTokens.xxs })
                     Text(`${this.dayCount()}天${this.dayCount() - 1}晚`)
                       .fontSize(TypeTokens.caption.size)
                       .fontWeight(450)
                       .fontColor(ColorTokens.muted)
                       .fontFeature("'tnum' on")
-                      .margin({ top: SpaceTokens.xs })
+                      .margin({ top: SpaceTokens.xxs })
                   }
                   .alignItems(HorizontalAlign.Start)
                   .layoutWeight(1)
@@ -859,7 +859,7 @@ export struct TripInputPage {
                   this.chevron()
                 }
                 .width('100%')
-                .padding(SpaceTokens.md)
+                .padding(SpaceTokens.sm)
                 .borderRadius(RadiusTokens.card)
                 .backgroundColor(ColorTokens.surfaceSubtle)
               }
@@ -882,24 +882,24 @@ export struct TripInputPage {
                     .fontWeight(600)
                     .fontColor(ColorTokens.ink)
                     .fontFeature("'tnum' on")
-                    .margin({ top: SpaceTokens.xs })
+                    .margin({ top: SpaceTokens.xxs })
                 }
                 .alignItems(HorizontalAlign.Start)
                 .layoutWeight(1)
 
-                Row({ space: SpaceTokens.xs }) {
+                Row({ space: SpaceTokens.xxs }) {
                   ForEach(this.partyOptions(), (count: number) => {
                     this.partyChip(count)
                   }, (count: number): string => `party-${count}`)
                 }
               }
               .width('100%')
-              .padding(SpaceTokens.md)
+              .padding(SpaceTokens.sm)
               .borderRadius(RadiusTokens.card)
               .backgroundColor(ColorTokens.surfaceSubtle)
 
               // 预算档位
-              Column({ space: SpaceTokens.sm }) {
+              Column({ space: SpaceTokens.xs }) {
                 Row() {
                   Column() {
                   this.fieldLabel('预算档位')
@@ -909,7 +909,7 @@ export struct TripInputPage {
                       .fontWeight(600)
                       .fontColor(ColorTokens.ink)
                       .fontFeature("'tnum' on")
-                      .margin({ top: SpaceTokens.xs })
+                      .margin({ top: SpaceTokens.xxs })
                   }
                   .alignItems(HorizontalAlign.Start)
                   .layoutWeight(1)
@@ -954,12 +954,12 @@ export struct TripInputPage {
                 .justifyContent(FlexAlign.SpaceBetween)
               }
               .width('100%')
-              .padding(SpaceTokens.md)
+              .padding(SpaceTokens.sm)
               .borderRadius(RadiusTokens.card)
               .backgroundColor(ColorTokens.surfaceSubtle)
             }
           }
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.bottomScrollReserve })
+          .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: LayoutTokens.bottomScrollReserve })
           // 表单不收窄到 720 的话，宽屏上一行「目的地」能拉到八百多 vp，
           // 输入框与滑杆的可用长度就失去意义
           .width(longFormMaxWidth(this.bp, LayoutTokens.contentMaxWidth))
@@ -993,7 +993,7 @@ export struct TripInputPage {
         // 只给滚动区设上限的话，主按钮会照旧铺满整屏（md 实测 50..2160 = 675vp，
         // 而上面的字段卡是 218..1993）——同一屏两套左右边界，就是"排版交错"。
         .width(longFormMaxWidth(this.bp, LayoutTokens.contentMaxWidth))
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md,
+        .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.sm,
           bottom: LayoutTokens.floatingDockClearance })
         // 一张节点只能挂一张 bindSheet：城市选择在根节点，识别预览挂在这条动作条上
         .bindSheet($$this.previewOpen, this.intentSheet(), {

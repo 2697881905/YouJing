@@ -138,7 +138,7 @@ struct TodayTripCard {
                 .backgroundColor($r('app.color.primary'))
             }
             .width('100%')
-            .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+            .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
             Row() {
               ForEach(this.stripNodes(), (n: StripNode) => {
                 Stack() {
@@ -161,7 +161,7 @@ struct TodayTripCard {
           }
           .width('100%')
           .alignContent(Alignment.Center)
-          .margin({ top: SpaceTokens.xs })
+          .margin({ top: SpaceTokens.xxs })
         }
   }
 
@@ -232,9 +232,9 @@ struct TodayTripCard {
         }
       }
 
-      Column({ space: SpaceTokens.xs }) {
+      Column({ space: SpaceTokens.xxs }) {
         ForEach(this.visibleRows(), (row: CardRow) => {
-          Row({ space: SpaceTokens.xs }) {
+          Row({ space: SpaceTokens.xxs }) {
             Text(row.time)
               .fontSize(TypeTokens.time.size)
               .fontWeight(TypeTokens.time.weight)
@@ -256,7 +256,7 @@ struct TodayTripCard {
         }, (row: CardRow): string => `w-${row.time}-${row.name}-${row.color}`)
       }
       .width('100%')
-      .margin({ top: SpaceTokens.xs })
+      .margin({ top: SpaceTokens.xxs })
       // 帧 Widget B 独有：编号站点条（当前站实心蓝、待预约节点套金环、最多四格）
       if (this.dimension === '2*4') {
         this.routeStrip()
@@ -270,7 +270,7 @@ struct TodayTripCard {
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         // 2×4 与 2×2 净高相同，这一屏多挂了站点条：页脚再要 4vp 上边距就压出卡片底边
         // （真机实测页脚 y 尾 2168 > 卡底 2163）。站点条本身已带留白，宽卡这里不再要。
-        .margin({ top: this.dimension === '2*4' ? 0 : SpaceTokens.xs })
+        .margin({ top: this.dimension === '2*4' ? 0 : SpaceTokens.xxs })
     }
     .alignItems(HorizontalAlign.Start)
     .width('100%')

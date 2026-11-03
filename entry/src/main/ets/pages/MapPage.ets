@@ -273,7 +273,7 @@ export struct MapPage {
       .height(LayoutTokens.minTouchTarget)
       .type(ButtonType.Capsule)
       .buttonStyle(idx === this.daySel + 1 ? ButtonStyleMode.EMPHASIZED : ButtonStyleMode.NORMAL)
-      .margin({ right: SpaceTokens.sm })
+      .margin({ right: SpaceTokens.xs })
       .onClick((): void => {
         this.applySel(idx === 0 ? ALL_DAYS : idx - 1);
       })
@@ -283,7 +283,7 @@ export struct MapPage {
   stopChip(stop: MapStop) {
     Button() {
       Column() {
-        Row({ space: SpaceTokens.xs }) {
+        Row({ space: SpaceTokens.xxs }) {
           // 编号原来是裸的品牌蓝 11fp 小字：深色档 `primary #0A84FF` 对 `surface_panel`
           // 只有 4.03:1，AA 小字门槛 4.5 过不去（浅色档同一对 4.85 是过的）。
           // 改成实心蓝底 + on_primary 数字——浅色 5.57 / 深色 5.14 都过，
@@ -315,7 +315,7 @@ export struct MapPage {
     }
     .width(132)
     .height(56)
-    .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
     .type(ButtonType.Normal)
     .borderRadius(RadiusTokens.capsule)
     .buttonStyle(ButtonStyleMode.NORMAL)
@@ -375,7 +375,7 @@ export struct MapPage {
                   this.chipRow(label, idx)
                 }, (label: string): string => `mapchip-${label}`)
               }
-              .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+              .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
             }
             .scrollable(ScrollDirection.Horizontal)
             .scrollBar(BarState.Off)
@@ -389,7 +389,7 @@ export struct MapPage {
               // 站点条从 Scroll+Row 换成官方 List：只有 List 能按序号把某一项滚进视野
               // （scrollToIndex），Scroll 得靠手算卡片宽度累加定位，一改样式就错位。
               // 卡片定宽，故用 alignListItem 而不是 lanes（分栏会把 132 宽的卡压成半宽）。
-              List({ space: SpaceTokens.sm, scroller: this.stripScroller }) {
+              List({ space: SpaceTokens.xs, scroller: this.stripScroller }) {
                 ForEach(this.stops, (stop: MapStop) => {
                   ListItem() {
                     this.stopChip(stop)
@@ -401,10 +401,10 @@ export struct MapPage {
               .scrollBar(BarState.Off)
               .width('100%')
               .height(64)
-              .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+              .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
             }
             .width('100%')
-            .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+            .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
             // 站点条钉在底部 Stack 上，原来直接坐进 dock 里（实拍「:30-」「和园」被压在
             // dock 背后只露半截）；让它整条浮在 dock 之上
             .margin({ bottom: LayoutTokens.floatingDockClearance })
@@ -425,7 +425,7 @@ export struct MapPage {
                   .fontColor(ColorTokens.primary)
               }
               .height(36)
-              .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+              .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
               .backgroundColor(ColorTokens.surfaceElevated)
               .borderRadius(RadiusTokens.pill)
               .margin({ bottom: LayoutTokens.floatingDockClearance })
@@ -438,7 +438,7 @@ export struct MapPage {
                 .fontSize(TypeTokens.caption.size)
                 .fontColor(ColorTokens.muted)
                 .height(36)
-                .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+                .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
                 .borderRadius(RadiusTokens.pill)
                 .backgroundColor(ColorTokens.surfaceElevated)
                 .margin({ bottom: LayoutTokens.floatingDockClearance })

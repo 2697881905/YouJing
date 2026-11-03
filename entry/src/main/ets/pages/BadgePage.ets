@@ -118,11 +118,11 @@ export struct BadgePage {
 
   @Builder
   summaryCard() {
-    Row({ space: SpaceTokens.md }) {
+    Row({ space: SpaceTokens.sm }) {
       SymbolGlyph($r('sys.symbol.medal'))
         .fontSize(IconSizes.display)
         .fontColor([ColorTokens.primary])
-      Column({ space: SpaceTokens.xs }) {
+      Column({ space: SpaceTokens.xxs }) {
         Text('行囊里的勋章')
           .fontSize(TypeTokens.overline.size)
           .fontWeight(600)
@@ -143,7 +143,7 @@ export struct BadgePage {
       .layoutWeight(1)
     }
     .width('100%')
-    .padding(SpaceTokens.lg)
+    .padding(SpaceTokens.base)
     .borderRadius(RadiusTokens.hero)
     .backgroundColor(ColorTokens.surfaceElevated)
     .alignItems(VerticalAlign.Center)
@@ -151,7 +151,7 @@ export struct BadgePage {
 
   @Builder
   cityHeader(city: string) {
-    Column({ space: SpaceTokens.xs }) {
+    Column({ space: SpaceTokens.xxs }) {
       Row() {
         Text(city)
           .fontSize(TypeTokens.overline.size)
@@ -182,18 +182,18 @@ export struct BadgePage {
     .width('100%')
     // 吸顶层要自带实底：sticky 头没有底板时，滚动行会从字下穿过去
     .backgroundColor(ColorTokens.canvas)
-    .padding({ top: SpaceTokens.md, bottom: SpaceTokens.xs })
+    .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.xxs })
   }
 
   @Builder
   badgeRow(badge: Badge) {
     // 整格可点：官方 Button 做壳（按压态/读屏焦点），视觉由内层承担
     Button({ type: ButtonType.Normal, stateEffect: true }) {
-      Row({ space: SpaceTokens.sm }) {
+      Row({ space: SpaceTokens.xs }) {
         SymbolGlyph($r('sys.symbol.medal'))
           .fontSize(IconSizes.control)
           .fontColor([ColorTokens.primary])
-        Column({ space: SpaceTokens.xs }) {
+        Column({ space: SpaceTokens.xxs }) {
           Text(badge.spotName)
             .fontSize(TypeTokens.body.size)
             .fontWeight(600)
@@ -215,7 +215,7 @@ export struct BadgePage {
           .fontColor([ColorTokens.icon])
       }
       .width('100%')
-      .padding(SpaceTokens.md)
+      .padding(SpaceTokens.sm)
       .alignItems(VerticalAlign.Center)
       .borderRadius(RadiusTokens.card)
       .backgroundColor(ColorTokens.surfaceElevated)
@@ -232,7 +232,7 @@ export struct BadgePage {
 
   @Builder
   emptyState() {
-    Column({ space: SpaceTokens.md }) {
+    Column({ space: SpaceTokens.sm }) {
       SymbolGlyph($r('sys.symbol.medal'))
         .fontSize(IconSizes.display)
         .fontColor([ColorTokens.muted])
@@ -250,7 +250,7 @@ export struct BadgePage {
     .width('100%')
     .layoutWeight(1)
     .justifyContent(FlexAlign.Center)
-    .padding(SpaceTokens.lg)
+    .padding(SpaceTokens.base)
   }
 
   /** 绝对滚动偏移 → 顶栏磨砂开关（>0 即开，静止归零） */
@@ -266,7 +266,7 @@ export struct BadgePage {
     HdsNavDestination() {
       Column() {
         if (this.loading) {
-          Column({ space: SpaceTokens.md }) {
+          Column({ space: SpaceTokens.sm }) {
             LoadingProgress()
               .width(IconSizes.display)
               .height(IconSizes.display)
@@ -281,7 +281,7 @@ export struct BadgePage {
         } else if (this.groups.length === 0) {
           this.emptyState()
         } else {
-          List({ space: SpaceTokens.sm, scroller: this.barScroller }) {
+          List({ space: SpaceTokens.xs, scroller: this.barScroller }) {
             ListItem() {
               this.summaryCard()
             }
@@ -301,7 +301,7 @@ export struct BadgePage {
           .edgeEffect(EdgeEffect.Spring)
           .sticky(StickyStyle.Header)
           .cachedCount(6)
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
+          .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
             bottom: LayoutTokens.floatingDockClearance })
           .layoutWeight(1)
           .onDidScroll((): void => {

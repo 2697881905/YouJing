@@ -21,6 +21,7 @@ import { EmptyState } from '../../../main/ets/components/EmptyState';
 import { Skeleton } from '../../../main/ets/components/Skeleton';
 import { Separator } from '../../../main/ets/components/Separator';
 import { Avatar, AvatarSizes } from '../../../main/ets/components/Avatar';
+import { SpaceTokens, ALLOWED_SPACINGS } from '../../../main/ets/design/SpaceTokens';
 import { StatRow, StatItem } from '../../../main/ets/components/StatRow';
 import { ChipRow, ChipItem } from '../../../main/ets/components/ChipRow';
 import { SoftChip, SoftChipTone } from '../../../main/ets/components/SoftChip';
@@ -234,6 +235,25 @@ export default function styleConfigTest(): void {
       // 把该页（连同 8 个件）拉进 ohosTest 的 emit——收口判据是 filesInfo.txt 8/8 命中。
       // 该页不注册成用例、不新增 `it`，194 口径不动。
       expect(FAMILY_PROBE_COMPONENT_COUNT).assertEqual(8);
+    });
+  });
+
+  describe('SpaceTokensContract', () => {
+    it('eight_rungs_match_contract', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+      // 契约 DESIGN.md §spacing 的八档。2026-11-03（T6）改名后实现名与契约名一一对应，
+      // 不再是「值对齐、名字整体错一档」——跨 App 复制组件时同一个 md 两边终于是同一个 20。
+      expect(SpaceTokens.xxs).assertEqual(4);
+      expect(SpaceTokens.xs).assertEqual(8);
+      expect(SpaceTokens.sm).assertEqual(12);
+      expect(SpaceTokens.base).assertEqual(16);
+      expect(SpaceTokens.md).assertEqual(20);
+      expect(SpaceTokens.lg).assertEqual(24);
+      expect(SpaceTokens.xl).assertEqual(32);
+      expect(SpaceTokens.xxl).assertEqual(48);
+      // 离表档位不许回流：18 / 28 / 94 都不在封闭集里
+      expect(ALLOWED_SPACINGS.indexOf(18)).assertEqual(-1);
+      expect(ALLOWED_SPACINGS.indexOf(28)).assertEqual(-1);
+      expect(ALLOWED_SPACINGS.indexOf(94)).assertEqual(-1);
     });
   });
 }

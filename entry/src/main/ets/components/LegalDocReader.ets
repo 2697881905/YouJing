@@ -48,13 +48,13 @@ export struct LegalDocReader {
         .fontSize(TypeTokens.small.size)
         .fontColor(ColorTokens.body)
         .lineHeight(TypeTokens.small.lineHeight)
-        .margin({ top: SpaceTokens.sm, bottom: SpaceTokens.md })
+        .margin({ top: SpaceTokens.xs, bottom: SpaceTokens.sm })
 
       // 正文可滚：宿主（弹窗 / 登录页）本身不是滚动容器，这里自带一档高度上限
       Scroll() {
         Column() {
           ForEach(docOf(this.kind).sections, (sec: LegalSection, index: number) => {
-            Column({ space: SpaceTokens.xs }) {
+            Column({ space: SpaceTokens.xxs }) {
               Text(`${index + 1}. ${sec.heading}`)
                 .fontSize(TypeTokens.small.size)
                 .fontWeight(600)
@@ -66,7 +66,7 @@ export struct LegalDocReader {
             }
             .alignItems(HorizontalAlign.Start)
             .width('100%')
-            .margin({ bottom: SpaceTokens.md })
+            .margin({ bottom: SpaceTokens.sm })
           }, (sec: LegalSection, index: number): string => `legal-${this.kind}-${index}`)
         }
         .alignItems(HorizontalAlign.Start)
@@ -84,7 +84,7 @@ export struct LegalDocReader {
           this.onBack();
         }
       })
-        .margin({ top: SpaceTokens.sm })
+        .margin({ top: SpaceTokens.xs })
     }
     .alignItems(HorizontalAlign.Start)
     .width(this.readerWidth)
@@ -94,7 +94,7 @@ export struct LegalDocReader {
     // 面板本身没有再套一层带内边距的父级。（两处口径不同，别统一改。）
     .constraintSize({ minHeight: LayoutTokens.sheetPanelWidth,
       maxWidth: longFormMaxWidth(this.bp, LayoutTokens.contentMaxWidth) })
-    .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.md, bottom: SpaceTokens.sm })
+    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.sm, bottom: SpaceTokens.xs })
     .borderRadius(RadiusTokens.reason)
     .backgroundColor(ColorTokens.surfacePanel)
   }

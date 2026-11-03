@@ -28,8 +28,8 @@ export struct FlowSteps {
   @Prop step: number = 0;
 
   build() {
-    Column({ space: SpaceTokens.sm }) {
-      Row({ space: SpaceTokens.xs }) {
+    Column({ space: SpaceTokens.xs }) {
+      Row({ space: SpaceTokens.xxs }) {
         ForEach(FLOW_STEPS, (label: string, index: number) => {
           Column()
             .layoutWeight(1)

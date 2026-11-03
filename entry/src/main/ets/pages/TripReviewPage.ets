@@ -77,7 +77,7 @@ export struct TripReviewPage {
   }
 
   private wideInset(): number {
-    return symmetricInsetForCap(this.windowWidthVp, BP_MD_MIN_VP, SpaceTokens.lg);
+    return symmetricInsetForCap(this.windowWidthVp, BP_MD_MIN_VP, SpaceTokens.base);
   }
 
   private toast(msg: string): void {
@@ -203,7 +203,7 @@ export struct TripReviewPage {
 
   @Builder
   posterStat(value: string, label: string) {
-    Column({ space: SpaceTokens.xs }) {
+    Column({ space: SpaceTokens.xxs }) {
       Text(value)
         .fontSize(TypeTokens.headline.size)
         .fontWeight(600)
@@ -223,7 +223,7 @@ export struct TripReviewPage {
   /** 屏幕内按容器铺满；离屏快照用固定宽（builder 根宽为 0 会直接失败） */
   @Builder
   posterCard(fixedWidth: boolean) {
-    Column({ space: SpaceTokens.sm }) {
+    Column({ space: SpaceTokens.xs }) {
       Row() {
         Text('旅途回放')
           .fontSize(TypeTokens.overline.size)
@@ -244,7 +244,7 @@ export struct TripReviewPage {
         .fontColor(ColorTokens.ink)
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .margin({ top: SpaceTokens.xs })
+        .margin({ top: SpaceTokens.xxs })
 
       Text(this.pvDates)
         .fontSize(TypeTokens.caption.size)
@@ -265,16 +265,16 @@ export struct TripReviewPage {
       }
       .width('100%')
       .alignItems(VerticalAlign.Top)
-      .margin({ top: SpaceTokens.md })
+      .margin({ top: SpaceTokens.sm })
 
       Text('有径 · 去过的地方都算数')
         .fontSize(TypeTokens.overline.size)
         .fontWeight(450)
         .fontColor(ColorTokens.muted)
-        .margin({ top: SpaceTokens.md })
+        .margin({ top: SpaceTokens.sm })
     }
     .width(fixedWidth ? 320 : '100%')
-    .padding(SpaceTokens.xl)
+    .padding(SpaceTokens.lg)
     .borderRadius(RadiusTokens.hero)
     .backgroundColor(ColorTokens.surfaceElevated)
     .alignItems(HorizontalAlign.Start)
@@ -287,7 +287,7 @@ export struct TripReviewPage {
       this.posterCard(true)
     }
     .width(352)
-    .padding(SpaceTokens.lg)
+    .padding(SpaceTokens.base)
     .backgroundColor(ColorTokens.canvas)
   }
 
@@ -295,7 +295,7 @@ export struct TripReviewPage {
   posterSection() {
     Column() {
       this.posterCard(false)
-      Row({ space: SpaceTokens.md }) {
+      Row({ space: SpaceTokens.sm }) {
         YoujingButton({
           variant: YoujingButtonVariant.PRIMARY,
           label: this.sharing ? '生成中…' : '分享海报',
@@ -316,7 +316,7 @@ export struct TripReviewPage {
       }
       .width('100%')
       .justifyContent(FlexAlign.Center)
-      .margin({ top: SpaceTokens.md })
+      .margin({ top: SpaceTokens.sm })
     }
     .width('100%')
     .alignItems(HorizontalAlign.Center)
@@ -331,7 +331,7 @@ export struct TripReviewPage {
 
   @Builder
   statsCard() {
-    Column({ space: SpaceTokens.sm }) {
+    Column({ space: SpaceTokens.xs }) {
       Text(this.arrivalLine())
         .fontSize(TypeTokens.caption.size)
         .fontWeight(450)
@@ -347,7 +347,7 @@ export struct TripReviewPage {
       }
     }
     .width('100%')
-    .padding(SpaceTokens.lg)
+    .padding(SpaceTokens.base)
     .borderRadius(RadiusTokens.card)
     .backgroundColor(ColorTokens.surfaceElevated)
     .alignItems(HorizontalAlign.Start)
@@ -355,7 +355,7 @@ export struct TripReviewPage {
 
   @Builder
   dayHeader(day: ReviewDay) {
-    Column({ space: SpaceTokens.xs }) {
+    Column({ space: SpaceTokens.xxs }) {
       Row() {
         Text(`Day ${day.dayIndex}`)
           .fontSize(TypeTokens.overline.size)
@@ -367,7 +367,7 @@ export struct TripReviewPage {
           .fontWeight(450)
           .fontColor(ColorTokens.muted)
           .fontFeature("'tnum' on")
-          .margin({ left: SpaceTokens.sm })
+          .margin({ left: SpaceTokens.xs })
         Blank()
         Text(`${day.checked.length} / ${day.total}`)
           .fontSize(TypeTokens.overline.size)
@@ -389,17 +389,17 @@ export struct TripReviewPage {
     }
     .width('100%')
     .backgroundColor(ColorTokens.canvas)
-    .padding({ top: SpaceTokens.md, bottom: SpaceTokens.xs })
+    .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.xxs })
     .alignItems(HorizontalAlign.Start)
   }
 
   @Builder
   checkedRow(item: ReviewItem) {
-    Row({ space: SpaceTokens.sm }) {
+    Row({ space: SpaceTokens.xs }) {
       SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
         .fontSize(IconSizes.control)
         .fontColor([ColorTokens.primary])
-      Column({ space: SpaceTokens.xs }) {
+      Column({ space: SpaceTokens.xxs }) {
         Text(item.title)
           .fontSize(TypeTokens.small.size)
           .fontWeight(600)
@@ -422,11 +422,11 @@ export struct TripReviewPage {
       }
     }
     .width('100%')
-    .padding(SpaceTokens.md)
+    .padding(SpaceTokens.sm)
     .borderRadius(RadiusTokens.card)
     .backgroundColor(ColorTokens.surfaceElevated)
     .alignItems(VerticalAlign.Center)
-    .margin({ bottom: SpaceTokens.sm })
+    .margin({ bottom: SpaceTokens.xs })
   }
 
   @Builder
@@ -436,19 +436,19 @@ export struct TripReviewPage {
       .fontWeight(450)
       .fontColor(ColorTokens.muted)
       .width('100%')
-      .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+      .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
   }
 
   @Builder
   badgesCard() {
-    Column({ space: SpaceTokens.sm }) {
+    Column({ space: SpaceTokens.xs }) {
       Text(`本次收下 ${this.newBadges.length} 枚章`)
         .fontSize(TypeTokens.overline.size)
         .fontWeight(600)
         .fontColor(ColorTokens.muted)
         .fontFeature("'tnum' on")
       ForEach(this.newBadges, (badge: Badge) => {
-        Row({ space: SpaceTokens.sm }) {
+        Row({ space: SpaceTokens.xs }) {
           SymbolGlyph($r('sys.symbol.medal'))
             .fontSize(IconSizes.control)
             .fontColor([ColorTokens.primary])
@@ -470,7 +470,7 @@ export struct TripReviewPage {
       }, (badge: Badge): string => `review-badge-${badge.firstCheckinId}`)
     }
     .width('100%')
-    .padding(SpaceTokens.lg)
+    .padding(SpaceTokens.base)
     .borderRadius(RadiusTokens.card)
     .backgroundColor(ColorTokens.surfaceElevated)
     .alignItems(HorizontalAlign.Start)
@@ -478,7 +478,7 @@ export struct TripReviewPage {
 
   @Builder
   overviewCard() {
-    Column({ space: SpaceTokens.sm }) {
+    Column({ space: SpaceTokens.xs }) {
       Text('这趟的样子')
         .fontSize(TypeTokens.overline.size)
         .fontWeight(600)
@@ -490,7 +490,7 @@ export struct TripReviewPage {
           .fontColor(ColorTokens.body)
       }
       ForEach(this.highlights, (item: string, i: number) => {
-        Row({ space: SpaceTokens.sm }) {
+        Row({ space: SpaceTokens.xs }) {
           Text('·')
             .fontSize(TypeTokens.caption.size)
             .fontWeight(450)
@@ -506,7 +506,7 @@ export struct TripReviewPage {
       }, (item: string, i: number): string => `review-hl-${i}-${item}`)
     }
     .width('100%')
-    .padding(SpaceTokens.lg)
+    .padding(SpaceTokens.base)
     .borderRadius(RadiusTokens.card)
     .backgroundColor(ColorTokens.surfaceElevated)
     .alignItems(HorizontalAlign.Start)
@@ -523,7 +523,7 @@ export struct TripReviewPage {
 
   @Builder
   content() {
-    List({ space: SpaceTokens.md, scroller: this.barScroller }) {
+    List({ space: SpaceTokens.sm, scroller: this.barScroller }) {
       ListItem() {
         this.posterSection()
       }
@@ -562,7 +562,7 @@ export struct TripReviewPage {
           .fontColor(ColorTokens.muted)
           .width('100%')
           .textAlign(TextAlign.Center)
-          .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+          .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
       }
     }
     .width('100%')
@@ -579,7 +579,7 @@ export struct TripReviewPage {
 
   @Builder
   emptyState() {
-    Column({ space: SpaceTokens.md }) {
+    Column({ space: SpaceTokens.sm }) {
       SymbolGlyph($r('sys.symbol.medal'))
         .fontSize(IconSizes.display)
         .fontColor([ColorTokens.muted])
@@ -607,14 +607,14 @@ export struct TripReviewPage {
     .width('100%')
     .layoutWeight(1)
     .justifyContent(FlexAlign.Center)
-    .padding(SpaceTokens.lg)
+    .padding(SpaceTokens.base)
   }
 
   build() {
     HdsNavDestination() {
       Column() {
         if (this.loading) {
-          Column({ space: SpaceTokens.md }) {
+          Column({ space: SpaceTokens.sm }) {
             LoadingProgress()
               .width(IconSizes.display)
               .height(IconSizes.display)

@@ -80,7 +80,7 @@ export struct ChipRow {
               this.select(index);
             }
           }) {
-            Row({ space: SpaceTokens.xs }) {
+            Row({ space: SpaceTokens.xxs }) {
               if (this.showIcon && item.symbol !== undefined) {
                 SymbolGlyph(item.symbol)
                   .fontSize(IconSizes.control)
@@ -98,7 +98,7 @@ export struct ChipRow {
                 .textOverflow({ overflow: TextOverflow.Ellipsis })
             }
             .height(this.chipHeight)
-            .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+            .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs })
             .backgroundColor(this.selectedIndex === index
               ? ColorTokens.primaryTint : ColorTokens.surfaceSubtle)
             .borderRadius(RadiusTokens.pill)

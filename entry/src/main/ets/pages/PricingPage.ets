@@ -83,9 +83,9 @@ export struct PricingPage {
 
   build() {
     HdsNavDestination() {
-      Column({ space: SpaceTokens.lg }) {
+      Column({ space: SpaceTokens.base }) {
 
-        Column({ space: SpaceTokens.xs }) {
+        Column({ space: SpaceTokens.xxs }) {
           Text('解锁完整行程')
             .fontSize(TypeTokens.title.size)
             .fontWeight(700)
@@ -98,7 +98,7 @@ export struct PricingPage {
         }
         .alignItems(HorizontalAlign.Start)
         .width('100%')
-        .margin({ top: SpaceTokens.xl })
+        .margin({ top: SpaceTokens.lg })
 
         this.planCard(
           '行程通行证',
@@ -121,7 +121,7 @@ export struct PricingPage {
           false
         )
 
-        Column({ space: SpaceTokens.sm }) {
+        Column({ space: SpaceTokens.xs }) {
           YoujingButton({
             variant: YoujingButtonVariant.PRIMARY,
             label: this.purchasing ? '处理中…' : '购买行程通行证 ¥9.9',
@@ -156,12 +156,12 @@ export struct PricingPage {
           })
         }
         .width('100%')
-        .margin({ top: SpaceTokens.md })
+        .margin({ top: SpaceTokens.sm })
         .padding({ bottom: LayoutTokens.floatingDockClearance })
       }
       .width('100%')
       .height('100%')
-      .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+      .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
       .backgroundColor(ColorTokens.canvas)
     }
     .backgroundColor(ColorTokens.canvas)
@@ -175,7 +175,7 @@ export struct PricingPage {
 
   @Builder
   planCard(title: string, price: string, features: string[], highlight: boolean) {
-    Column({ space: SpaceTokens.xs }) {
+    Column({ space: SpaceTokens.xxs }) {
       Row() {
         Text(title)
           .fontSize(TypeTokens.body.size)
@@ -185,13 +185,13 @@ export struct PricingPage {
           .fontSize(TypeTokens.body.size)
           .fontWeight(600)
           .fontColor(highlight ? ColorTokens.primary : ColorTokens.ink)
-          .margin({ left: SpaceTokens.sm })
+          .margin({ left: SpaceTokens.xs })
       }
       .width('100%')
       .justifyContent(FlexAlign.SpaceBetween)
 
       ForEach(features, (f: string): void => {
-        Row({ space: SpaceTokens.xs }) {
+        Row({ space: SpaceTokens.xxs }) {
           SymbolGlyph($r('sys.symbol.checkmark'))
             .fontSize(14)
             .fontColor([ColorTokens.success])
@@ -203,7 +203,7 @@ export struct PricingPage {
       }, (f: string, idx: number): string => `feat-${idx}`)
     }
     .width('100%')
-    .padding(SpaceTokens.md)
+    .padding(SpaceTokens.sm)
     .borderRadius(RadiusTokens.card)
     .backgroundColor(highlight ? ColorTokens.surfaceElevated : ColorTokens.surfaceSunken)
     .borderWidth(highlight ? 2 : 0)

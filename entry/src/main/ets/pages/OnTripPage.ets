@@ -109,7 +109,7 @@ export struct OnTripPage {
 
   /** 宽屏下的左右内缩：手机档原样返回 base（等于没改），折叠屏展开把内容收成 600vp 一栏 */
   private wideInset(): number {
-    return symmetricInsetForCap(this.windowWidthVp, BP_MD_MIN_VP, SpaceTokens.lg);
+    return symmetricInsetForCap(this.windowWidthVp, BP_MD_MIN_VP, SpaceTokens.base);
   }
   /**
    * 这一屏可能被 push 在五条 tab 栈的任意一条上——从「行程」页签点开就走 TRIPS_NAV。
@@ -960,7 +960,7 @@ export struct OnTripPage {
 
   @Builder
   noticeBar() {
-    Row({ space: SpaceTokens.sm }) {
+    Row({ space: SpaceTokens.xs }) {
       Text(this.notice)
         .fontSize(TypeTokens.caption.size)
         .fontWeight(450)
@@ -978,7 +978,7 @@ export struct OnTripPage {
       }
     }
     .width('100%')
-    .padding(SpaceTokens.md)
+    .padding(SpaceTokens.sm)
     .borderRadius(RadiusTokens.card)
     .backgroundColor(ColorTokens.surfaceElevated)
   }
@@ -998,8 +998,8 @@ export struct OnTripPage {
         .fontWeight(450)
         .fontColor(ColorTokens.body)
         .fontFeature("'tnum' on")
-        .margin({ top: SpaceTokens.xs })
-      Row({ space: SpaceTokens.sm }) {
+        .margin({ top: SpaceTokens.xxs })
+      Row({ space: SpaceTokens.xs }) {
         YoujingButton({
           variant: YoujingButtonVariant.SECONDARY,
           label: this.signalLabel,
@@ -1017,11 +1017,11 @@ export struct OnTripPage {
           }
         })
       }
-      .margin({ top: SpaceTokens.sm })
+      .margin({ top: SpaceTokens.xs })
     }
     .alignItems(HorizontalAlign.Start)
     .width('100%')
-    .padding(SpaceTokens.md)
+    .padding(SpaceTokens.sm)
     .borderRadius(RadiusTokens.card)
     .backgroundColor(ColorTokens.surfaceElevated)
   }
@@ -1036,7 +1036,7 @@ export struct OnTripPage {
       .fontWeight(600)
       .fontColor(ColorTokens.muted)
       .width('100%')
-      .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.xs })
+      .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xxs })
       .backgroundColor(ColorTokens.canvas)
   }
 
@@ -1060,7 +1060,7 @@ export struct OnTripPage {
           .fontWeight(450)
           .fontColor(ColorTokens.body)
           .fontFeature("'tnum' on")
-          .margin({ right: SpaceTokens.sm })
+          .margin({ right: SpaceTokens.xs })
       }
       Text(row.ongoing ? '进行中' : '已打卡')
         .fontSize(TypeTokens.overline.size)
@@ -1070,11 +1070,11 @@ export struct OnTripPage {
         SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
           .fontSize(IconSizes.control)
           .fontColor([ColorTokens.success])
-          .margin({ left: SpaceTokens.xs })
+          .margin({ left: SpaceTokens.xxs })
       }
     }
     .width('100%')
-    .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+    .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
   }
 
   /**
@@ -1108,7 +1108,7 @@ export struct OnTripPage {
     HdsNavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
       // 官方 List：hero / 下一段 / 打卡分组各占一个 ListItem，分组头吸顶、行间交给 .divider()
-      List({ space: SpaceTokens.lg, scroller: this.barScroller }) {
+      List({ space: SpaceTokens.base, scroller: this.barScroller }) {
         if (this.notice.length > 0) {
           ListItem() {
             this.noticeBar()
@@ -1134,7 +1134,7 @@ export struct OnTripPage {
                 // 只写 size/weight 就还是 sans
                 .fontFamily(TypeTokens.title.family)
                 .fontColor(ColorTokens.ink)
-                .margin({ top: SpaceTokens.xs })
+                .margin({ top: SpaceTokens.xxs })
               // heroMeta 在空态下返回的就是上面那句「今日暂无安排」——
               // 同一张卡上下印两遍（实拍确认），空态时不出这一行
               if (this.current !== null) {
@@ -1151,7 +1151,7 @@ export struct OnTripPage {
                   .fontWeight(450)
                   .fontColor(this.arrived ? ColorTokens.success : ColorTokens.muted)
                   .fontFeature("'tnum' on")
-                  .margin({ top: SpaceTokens.xs })
+                  .margin({ top: SpaceTokens.xxs })
               }
               // 今日天气（切片3 T1）：只在「今天」且取到天气时出现；有建议时追加降水窗口
               if (this.weatherText.length > 0) {
@@ -1161,7 +1161,7 @@ export struct OnTripPage {
                   .fontWeight(450)
                   .fontColor(ColorTokens.muted)
                   .fontFeature("'tnum' on")
-                  .margin({ top: SpaceTokens.xs })
+                  .margin({ top: SpaceTokens.xxs })
               }
               // 进度条只在"这一站有结束时刻"时画。一餐没有 endTime，
               // 而 progressPct() 有 Math.max(1, …) 的下限——不关掉它会被夹成满格（真机实测 1.000000）。
@@ -1169,7 +1169,7 @@ export struct OnTripPage {
                 Progress({ value: this.progressPct(), total: 100, type: ProgressType.Linear })
                   .color(ColorTokens.primary)
                   .width('100%')
-                  .margin({ top: SpaceTokens.md })
+                  .margin({ top: SpaceTokens.sm })
                   .accessibilityText(`本程已完成 ${Math.round(this.progressPct())}%`)
               }
               if (this.current !== null && this.current.note !== undefined && this.current.note.length > 0) {
@@ -1177,9 +1177,9 @@ export struct OnTripPage {
                   .fontSize(TypeTokens.caption.size)
                   .fontWeight(450)
                   .fontColor(ColorTokens.warning)
-                  .margin({ top: SpaceTokens.sm })
+                  .margin({ top: SpaceTokens.xs })
               }
-              Row({ space: SpaceTokens.md }) {
+              Row({ space: SpaceTokens.sm }) {
                 // 今天没有节点时「完成打卡」是个没有对象的可点按钮
                 if (this.current !== null) {
                   YoujingButton({
@@ -1200,16 +1200,16 @@ export struct OnTripPage {
                   }
                 })
               }
-              .margin({ top: SpaceTokens.lg })
+              .margin({ top: SpaceTokens.base })
                 Text('打卡与记账只存本机，不上传服务器')
                   .fontSize(TypeTokens.overline.size)
                   .fontWeight(450)
                   .fontColor(ColorTokens.muted)
-                  .margin({ top: SpaceTokens.sm })
+                  .margin({ top: SpaceTokens.xs })
             }
             .alignItems(HorizontalAlign.Start)
             .width('100%')
-            .padding(SpaceTokens.lg)
+            .padding(SpaceTokens.base)
             .borderRadius(RadiusTokens.hero)
             .backgroundColor(ColorTokens.surfaceElevated)
           }
@@ -1228,7 +1228,7 @@ export struct OnTripPage {
                   .width(LayoutTokens.routeLineWidth)
                   .height(LayoutTokens.transitLegHeight)
                   .border({ width: { left: LayoutTokens.routeLineWidth }, color: ColorTokens.separator, style: BorderStyle.Dashed })
-                Row({ space: SpaceTokens.xs }) {
+                Row({ space: SpaceTokens.xxs }) {
                   // 按下一段的真实模式取图标（原来是写死的汽车，地铁/公交段会显示错图标）
                   SymbolGlyph(TransitSymbol.of(this.next.transportMode))
                     .fontSize(IconSizes.control)
@@ -1239,13 +1239,13 @@ export struct OnTripPage {
                     .fontColor(ColorTokens.muted)
                     .fontFeature("'tnum' on")
                 }
-                .padding({ left: SpaceTokens.sm })
+                .padding({ left: SpaceTokens.xs })
               }
               .height(LayoutTokens.transitLegHeight)
               .alignItems(VerticalAlign.Center)
               }
 
-              Row({ space: SpaceTokens.sm }) {
+              Row({ space: SpaceTokens.xs }) {
                 // 无时刻的餐次拿 kind（早餐/午餐/晚餐）占时间槽：
                 // 列表行早就这么做（见 DayStop.kind 注释），但「下一站」这一行漏了，
                 // 实拍整列时间空白、标题像飘在半空
@@ -1266,7 +1266,7 @@ export struct OnTripPage {
                 }
                 .width(LayoutTokens.itineraryNodeSize)
                 .height(LayoutTokens.itineraryRowMinHeight)
-                Row({ space: SpaceTokens.xs }) {
+                Row({ space: SpaceTokens.xxs }) {
                   Text(this.nextTitle())
                     .fontSize(TypeTokens.small.size)
                     .fontWeight(600)
@@ -1277,7 +1277,7 @@ export struct OnTripPage {
                       .fontWeight(600)
                       .fontColor(ColorTokens.onPrimary)
                       .height(18)
-                      .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs })
+                      .padding({ left: SpaceTokens.xxs, right: SpaceTokens.xxs })
                       .borderRadius(RadiusTokens.pill)
                       .backgroundColor(ColorTokens.warning)
                   }
@@ -1285,9 +1285,9 @@ export struct OnTripPage {
                 .layoutWeight(1)
               }
               .width('100%')
-              .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+              .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
 
-              Row({ space: SpaceTokens.sm }) {
+              Row({ space: SpaceTokens.xs }) {
                 Text(this.nextMeta())
                   .fontSize(TypeTokens.caption.size)
                   .fontWeight(450)
@@ -1306,7 +1306,7 @@ export struct OnTripPage {
                 }
               }
               .width('100%')
-              .padding({ left: LayoutTokens.itineraryTimeGutter + SpaceTokens.sm })
+              .padding({ left: LayoutTokens.itineraryTimeGutter + SpaceTokens.xs })
             }
             .width('100%')
           }
@@ -1319,7 +1319,7 @@ export struct OnTripPage {
                 .fontSize(TypeTokens.caption.size)
                 .fontColor(ColorTokens.muted)
                 .width('100%')
-                .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+                .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
             }
           }
           ForEach(this.rows, (row: CheckedRow) => {
@@ -1329,7 +1329,7 @@ export struct OnTripPage {
           }, (row: CheckedRow): string => `ck-${row.time}-${row.name}-${row.amount}`)
         }
         .divider({ strokeWidth: LayoutTokens.hairlineWidth, color: ColorTokens.separator })
-        .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+        .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
         .backgroundColor(ColorTokens.canvas)
         .borderRadius(RadiusTokens.card)
         .clip(true)

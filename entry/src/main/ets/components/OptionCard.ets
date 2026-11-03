@@ -60,7 +60,7 @@ export struct OptionCard {
     .width('100%')
     // 契约 option-chip minHeight 56（44 只是最小命中区）
     .constraintSize({ minHeight: LayoutTokens.questionOptionMinHeight })
-    .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.lg, bottom: SpaceTokens.lg })
+    .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.base, bottom: SpaceTokens.base })
     .type(ButtonType.Normal)
     .borderRadius(RadiusTokens.card)
     .buttonStyle(ButtonStyleMode.NORMAL)

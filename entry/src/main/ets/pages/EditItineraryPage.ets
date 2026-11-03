@@ -313,7 +313,7 @@ export struct EditItineraryPage {
 
   @Builder
   rowPreview(act: Activity) {
-    Row({ space: SpaceTokens.sm }) {
+    Row({ space: SpaceTokens.xs }) {
       Text(act.time)
         .fontSize(TypeTokens.time.size)
         .fontWeight(600)
@@ -324,7 +324,7 @@ export struct EditItineraryPage {
         .fontWeight(600)
         .fontColor(ColorTokens.ink)
     }
-    .padding(SpaceTokens.md)
+    .padding(SpaceTokens.sm)
     .borderRadius(RadiusTokens.card)
     // 拖动抬起的预览行：填 canvas 时深色档与底同色，抬起来看不出区别（同 TripsPage/StayPickPage 那批）
     .backgroundColor(ColorTokens.surfaceElevated)
@@ -333,7 +333,7 @@ export struct EditItineraryPage {
 
   @Builder
   editRow(act: Activity, idx: number) {
-    Row({ space: SpaceTokens.sm }) {
+    Row({ space: SpaceTokens.xs }) {
       this.handle()
       Text(act.time)
         .width(LayoutTokens.itineraryTimeGutter)
@@ -344,19 +344,19 @@ export struct EditItineraryPage {
         .fontColor(ColorTokens.ink)
         .textAlign(TextAlign.End)
         .fontFeature("'tnum' on")
-        .padding({ right: SpaceTokens.sm })
+        .padding({ right: SpaceTokens.xs })
       // 底稿这屏每行时间右侧有节点圆环、环后有连续脊线；实现里两者都没有，
       // 三张卡片是"散着的"（§5y 对表第三项）。做法与屏8 一致：
       // 脊线定高走具名行高，不用 '100%'（无定高容器里百分比按视口解析，见屏8 注释）
       Stack({ alignContent: Alignment.Top }) {
         Column()
           .width(LayoutTokens.routeLineWidth)
-          .height(this.isLastRow(idx) ? SpaceTokens.lg : LayoutTokens.itineraryRowMinHeight)
+          .height(this.isLastRow(idx) ? SpaceTokens.base : LayoutTokens.itineraryRowMinHeight)
           .backgroundColor(ColorTokens.surfaceSunken)
         TimelineNode({ cat: act.category })
       }
       .width(LayoutTokens.itineraryNodeSize)
-      .height(this.isLastRow(idx) ? SpaceTokens.lg : LayoutTokens.itineraryRowMinHeight)
+      .height(this.isLastRow(idx) ? SpaceTokens.base : LayoutTokens.itineraryRowMinHeight)
       Column() {
         Text(act.title)
           .fontSize(TypeTokens.small.size)
@@ -406,7 +406,7 @@ export struct EditItineraryPage {
       })
     }
     .width('100%')
-    .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+    .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
     .borderRadius(RadiusTokens.card)
     .backgroundColor(this.dragIdx === idx ? ColorTokens.primaryTint : ColorTokens.surfaceElevated)
     // 拖动态的左竖条：2px primary（契约 route-line 同宽），补上蓝字让位后的状态表达
@@ -424,18 +424,18 @@ export struct EditItineraryPage {
         .fontWeight(700)
         .fontFamily(TypeTokens.title.family)
         .fontColor(ColorTokens.ink)
-        .margin({ top: SpaceTokens.xl, bottom: SpaceTokens.xs })
+        .margin({ top: SpaceTokens.lg, bottom: SpaceTokens.xxs })
       Text(this.replaceIdx < 0 ? '补选接在当日末尾，时间与通勤按新顺序重排' :
         '替换只换站点，该位置的时间与通勤保持不变')
         .fontSize(TypeTokens.caption.size)
         .fontColor(ColorTokens.muted)
-        .margin({ bottom: SpaceTokens.md })
+        .margin({ bottom: SpaceTokens.sm })
 
-      List({ space: SpaceTokens.xs }) {
+      List({ space: SpaceTokens.xxs }) {
         if (this.candidates.length === 0) {
           // 空态：本城景点库已全部在当日（或库为空），别给一张空 List 不吭声
           ListItem() {
-            Column({ space: SpaceTokens.sm }) {
+            Column({ space: SpaceTokens.xs }) {
               SymbolGlyph($r('sys.symbol.checkmark_circle'))
                 .fontSize(IconSizes.display)
                 .fontColor([ColorTokens.muted])
@@ -444,7 +444,7 @@ export struct EditItineraryPage {
                 .fontColor(ColorTokens.muted)
             }
             .width('100%')
-            .padding({ top: SpaceTokens.xl, bottom: SpaceTokens.xl })
+            .padding({ top: SpaceTokens.lg, bottom: SpaceTokens.lg })
             .justifyContent(FlexAlign.Center)
           }
         }
@@ -468,7 +468,7 @@ export struct EditItineraryPage {
             }
             .alignItems(HorizontalAlign.Start)
             .width('100%')
-            .padding(SpaceTokens.md)
+            .padding(SpaceTokens.sm)
             .borderRadius(RadiusTokens.card)
             .backgroundColor(ColorTokens.surfacePanel)
           }
@@ -489,7 +489,7 @@ export struct EditItineraryPage {
     .alignItems(HorizontalAlign.Start)
     .width('100%')
     .height('100%')
-    .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: SpaceTokens.xl })
+    .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.lg })
     .backgroundColor(ColorTokens.canvas)
   }
 
@@ -501,7 +501,7 @@ export struct EditItineraryPage {
    */
   @Builder
   dayHeader() {
-    Column({ space: SpaceTokens.xs }) {
+    Column({ space: SpaceTokens.xxs }) {
       Text(this.dayHeadline())
         .fontSize(TypeTokens.title.size)
         .fontWeight(700)
@@ -516,8 +516,8 @@ export struct EditItineraryPage {
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
-    .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
-      top: SpaceTokens.md, bottom: SpaceTokens.sm })
+    .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
+      top: SpaceTokens.sm, bottom: SpaceTokens.xs })
   }
 
   private isLastRow(idx: number): boolean {
@@ -528,7 +528,7 @@ export struct EditItineraryPage {
   @Builder
   legRow(act: Activity) {
     if (act.transport !== undefined) {
-      Row({ space: SpaceTokens.xs }) {
+      Row({ space: SpaceTokens.xxs }) {
         Text(this.legText(act))
           .fontSize(TypeTokens.caption.size)
           .fontWeight(450)
@@ -536,8 +536,8 @@ export struct EditItineraryPage {
           .fontFeature("'tnum' on")
       }
       .width('100%')
-      .padding({ left: LayoutTokens.itineraryTimeGutter + SpaceTokens.sm,
-        top: SpaceTokens.xs, bottom: SpaceTokens.xs })
+      .padding({ left: LayoutTokens.itineraryTimeGutter + SpaceTokens.xs,
+        top: SpaceTokens.xxs, bottom: SpaceTokens.xxs })
     }
   }
 
@@ -584,7 +584,7 @@ export struct EditItineraryPage {
    */
   @Builder
   actionBar() {
-    Row({ space: SpaceTokens.md }) {
+    Row({ space: SpaceTokens.sm }) {
       YoujingButton({
         variant: YoujingButtonVariant.SECONDARY,
         label: '撤销',
@@ -611,7 +611,7 @@ export struct EditItineraryPage {
       .layoutWeight(1)
     }
     .width('100%')
-    .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.sm })
+    .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.xs })
     .margin({ bottom: LayoutTokens.floatingDockClearance })
   }
 
@@ -643,7 +643,7 @@ export struct EditItineraryPage {
         if (this.acts.length === 0) {
           // 「未指定行程」是说给开发者听的话：用户站在这屏只知道一片黑，
           // 而顶栏三颗钮（完成/添加/撤销）看着全都能点。改成说清缺什么、去哪儿补
-          Column({ space: SpaceTokens.sm }) {
+          Column({ space: SpaceTokens.xs }) {
             Text(this.tripId.length === 0 ? '没有带进行程' : '这一天还没有节点')
               .fontSize(TypeTokens.title.size)
               .fontWeight(700)
@@ -663,7 +663,7 @@ export struct EditItineraryPage {
         } else {
           Column() {
           this.dayHeader()
-          List({ space: SpaceTokens.xs, scroller: this.barScroller }) {
+          List({ space: SpaceTokens.xxs, scroller: this.barScroller }) {
             ForEach(this.acts, (act: Activity, idx: number) => {
               ListItem() {
                 Column() {
@@ -679,7 +679,7 @@ export struct EditItineraryPage {
           }
           .layoutWeight(1)
           .scrollBar(BarState.Off)
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
+          .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
             bottom: LayoutTokens.floatingDockClearance })
           .onItemDragStart((event: ItemDragInfo, itemIndex: number): CustomBuilder => {
             // 官方 API 限制：onItemDragStart 挂在 List 级（整行长按触发），
@@ -702,7 +702,7 @@ export struct EditItineraryPage {
             this.syncBarScroll();
           })
           if (this.gapNote.length > 0) {
-            Row({ space: SpaceTokens.sm }) {
+            Row({ space: SpaceTokens.xs }) {
               Text(this.gapNote)
                 .fontSize(TypeTokens.caption.size)
                 .fontWeight(450)
@@ -723,7 +723,7 @@ export struct EditItineraryPage {
             }
             .width('100%')
             .alignItems(VerticalAlign.Center)
-            .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.sm })
+            .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.xs })
           }
           this.actionBar()
           }

@@ -27,7 +27,7 @@ export struct BadgeEarnedDialog {
   onDismiss: () => void = (): void => {};
 
   build() {
-    Column({ space: SpaceTokens.md }) {
+    Column({ space: SpaceTokens.sm }) {
       SymbolGlyph($r('sys.symbol.medal'))
         .fontSize(IconSizes.display)
         .fontColor([ColorTokens.primary])
@@ -35,7 +35,7 @@ export struct BadgeEarnedDialog {
         .fontSize(TypeTokens.overline.size)
         .fontWeight(600)
         .fontColor(ColorTokens.muted)
-        .margin({ top: SpaceTokens.xs })
+        .margin({ top: SpaceTokens.xxs })
       Text(this.spotName)
         .fontSize(TypeTokens.title.size)
         .fontWeight(700)
@@ -54,7 +54,7 @@ export struct BadgeEarnedDialog {
         .fontColor(ColorTokens.muted)
         .fontFeature("'tnum' on")
 
-      Column({ space: SpaceTokens.sm }) {
+      Column({ space: SpaceTokens.xs }) {
         YoujingButton({
           variant: YoujingButtonVariant.PRIMARY,
           label: '查看勋章',
@@ -72,7 +72,7 @@ export struct BadgeEarnedDialog {
           }
         })
       }
-      .margin({ top: SpaceTokens.xs })
+      .margin({ top: SpaceTokens.xxs })
     }
     .width('100%')
     .padding(LayoutTokens.sheetPanelPadding)

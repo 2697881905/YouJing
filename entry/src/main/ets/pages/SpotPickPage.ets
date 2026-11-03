@@ -233,18 +233,18 @@ export struct SpotPickPage {
       .fontWeight(600)
       .fontColor(ColorTokens.muted)
       .width('100%')
-      .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.xs })
+      .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xxs })
   }
 
   @Builder
   spotRow(sp: Spot) {
-    Row({ space: SpaceTokens.md }) {
+    Row({ space: SpaceTokens.sm }) {
       // 原来行首挂着一块 36×48 的 surfaceSunken 缩略位，但这一屏从头到尾
       // 没有任何 Image() ——`Spot` 契约里没有图片字段，它永远是空的灰块，
       // 实拍就是每行左边一条对不上内容的深色矩形。
       // 与屏8 行内、屏10 面板、屏16 行程纸同一判据：装饰件永远没有内容就删
       Column() {
-        Row({ space: SpaceTokens.sm }) {
+        Row({ space: SpaceTokens.xs }) {
           Text(sp.name)
             .fontSize(TypeTokens.body.size)
             .fontWeight(600)
@@ -255,7 +255,7 @@ export struct SpotPickPage {
               .fontWeight(600)
               .fontColor(ColorTokens.onPrimary)
               .height(22)
-              .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+              .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs })
               .borderRadius(RadiusTokens.pill)
               .backgroundColor(ColorTokens.warning)
           }
@@ -265,7 +265,7 @@ export struct SpotPickPage {
           .fontWeight(450)
           .fontColor(ColorTokens.muted)
           .fontFeature("'tnum' on")
-          .margin({ top: SpaceTokens.xs })
+          .margin({ top: SpaceTokens.xxs })
         if (sp.openingHours !== undefined && sp.openingHours.length > 0) {
           // 只展示各天一致的时段；不一致/闭馆/没有数据时这里不出现，统一以官方为准
           Text(sp.openingHours === '全天开放' ? '全天开放 · 地图服务'
@@ -274,7 +274,7 @@ export struct SpotPickPage {
             .fontWeight(450)
             .fontColor(ColorTokens.body)
             .fontFeature("'tnum' on")
-            .margin({ top: SpaceTokens.xs })
+            .margin({ top: SpaceTokens.xxs })
         }
         // 预约硬信息口径（§3.2/§7）：标注「以官方为准」，不放任用户当成实时准确
         if (sp.booking.requiresBooking) {
@@ -282,7 +282,7 @@ export struct SpotPickPage {
             .fontSize(TypeTokens.overline.size)
             .fontWeight(400)
             .fontColor(ColorTokens.muted)
-            .margin({ top: SpaceTokens.xs })
+            .margin({ top: SpaceTokens.xxs })
         }
       }
       .alignItems(HorizontalAlign.Start)
@@ -328,7 +328,7 @@ export struct SpotPickPage {
     }
     .width('100%')
     .constraintSize({ minHeight: LayoutTokens.itineraryRowMinHeight })
-    .padding({ left: SpaceTokens.md, right: SpaceTokens.md, top: SpaceTokens.md, bottom: SpaceTokens.md })
+    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
   }
 
   private backToInput(): void {
@@ -337,7 +337,7 @@ export struct SpotPickPage {
 
   @Builder
   mapSourceNotice() {
-    Column({ space: SpaceTokens.xs }) {
+    Column({ space: SpaceTokens.xxs }) {
       Text('景点来自地图服务')
         .fontSize(TypeTokens.overline.size)
         .fontWeight(600)
@@ -349,15 +349,15 @@ export struct SpotPickPage {
     }
     .alignItems(HorizontalAlign.Start)
     .width('100%')
-    .padding(SpaceTokens.md)
+    .padding(SpaceTokens.sm)
     .borderRadius(RadiusTokens.reason)
     .backgroundColor(ColorTokens.surfacePanel)
-    .margin({ top: SpaceTokens.sm })
+    .margin({ top: SpaceTokens.xs })
   }
 
   @Builder
   emptyState() {
-    Column({ space: SpaceTokens.md }) {
+    Column({ space: SpaceTokens.sm }) {
       SymbolGlyph($r('sys.symbol.map'))
         .fontSize(IconSizes.display)
         .fontColor([ColorTokens.muted])
@@ -376,7 +376,7 @@ export struct SpotPickPage {
         .fontColor(ColorTokens.muted)
         .textAlign(TextAlign.Center)
       if (this.mapCity) {
-        Row({ space: SpaceTokens.md }) {
+        Row({ space: SpaceTokens.sm }) {
           YoujingButton({
             variant: YoujingButtonVariant.PRIMARY,
             label: '重试',
@@ -408,7 +408,7 @@ export struct SpotPickPage {
     .width('100%')
     .layoutWeight(1)
     .justifyContent(FlexAlign.Center)
-    .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+    .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
   }
 
   /** 官方标题栏：动作走 content.menu，不再自绘 SymbolGlyph + onClick */
@@ -439,8 +439,8 @@ export struct SpotPickPage {
           }
           .width('100%')
           // 下方留一档：原来步骤指示与「已选…」灰带贴在一起，两段信息挤成一块
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
-            top: SpaceTokens.md, bottom: SpaceTokens.md })
+          .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
+            top: SpaceTokens.sm, bottom: SpaceTokens.sm })
 
 
           if (!this.loaded) {
@@ -452,7 +452,7 @@ export struct SpotPickPage {
               Text('正在加载景点…')
                 .fontSize(TypeTokens.caption.size)
                 .fontColor(ColorTokens.muted)
-                .margin({ top: SpaceTokens.md })
+                .margin({ top: SpaceTokens.sm })
             }
             .width('100%')
             .layoutWeight(1)
@@ -465,9 +465,9 @@ export struct SpotPickPage {
                 this.mapSourceNotice()
               }
               .width('100%')
-              .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+              .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
             }
-            Column({ space: SpaceTokens.xs }) {
+            Column({ space: SpaceTokens.xxs }) {
               Text(`已选 ${this.priorities.length} / 可用 ${this.days} 天 · 建议上限 ${this.days * 4} 个`)
                 .fontSize(TypeTokens.caption.size)
                 .fontWeight(450)
@@ -500,15 +500,15 @@ export struct SpotPickPage {
             .width('100%')
             // 原来钉死 height(56)：内容（16 文字 + 4 间距 + 进度条）居中后
             // 进度条正好压在灰带下沿上，实拍读起来像这条带被裁了一半
-            .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
-              top: SpaceTokens.md, bottom: SpaceTokens.md })
+            .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
+              top: SpaceTokens.sm, bottom: SpaceTokens.sm })
             .backgroundColor(ColorTokens.surfacePanel)
 
             // 官方 List + ListItemGroup：分组头吸顶，组间靠留白分隔（禁令 12：不画分隔线）
-            List({ space: SpaceTokens.md, scroller: this.barScroller }) {
+            List({ space: SpaceTokens.sm, scroller: this.barScroller }) {
               if (this.priorities.length > this.days * 4) {
                 ListItem() {
-                  Column({ space: SpaceTokens.xs }) {
+                  Column({ space: SpaceTokens.xxs }) {
                     Text('时间偏紧')
                       .fontSize(TypeTokens.overline.size)
                       .fontWeight(600)
@@ -519,7 +519,7 @@ export struct SpotPickPage {
                   }
                   .alignItems(HorizontalAlign.Start)
                   .width('100%')
-                  .padding(SpaceTokens.md)
+                  .padding(SpaceTokens.sm)
                   .borderRadius(RadiusTokens.reason)
                   .backgroundColor(ColorTokens.surfacePanel)
                 }
@@ -544,7 +544,7 @@ export struct SpotPickPage {
             .sticky(StickyStyle.Header)
             .cachedCount(6)
             // 滚动预留跟着钉底条抬高的一档补回来
-            .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
+            .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
               bottom: LayoutTokens.stickyBarScrollReserve + LayoutTokens.floatingDockClearance })
             .layoutWeight(1)
             .onDidScroll((): void => {
@@ -557,7 +557,7 @@ export struct SpotPickPage {
 
         if (this.all.length > 0) {
           Column() {
-            Row({ space: SpaceTokens.md }) {
+            Row({ space: SpaceTokens.sm }) {
               YoujingButton({
                 variant: YoujingButtonVariant.SECONDARY,
                 label: '跳过选择',
@@ -582,7 +582,7 @@ export struct SpotPickPage {
           }
           .width('100%')
           // 吸底 CTA 条让位实测 dock 净空（原来只有 lg=16，按钮下沿藏在 dock 底下）
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.md,
+          .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.sm,
             bottom: LayoutTokens.floatingDockClearance })
           .backgroundColor(ColorTokens.canvas)
         }

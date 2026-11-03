@@ -8,9 +8,9 @@
  *   textColor {colors.primary}            → 同上
  *   typography {typography.hierarchy.caption} → `TypeTokens.caption`（12/450/16）
  *   rounded {rounded.pill}                → `RadiusTokens.pill`
- *   padding "4px 10px"                    → 纵向 `SpaceTokens.xs`(4)；横向 10 **离表**
+ *   padding "4px 10px"                    → 纵向 `SpaceTokens.xxs`(4)；横向 10 **离表**
  *     （有径间距阶梯封闭为 0/4/8/12/16/18/20/24/28/32/48/94，无 10），按 handoff §7
- *     「实现期一律并到本阶梯」并到 `SpaceTokens.sm`(8)，与 TripsPage.ets:227 现写
+ *     「实现期一律并到本阶梯」并到 `SpaceTokens.xs`(8)，与 TripsPage.ets:227 现写
  *     标签胶囊同一档；不为了「对标完整」把 10 写成离表字面量（audit_geometry 必红）。
  *
  * 组合方式照搬有据：**外壳是 `Pressable`**（`SoftChip.ets:51`），按下反馈只有一处实现。
@@ -96,7 +96,7 @@ export struct SoftChip {
         .fontColor(this.fg())
         .textAlign(TextAlign.Center)
         .height(this.visualHeight)
-        .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+        .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs })
         .backgroundColor(this.bg())
         .border({
           width: this.edgeWidth(),

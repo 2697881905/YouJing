@@ -108,7 +108,7 @@ export struct MinePage {
 
   @Builder
   profileHeader() {
-    Row({ space: SpaceTokens.lg }) {
+    Row({ space: SpaceTokens.base }) {
       Stack({ alignContent: Alignment.Center }) {
         Circle()
           .width(LayoutTokens.profileAvatarSize)
@@ -133,7 +133,7 @@ export struct MinePage {
       .borderRadius(RadiusTokens.pill)
       .border({ width: LayoutTokens.hairlineWidth, color: ColorTokens.hairline })
 
-      Column({ space: SpaceTokens.xs }) {
+      Column({ space: SpaceTokens.xxs }) {
         // headline 而非 title：这串是脱敏 ID（操作型文本），契约里 serif 只给编辑性标题
         Text(ProfileStore.displayName())
           .fontSize(TypeTokens.headline.size)
@@ -149,16 +149,16 @@ export struct MinePage {
       .layoutWeight(1)
     }
     .width('100%')
-    .padding({ top: SpaceTokens.lg, bottom: SpaceTokens.lg })
+    .padding({ top: SpaceTokens.base, bottom: SpaceTokens.base })
   }
 
   @Builder
   medalCard() {
-    Row({ space: SpaceTokens.md }) {
+    Row({ space: SpaceTokens.sm }) {
       SymbolGlyph($r('sys.symbol.medal'))
         .fontSize(IconSizes.display)
         .fontColor([ColorTokens.primary])
-      Column({ space: SpaceTokens.xs }) {
+      Column({ space: SpaceTokens.xxs }) {
         Text(this.badgeCount > 0 ? `已收 ${this.badgeCount} 枚勋章` : '还没有勋章')
           .fontSize(TypeTokens.small.size)
           .fontWeight(600)
@@ -176,7 +176,7 @@ export struct MinePage {
         .fontColor([ColorTokens.muted])
     }
     .width('100%')
-    .padding(SpaceTokens.lg)
+    .padding(SpaceTokens.base)
     .borderRadius(RadiusTokens.card)
     .backgroundColor(ColorTokens.surfaceElevated)
     .onClick((): void => {
@@ -187,12 +187,12 @@ export struct MinePage {
   @Builder
   settingRow(row: SettingRow) {
     ListItem() {
-      Row({ space: SpaceTokens.md }) {
+      Row({ space: SpaceTokens.sm }) {
         SymbolGlyph(row.symbol)
           .fontSize(IconSizes.control)
           .fontColor([ColorTokens.icon])
           .width(IconSizes.control)
-        Column({ space: SpaceTokens.xs }) {
+        Column({ space: SpaceTokens.xxs }) {
           Text(row.title)
             .fontSize(TypeTokens.small.size)
             .fontWeight(600)
@@ -216,7 +216,7 @@ export struct MinePage {
       // 触点不收在图标上（裸 SymbolGlyph 挂 onClick 会被第 8 把尺 R4 判成自绘按钮）
       .width('100%')
       .constraintSize({ minHeight: LayoutTokens.minTouchTarget })
-      .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+      .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
     }
     .onClick((): void => {
       this.reading = row.docKind;
@@ -235,7 +235,7 @@ export struct MinePage {
           }
         })
       } else {
-        List({ space: SpaceTokens.md, scroller: this.barScroller }) {
+        List({ space: SpaceTokens.sm, scroller: this.barScroller }) {
           ListItem() {
             this.profileHeader()
           }
@@ -287,7 +287,7 @@ export struct MinePage {
         .layoutWeight(1)
         .scrollBar(BarState.Off)
         // 末行住在悬浮 dock 底下，按实测净空让位（与 TripsPage/BadgePage 同一写法）
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
+        .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
           bottom: LayoutTokens.floatingDockClearance })
         .onDidScroll((): void => {
           this.syncBarScroll();
@@ -306,7 +306,7 @@ export struct MinePage {
       .fontWeight(600)
       .fontColor(ColorTokens.muted)
       .width('100%')
-      .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.xs })
+      .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xxs })
   }
 
   /**

@@ -162,13 +162,13 @@ export struct GeneratingPage {
 
   @Builder
   skeletonRow() {
-    Row({ space: SpaceTokens.sm }) {
+    Row({ space: SpaceTokens.xs }) {
       this.skeletonBlock(LayoutTokens.itineraryTimeGutter, 14)
       Circle()
         .width(LayoutTokens.itineraryNodeSize)
         .height(LayoutTokens.itineraryNodeSize)
         .fill(ColorTokens.skeletonBase)
-      Column({ space: SpaceTokens.xs }) {
+      Column({ space: SpaceTokens.xxs }) {
         this.skeletonBlock(160, 14)
         this.skeletonBlock(56, 10)
       }
@@ -177,7 +177,7 @@ export struct GeneratingPage {
     }
     .width('100%')
     .constraintSize({ minHeight: LayoutTokens.itineraryRowMinHeight })
-    .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+    .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
   }
 
   build() {
@@ -195,7 +195,7 @@ export struct GeneratingPage {
             .fontWeight(450)
             .fontColor(ColorTokens.muted)
             .fontFeature("'tnum' on")
-            .margin({ top: SpaceTokens.xs, bottom: SpaceTokens.md })
+            .margin({ top: SpaceTokens.xxs, bottom: SpaceTokens.sm })
           Progress({ value: Math.round(this.progress * 100), total: 100, type: ProgressType.Linear })
             .color(ColorTokens.primary)
             .backgroundColor(ColorTokens.surfaceSunken)
@@ -204,11 +204,11 @@ export struct GeneratingPage {
         }
         .alignItems(HorizontalAlign.Start)
         .width('100%')
-        .margin({ top: SpaceTokens.xl })
+        .margin({ top: SpaceTokens.lg })
 
-        Column({ space: SpaceTokens.sm }) {
+        Column({ space: SpaceTokens.xs }) {
           ForEach(this.stages, (name: string, idx: number) => {
-            Row({ space: SpaceTokens.sm }) {
+            Row({ space: SpaceTokens.xs }) {
               SymbolGlyph(idx < this.stage ? $r('sys.symbol.checkmark_circle_fill') :
                 (idx === this.stage ? $r('sys.symbol.arrow_clockwise') : $r('sys.symbol.circle')))
                 .fontSize(IconSizes.control)
@@ -223,7 +223,7 @@ export struct GeneratingPage {
         }
         .alignItems(HorizontalAlign.Start)
         .width('100%')
-        .margin({ top: SpaceTokens.xl })
+        .margin({ top: SpaceTokens.lg })
 
         Column() {
           Column() {
@@ -231,26 +231,26 @@ export struct GeneratingPage {
             this.skeletonRow()
             this.skeletonRow()
           }
-          .padding(SpaceTokens.md)
+          .padding(SpaceTokens.sm)
           .borderRadius(RadiusTokens.card)
           .backgroundColor(ColorTokens.surfaceElevated)
           .width('100%')
-          .margin({ bottom: SpaceTokens.md })
+          .margin({ bottom: SpaceTokens.sm })
 
           Column() {
             this.skeletonRow()
             this.skeletonRow()
           }
-          .padding(SpaceTokens.md)
+          .padding(SpaceTokens.sm)
           .borderRadius(RadiusTokens.card)
           .backgroundColor(ColorTokens.surfaceElevated)
           .width('100%')
         }
         .width('100%')
-        .margin({ top: SpaceTokens.xl })
+        .margin({ top: SpaceTokens.lg })
         .layoutWeight(1)
 
-        Column({ space: SpaceTokens.sm }) {
+        Column({ space: SpaceTokens.xs }) {
           // 文案不绑定传输实现：离线合成与直连 LLM 两种模式下都为真
           Text('正在按你的偏好逐项核对')
             .fontSize(TypeTokens.caption.size)
@@ -273,7 +273,7 @@ export struct GeneratingPage {
       }
       .width('100%')
       .height('100%')
-      .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+      .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
       .backgroundColor(ColorTokens.canvas)
     }
     // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）

@@ -174,7 +174,7 @@ export struct TripsPage {
     .alignItems(VerticalAlign.Center)
     .width(84)
     .height('100%')
-    .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
   }
 
   private confirmDelete(t: TripCardData): void {
@@ -226,7 +226,7 @@ export struct TripsPage {
       .fontColor(phase === 'onTrip' ? ColorTokens.onPrimary :
         (phase === 'upcoming' ? ColorTokens.body : ColorTokens.muted))
       .height(20)
-      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+      .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs })
       .borderRadius(RadiusTokens.pill)
       .backgroundColor(phase === 'onTrip' ? ColorTokens.primary :
         (phase === 'upcoming' ? ColorTokens.primaryTint : ColorTokens.surfaceSubtle))
@@ -234,7 +234,7 @@ export struct TripsPage {
 
   @Builder
   statCol(value: string, label: string, muted: boolean) {
-    Column({ space: SpaceTokens.xs }) {
+    Column({ space: SpaceTokens.xxs }) {
       Text(value)
         .fontSize(TypeTokens.headline.size)
         .fontWeight(600)
@@ -274,7 +274,7 @@ export struct TripsPage {
         .fontWeight(450)
         .fontColor(ColorTokens.muted)
         .fontFeature("'tnum' on")
-        .margin({ top: SpaceTokens.xs })
+        .margin({ top: SpaceTokens.xxs })
 
       Row() {
         this.statCol(t.spots, '景点', t.muted)
@@ -283,9 +283,9 @@ export struct TripsPage {
       }
       .alignItems(VerticalAlign.Top)
       .width('100%')
-      .margin({ top: SpaceTokens.md })
+      .margin({ top: SpaceTokens.sm })
 
-      Column({ space: SpaceTokens.xs }) {
+      Column({ space: SpaceTokens.xxs }) {
         Row() {
           // 状态只说一次：此前「已结束」和「已结束 · 100%」上下各印一遍
           Text(t.progressLabel)
@@ -303,7 +303,7 @@ export struct TripsPage {
               .fontWeight(600)
               .fontColor(ColorTokens.ink)
               .fontFeature("'tnum' on")
-              .margin({ left: SpaceTokens.sm })
+              .margin({ left: SpaceTokens.xs })
           }
         }
         .alignItems(VerticalAlign.Center)
@@ -319,11 +319,11 @@ export struct TripsPage {
       }
       .alignItems(HorizontalAlign.Start)
       .width('100%')
-      .margin({ top: SpaceTokens.md })
+      .margin({ top: SpaceTokens.sm })
     }
     .alignItems(HorizontalAlign.Start)
     .width('100%')
-    .padding(SpaceTokens.md)
+    .padding(SpaceTokens.sm)
     .borderRadius(RadiusTokens.card)
     // 契约 components.card.backgroundColor = {colors.surface-elevated}。
     // 原来填 canvas：浅色档靠 cardAmbient 投影还分得开卡与底，深色档投影实测不可见
@@ -357,11 +357,11 @@ export struct TripsPage {
   anniversaryBanner() {
     Column() {
       Button({ type: ButtonType.Normal, stateEffect: true }) {
-        Row({ space: SpaceTokens.md }) {
+        Row({ space: SpaceTokens.sm }) {
           SymbolGlyph($r('sys.symbol.medal'))
             .fontSize(IconSizes.control)
             .fontColor([ColorTokens.primary])
-          Column({ space: SpaceTokens.xs }) {
+          Column({ space: SpaceTokens.xxs }) {
             Text(this.anniversaryLine)
               .fontSize(TypeTokens.small.size)
               .fontWeight(600)
@@ -380,7 +380,7 @@ export struct TripsPage {
             .fontColor([ColorTokens.icon])
         }
         .width('100%')
-        .padding(SpaceTokens.md)
+        .padding(SpaceTokens.sm)
         .borderRadius(RadiusTokens.card)
         .backgroundColor(ColorTokens.primaryTint)
         .alignItems(VerticalAlign.Center)
@@ -395,7 +395,7 @@ export struct TripsPage {
       })
     }
     .width('100%')
-    .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.sm })
+    .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.xs })
   }
 
   @Builder
@@ -413,7 +413,7 @@ export struct TripsPage {
             .onChange((v: string): void => {
               this.keyword = v;
             })
-            .margin({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.sm })
+            .margin({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.xs })
         }
 
         if (this.loading) {
@@ -425,7 +425,7 @@ export struct TripsPage {
             Text('正在加载行程…')
               .fontSize(TypeTokens.caption.size)
               .fontColor(ColorTokens.muted)
-              .margin({ top: SpaceTokens.md })
+              .margin({ top: SpaceTokens.sm })
           }
           .layoutWeight(1)
           .justifyContent(FlexAlign.Center)
@@ -436,14 +436,14 @@ export struct TripsPage {
             SymbolGlyph($r('sys.symbol.map'))
               .fontSize(IconSizes.display)
               .fontColor([ColorTokens.muted])
-              .margin({ bottom: SpaceTokens.lg })
+              .margin({ bottom: SpaceTokens.base })
             Text('还没有行程')
               .fontSize(TypeTokens.title.size)
               .fontWeight(700)
               .fontFamily(TypeTokens.title.family)
               .fontColor(ColorTokens.ink)
               .textAlign(TextAlign.Center)
-              .margin({ bottom: SpaceTokens.xs })
+              .margin({ bottom: SpaceTokens.xxs })
             // 屏12b 底稿原句，但**由我们选断行点**：整句交给排版引擎在 240vp 里折，
             // 实拍断成「能直 / 接走的行程」，把「直接」劈成两半
             // （与屏11/屏5 同族，见 INIT_REPORT §5o/§5y）。
@@ -457,7 +457,7 @@ export struct TripsPage {
               .fontColor(ColorTokens.body)
               .textAlign(TextAlign.Center)
               .constraintSize({ maxWidth: 240 })
-              .margin({ bottom: SpaceTokens.xl })
+              .margin({ bottom: SpaceTokens.lg })
             YoujingButton({
               variant: YoujingButtonVariant.PRIMARY,
               label: '规划新行程',
@@ -473,7 +473,7 @@ export struct TripsPage {
         } else {
           // 官方 Refresh + List：下拉重读 RDB，列表项走 ListItem（原来是 Scroll+Column 手排）
           Refresh({ refreshing: $$this.refreshing }) {
-            List({ space: SpaceTokens.md, scroller: this.barScroller }) {
+            List({ space: SpaceTokens.sm, scroller: this.barScroller }) {
               ForEach(this.visibleTrips(), (t: TripCardData) => {
                 ListItem() {
                   this.tripCard(t)
@@ -488,7 +488,7 @@ export struct TripsPage {
                     .fontColor(ColorTokens.muted)
                     .width('100%')
                     .textAlign(TextAlign.Center)
-                    .padding({ top: SpaceTokens.xl, bottom: SpaceTokens.xl })
+                    .padding({ top: SpaceTokens.lg, bottom: SpaceTokens.lg })
                 }
               }
             }
@@ -500,7 +500,7 @@ export struct TripsPage {
               this.syncBarScroll();
             })
             // 这一页的最后一张卡住在浮动 dock 底下，按实测净空让位。
-            .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: LayoutTokens.floatingDockClearance })
+            .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: LayoutTokens.floatingDockClearance })
           }
           // Refresh / List 不写尺寸时按**父容器**的 100% 高解析，不是「剩下的」高。
           // 上面那条 Search 已经吃掉 48vp，所以整条列表被撑到屏幕外 150px（dump 的

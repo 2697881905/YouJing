@@ -201,7 +201,7 @@ export struct ItineraryPage {
 
   @Builder
   loadStrip() {
-    Row({ space: SpaceTokens.sm }) {
+    Row({ space: SpaceTokens.xs }) {
       Progress({ value: Math.min(100, this.dayLoad().ratio * 100), total: 100, type: ProgressType.Linear })
         .style(LOAD_BAR_STYLE)
         .color(this.loadBarColor())
@@ -223,7 +223,7 @@ export struct ItineraryPage {
           .height(LayoutTokens.minTouchTarget)
           .type(ButtonType.Capsule)
           .buttonStyle(ButtonStyleMode.TEXTUAL)
-          .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+          .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs })
           .accessibilityText('当日安排超出建议时长，去编辑页减掉一站')
           .onClick((): void => {
             const target: EditTarget = { tripId: this.tripId, dayIndex: this.dayIndex };
@@ -619,7 +619,7 @@ export struct ItineraryPage {
         .width(LayoutTokens.routeLineWidth)
         .height(LayoutTokens.transitLegHeight)
         .border({ width: { left: LayoutTokens.routeLineWidth }, color: ColorTokens.separator, style: BorderStyle.Dashed })
-      Row({ space: SpaceTokens.xs }) {
+      Row({ space: SpaceTokens.xxs }) {
         SymbolGlyph(TransitSymbol.of(next.transport === undefined ? '' : next.transport.mode))
           .fontSize(IconSizes.control)
           .fontColor([ColorTokens.icon])
@@ -630,7 +630,7 @@ export struct ItineraryPage {
           .fontFeature("'tnum' on")
       }
       .alignItems(VerticalAlign.Center)
-      .padding({ left: SpaceTokens.sm })
+      .padding({ left: SpaceTokens.xs })
     }
     .width('100%')
     .height(LayoutTokens.transitLegHeight)
@@ -653,21 +653,21 @@ export struct ItineraryPage {
           .fontColor(ColorTokens.ink)
           .textAlign(TextAlign.End)
           .fontFeature("'tnum' on")
-          .padding({ right: SpaceTokens.md, top: SpaceTokens.xs })
+          .padding({ right: SpaceTokens.sm, top: SpaceTokens.xxs })
         Stack({ alignContent: Alignment.Top }) {
           Column()
             .width(LayoutTokens.routeLineWidth)
             // 原来非末行写 '100%'：这一行没有定高，百分比按**视口高**解析，
             // 于是竖线从节点一路画进下方的黑里（实拍「时间轴断在半空」的真因）。
             // 换成与首启预览卡同一档的具名行高
-            .height(isLast ? SpaceTokens.md : LayoutTokens.itineraryRowMinHeight)
+            .height(isLast ? SpaceTokens.sm : LayoutTokens.itineraryRowMinHeight)
             .backgroundColor(ColorTokens.surfaceSunken)
           this.spineNode(act.category)
         }
         .width(LayoutTokens.itineraryNodeSize)
-        .height(isLast ? SpaceTokens.md : LayoutTokens.itineraryRowMinHeight)
+        .height(isLast ? SpaceTokens.sm : LayoutTokens.itineraryRowMinHeight)
         Column() {
-          Row({ space: SpaceTokens.sm }) {
+          Row({ space: SpaceTokens.xs }) {
             Text(act.title)
               .fontSize(TypeTokens.headline.size)
               .fontWeight(600)
@@ -681,7 +681,7 @@ export struct ItineraryPage {
                 .fontWeight(600)
                 .fontColor(ColorTokens.onPrimary)
                 .height(22)
-                .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+                .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs })
                 .borderRadius(RadiusTokens.pill)
                 .backgroundColor(this.bookingColor(act.status))
             }
@@ -696,7 +696,7 @@ export struct ItineraryPage {
             .fontWeight(450)
             .fontColor(ColorTokens.muted)
             .fontFeature("'tnum' on")
-            .margin({ top: SpaceTokens.xs })
+            .margin({ top: SpaceTokens.xxs })
           if (act.reason !== undefined) {
             Column() {
               Text('为什么排在这里')
@@ -706,22 +706,22 @@ export struct ItineraryPage {
               Text(act.reason)
                 .fontSize(TypeTokens.small.size)
                 .fontColor(ColorTokens.ink)
-                .margin({ top: SpaceTokens.xs })
+                .margin({ top: SpaceTokens.xxs })
             }
             .alignItems(HorizontalAlign.Start)
             .width('100%')
-            .padding(SpaceTokens.md)
+            .padding(SpaceTokens.sm)
             .borderRadius(RadiusTokens.reason)
             .backgroundColor(ColorTokens.surfacePanel)
             .border({ width: { left: 2 }, color: ColorTokens.primary })
-            .margin({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+            .margin({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
           }
         }
         .alignItems(HorizontalAlign.Start)
         .layoutWeight(1)
         // 节点槽宽 24、圆占 22，原来这一列没有任何左内缩，
         // 站名首字几乎贴着主轴圆（真机屏8 复拍可见）；补一档间距
-        .padding({ left: SpaceTokens.sm })
+        .padding({ left: SpaceTokens.xs })
       }
       .alignItems(VerticalAlign.Top)
       .width('100%')
@@ -767,7 +767,7 @@ export struct ItineraryPage {
     // 原来是一行 Row{日标题, Blank(), meta}：meta「王府井-东城核心 出发 · 第 1 日 · 标准」
     // 加上 21vp 衬线日标题超出屏宽后，Blank 塌成 0，两段文字直接互撞、
     // 末尾的「主题·节奏」被裁出屏幕右沿（真机实拍）。拆成两行才装得下
-    Column({ space: SpaceTokens.xs }) {
+    Column({ space: SpaceTokens.xxs }) {
       // day-label 档：serif 21/700（DESIGN Layout §3 日分隔 = serif day-label；
       // 此处曾是 body 16/600 sans，是 serif 该上而没上的位置）
       Text(`Day ${this.curDay().dayIndex}${this.dayDateSuffix()}`)
@@ -789,7 +789,7 @@ export struct ItineraryPage {
     .alignItems(HorizontalAlign.Start)
     .width('100%')
     .constraintSize({ minHeight: LayoutTokens.dayDividerHeight })
-    .padding({ top: SpaceTokens.md })
+    .padding({ top: SpaceTokens.sm })
     // 玻璃点位③（契约 §1024 sticky 变体）：真机实测 systemMaterial 挂在 ListItemGroup
     // 的 sticky 组头上不出图（带内内容字 min=0，与带外无差别），落回官方组件级磨砂
     // backgroundBlurStyle(COMPONENT_THICK)——同样是系统绘制的模糊层，不是自绘玻璃。
@@ -828,12 +828,12 @@ export struct ItineraryPage {
         .fontFeature("'tnum' on")
     }
     .width('100%')
-    .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+    .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
   }
 
   @Builder
   miniNode(idx: number, meta: string, name: string, active: boolean) {
-    Column({ space: SpaceTokens.xs }) {
+    Column({ space: SpaceTokens.xxs }) {
       Stack() {
         Circle()
           .width(22)
@@ -867,7 +867,7 @@ export struct ItineraryPage {
       if (this.detailAct !== undefined) {
         Scroll() {
           Column() {
-            Row({ space: SpaceTokens.md }) {
+            Row({ space: SpaceTokens.sm }) {
               // 原来这里是一个 96×128 的 mediaThumb 占位块，但 Activity/AI 契约里
               // 没有图片字段，它永远是纯黑——还把站名挤成窄列、
               // 实拍折成「北京环球度 / 假区」两行（与屏8 行内那块同一判据）
@@ -882,15 +882,15 @@ export struct ItineraryPage {
                   .fontSize(TypeTokens.caption.size)
                   .fontWeight(450)
                   .fontColor(ColorTokens.muted)
-                  .margin({ top: SpaceTokens.xs })
-                Row({ space: SpaceTokens.xs }) {
+                  .margin({ top: SpaceTokens.xxs })
+                Row({ space: SpaceTokens.xxs }) {
                   if (this.statusChip() !== '') {
                     Text(this.statusChip())
                       .fontSize(TypeTokens.overline.size)
                       .fontWeight(600)
                       .fontColor(ColorTokens.bookmark)
                       .height(22)
-                      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+                      .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs })
                       .borderRadius(RadiusTokens.pill)
                       .backgroundColor(ColorTokens.surfaceSubtle)
                   }
@@ -900,12 +900,12 @@ export struct ItineraryPage {
                       .fontWeight(600)
                       .fontColor(ColorTokens.onPrimary)
                       .height(22)
-                      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+                      .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs })
                       .borderRadius(RadiusTokens.pill)
                       .backgroundColor(ColorTokens.warning)
                   }
                 }
-                .margin({ top: SpaceTokens.sm })
+                .margin({ top: SpaceTokens.xs })
               }
               .alignItems(HorizontalAlign.Start)
               .layoutWeight(1)
@@ -922,7 +922,7 @@ export struct ItineraryPage {
               .height(LayoutTokens.minTouchTarget)
               // 官方 showClose 的 ✕ 实测占 [961,543]-[1086,668]（px，密度 3.0），
               // 不左移两枚 44 热区会叠在一起（真机截图复现过）
-              .margin({ right: SpaceTokens.fiveXl })
+              .margin({ right: SpaceTokens.xxl })
               .accessibilityText('分享此节点')
               .onClick((): void => {
                 this.shareNode();
@@ -940,13 +940,13 @@ export struct ItineraryPage {
               // （三格也比四格稳：把断点钉成 lg 复拍时，四格在窄列里会整个竖排）
             }
             .width('100%')
-            .padding(SpaceTokens.md)
+            .padding(SpaceTokens.sm)
             .borderRadius(RadiusTokens.card)
             // 契约：玻璃只有四处，sheet 内的卡片不是玻璃。
             // 原来挂的 barMaterial 在 bindSheet builder 内属生效范围外（immersiveMaterial 自书铁律），
             // glassOn 时还把底置透明——API 26 上这张卡既无材质也无底色。恒实色。
             .backgroundColor(ColorTokens.surfaceElevated)
-            .margin({ top: SpaceTokens.lg })
+            .margin({ top: SpaceTokens.base })
 
             Column() {
               this.hoursRow('预约状态', this.statusFullText())
@@ -954,8 +954,8 @@ export struct ItineraryPage {
               this.hoursRow('到达方式', this.arrivalText())
             }
             .width('100%')
-            .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-            .margin({ top: SpaceTokens.md })
+            .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+            .margin({ top: SpaceTokens.sm })
 
             if (this.detailAct.note !== undefined && this.detailAct.note.length > 0) {
               Text(this.detailAct.note)
@@ -964,7 +964,7 @@ export struct ItineraryPage {
                 .fontColor(ColorTokens.warning)
                 .fontFeature("'tnum' on")
                 .width('100%')
-                .margin({ top: SpaceTokens.xs })
+                .margin({ top: SpaceTokens.xxs })
             }
 
             // 预约硬信息口径（§3.2/§7）：以官方为准，不让用户把规划数据当实时准确
@@ -975,7 +975,7 @@ export struct ItineraryPage {
                 .fontWeight(400)
                 .fontColor(ColorTokens.muted)
                 .width('100%')
-                .margin({ top: SpaceTokens.xs })
+                .margin({ top: SpaceTokens.xxs })
             }
 
             if (this.detailAct.reason !== undefined) {
@@ -987,15 +987,15 @@ export struct ItineraryPage {
                 Text(this.detailAct.reason)
                   .fontSize(TypeTokens.small.size)
                   .fontColor(ColorTokens.ink)
-                  .margin({ top: SpaceTokens.xs })
+                  .margin({ top: SpaceTokens.xxs })
               }
               .alignItems(HorizontalAlign.Start)
               .width('100%')
-              .padding(SpaceTokens.md)
+              .padding(SpaceTokens.sm)
               .borderRadius(RadiusTokens.reason)
               .backgroundColor(ColorTokens.surfacePanel)
               .border({ width: { left: 2 }, color: ColorTokens.primary })
-              .margin({ top: SpaceTokens.md })
+              .margin({ top: SpaceTokens.sm })
             }
 
             Column() {
@@ -1010,21 +1010,21 @@ export struct ItineraryPage {
                 this.miniNode(this.dayPos() + 1, this.nextLabel(), this.nextTitle(), false)
               }
               .width('100%')
-              .padding({ top: SpaceTokens.md })
+              .padding({ top: SpaceTokens.sm })
             }
             .width('100%')
-            .padding(SpaceTokens.md)
+            .padding(SpaceTokens.sm)
             .borderRadius(RadiusTokens.card)
             .backgroundColor(ColorTokens.surfaceElevated)
-            .margin({ top: SpaceTokens.md, bottom: SpaceTokens.xl })
+            .margin({ top: SpaceTokens.sm, bottom: SpaceTokens.lg })
           }
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg })
+          .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
         }
         .layoutWeight(1)
         .scrollBar(BarState.Off)
         .align(Alignment.Top)
 
-        Row({ space: SpaceTokens.md }) {
+        Row({ space: SpaceTokens.sm }) {
           YoujingButton({
             variant: YoujingButtonVariant.SECONDARY,
             label: '换一个时间',
@@ -1049,7 +1049,7 @@ export struct ItineraryPage {
           .layoutWeight(1)
         }
         .width('100%')
-        .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, top: SpaceTokens.sm, bottom: SpaceTokens.md })
+        .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.xs, bottom: SpaceTokens.sm })
       }
     }
     .width('100%')
@@ -1082,7 +1082,7 @@ export struct ItineraryPage {
         })
     }
     .width('100%')
-    .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+    .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
   }
 
   @Builder
@@ -1093,11 +1093,11 @@ export struct ItineraryPage {
         .fontWeight(700)
         .fontFamily(TypeTokens.title.family)
         .fontColor(ColorTokens.ink)
-        .margin({ top: SpaceTokens.xl })
+        .margin({ top: SpaceTokens.lg })
       Text('行程数据只存在本机，写入系统应用由你决定')
         .fontSize(TypeTokens.small.size)
         .fontColor(ColorTokens.body)
-        .margin({ top: SpaceTokens.xs, bottom: SpaceTokens.lg })
+        .margin({ top: SpaceTokens.xxs, bottom: SpaceTokens.base })
 
       Column() {
         this.accessRow('日历同步', `写入 ${this.bookingCount} 个预约节点 + ${this.dayCount} 天行程`,
@@ -1120,7 +1120,7 @@ export struct ItineraryPage {
           })
       }
       .width('100%')
-      .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
 
       Column() {
         Text('写入内容预览')
@@ -1147,12 +1147,12 @@ export struct ItineraryPage {
       }
       .alignItems(HorizontalAlign.Start)
       .width('100%')
-      .padding(SpaceTokens.md)
+      .padding(SpaceTokens.sm)
       .borderRadius(RadiusTokens.reason)
       .backgroundColor(ColorTokens.surfacePanel)
-      .margin({ top: SpaceTokens.md })
+      .margin({ top: SpaceTokens.sm })
 
-      Row({ space: SpaceTokens.md }) {
+      Row({ space: SpaceTokens.sm }) {
         YoujingButton({
           variant: YoujingButtonVariant.SECONDARY,
           label: '仅本机保存',
@@ -1185,11 +1185,11 @@ export struct ItineraryPage {
         .layoutWeight(1)
       }
       .width('100%')
-      .margin({ top: SpaceTokens.xl })
+      .margin({ top: SpaceTokens.lg })
     }
     .alignItems(HorizontalAlign.Start)
     .width('100%')
-    .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: SpaceTokens.xl })
+    .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.lg })
     .backgroundColor(ColorTokens.canvas)
   }
 
@@ -1225,7 +1225,7 @@ export struct ItineraryPage {
               }
               .width('100%')
               .justifyContent(FlexAlign.Start)
-              .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg, bottom: SpaceTokens.sm })
+              .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.xs })
             }
             .backgroundColor(ColorTokens.surfaceElevated)
           }
@@ -1258,7 +1258,7 @@ export struct ItineraryPage {
                     .fontColor(ColorTokens.ink)
                     .fontFeature("'tnum' on")
                     .height(28)
-                    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+                    .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs })
                     .borderRadius(RadiusTokens.pill)
                     .backgroundColor(ColorTokens.canvas)
                     // 真模型会把通勤方式写全（「地铁+市郊铁路 1 段 · 步行 4 段 · 市郊铁路+地铁 1 段」46 字），
@@ -1280,7 +1280,7 @@ export struct ItineraryPage {
                     // 低于平台最小热区。旁边那枚 28 高的是标签不是控件，
                     // 两者不再等高是应该的——高度差本身在说"这个能按"
                     .height(LayoutTokens.minTouchTarget)
-                    .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+                    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
                     .type(ButtonType.Capsule)
                     .buttonStyle(ButtonStyleMode.EMPHASIZED)
                     .onClick(() => {
@@ -1300,7 +1300,7 @@ export struct ItineraryPage {
               .height(LayoutTokens.mapHeightCompact)
               .borderRadius(RadiusTokens.card)
               .clip(true)
-              .margin({ top: SpaceTokens.md })
+              .margin({ top: SpaceTokens.sm })
             }
             }
 
@@ -1309,7 +1309,7 @@ export struct ItineraryPage {
                 ListItem() {
                   // 空白天原来只有一行 12vp 灰字，下面五成屏是纯黑，且**没有任何前进通路**
                   // ——用户站在这屏既加不了节点也退不出去。按契约 empty-state 规格补齐
-                  Column({ space: SpaceTokens.md }) {
+                  Column({ space: SpaceTokens.sm }) {
                     SymbolGlyph($r('sys.symbol.map'))
                       .fontSize(IconSizes.display)
                       .fontColor([ColorTokens.muted])
@@ -1363,7 +1363,7 @@ export struct ItineraryPage {
           .edgeEffect(EdgeEffect.Spring)
           .sticky(StickyStyle.Header)
           .cachedCount(6)
-          .padding({ left: SpaceTokens.lg, right: SpaceTokens.lg,
+          .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
             bottom: LayoutTokens.floatingDockClearance })
           // 时间轴是单列长内容，不能按断点分栏（会打断主轴竖线），
           // 所以宽屏走"收窄 + 居中"这条路
