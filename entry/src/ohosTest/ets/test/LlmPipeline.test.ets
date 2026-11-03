@@ -11,6 +11,7 @@ import { PlanParams, SelectedSpot, TravelStyle, TransitPreference, TripBasicInpu
 import { Spot, SpotTag } from '../../../main/ets/model/Spot';
 import { Area, AreaGroup, AreaPriceTier } from '../../../main/ets/model/Area';
 import { Trip, IntensityLevel } from '../../../main/ets/model/Trip';
+import { DayLoad, DayLoadCalc } from '../../../main/ets/utils/DayLoad';
 import { MockTrip } from '../../../main/ets/mock/MockTrip';
 import { AppError } from '../../../main/ets/common/error/AppError';
 import { ErrorCode } from '../../../main/ets/common/error/ErrorCode';
@@ -164,6 +165,51 @@ export default function llmPipelineTest(): void {
       expect(trip.days[1].activities[0].title).assertEqual('测试景点二');
       // 每天的首站没有通勤腿（当日第一段路无从算起）
       expect(trip.days[1].activities[0].transport === undefined).assertTrue();
+    });
+
+    /**
+     * 单日负载必须留在当日窗口内。
+     *
+     * 为什么单独一条：上面所有 fixture 的停留都是 60/90/120 分钟，而**种子库的真实停留是
+     * 240/300 分钟**（故宫 4h、八达岭 5h）——生成器只挡「开始时刻 ≤20:00」、不挡这一天总负载，
+     * 于是 2026-11-03 真机屏8 拍到「今日 13.7h · 超建议 3.7h」+ 负载条满格变红。
+     * 免费档成为默认出口之后，这就是新用户看到的第一屏。
+     */
+    it('offline_day_load_stays_inside_window', TestType.FUNCTION | Size.MEDIUMTEST | Level.LEVEL1, async () => {
+      // 12 站 / 3 天 / STANDARD（上限 4/天）——这才是真机那一屏的形状：屏2 当时写
+      // 「按每天 4 站预选 12 个景点」。第一版这条用例只喂了 6 站，quota 摊成 2/天，
+      // 负载 540min 刚好没超窗 ⇒ 用例绿了却什么都没证。候选数必须和真实预选同量。
+      const dwell: number[] = [240, 300, 240, 300, 240, 300, 180, 240, 180, 240, 180, 240];
+      const spots: Spot[] = [];
+      const sels: SelectedSpot[] = [];
+      for (let i = 0; i < dwell.length; i++) {
+        const s: Spot = {
+          id: `t-l${i + 1}`, name: `大景点${i + 1}`, city: '北京', tags: [SpotTag.MUST_SEE], brief: 'b',
+          suggestedDuration: dwell[i], popularity: 90 - i, nearbySpotIds: [],
+          longitude: 116.4 + i * 0.02, latitude: 39.9, district: '东城区', nearestMetro: 'A',
+          booking: { requiresBooking: false },
+          provenance: { source: 'test', updatedAt: '2026-11-03' }
+        };
+        spots.push(s);
+        sels.push({ spotId: `t-l${i + 1}`, priority: SpotPriority.MUST });
+      }
+      const basic: TripBasicInput = {
+        destination: '北京', startDate: '2026-07-01', endDate: '2026-07-03', people: 2, budget: 8000
+      };
+      const p: PlanParams = {
+        basic: basic, style: TravelStyle.CULTURE, stayTier: 'comfort',
+        transit: TransitPreference.PUBLIC, paces: [PaceOption.STANDARD],
+        selectedSpots: sels, selectedArea: { areaId: 't-a1' }
+      };
+      const trip: Trip = await genOffline(p, spots);
+      let over: string = '';
+      for (const d of trip.days) {
+        const load: DayLoad = DayLoadCalc.of(d);
+        if (load.minutes > load.windowMinutes) {
+          over += `D${d.dayIndex}=${load.minutes}min(${load.stayMinutes}停留+${load.transitMinutes}通勤)>${load.windowMinutes} `;
+        }
+      }
+      expect(over).assertEqual('');
     });
 
     it('offline_lays_selected_paces_across_day_segments', TestType.FUNCTION | Size.MEDIUMTEST | Level.LEVEL1, async () => {
