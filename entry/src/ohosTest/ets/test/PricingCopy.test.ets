@@ -6,10 +6,21 @@
  */
 
 import { describe, it, expect, TestType, Size, Level } from '@ohos/hypium';
-import { pricingHeadline, pricingSubtitle } from '../../../main/ets/utils/PricingCopy';
+import { subCapLine, subMonthlyCap, pricingHeadline, pricingSubtitle } from '../../../main/ets/utils/PricingCopy';
 
 export default function pricingCopyTest(): void {
   describe('PricingCopy', () => {
+    it('sub_cap_line_follows_server_and_never_prints_zero',
+      TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+        // 上限数字的服务端口径与计划卡必须同源；未激活/离线时缓存是 0，不能端出「每月 0 次」
+        expect(subMonthlyCap(30)).assertEqual(30);
+        expect(subCapLine(30)).assertEqual('每月 30 次生成上限');
+        expect(subMonthlyCap(0)).assertEqual(20);
+        expect(subCapLine(0)).assertEqual('每月 20 次生成上限');
+        // giftSpent 那句也走同一口径
+        expect(pricingSubtitle(false, 0, 0, true, false).indexOf('订阅解锁每月 20 次') >= 0).assertTrue();
+      });
+
     it('subscriber_at_cap_explains_quota_not_unlock', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
       expect(pricingHeadline(true, 20, 20)).assertEqual('本月次数已用完');
       expect(pricingSubtitle(true, 20, 20))

@@ -19,7 +19,7 @@ import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton
 import { Logger } from '../common/logger/Logger';
 import { IapStore, PRODUCT_ID_SUB_MONTHLY, PRODUCT_ID_SUB_YEARLY, IapResult } from '../data/IapStore';
 import { EntitlementStore } from '../data/EntitlementStore';
-import { pricingHeadline, pricingSubtitle } from '../utils/PricingCopy';
+import { subCapLine, pricingHeadline, pricingSubtitle } from '../utils/PricingCopy';
 import { subscriptionActive } from '../utils/MembershipCopy';
 import { DateUtils } from '../utils/DateUtils';
 import { common } from '@kit.AbilityKit';
@@ -35,6 +35,8 @@ export struct PricingPage {
   @State private memberEnd: string = '';
   /** 该行程已解锁（通行证生效）时隐藏通行证购买键 */
   @State private passOwned: boolean = false;
+  /** 上限数字跟服务端：写死会让同一屏「订阅解锁每月 N 次」与计划卡自相矛盾 */
+  @State private subCap: string = '';
   private pathStack: NavPathStack = APP_NAV;
   @Prop tripId: string = '';
 
@@ -47,6 +49,7 @@ export struct PricingPage {
     this.isMember = subscriptionActive(status, periodEnd, today);
     this.memberEnd = periodEnd.length >= 10 ? periodEnd.slice(0, 10) : '';
     this.passOwned = this.tripId.length > 0 && EntitlementStore.hasPass(this.tripId);
+    this.subCap = subCapLine(EntitlementStore.get().dailyCap);
     // 标题文案也按「在期」算：过期缓存不能再被说成「本月次数已用完」
     // giftSpent：非会员且赠送已用完 —— 他就是被「生成」的 402 送到这页的，
     // 不能再写「生成免费」（2026-11-04 真机走到这条时实拍到的误导）
@@ -163,7 +166,7 @@ export struct PricingPage {
         this.planCard(
           '订阅会员',
           '¥19.9 / 月  ·  ¥98 / 年',
-          ['每月 20 次生成上限', '全部高级能力', '行程历史无限保存'],
+          [this.subCap, '全部高级能力', '行程历史无限保存'],
           false
         )
 

@@ -191,6 +191,12 @@
 
 ### Fixed
 
+- 2026-11-05（§5ci 续 191）：**付费页「每月 N 次」统一到服务端值**。
+  订阅计划卡的特性数组写着字面量 `'每月 20 次生成上限'`，而同屏副标题插的是服务端下发的
+  `EntitlementStore.dailyCap`（该文件注释明确「上限口径改了不该等端侧发版」）——
+  服务端改成 30 次那天，同一屏会自相矛盾。新增 `PricingCopy.subCapLine()/subMonthlyCap()` 作唯一口径，
+  并规定缓存为 0（未激活/离线）时回落发布档 20，避免端出「每月 0 次」；
+  `giftSpent` 那句副标题同批改走该函数。真机复拍两句同源、dump 无「每月 0 次」；hypium 新增 1 例，**246/246**。
 - 2026-11-05（§5ci 续 190）：**发给模型的天数也走同一口径**——第 18 把尺 `tools/audit_span_source.py` 首跑抓到
   `ai/PromptBuilder.ets:100` 与 `ai/LlmClient.ets:330` 仍直接 `spanDays(basic.startDate, basic.endDate)`，
   草稿日期没填时它们要求模型排 **1 天**，而用户屏2 看到的是 3天2晚（比屏5 名额更要紧，它改变生成结果）。
