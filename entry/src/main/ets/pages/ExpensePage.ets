@@ -636,10 +636,28 @@ export struct ExpensePage {
   }
 
   /** 分类支出这一组的头：左边标题、右边进「分类预算」工作表 */
+  /**
+   * 条形画的是占比，但分母随分段与「是否设过分类预算」变三种（见 currentCats）。
+   * 行内不重复标分母，改由分组头说清当前这一档的分母是什么：
+   * 预算档且没给任何分类预算 ⇒ 占行程总预算；预算档且设了 ⇒ 各自的预算（超了转 danger，
+   * 分组头不再硬说"占行程预算"）；实际档 ⇒ 占最大分类。
+   */
+  private categoryHeaderTitle(): string {
+    if (this.seg !== 0) {
+      return '分类支出 · 占最大分类';
+    }
+    for (const b of this.categoryBudgets) {
+      if (b.amount > 0) {
+        return '分类支出';
+      }
+    }
+    return '分类支出 · 占行程预算';
+  }
+
   @Builder
   categoryHeader() {
     Row() {
-      Text('分类支出')
+      Text(this.categoryHeaderTitle())
         .fontSize(TypeTokens.overline.size)
         .fontWeight(600)
         .fontColor(ColorTokens.muted)
