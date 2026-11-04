@@ -7362,3 +7362,27 @@ replacePath 后停在付费页，标题按 giftSpent 走，本来就落在可见
 闸门：hvigor BUILD SUCCESSFUL（17 executed）；pre-commit 编译门禁过；真机复拍同机位确认两处都变。
 本轮之前 hypium 243/243 全绿（续 183 那批改动跑过），这两处只动文案与按钮 variant，
 `grep` 确认无测试断言「未记账」。
+
+## 2026-11-04 续 185：屏5/屏9 走查——停留时长全仓只剩一套说法，顺带撤回两条假缺陷
+
+**真缺陷（已修）**：`OnTripPage.hoursText()` 把停留时长打成小数（`建议 4.0小时`、`4.5小时`），
+而屏5 选点自己手写 `${Math.floor(m/60)}小时${m%60}分钟`、屏8 行程纸走 `TimeText.stayOf`——
+同一件事三种说法并排出现，用户会以为「4.5小时」是实测、「4小时30分钟」是排定。
+续 179 那次「时长文案收成一套」漏了这一族（它只收了裸分钟数）。
+现在两处都走 `DurationCn.text()`，无结束时刻（一餐没有 endTime）退成 `—`，与屏8 同口径。
+真机复拍：屏5 `东城区 · 建议停留 2小时30分钟`（原样，整数小时不变）、屏9 `18:30 开始 · 建议 4小时`（原 `4.0小时`）。
+
+**撤回两条我差点当成缺陷的**：
+① dump 里 `Progress` 节点报 `33.000000` / `0.000000`，看着像数据漏进 UI。反证：同屏自研控件的
+`accessibilityText`（「设置各分类预算上限」「XX页签」）在 dump 里同样不进 `description`，
+只有系统件进——所以 dump 的 `description` 空判不出读屏行为，而 `text` 那串六位小数是框架内部值。
+② 屏5 每行右侧的圆环 dump 量到 22.1vp，像触点不足 44。读代码后撤回：24vp 是**内圈指示器**，
+外面那层 `Button` 明确写了 `width/height = LayoutTokens.minTouchTarget`，命中区是 44。
+两条都记成"量到的元素不是承载手势的那个"，见 [[verify-the-scanner-before-trusting-a-zero]]。
+
+**屏6/屏3 同批实拍**（`v_StayPick.jpeg`、`v_PreferenceQA.jpeg`）：屏3 偏好追问五档选项带说明、
+三钮齐整，未见缺陷；屏6 地图预览左下角那条「本次候选的三片 · 按推荐顺序」压到卡片圆角外，
+单独一轮处理。
+
+闸门：hvigor BUILD SUCCESSFUL（17 executed）、pre-commit 编译门禁过；
+`grep` 确认无测试断言小数小时写法（`DisplayText.test` 钉的是 `TimeText.stayOf` 的 `4小时30分钟`，未受影响）。

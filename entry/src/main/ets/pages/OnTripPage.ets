@@ -98,9 +98,14 @@ function clockNow(): string {
 /** 同类建议「忽略」后的静默窗口（分钟） */
 const SIGNAL_MUTE_MIN: number = 30;
 
-function hoursText(start: string, end: string): string {
-  const mins: number = Math.max(0, DateUtils.minutesOf(end) - DateUtils.minutesOf(start));
-  return `${Math.round(mins / 6) / 10}`;
+/**
+ * 建议停留时长。原来打小数（`4.5小时`），而屏5 选点、屏8 行程纸同一件事写 `4小时30分钟`
+ * ——两套说法并排出现时，用户会以为一个是"排定"一个是"实测"。
+ * 无结束时刻（一餐没有 endTime）退成 `—`，与屏8 `durationText` 同口径。
+ */
+function stayText(start: string, end: string): string {
+  const mins: number = DateUtils.minutesOf(end) - DateUtils.minutesOf(start);
+  return mins > 0 ? DurationCn.text(mins) : '—';
 }
 
 @Component
@@ -912,7 +917,7 @@ export struct OnTripPage {
     // 分钟数原样打出来是「已过 162分钟」——用户得自己做除法；过 1 小时就拆成时/分
     // 分钟数原样打出来是「已过 162分钟」——用户得自己做除法；过 1 小时就拆成时/分
     // 单位间距全仓统一走 TimeText/DurationCn 的紧凑写法（「5小时」而不是「5 小时」）
-    return `${cur.time} 开始 · 建议 ${hoursText(cur.time, cur.endTime)}小时 · 已过 ${DurationCn.text(this.elapsedMin)}`;
+    return `${cur.time} 开始 · 建议 ${stayText(cur.time, cur.endTime)} · 已过 ${DurationCn.text(this.elapsedMin)}`;
   }
 
   private progressPct(): number {
@@ -960,7 +965,7 @@ export struct OnTripPage {
       const cost: string = next.cost > 0 ? ` ${MoneyText.yuan(next.cost)}` : '';
       return `${next.place.length > 0 ? `${next.place}${cost}` : `预估${cost}`}`;
     }
-    return `建议停留 ${hoursText(next.time, next.endTime)}小时 · ${next.place}`;
+    return `建议停留 ${stayText(next.time, next.endTime)} · ${next.place}`;
   }
 
   @Builder

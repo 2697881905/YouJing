@@ -31,6 +31,7 @@ import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit'
 import type { HdsNavigationMenuItemOptions, HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
 import { isMapCity, seedCityListText } from '../common/constants/Cities';
+import { DurationCn } from '../utils/DurationCn';
 
 interface SpotGroup {
   label: string;
@@ -268,7 +269,7 @@ export struct SpotPickPage {
               .backgroundColor(ColorTokens.warning)
           }
         }
-        Text(`${sp.district} · 建议停留 ${Math.floor(sp.suggestedDuration / 60)}小时${sp.suggestedDuration % 60 > 0 ? `${sp.suggestedDuration % 60}分钟` : ''}`)
+        Text(`${sp.district} · 建议停留 ${sp.suggestedDuration > 0 ? DurationCn.text(sp.suggestedDuration) : '—'}`)
           .fontSize(TypeTokens.caption.size)
           .fontWeight(450)
           .fontColor(ColorTokens.muted)
