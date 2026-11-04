@@ -7,7 +7,7 @@
 import { describe, it, expect, TestType, Size, Level } from '@ohos/hypium';
 import { PlanDraft } from '../../../main/ets/data/PlanDraft';
 import { BudgetConfig } from '../../../main/ets/common/constants/BudgetConfig';
-import { PaceOption, SelectedSpot, SpotPriority, TravelStyle, TransitPreference } from '../../../main/ets/model/PlanParams';
+import { PaceOption, SelectedSpot, SpotPriority, TravelStyle, TransitPreference, TripBasicInput } from '../../../main/ets/model/PlanParams';
 
 export default function planDraftTest(): void {
   describe('PlanDraft 草稿', () => {
@@ -34,6 +34,31 @@ export default function planDraftTest(): void {
       expect(d.paces[0]).assertEqual(PaceOption.STANDARD);
       expect(d.selectedSpots.length).assertEqual(0);
       expect(d.selectedArea.areaId).assertEqual('');
+    });
+
+    it('days_of_unfilled_pair_uses_screen_two_default', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+      // 空日期不是「1 天」：屏2 显示的是「今天起算 3 天」，屏5 的名额必须同一个口径
+      // （2026-11-05 真机实拍到屏2 写 3天2晚、屏5 按 1 天只给 4 个名额）
+      PlanDraft.fresh();
+      const d: PlanDraft = PlanDraft.get();
+      expect(d.basic.startDate).assertEqual('');
+      expect(PlanDraft.days(d.basic)).assertEqual(PlanDraft.DEFAULT_DAYS);
+      expect(PlanDraft.days(d.basic)).assertEqual(3);
+    });
+
+    it('inverted_pair_is_repaired_to_same_day', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+      // 深链逐字段写入会留下 end < start；反向区间不是一种用户意图，读出来必须是同日
+      PlanDraft.fresh();
+      const d: PlanDraft = PlanDraft.get();
+      const bad: TripBasicInput = {
+        destination: d.basic.destination, startDate: '2026-12-20',
+        endDate: '2026-10-22', people: d.basic.people, budget: d.basic.budget
+      };
+      d.basic = bad;
+      const back: TripBasicInput = PlanDraft.get().basic;
+      expect(back.startDate).assertEqual('2026-12-20');
+      expect(back.endDate).assertEqual('2026-12-20');
+      expect(PlanDraft.days(back)).assertEqual(1);
     });
 
     it('fresh_actually_clears_mutations', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {

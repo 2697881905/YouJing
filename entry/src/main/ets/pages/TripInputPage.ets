@@ -30,6 +30,7 @@ import { FlowSteps, FLOW_STEP_TRIP_INPUT } from '../components/FlowSteps';
 import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
 import { longFormMaxWidth } from '../utils/responsive';
 import { SUPPORTED_CITIES, POPULAR_MAP_CITIES, isMapCity } from '../common/constants/Cities';
+import { TripSpan } from '../utils/TripSpan';
 
 // 京都为 mock 演示城（底稿帧同源），标注「示例数据」不谎报是正式内置库；
 // 正式种子城从 Cities 单点取（DataSeeder 与一句话解析读同一份）
@@ -93,6 +94,11 @@ export struct TripInputPage {
     if (DateUtils.isValidIsoDate(b.endDate) && b.endDate >= this.startDate
       && DateUtils.spanDays(this.startDate, b.endDate) >= 1) {
       this.endDate = b.endDate;
+    } else {
+      // 出发日取自草稿、返程日却还是本页"今天起算"的默认档时，实拍会出现
+      // 「12月20日 – 11月7日」这种反向区间（深链只带 start 时，2026-11-05 真机）。
+      // 返程必须跟着已接受的出发日走，长度用屏5 同一个默认档（PlanDraft.DEFAULT_DAYS）
+      this.endDate = DateUtils.addDays(this.startDate, PlanDraft.DEFAULT_DAYS - 1);
     }
     if (b.people > 0) {
       this.party = b.people;
@@ -420,7 +426,7 @@ export struct TripInputPage {
       notes.push('片区库为空，直接生成会缺住宿区');
     }
     this.pvCity = intent.city;
-    this.pvWhen = `${this.fmt(start)} – ${this.fmt(end)} · ${days}天${days - 1}晚`;
+    this.pvWhen = `${this.fmt(start)} – ${this.fmt(end)} · ${TripSpan.text(days)}`;
     this.pvPeople = `${people} 人`;
     this.pvBudget = `${MoneyText.yuan(budget)} / 人`;
     this.pvPref = `${this.styleLabel(d.style)} · ${tierLabel(stayTier)} · ` +
@@ -846,7 +852,7 @@ export struct TripInputPage {
                       .fontColor(ColorTokens.ink)
                       .fontFeature("'tnum' on")
                       .margin({ top: SpaceTokens.xxs })
-                    Text(`${this.dayCount()}天${this.dayCount() - 1}晚`)
+                    Text(TripSpan.text(this.dayCount()))
                       .fontSize(TypeTokens.caption.size)
                       .fontWeight(450)
                       .fontColor(ColorTokens.muted)
@@ -868,7 +874,7 @@ export struct TripInputPage {
               .padding(0)
               .borderRadius(RadiusTokens.card)
               // 帧声明 aria-label="选择出行日期"；一次点按串两档弹窗（出发→返程）
-              .accessibilityText(`选择出行日期，当前 ${this.dayCount()}天${this.dayCount() - 1}晚`)
+              .accessibilityText(`选择出行日期，当前 ${TripSpan.text(this.dayCount())}`)
               .onClick(() => {
                 this.pickDate();
               })

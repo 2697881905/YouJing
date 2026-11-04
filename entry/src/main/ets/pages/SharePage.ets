@@ -26,6 +26,7 @@ import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
+import { TripSpan } from '../utils/TripSpan';
 
 interface ShareOption {
   symbol: Resource;
@@ -77,7 +78,7 @@ export struct SharePage {
         this.dayCount = trip.days.length;
         this.stopCount = stops;
         this.bookingCount = IcsBuilder.bookingCount(trip);
-        this.subtitle = `${trip.destination} ${trip.days.length}天${trip.days.length - 1}晚 · ${stops} 个节点`;
+        this.subtitle = `${trip.destination} ${TripSpan.text(trip.days.length)} · ${stops} 个节点`;
         this.options = [
           { symbol: $r('sys.symbol.share'), title: '分享行程文本',
             desc: '经系统分享面板发出行程清单，不含账号信息' },

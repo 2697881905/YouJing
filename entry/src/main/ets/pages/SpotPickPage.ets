@@ -80,7 +80,8 @@ export struct SpotPickPage {
   private load(): void {
     const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
     const b: TripBasicInput = PlanDraft.get().basic;
-    this.days = DateUtils.spanDays(b.startDate, b.endDate);
+    // 空日期按屏2 的默认档算，不能让 spanDays('','') 把 3 天行程读成 1 天（§5ci 续 189）
+    this.days = PlanDraft.days(b);
     this.capacity = PlanAutoPick.capacityOf(this.days, PlanDraft.get().paces);
     this.destination = b.destination;
     this.mapCity = isMapCity(b.destination);

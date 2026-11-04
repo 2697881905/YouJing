@@ -38,6 +38,7 @@ import { TransitSymbol } from '../utils/TransitSymbol';
 import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
 import { longFormMaxWidth } from '../utils/responsive';
 import { DayLoad, DayLoadCalc, LoadLevel } from '../utils/DayLoad';
+import { TripSpan } from '../utils/TripSpan';
 
 /** 负载微条 3vp（比通用 Progress 的 4vp 细一档，它读的是趋势不是数值） */
 const LOAD_BAR_STYLE: LinearStyleOptions = { strokeWidth: 3, strokeRadius: 1.5 };
@@ -101,8 +102,7 @@ export struct ItineraryPage {
           this.syncDayStops();
           this.bookingCount = CalendarSync.bookingCount(trip);
           this.dayCount = trip.days.length;
-          const nights: number = trip.days.length - 1;
-          this.titleText = `${trip.destination} · ${trip.days.length}天${nights}晚`;
+          this.titleText = `${trip.destination} · ${TripSpan.text(trip.days.length)}`;
           this.segments = trip.days.map((d: TripDay): SegmentedItem => {
             const item: SegmentedItem = { label: `Day ${d.dayIndex}` };
             return item;

@@ -13,6 +13,7 @@
 
 import { ActivityStatus, MealType } from '../model/Trip';
 import { CategoryStyle } from './CategoryStyle';
+import { TripSpan } from '../utils/TripSpan';
 import type { Activity, Trip, TripDay } from '../model/Trip';
 
 const LINE_MAX_BYTES: number = 74;
@@ -157,7 +158,7 @@ export class IcsBuilder {
   /** 行程纯文本摘要（系统分享面板用，不含账号信息） */
   static plainSummary(trip: Trip): string {
     const out: string[] = [`${trip.destination} ${trip.startDate} ~ ${trip.endDate} · ` +
-      `${trip.days.length}天${trip.days.length - 1}晚 · ${trip.people} 人`];
+      `${TripSpan.text(trip.days.length)} · ${trip.people} 人`];
     // #29：overview.summary 与 overview.highlights 是 AI 产出却没有任何落点。
     // 分享文本是既有的输出面——行程"为什么这么排"本来就该跟着行程一起发出去
     if (trip.overview.summary.length > 0) {

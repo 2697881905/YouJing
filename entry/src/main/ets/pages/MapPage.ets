@@ -27,6 +27,7 @@ import { routerMap } from './AppRouter';
 import type { HdsNavigationMenuItemOptions, HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
 import { TopStrip, STRIP_CANVAS, STRIP_MAP } from '../utils/TopStrip';
+import { TripSpan } from '../utils/TripSpan';
 
 const ALL_DAYS: number = -1;
 /**
@@ -209,8 +210,7 @@ export struct MapPage {
         return;
       }
       this.days = trip.days;
-      const nights: number = trip.days.length - 1;
-      this.titleText = `${trip.destination} · ${trip.days.length}天${nights}晚`;
+      this.titleText = `${trip.destination} · ${TripSpan.text(trip.days.length)}`;
       // 在途行程默认停在"今天那一天"而不是全程：用户开地图要的是我现在在哪一段，
       // 全程视图 19 个落点缩在一起反而看不清
       let sel: number = this.daySel;

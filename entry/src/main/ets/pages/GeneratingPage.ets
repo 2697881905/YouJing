@@ -295,7 +295,7 @@ export struct GeneratingPage {
 
   private daysCount(): number {
     const b: TripBasicInput = PlanDraft.get().basic;
-    return DateUtils.spanDays(b.startDate, b.endDate);
+    return PlanDraft.days(b);
   }
 
   /**
