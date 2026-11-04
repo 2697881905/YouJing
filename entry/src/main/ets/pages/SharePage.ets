@@ -217,8 +217,17 @@ export struct SharePage {
                   // 底稿这块是「路线图带」：编号圆点串在一条线上，下面压一道浅色河带。
                   // 上一轮删掉的 140vp「行程纸」之所以是空占位，是因为它想画这张图却没数据源；
                   // 现在用**真实节点数**画出来（不编任何数据），删占位留下的半屏空洞一并补上。
-                  Row({ space: 0 }) {
-                    ForEach(this.nodeLabels(), (lab: string, i: number) => {
+                  // 帧的原话是「编号圆点串在一条线上，下面压一道浅色河带」——河带是**垫在圆点下面**
+                  // 那条线，不是圆点之外再画一道空槽。上一版把它画成脱离圆点行的独立灰条，
+                  // 实拍读起来就是"还在加载的骨架条"（2026-11-04 真机）。改成 Stack 垫底。
+                  Stack({ alignContent: Alignment.Center }) {
+                    Column()
+                      .width('88%')
+                      .height(10)
+                      .borderRadius(RadiusTokens.pill)
+                      .backgroundColor(ColorTokens.surfaceSubtle)
+                    Row({ space: 0 }) {
+                      ForEach(this.nodeLabels(), (lab: string, i: number) => {
                       if (i > 0) {
                         Column()
                           .width(22)
@@ -241,23 +250,19 @@ export struct SharePage {
                       .width(26)
                       .height(26)
                     }, (lab: string, i: number): string => `share-node-${i}-${lab}`)
+                    }
+                    .justifyContent(FlexAlign.Center)
+                    .width('100%')
                   }
-                  .justifyContent(FlexAlign.Center)
                   .width('100%')
+                  .height(30)
 
                   Text(this.ribbonCaption())
                     .fontSize(TypeTokens.overline.size)
                     .fontWeight(450)
                     .fontColor(ColorTokens.muted)
                     .fontFeature("'tnum' on")
-                    .margin({ top: SpaceTokens.xxs })
-
-                  Column()
-                    .width('100%')
-                    .height(10)
-                    .borderRadius(RadiusTokens.pill)
-                    .backgroundColor(ColorTokens.surfaceSubtle)
-                    .margin({ top: SpaceTokens.sm, bottom: SpaceTokens.base })
+                    .margin({ top: SpaceTokens.xxs, bottom: SpaceTokens.base })
 
                   Row() {
                     // 三个数在 build 内直读状态变量：@Builder 形参是值快照，行程异步到达后不会刷新
