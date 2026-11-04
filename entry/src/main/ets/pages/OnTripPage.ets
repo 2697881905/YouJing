@@ -910,7 +910,9 @@ export struct OnTripPage {
       return cur.cost > 0 ? `${head} · 预估 ${MoneyText.yuan(cur.cost)}` : head;
     }
     // 分钟数原样打出来是「已过 162分钟」——用户得自己做除法；过 1 小时就拆成时/分
-    return `${cur.time} 开始 · 建议 ${hoursText(cur.time, cur.endTime)}小时 · 已过 ${DurationCn.text(this.elapsedMin)}`;
+    // 分钟数原样打出来是「已过 162分钟」——用户得自己做除法；过 1 小时就拆成时/分
+    // 同一行里两种数字间距（「5小时 · 已过 3 小时」）读起来像两套系统，统一带空格
+    return `${cur.time} 开始 · 建议 ${hoursText(cur.time, cur.endTime)} 小时 · 已过 ${DurationCn.text(this.elapsedMin)}`;
   }
 
   private progressPct(): number {
