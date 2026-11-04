@@ -7591,3 +7591,17 @@ python 把反斜杠+n 当字面量塞进 import 行 → `Invalid character` + `h
 紧接着的"真机复拍"读到的自然还是旧文案。
 判据补两条：装机前必须看到本轮 `BUILD SUCCESSFUL`；`install` 的成功字样不证明产物含改动
 （同 [[hvigor-up-to-date-stale-artifact]]，这次是新形态：构建失败仍装机成功）。
+
+## 2026-11-05 续 194：把「构建成功才准装机」固化成 tools/build_install.sh
+
+续 193 那条坑（构建 FAIL、`hdc install` 仍回 `AppMod finish`、于是"真机复拍"读到旧包）
+不该靠我记得看那行字，所以做成脚本：构建 → 断言本轮日志里有 `BUILD SUCCESSFUL` → 才装机，
+另加一条"产物 mtime 超过 5 分钟就拒绝"，把**构建成功**与**产物真的含改动**分开判
+（`hvigor UP-TO-DATE` 复用旧产物时前者成立而后者不成立，见记忆 `hvigor-up-to-date-stale-artifact`）。
+
+两分支都跑过：
+- 阳性对照 `tools/build_install.sh nope_module` → `Configuration Error` → **不装机**、exit 1；
+- 真跑 `tools/build_install.sh default` → `BUILD SUCCESSFUL` → 装机 → exit 0。
+
+用法：`tools/build_install.sh`（App 本体）/ `tools/build_install.sh ohosTest`（hypium 包）。
+失败时打印构建日志里的 ERROR 行（最多 20 条），不用再去翻 hvigor 输出。

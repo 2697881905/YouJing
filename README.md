@@ -69,7 +69,7 @@ tools/                十八把静态尺 + 离线断言脚本
 | 闸门 | 命令 | 当前状态 |
 |---|---|---|
 | ArkTS 编译 | `hvigorw … assembleHap`（主 + `entry@ohosTest`） | 零 error，pre-commit 强制 |
-| 真机单测 | `hdc shell "aa test -b com.youjing.app -m entry_test -s unittest OpenHarmonyTestRunner -s timeout 300000"` | 243/243（2026-11-04 复跑） |
+| 构建并装机（**失败即不装**） | `tools/build_install.sh [default\|ohosTest]` | 断言本轮日志有 `BUILD SUCCESSFUL` 才执行 `hdc install`，并检查产物 mtime；防止"构建 FAIL 但 install 仍回 AppMod finish、装上去是上一轮产物"这种假验证（§5ci 续 193/194） |\n| 真机单测 | `hdc shell "aa test -b com.youjing.app -m entry_test -s unittest OpenHarmonyTestRunner -s timeout 300000"` | 243/243（2026-11-04 复跑） |
 | 纯逻辑离线断言 | `bash tools/verify_map_city.sh` / `verify_trip_intent.sh` / `verify_trip_review.sh` / `verify_replan_logic.sh` / `verify_weather_logic.sh` | 66 / 104 / 57 / 74+26 / 116 全绿 |
 | 商业化链路真实进程验收（**集成探针**，不占「十八把静态尺」计数） | `bash tools/probe_bff_commercial.sh` | import `bff/src/index.js` 起**真进程** + 真 HTTP 走「激活→扣额度→付费墙→付费→高级额度」；跑在 `mktemp -d` 副本里（**不污染开发库**）；上游 LLM 用本机桩；收据改为**测试证书链现签的 JWS**（本地验签，无远端服务可桩），**真模型/真供应商花费 0**。2026-11-04 复跑：必守行为 **24/24**、支付守卫缺陷 **1 条**（只剩 D5「换设备白拿赠送」，属产品口径；D1/D2/D3/D4 已被 fail-closed 校验关闭，D6/D7/D8/D9 已修）。**故意不进 `verify_*.sh` 通配**——它要起进程，且当前必然 rc=1（D5 未拍板），红是正确信号而不是闸门失可用 |
 | BFF 上线自检（**部署闸门**，不占静态尺计数） | `cd bff && npm run preflight` | 十四项检查（JWT 密钥、API Key、**IAP 收据本地 JWS 验签结构**（x5c 链+ES256+根信任+叶子 OID）、
