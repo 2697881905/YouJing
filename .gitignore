@@ -19,9 +19,17 @@
 *.csr
 *.jks
 *.keystore
+# 例外：公开的信任锚证书必须随仓库走（BFF 部署 preflight 依赖），非签名私钥
+!bff/certs/*.cer
+!bff/test/fixtures/*.cer
+# 测试链的私钥与 openssl 流水不入库（缺失时 npm test 调 gen-test-certs.sh 现生成）
+bff/test/fixtures/*.key
+bff/test/fixtures/*.srl
 # WorkBuddy 本地工作日志（工具本地状态，不入库）
 .workbuddy/
 
 # DevEco 本地工具状态（同 .workbuddy，不入库）
 .arts/
 __pycache__/
+# 生成测试链时的并行锁（瞬态，不入库）
+bff/test/fixtures/.gen.lock/

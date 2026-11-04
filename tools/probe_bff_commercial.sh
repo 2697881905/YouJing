@@ -36,7 +36,7 @@ cp -R "$SRC/src" "$SRC/test" "$SRC/package.json" "$PROBE/" 2>/dev/null
 ln -s "$SRC/node_modules" "$PROBE/node_modules"
 cp "$REPO/tools/bff_commercial_probe.mjs" "$PROBE/__commercial_probe.mjs"
 
-echo "隔离副本：$PROBE（仓库零写入）· 端口 $PORT"
+echo "隔离副本：${PROBE}（仓库零写入）· 端口 ${PORT}"
 echo
 
 PROBE_PORT="$PORT" node "$PROBE/__commercial_probe.mjs"

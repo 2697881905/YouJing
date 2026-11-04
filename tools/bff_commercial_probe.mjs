@@ -50,23 +50,16 @@ const upstream = http.createServer((req, res) => {
 });
 await new Promise((r) => upstream.listen(0, '127.0.0.1', r));
 
-// 收据校验桩：只有以 probe-real- 开头的 token 才算"真收据"。
-// 用真实进程验两半通路——伪造收据必须被拒、真收据必须能买到订阅（只测拒收等于没测）。
-const iapVerifier = http.createServer((req, res) => {
-  let raw = '';
-  req.on('data', (c) => { raw += c; });
-  req.on('end', () => {
-    let parsed = {};
-    try { parsed = JSON.parse(raw); } catch (e) { parsed = {}; }
-    const ok = typeof parsed.purchaseToken === 'string' && parsed.purchaseToken.startsWith('probe-real-');
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ verified: ok }));
-  });
-});
-await new Promise((r) => iapVerifier.listen(0, '127.0.0.1', r));
-process.env.IAP_VERIFY_URL = `http://127.0.0.1:${iapVerifier.address().port}/verify`;
-process.env.IAP_APP_ID = 'probe-iap-app';
-process.env.IAP_VERIFY_TOKEN = 'probe-iap-token';
+// 收据校验对表官方后是**本地 JWS 验签**（无校验服务可桩）：把测试根证书交给真实进程，
+// 用 fixtures 证书链现签「真收据」JWS——伪造（坏格式/坏签名）被拒、真 JWS 能买到订阅，
+// 两半通路都在真实进程上验。测试链只在本探针进程内受信（生产默认信华为根证书）。
+const { fileURLToPath } = await import('node:url');
+process.env.IAP_ROOT_CERT_PATH = fileURLToPath(
+  new URL('./test/fixtures/iap-test-root.cer', import.meta.url)
+);
+process.env.IAP_APP_ID = '6917619826312400726';
+const { makeJws, purchaseOrderPayload, subscriptionStatusPayload, notificationPayload } =
+  await import('./test/fixtures/jws.js');
 
 process.env.LLM_BASE_URL = `http://127.0.0.1:${upstream.address().port}/v1`;
 process.env.DEEPSEEK_API_KEY = 'probe-key-not-real';
@@ -75,12 +68,8 @@ process.env.LLM_MODEL = 'probe-model';
 process.env.LLM_RESPONSE_FORMAT = 'json_object';
 process.env.PORT = process.env.PROBE_PORT || '47811';
 
-// IAP 通知验签：本地生成一对 RSA 密钥，把公钥当 IAP_NOTIFY_PUBLIC_KEY 交给真实进程，
-// 用私钥签真签名。**未验**：华为真实回调的字段名/枚举值与 AGC 公钥，要第一封真通知对表。
-const { generateKeyPairSync, createSign } = await import('node:crypto');
-const notifyKeys = generateKeyPairSync('rsa', { modulusLength: 2048 });
-process.env.IAP_NOTIFY_PUBLIC_KEY = notifyKeys.publicKey.export({ type: 'spki', format: 'pem' });
-const NOTIFY_PRIVATE_PEM = notifyKeys.privateKey.export({ type: 'pkcs8', format: 'pem' });
+// IAP 通知验签：与收据同一套本地 JWS 验签（官方 v3：通知体 { jwsNotification }）。
+// 「真通知」用 fixtures 证书链现签；**未验**：AGC 配好通知地址后的第一封真实回调。
 
 const BASE = `http://127.0.0.1:${process.env.PORT}`;
 
@@ -129,7 +118,6 @@ gate('真实进程可启动并响应 /health', booted);
 if (!booted) {
   defects.push({ name: 'BFF 起不来', detail: 'import src/index.js 后 6 秒内 /health 无响应' });
   upstream.close();
-  iapVerifier.close();
   process.exit(1);
 }
 
@@ -178,11 +166,11 @@ gate('额度用尽后 402 QUOTA_EXHAUSTED（付费墙可诚实到达）',
   g4.status === 402 && g4.body && g4.body.error === 'QUOTA_EXHAUSTED',
   `status=${g4.status} error=${g4.body && g4.body.error}`);
 
-// ── 4. 付费守卫：伪造一张收据能否换来订阅（D1 已修：校验服务 fail-closed） ──
+// ── 4. 付费守卫：伪造一张收据能否换来订阅（D1 已修：本地 JWS 验签 fail-closed） ──
 const forgeSub = await req('POST', '/v1/iap/verify', {
   token: tokenA,
   body: {
-    purchaseToken: 'totally-forged-receipt-123',
+    jwsPurchaseOrder: 'totally-forged-receipt-123',
     productType: 'subscription',
     productId: 'youjing_sub_monthly'
   }
@@ -203,7 +191,7 @@ gate('伪造失败后额度仍为 0（真的没换到额度）', afterForge.stat
 // ── 5. 通行证：伪造能否解锁导出墙与生成额度 ───────────────────────────
 const forgePass = await req('POST', '/v1/iap/verify', {
   token: tokenA,
-  body: { purchaseToken: 'totally-forged-receipt-456', productType: 'pass', localTripId: 'local-trip-free' }
+  body: { jwsPurchaseOrder: 'totally-forged-receipt-456', productType: 'pass', localTripId: 'local-trip-free' }
 });
 const passGranted = forgePass.status === 200 && forgePass.body && forgePass.body.passId === 'local-trip-free';
 gate('伪造通行证收据被拒绝',
@@ -224,7 +212,7 @@ gate('干净账号 C 的赠送已用尽（通行证测试的前提）',
 
 const forgePassC = await req('POST', '/v1/iap/verify', {
   token: tokenC,
-  body: { purchaseToken: 'totally-forged-receipt-789', productType: 'pass', localTripId: 'local-trip-free' }
+  body: { jwsPurchaseOrder: 'totally-forged-receipt-789', productType: 'pass', localTripId: 'local-trip-free' }
 });
 gate('账号 C 的伪造通行证同样被拒', forgePassC.body && forgePassC.body.verified === false,
   `verified=${forgePassC.body && forgePassC.body.verified}`);
@@ -238,13 +226,15 @@ guardAbsent('伪造通行证不该买到无限生成额度',
   `额度已尽的干净账号靠伪造 pass 拿到 source=${pw && pw.source} status=${withPass.status}`);
 gate('伪造失败后账号 C 仍是 402', withPass.status === 402, `status=${withPass.status}`);
 
-// ── 5b. 正对照：真收据必须能买到订阅并兑换成额度（不然"全拒"也能骗过上面几条） ──
+// ── 5b. 正对照：真收据（fixtures 证书链现签的订阅 JWS）必须能买到订阅并兑换成额度 ──
 const actE = await req('POST', '/v1/device/activate', { body: { deviceId: 'probe-device-e' } });
 const tokenE = actE.body && actE.body.deviceToken;
+const realSubJws = makeJws(subscriptionStatusPayload());
+const realSubToken = subscriptionStatusPayload().lastSubscriptionStatus.purchaseToken;
 const realSub = await req('POST', '/v1/iap/verify', {
   token: tokenE,
   body: {
-    purchaseToken: 'probe-real-sub-1',
+    jwsSubscriptionStatus: realSubJws,
     productType: 'subscription',
     productId: 'youjing_sub_monthly'
   }
@@ -279,23 +269,36 @@ const used = ent.body && ent.body.usedToday;
 gate('订阅档上限值应为 20（窗口=按月，见 quota-window.test.js）', cap === 20,
   `dailyCap=${cap} usedToday=${used}`);
 
-// D7 已修（2026-11-03）：通知端点验 RSA-SHA256 签名、落真实权益变更、按 eventId 幂等。
-// 未签名先证「拒收」，再用真签名证「到期真的让订阅失效」——只测拒收等于没测通路。
+// D7 已修（2026-11-03，2026-11-04 对表官方 v3）：通知体 { jwsNotification }，
+// 与收据同一套本地 JWS 验签、按 notificationRequestId 幂等。
+// 先证「拒收」（坏 JWS / 缺字段），再用真 JWS 证「到期真的让订阅失效」——只测拒收等于没测通路。
 const unsigned = await req('POST', '/v1/iap/notify', {
-  body: { notificationType: 'EXPIRED', purchaseToken: 'probe-real-sub-1', eventId: 'probe-unsigned' }
+  body: { notificationType: 'EXPIRE', purchaseToken: realSubToken, eventId: 'probe-unsigned' }
 });
-gate('未签名的 IAP 通知被拒绝（不能撤销别人的权益）', unsigned.status === 401,
+gate('不符合 v3 契约（缺 jwsNotification）的通知被拒绝', unsigned.status === 400,
   `status=${unsigned.status} error=${unsigned.body && unsigned.body.error}`);
 
-const notifyRaw = JSON.stringify({
-  notificationType: 'EXPIRED',
-  purchaseToken: 'probe-real-sub-1',
-  eventId: 'probe-expire-signed'
+const forgedNotify = await req('POST', '/v1/iap/notify', {
+  body: { jwsNotification: 'forged.header.signature' }
 });
-const notifySig = createSign('RSA-SHA256').update(notifyRaw).sign(NOTIFY_PRIVATE_PEM, 'base64');
-const notify = await req('POST', '/v1/iap/notify', { raw: notifyRaw, signature: notifySig });
+gate('伪造的 jwsNotification 被验签拒绝（不能撤销别人的权益）', forgedNotify.status === 401,
+  `status=${forgedNotify.status} error=${forgedNotify.body && forgedNotify.body.error}`);
+
+const expireNotify = makeJws(notificationPayload({
+  notificationType: 'EXPIRE',
+  notificationSubtype: 'VOLUNTARY',
+  notificationRequestId: 'probe-expire-signed',
+  notificationMetaData: {
+    environment: 'SANDBOX',
+    applicationId: '6917619826312400726',
+    packageName: 'com.youjing.app',
+    type: 2,
+    purchaseToken: realSubToken
+  }
+}));
+const notify = await req('POST', '/v1/iap/notify', { body: { jwsNotification: expireNotify } });
 const entAfterNotify = await req('GET', '/v1/entitlement', { token: tokenE });
-gate('已验签的 EXPIRED 通知让订阅失效（真实进程、真签名）',
+gate('已验签的 EXPIRE 通知让订阅失效（真实进程、真 JWS）',
   notify.status === 200 && notify.body && notify.body.applied === true &&
   entAfterNotify.body && entAfterNotify.body.subscription === null,
   `status=${notify.status} applied=${notify.body && notify.body.applied} ` +
@@ -304,7 +307,7 @@ gate('已验签的 EXPIRED 通知让订阅失效（真实进程、真签名）',
 const dupToken = await req('POST', '/v1/iap/verify', {
   token: tokenA,
   body: {
-    purchaseToken: 'totally-forged-receipt-123',
+    jwsSubscriptionStatus: realSubJws,
     productType: 'subscription',
     productId: 'youjing_sub_yearly'
   }
@@ -319,5 +322,4 @@ console.log(`必守行为 ${passed}/${gates.length} 通过；支付守卫缺陷 
   `上游 stub 真实调用 ${stubCalls.length} 次；LLM 花费 0`);
 defects.forEach((d, i) => console.log(`  ${i + 1}. ${d.name}`));
 upstream.close();
-iapVerifier.close();
 process.exit(defects.length || passed !== gates.length ? 1 : 0);

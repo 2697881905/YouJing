@@ -57,7 +57,7 @@ fi
 
 fail=0
 
-echo "① 原件 docs ↔ Docs/design-v2 逐字节比对（$SRC_DIR）"
+echo "① 原件 docs ↔ Docs/design-v2 逐字节比对（${SRC_DIR}）"
 if [ ! -d "$SRC_DIR" ]; then
   echo "  !! 前置缺失：契约原件目录不存在 $SRC_DIR —— 镜像无从比对，判为不通过" >&2
   fail=1
@@ -67,16 +67,16 @@ for f in DESIGN.md youjing-stitch-prompts.md youjing-engineering-handoff.md; do
     break
   fi
   if [ ! -f "$SRC_DIR/$f" ] || [ ! -f "$V2_DIR/$f" ]; then
-    echo "  !! $f：一侧文件缺失（原件 $SRC_DIR/$f ｜镜像 $V2_DIR/$f）" >&2
+    echo "  !! ${f}：一侧文件缺失（原件 $SRC_DIR/$f ｜镜像 $V2_DIR/${f}）" >&2
     fail=1
     continue
   fi
   if cmp -s "$SRC_DIR/$f" "$V2_DIR/$f"; then
     n=$(wc -c < "$V2_DIR/$f" | tr -d ' ')
-    echo "  OK $f：逐字节相同（$n 字节）"
+    echo "  OK ${f}：逐字节相同（$n 字节）"
   else
-    diff_line=$(cmp "$SRC_DIR/$f" "$V2_DIR/$f" 2>&1 | head -1)
-    echo "  ✗ $f：镜像与原件不一致（${diff_line:-cmp 未给出分叉位置}）" >&2
+    diff_line=$(cmp "${SRC_DIR}/$f" "${V2_DIR}/$f" 2>&1 | head -1)
+    echo "  ✗ ${f}：镜像与原件不一致（${diff_line:-cmp 未给出分叉位置}）" >&2
     echo "     修法：cp \"$SRC_DIR/$f\" \"$V2_DIR/$f\" 后复跑本闸；" >&2
     echo "     若这次改动是契约修订，按 T8 规矩同一批同步 token 与尺。" >&2
     fail=1
@@ -90,15 +90,15 @@ check_frozen() {
   want=$2
   path="$V1_DIR/$name"
   if [ ! -f "$path" ]; then
-    echo "  !! $name：文件缺失 $path" >&2
+    echo "  !! ${name}：文件缺失 $path" >&2
     fail=1
     return
   fi
   got=$(md5 -q "$path")
   if [ "$got" = "$want" ]; then
-    echo "  OK $name：md5 $got 与冻结值一致"
+    echo "  OK ${name}：md5 $got 与冻结值一致"
   else
-    echo "  ✗ $name：md5 $got ≠ 冻结值 $want" >&2
+    echo "  ✗ ${name}：md5 $got ≠ 冻结值 $want" >&2
     echo "     v1 是已发布历史快照（design-v1/README 明写不许覆盖、只作差异对照），" >&2
     echo "     要动它先按规矩升版建新目录，不要在 v1 上就地改。" >&2
     fail=1

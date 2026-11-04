@@ -50,43 +50,58 @@ if (llmKey.length === 0 || llmKey === 'sk-your-key-here') {
   ok('DEEPSEEK_API_KEY 已配置');
 }
 
-// 2) 支付校验不能还是桩（D1/D3/D4 的根因） --------------------------------
-// 判据用「正向结构」而不是「搜 return { verified: true」——新实现里也有一句
-// `return { verified: true }`（远端确认通过时），拿它当桩的特征会永远报红。
+// 2) 收据校验必须是对表官方的本地 JWS 验签（D1/D3/D4 的根因） ----------------
+// 现行方案：客户端上报 jwsPurchaseOrder/jwsSubscriptionStatus，服务端用
+// Huawei CBG Root CA G2 证书链本地验签（官方「对返回结果验签」，沙盒/生产都通）。
+// 判据用「正向结构」：验签模块必须有 x5c 链/ES256/根信任/OID 四要素，业务层必须 fail-closed。
 const iap = read('src/services/iap.js');
-const iapRemote = /IAP_NOT_CONFIGURED/.test(iap) && /fetch\(url/.test(iap) && /AbortSignal\.timeout/.test(iap);
-if (iapRemote) {
-  ok('IAP 收据校验已接远端服务（未配置/异常时 fail-closed）');
+const iapJws = read('src/services/iapJws.js');
+const iapLocal = /verifyPurchaseReceipt/.test(iap) && /IAP_NOT_CONFIGURED/.test(iap);
+const jwsVerifier = /x5c/.test(iapJws) && /ES256/.test(iapJws) &&
+  /ROOT_MISMATCH/.test(iapJws) && /LEAF_CERT_OID/.test(iapJws);
+if (iapLocal && jwsVerifier) {
+  ok('IAP 收据走本地 JWS 验签（x5c 链+ES256+OID，fail-closed）');
 } else {
-  bad('IAP 校验仍是恒真桩', 'src/services/iap.js 没有远端校验与 fail-closed 结构 ⇒ 假收据可换订阅与通行证');
+  bad('IAP 校验结构不对', 'src/services/iap.js 或 iapJws.js 缺少本地 JWS 验签要素 ⇒ 假收据可能可换订阅与通行证');
 }
-const iapEnvMissing = ['IAP_VERIFY_URL', 'IAP_APP_ID', 'IAP_VERIFY_TOKEN']
-  .filter((key) => !process.env[key]);
-if (iapEnvMissing.length === 0) {
-  ok('IAP 校验服务已配置（端点/APP_ID/TOKEN）');
+if (process.env.IAP_APP_ID) {
+  ok('IAP_APP_ID 已配置（收据 applicationId 比对）');
 } else {
-  bad('IAP 校验服务未配置', `缺 ${iapEnvMissing.join('/')}；未配置时 /v1/iap/verify 一律 503 拒收`);
+  bad('IAP_APP_ID 未配置', '收据的 applicationId 无从比对，跨应用收据可复用；未配置时 /v1/iap/verify 一律 503');
+}
+const rootCertPath = process.env.IAP_ROOT_CERT_PATH || join(ROOT, 'certs', 'RootCaG2Ecdsa.cer');
+if (existsSync(rootCertPath)) {
+  ok(`IAP 根证书在位（${rootCertPath.replace(ROOT + '/', '')}）`);
+} else {
+  bad('IAP 根证书缺失', `${rootCertPath} 不存在；从 https://pki.consumer.huawei.com/ca/cer/RootCaG2Ecdsa.cer 下载`);
+}
+// 沙盒/开发单不花钱：验签通过也不该发货。默认只认 environment=Production，
+// 真机沙盒验收要显式开 IAP_ALLOW_SANDBOX=1——开着就不能当生产对外。
+if (process.env.IAP_ALLOW_SANDBOX === '1') {
+  warn('沙盒收据放行中', 'IAP_ALLOW_SANDBOX=1：非生产环境收据可换权益，仅供真机验收；正式对外前必须去掉这一行');
+} else {
+  ok('收据环境闸门收紧（只认 environment=Production）');
 }
 
 // 3) /v1/iap 两条入口各自的守门方式 -----------------------------------------
 // /verify 用设备票据（内联 jwt.verify）；/notify 是华为推来的，不可能带设备票据，
-// 它必须验 RSA 签名（D7 修复后的形态）。以前这里查"整条 /v1/iap 挂没挂 authMiddleware"，
-// 那个判据会逼着人把华为回调也挂上票据、反而永远收不到通知。
+// 官方 v3 通知体是 { jwsNotification }——与收据同一套 JWS 验签（D7 对表后的形态）。
 const iapRoute = read('src/routes/iap.js');
 if (/TOKEN_INVALID/.test(iapRoute) && /jwt\.verify/.test(iapRoute)) {
   ok('/v1/iap/verify 要求设备票据');
 } else {
   bad('/v1/iap/verify 未校验设备票据', 'src/routes/iap.js 里找不到 token 校验，假收据可直接入库');
 }
-if (/notifySignatureOk\(/.test(iapRoute) && /IAP_NOTIFY_PUBLIC_KEY/.test(iapRoute)) {
-  ok('/v1/iap/notify 走签名校验');
+const iapNotify = read('src/services/iapNotify.js');
+if (/verifyNotification\(/.test(iapRoute) && /jwsNotification/.test(iapRoute)) {
+  ok('/v1/iap/notify 收 JWS 并验签（v3 契约）');
 } else {
-  bad('/v1/iap/notify 未验签', '任何人都能伪造续费/退款事件改用户权益');
+  bad('/v1/iap/notify 未验签', 'src/routes/iap.js 里找不到 verifyNotification/jwsNotification，任何人都能伪造续费/退款事件改用户权益');
 }
-if (process.env.IAP_NOTIFY_PUBLIC_KEY) {
-  ok('IAP_NOTIFY_PUBLIC_KEY 已配置（值本身需与 AGC 控制台核对）');
+if (/verifyJws\(/.test(iapNotify) && /notificationRequestId/.test(iapNotify)) {
+  ok('/v1/iap/notify 复用 JWS 验签并按 notificationRequestId 幂等');
 } else {
-  bad('IAP_NOTIFY_PUBLIC_KEY 未配置', 'notify 会按 fail-closed 返回 503，到期与退款无法生效');
+  bad('/v1/iap/notify 幂等缺失', 'src/services/iapNotify.js 必须验 JWS 且以 notificationRequestId 幂等，重推会重复改权益');
 }
 
 // 4) 设备激活不能信任客户端自报的 unionId（账号冒用） ----------------------

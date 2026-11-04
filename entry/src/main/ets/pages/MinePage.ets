@@ -19,7 +19,7 @@ import { PROFILE_NAV, TAB_MINE, TAB_SHOWN_KEY, isTabShownTick, enterPlanningFlow
 import { routerMap } from './AppRouter';
 import { AccountStore, AUTH_STATE_KEY } from '../data/AccountStore';
 import { BadgeDao } from '../data/BadgeDao';
-import { EntitlementStore } from '../data/EntitlementStore';
+import { EntitlementStore, Entitlement, SubscriptionInfo, PassInfo } from '../data/EntitlementStore';
 import { DateUtils } from '../utils/DateUtils';
 import { membershipStatus, membershipUsage, subscriptionActive, MembershipStatus } from '../utils/MembershipCopy';
 import { BadgeGroup, BadgeRecord, badgeCityCount, badgeTotal, buildBadgeBoard } from '../utils/BadgeBoard';
@@ -88,8 +88,19 @@ export struct MinePage {
     this.refreshMembership();
   }
 
+  /** 会员卡按权益缓存即时刷新：订阅看有效期（不信单字段），通行证按条数（MembershipCopy 单点文案）。 */
   private refreshMembership(): void {
-    this.refreshMembership();
+    const ent: Entitlement = EntitlementStore.get();
+    const sub: SubscriptionInfo | null = ent.subscription;
+    const hasSub: boolean = sub !== null &&
+      subscriptionActive(sub.status, sub.periodEnd, DateUtils.todayIso());
+    const activePasses: number = ent.passes.filter((p: PassInfo): boolean =>
+      p.status === 'active').length;
+    const status: MembershipStatus = membershipStatus(
+      hasSub, sub !== null ? sub.periodEnd : '', activePasses, DateUtils.todayIso());
+    this.memberActive = status.active;
+    this.memberTitle = status.title;
+    this.memberDetail = status.detail;
   }
 
   private reload(): void {

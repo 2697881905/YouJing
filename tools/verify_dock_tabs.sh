@@ -44,7 +44,7 @@ print(len({x for x in ('行程', '地图', '费用') if x in seen}))
 PY
 )
   if [ "${hits:-0}" -lt 3 ]; then
-    echo "  !! 前台不像 $BUNDLE（dock 标签命中 $hits/3），整跑中止——不跟真人抢手机" >&2
+    echo "  !! 前台不像 ${BUNDLE}（dock 标签命中 $hits/3），整跑中止——不跟真人抢手机" >&2
     exit 3
   fi
 }
@@ -114,10 +114,10 @@ PY
 )
   assert_front "$OUT/$tag.json"
   if [ -z "$coords" ]; then
-    echo "  !! 找不到文字「$want」——记为未验，别猜坐标" >&2
+    echo "  !! 找不到文字「${want}」——记为未验，别猜坐标" >&2
     return 1
   fi
-  echo "  tap 「$want」 @ $coords (vp $(echo "$coords" | awk -v d=$DENSITY '{printf "%.0f %.0f", $1/d, $2/d}'))"
+  echo "  tap 「${want}」 @ $coords (vp $(echo "$coords" | awk -v d=$DENSITY '{printf "%.0f %.0f", $1/d, $2/d}'))"
   $HDC shell "uitest uiInput click $coords" >/dev/null 2>&1
 }
 

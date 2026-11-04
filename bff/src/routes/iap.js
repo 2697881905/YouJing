@@ -1,23 +1,19 @@
 import { Router } from 'express';
-import { verifyPurchase } from '../services/iap.js';
+import { verifyPurchaseReceipt } from '../services/iap.js';
 import { getEntitlement } from '../services/quota.js';
-import { applyNotification, notifySignatureOk } from '../services/iapNotify.js';
+import { applyNotification, verifyNotification } from '../services/iapNotify.js';
 
 const router = Router();
 
 router.post('/verify', async (req, res, next) => {
   try {
     const db = req.db;
-    const { purchaseToken, productType, localTripId } = req.body;
+    const { jwsPurchaseOrder, jwsSubscriptionStatus, productType, localTripId } = req.body || {};
 
-    if (typeof purchaseToken !== 'string' || purchaseToken.length === 0 ||
-      purchaseToken.length > 2048) {
-      return res.status(400).json({ error: 'INVALID_PURCHASE_TOKEN', message: '缺少或非法的 purchaseToken' });
-    }
     if (typeof productType !== 'string' || productType.length === 0) {
-      return res.status(400).json({ error: 'MISSING_PARAMS', message: '缺少 purchaseToken 或 productType' });
+      return res.status(400).json({ error: 'MISSING_PARAMS', message: '缺少 productType' });
     }
-    // 边界校验放在调用校验服务之前：非法商品类型/商品 id 不该先花一次外部校验。
+    // 边界校验放在验签之前：非法商品类型/商品 id 不该先花一次验签。
     if (productType !== 'pass' && productType !== 'subscription') {
       return res.status(400).json({
         error: 'UNSUPPORTED_PRODUCT_TYPE',
@@ -32,16 +28,39 @@ router.post('/verify', async (req, res, next) => {
         message: `未知订阅商品 '${requestedProductId}'`
       });
     }
+    // 收据必须是华为签发的 JWS（官方形态）；至少要有一个 JWS 字段。
+    // 长度上限宽于 2048：JWS 内嵌三张 X.509 证书（官方口径叶子+中间+根）。
+    for (const [k, v] of Object.entries({ jwsPurchaseOrder, jwsSubscriptionStatus })) {
+      if (v !== undefined && (typeof v !== 'string' || v.length === 0 || v.length > 8192)) {
+        return res.status(400).json({ error: 'INVALID_JWS', message: `非法的 ${k}` });
+      }
+    }
+    if (productType === 'pass' && typeof jwsPurchaseOrder !== 'string') {
+      return res.status(400).json({ error: 'MISSING_JWS', message: '通行证购买需提供 jwsPurchaseOrder' });
+    }
+    if (productType === 'subscription' &&
+      typeof jwsSubscriptionStatus !== 'string' && typeof jwsPurchaseOrder !== 'string') {
+      return res.status(400).json({
+        error: 'MISSING_JWS',
+        message: '订阅购买需提供 jwsSubscriptionStatus（推荐）或 jwsPurchaseOrder'
+      });
+    }
 
-    const iapResult = await verifyPurchase(purchaseToken, productType);
+    const iapResult = await verifyPurchaseReceipt({
+      jwsPurchaseOrder, jwsSubscriptionStatus, productType, requestedProductId
+    });
     if (!iapResult.verified) {
-      // 未配置校验服务是**部署态问题**（503），不是"这张收据无效"（200 verified:false）。
+      // 未配置根证书/APP_ID 是**部署态问题**（503），不是"这张收据无效"（200 verified:false）。
       // 两种都必须拒绝入库——fail-closed 的方向是拒真，不是收假。
       if (iapResult.reason === 'IAP_NOT_CONFIGURED') {
-        return res.status(503).json({ verified: false, error: 'IAP_NOT_CONFIGURED', message: '收据校验服务未配置' });
+        return res.status(503).json({ verified: false, error: 'IAP_NOT_CONFIGURED', message: '收据校验未配置（根证书/APP_ID）' });
       }
+      console.warn('[iap] verify rejected:', iapResult.reason);
       return res.status(200).json({ verified: false, message: 'IAP 校验未通过' });
     }
+
+    // 客户端自报的 purchaseToken 一律不采信；入库幂等键只用 JWS 里的权威值。
+    const purchaseToken = iapResult.receipt.purchaseToken;
 
     let accountId = req.accountId;
     if (!accountId) {
@@ -115,7 +134,8 @@ router.post('/verify', async (req, res, next) => {
         ).run(orderRow.id, accountId, localTripId);
       }
     } else if (productType === 'subscription') {
-      const productId = requestedProductId;
+      // 记账商品以 JWS 权威值优先（防低买高报），JWS 里缺 productId 时退回请求自报值
+      const productId = iapResult.receipt.productId ?? requestedProductId;
       const amountCents = productId === 'youjing_sub_yearly' ? 9800 : 1990;
       const periodMonths = productId === 'youjing_sub_yearly' ? 12 : 1;
 
@@ -147,19 +167,22 @@ router.post('/verify', async (req, res, next) => {
 
 router.post('/notify', (req, res, next) => {
   try {
-    const rawBody = req.rawBody || Buffer.from(JSON.stringify(req.body || {}));
-    const signature = notifySignatureOk(
-      rawBody, req.headers.authorization, process.env.IAP_NOTIFY_PUBLIC_KEY
-    );
-    if (!signature.ok) {
-      // NOT_CONFIGURED 是部署态问题（503），其余是这条请求不被信任（401）
-      const status = signature.reason === 'NOT_CONFIGURED' ? 503 : 401;
-      console.warn('[iap] notify rejected', signature.reason);
-      return res.status(status).json({ error: 'NOTIFY_' + signature.reason });
+    // 官方 v3：请求体是 { jwsNotification }（对 NotificationPayload 签名的 JWS）。
+    const jws = req.body?.jwsNotification;
+    if (typeof jws !== 'string' || jws.length === 0 || jws.length > 8192) {
+      return res.status(400).json({ error: 'NOTIFY_BAD_FORMAT', message: '缺少或非法的 jwsNotification' });
+    }
+    const verified = verifyNotification(jws);
+    if (!verified.ok) {
+      // NOT_CONFIGURED 是部署态问题（503，根证书未就位），其余是这条请求不被信任（401）
+      const status = verified.reason === 'NOT_CONFIGURED' ? 503 : 401;
+      console.warn('[iap] notify rejected', verified.reason);
+      return res.status(status).json({ error: 'NOTIFY_' + verified.reason });
     }
 
-    const result = applyNotification(req.db, req.body || {}, rawBody);
-    console.log('[iap] notify', result.kind, result.reason || 'applied', 'applied=' + result.applied);
+    const result = applyNotification(req.db, verified.payload);
+    console.log('[iap] notify', result.kind, result.subtype || '', result.reason || 'applied', 'applied=' + result.applied);
+    // 官方：HTTP 200 即确认，无需响应体；非 200 会触发 IAP 服务器重推
     res.status(200).json({ ok: true, applied: result.applied, kind: result.kind });
   } catch (err) {
     next(err);

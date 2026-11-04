@@ -5,6 +5,8 @@
  * 卡片：place serif 21 / 日期 meta / 动线 5 节点（必去金）/ 三统计 / 状态行+进度。
  * 状态切换由数据驱动（trips 为空即 12b），生产接 RDB 后自动生效。
  * §7 必改已落：booking-badge padding 2→0、card-footer gap 6→4、dock padding 10→8。
+ * 多选删除：顶栏「多选」进入选择态——卡片点击改勾选、顶栏换 全选/删除/退出，
+ * 左滑删除在选择态停用（两套手势不打架）；删除仍走 showAlertDialog 二次确认。
  */
 
 import { TRIPS_NAV, enterPlanningFlow, TAB_SHOWN_KEY, isTabShownTick, TAB_ITINERARY, ACTIVE_TRIP_KEY, activeTripId } from '../common/constants/AppNav';
@@ -23,6 +25,7 @@ import { TripWindow } from '../utils/TripWindow';
 import { AnniversaryTrip, anniversaryText, findAnniversary } from '../utils/TripReview';
 import { common } from '@kit.AbilityKit';
 import { HdsNavigation, HdsNavigationTitleMode, HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import { routerMap } from './AppRouter';
 import { HdsChrome } from '../design/HdsChrome';
 import { Logger } from '../common/logger/Logger';
@@ -78,6 +81,10 @@ export struct TripsPage {
   /** 官方 Search 的关键词：目的地或日期串命中即保留 */
   @State private keyword: string = '';
   @State private refreshing: boolean = false;
+  /** 多选删除模式：true 时卡片点击改为勾选，顶栏换成 全选/删除/退出（左滑删除停用） */
+  @State private selecting: boolean = false;
+  /** 已勾选行程 id：只整体换数组（push/splice 不触发 @State 渲染） */
+  @State private selectedIds: string[] = [];
 
   /** 列表数据只从 RDB 取，刷新动作与首启共用一条路径（Refresh 需要 Promise 收尾） */
   private reload(): Promise<void> {
@@ -128,6 +135,11 @@ export struct TripsPage {
       const hit: AnniversaryTrip | null = findAnniversary(anniversaries, today);
       this.anniversaryId = hit === null ? '' : hit.id;
       this.anniversaryLine = hit === null ? '' : anniversaryText(hit, today);
+      if (this.selecting) {
+        // 选择态下重载（切回/下拉刷新）：列表可能已变，先摘掉悬空的勾选 id
+        const alive: Set<string> = new Set<string>(list.map((t: TripCardData): string => t.id));
+        this.selectedIds = this.selectedIds.filter((id: string): boolean => alive.has(id));
+      }
       this.trips = list;
       this.loading = false;
     }).catch((err: Error) => {
@@ -217,6 +229,134 @@ export struct TripsPage {
     });
   }
 
+  // —— 多选删除：进模式后点卡片即勾选，顶栏接管 全选/删除/退出 ——
+
+  private isSelected(id: string): boolean {
+    return this.selectedIds.includes(id);
+  }
+
+  private toggleSelected(id: string): void {
+    if (this.isSelected(id)) {
+      this.selectedIds = this.selectedIds.filter((x: string): boolean => x !== id);
+    } else {
+      this.selectedIds = this.selectedIds.concat(id);
+    }
+  }
+
+  private isAllVisibleSelected(): boolean {
+    const vis: TripCardData[] = this.visibleTrips();
+    return vis.length > 0 && vis.every((t: TripCardData): boolean => this.isSelected(t.id));
+  }
+
+  /** 全选只圈搜索过滤后的可见项；取消也只摘可见项，被滤掉的勾选原样保留 */
+  private toggleSelectAll(): void {
+    const vis: TripCardData[] = this.visibleTrips();
+    if (this.isAllVisibleSelected()) {
+      this.selectedIds = this.selectedIds.filter((id: string): boolean =>
+        !vis.some((t: TripCardData): boolean => t.id === id));
+    } else {
+      this.selectedIds = vis.map((t: TripCardData): string => t.id);
+    }
+  }
+
+  private exitSelecting(): void {
+    this.selecting = false;
+    this.selectedIds = [];
+  }
+
+  private confirmDeleteSelected(): void {
+    const n: number = this.selectedIds.length;
+    if (n === 0) {
+      this.getUIContext().getPromptAction().showToast({ message: '先勾选要删除的行程', duration: 1500 });
+      return;
+    }
+    this.getUIContext().showAlertDialog({
+      title: `删除 ${n} 条行程`,
+      message: '只删本机记录，不可恢复；日历里已写入的事件不会自动删除。',
+      primaryButton: {
+        value: '取消',
+        action: (): void => {
+        }
+      },
+      secondaryButton: {
+        value: '删除',
+        fontColor: ColorTokens.danger,
+        action: (): void => {
+          this.doDeleteSelected();
+        }
+      }
+    });
+  }
+
+  private doDeleteSelected(): void {
+    const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    const ids: string[] = this.selectedIds.slice();
+    if (ids.length === 0) {
+      return;
+    }
+    // TripDao 一次只删一条：串行落库，避免并发写同一 RDB 句柄
+    let chain: Promise<void> = Promise.resolve();
+    for (const id of ids) {
+      chain = chain.then((): Promise<void> => TripDao.deleteTrip(ctx, id));
+    }
+    chain.then((): void => {
+      // 费用格认「最后打开的那条」：批量里含它同样要清（与单删 doDelete 同一条规则）
+      if (ids.includes(activeTripId())) {
+        AppStorage.setOrCreate(ACTIVE_TRIP_KEY, '');
+      }
+      this.exitSelecting();
+      this.getUIContext().getPromptAction().showToast({ message: `已删除 ${ids.length} 条行程` });
+      this.reload().catch((err: Error): void => {
+        Logger.error('Ui.Trips', `删除后重载失败: ${err.message}`);
+      });
+      WidgetSync.refreshAll(ctx).catch((err: Error): void => {
+        Logger.warn('Ui.Trips', `卡片刷新失败: ${err.message}`);
+      });
+    }).catch((err: Error): void => {
+      Logger.error('Ui.Trips', `批量删除行程失败: ${err.message}`);
+      this.getUIContext().getPromptAction().showToast({ message: '删除失败，详见日志' });
+    });
+  }
+
+  /** 顶栏两态：浏览态＝新建+多选入口；选择态＝全选/删除/退出（随状态整条重建） */
+  private titleBar(): HdsNavigationTitleBarOptions {
+    if (this.selecting) {
+      const n: number = this.selectedIds.length;
+      const allSel: boolean = this.isAllVisibleSelected();
+      return HdsChrome.bar({
+        mainTitle: n > 0 ? `已选 ${n} 条` : '选择行程',
+        scrolled: this.barScrolled,
+        subTitle: this.trips.length > 0 ? `${this.trips.length} 条` : '',
+        menu: [
+          HdsChrome.item(allSel ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.checkmark'),
+            allSel ? '取消全选' : '全选', (): void => {
+            this.toggleSelectAll();
+          }),
+          HdsChrome.item($r('sys.symbol.trash'), '删除', (): void => {
+            this.confirmDeleteSelected();
+          }),
+          HdsChrome.item($r('sys.symbol.xmark'), '退出多选', (): void => {
+            this.exitSelecting();
+          })
+        ]
+      });
+    }
+    return HdsChrome.bar({
+      mainTitle: '行程',
+      scrolled: this.barScrolled,
+      subTitle: this.trips.length > 0 ? `${this.trips.length} 条` : '',
+      menu: [
+        HdsChrome.item($r('sys.symbol.plus'), '新建行程', (): void => {
+          PlanDraft.fresh();
+          enterPlanningFlow('TripInput');
+        }),
+        HdsChrome.item($r('sys.symbol.checkmark_circle'), '多选', (): void => {
+          this.selecting = true;
+        })
+      ]
+    });
+  }
+
   @Builder
   phaseChip(phase: string) {
     // 三态各一档底色：一屏里过去/未出发/在途的卡长得一样，扫读就分不出主次（§5.13）
@@ -256,6 +396,13 @@ export struct TripsPage {
     Button({ type: ButtonType.Normal, stateEffect: true }) {
     Column() {
       Row() {
+        if (this.selecting) {
+          // 选择态的勾选圈：占位在最左，卡片点击语义从「打开」换成「勾选」
+          SymbolGlyph(this.isSelected(t.id) ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.circle'))
+            .fontSize(IconSizes.control)
+            .fontColor([this.isSelected(t.id) ? ColorTokens.primary : ColorTokens.icon])
+            .margin({ right: SpaceTokens.sm })
+        }
         Text(t.place)
           .fontSize(TypeTokens.title.size)
           .fontWeight(700)
@@ -336,9 +483,15 @@ export struct TripsPage {
     .width('100%')
     .padding(0)
     .borderRadius(RadiusTokens.card)
-    .accessibilityText(`${t.place} ${t.dateMeta}，${t.statusLine}，` +
+    .accessibilityText(this.selecting
+      ? `${t.place} ${t.dateMeta}，${this.isSelected(t.id) ? '已选中' : '未选中'}，点按切换选中`
+      : `${t.place} ${t.dateMeta}，${t.statusLine}，` +
       (t.reviewable ? '打开旅行回顾' : '打开行程'))
     .onClick(() => {
+      if (this.selecting) {
+        this.toggleSelected(t.id);
+        return;
+      }
       if (t.onTrip) {
         this.pathStack.pushPath({ name: 'OnTrip', param: t.id });
       } else if (t.reviewable) {
@@ -402,7 +555,7 @@ export struct TripsPage {
   rootShell() {
       Stack({ alignContent: Alignment.Bottom }) {
       Column() {
-        if (this.trips.length > 0 && this.anniversaryId.length > 0) {
+        if (!this.selecting && this.trips.length > 0 && this.anniversaryId.length > 0) {
           this.anniversaryBanner()
         }
 
@@ -478,7 +631,10 @@ export struct TripsPage {
                 ListItem() {
                   this.tripCard(t)
                 }
-                .swipeAction({ end: this.deleteAction(t), edgeEffect: SwipeEdgeEffect.Spring })
+                // 选择态不出滑删：勾选手势和左滑在同一张卡上会互相干扰
+                .swipeAction(this.selecting
+                  ? { edgeEffect: SwipeEdgeEffect.Spring }
+                  : { end: this.deleteAction(t), edgeEffect: SwipeEdgeEffect.Spring })
               // key 只用稳定 id：状态/进度变化靠 @State 重渲染，不带进 key
               }, (t: TripCardData): string => `trip-${t.id}`)
               if (this.visibleTrips().length === 0) {
@@ -543,15 +699,7 @@ export struct TripsPage {
       }
       .titleMode(HdsNavigationTitleMode.MINI)
       .hideBackButton(true)
-      .titleBar(HdsChrome.bar({
-        mainTitle: '行程',
-        scrolled: this.barScrolled,
-        subTitle: this.trips.length > 0 ? `${this.trips.length} 条` : '',
-        menu: [HdsChrome.item($r('sys.symbol.plus'), '新建行程', (): void => {
-          PlanDraft.fresh();
-          enterPlanningFlow('TripInput');
-        })]
-      }))
+      .titleBar(this.titleBar())
       .navDestination(routerMap)
       .mode(NavigationMode.Stack)
       .width('100%')
@@ -562,15 +710,7 @@ export struct TripsPage {
       }
       // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
       .backgroundColor(ColorTokens.canvas)
-      .titleBar(HdsChrome.bar({
-        mainTitle: '行程',
-        scrolled: this.barScrolled,
-        subTitle: this.trips.length > 0 ? `${this.trips.length} 条` : '',
-        menu: [HdsChrome.item($r('sys.symbol.plus'), '新建行程', (): void => {
-          PlanDraft.fresh();
-          enterPlanningFlow('TripInput');
-        })]
-      }))
+      .titleBar(this.titleBar())
       .titleMode(HdsNavDestinationTitleMode.MINI)
     }
   }
