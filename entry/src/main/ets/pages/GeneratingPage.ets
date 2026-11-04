@@ -63,6 +63,9 @@ export struct GeneratingPage {
 
   aboutToDisappear(): void {
     this.cancelled = true;
+    // 「这一次改用本机规则引擎」只覆盖这一趟生成：交付完（成功或再次受阻）就复位，
+    // 否则后续所有行程会被静默降级成免费档（见 utils/GenerationChannel 的开关说明）
+    GenerationChannel.clearLocalOnce();
     if (this.timer >= 0) {
       clearInterval(this.timer);
       this.timer = -1;

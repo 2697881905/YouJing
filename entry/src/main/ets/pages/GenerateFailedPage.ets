@@ -19,6 +19,7 @@ import { symmetricInsetForCap } from '../utils/responsive';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { BuildConfig } from '../common/constants/BuildConfig';
+import { GenerationChannel } from '../utils/GenerationChannel';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
 
@@ -195,9 +196,10 @@ export struct GenerateFailedPage {
             }
             if (this.isServiceFailure()) {
               // 服务/网络出问题时，「去掉一个景点」「换一片住宿」全帮不上忙——
-              // 照直说，并指向页脚那颗「再试一次」。
+              // 照直说，并把两条真能走通的出口摆在页脚：再试一次 / 改用本机规则引擎。
               Text('这次不是行程本身的问题：行程服务暂时没有响应。'
-                + '改景点、换住宿或调节奏都不会让它更快恢复，等一会儿再点「再试一次」。')
+                + '改景点、换住宿或调节奏都不会让它更快恢复——可以等一会儿再点「再试一次」，'
+                + '也可以直接用本机规则引擎出方案（离线可跑，个性化会少一些）。')
                 .fontSize(TypeTokens.small.size)
                 .fontColor(ColorTokens.body)
                 .width('100%')
@@ -228,6 +230,21 @@ export struct GenerateFailedPage {
               this.pathStack.replacePath({ name: 'Generating' });
             }
           })
+          if (this.isServiceFailure()) {
+            YoujingButton({
+              variant: YoujingButtonVariant.SECONDARY,
+              label: '改用本机规则引擎',
+              fullWidth: true,
+              buttonWidth: '100%',
+              onAction: (): void => {
+                // 端侧合成不依赖网络，也不占 BFF 额度：服务受阻时这是当场唯一能走通的出口。
+                // 开关是一次性的，由 GeneratingPage 离开时复位（utils/GenerationChannel）。
+                GenerationChannel.useLocalOnce();
+                this.pathStack.replacePath({ name: 'Generating' });
+              }
+            })
+          }
+          if (!this.isServiceFailure()) {
           YoujingButton({
             variant: YoujingButtonVariant.SECONDARY,
             label: '改出行日期',
@@ -253,6 +270,7 @@ export struct GenerateFailedPage {
               }
             }
           })
+          }
         }
         .width('100%')
         // 钉底动作条原来只留 xl(24)：这一屏也在悬浮 dock 上，实拍第三颗钮整颗被压住

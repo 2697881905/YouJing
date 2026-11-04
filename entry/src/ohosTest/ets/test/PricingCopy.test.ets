@@ -27,6 +27,15 @@ export default function pricingCopyTest(): void {
       expect(pricingSubtitle(false, 20, 20)).assertEqual('生成免费，导出与无限重排需解锁');
     });
 
+    it('gift_spent_non_member_gets_honest_copy', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+      // 2026-11-04 真机：赠送用完的非会员被 402 送到付费页，当时仍写「生成免费」
+      expect(pricingHeadline(false, 0, 20, true)).assertEqual('免费次数已用完');
+      expect(pricingSubtitle(false, 0, 20, true))
+        .assertEqual('赠送的免费次数已用完；通行证解锁这一个行程，订阅解锁每月 20 次');
+      // 第 4 个入参有默认值：既有调用点口径不变
+      expect(pricingHeadline(false, 0, 20)).assertEqual('解锁完整行程');
+    });
+
     it('unknown_cap_falls_back_to_default', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
       // 缓存里还没有 dailyCap（旧数据/未刷新）时不能算出「已用完」
       expect(pricingHeadline(true, 0, 0)).assertEqual('解锁完整行程');

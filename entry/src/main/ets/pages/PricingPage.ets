@@ -45,10 +45,13 @@ export struct PricingPage {
     const today: string = DateUtils.todayIso();
     this.isMember = subscriptionActive(status, periodEnd, today);
     this.memberEnd = periodEnd.length >= 10 ? periodEnd.slice(0, 10) : '';
-    // 标题文案也按「在期」算：过期缓存不能再被说成「本月次数已用完」
-    this.headline = pricingHeadline(this.isMember, ent.usedToday, ent.dailyCap);
-    this.subtitle = pricingSubtitle(this.isMember, ent.usedToday, ent.dailyCap);
     this.passOwned = this.tripId.length > 0 && EntitlementStore.hasPass(this.tripId);
+    // 标题文案也按「在期」算：过期缓存不能再被说成「本月次数已用完」
+    // giftSpent：非会员且赠送已用完 —— 他就是被「生成」的 402 送到这页的，
+    // 不能再写「生成免费」（2026-11-04 真机走到这条时实拍到的误导）
+    const giftSpent: boolean = !this.isMember && !this.passOwned && ent.giftRemaining <= 0;
+    this.headline = pricingHeadline(this.isMember, ent.usedToday, ent.dailyCap, giftSpent);
+    this.subtitle = pricingSubtitle(this.isMember, ent.usedToday, ent.dailyCap, giftSpent);
   }
 
   private ctx(): common.UIAbilityContext {

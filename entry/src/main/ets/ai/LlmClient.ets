@@ -406,6 +406,16 @@ export class LlmClient {
           Logger.info(TAG, '票据失效，尝试重新激活设备');
           await DeviceActivator.reactivate(context);
         }
+        // 402 不是「模型这次没排通」：服务端明确说额度用尽，而端侧门禁刚放我过——
+        // 缓存比服务端宽松。再问一次只会白撞一次 402，所以这里跳出循环，
+        // 并顺手回刷权益（票据在时 activate 只 GET /v1/entitlement），
+        // 否则「我的」卡和付费页会继续显示还有额度，用户被引去付一笔他不需要的钱。
+        if (err instanceof AppError && (err as AppError).code === ErrorCode.CLOUD_QUOTA_EXHAUSTED) {
+          if (context !== undefined) {
+            await DeviceActivator.activate(context);
+          }
+          break;
+        }
       }
     }
     // 「两次都没成」这个包装会把真实原因埋掉：服务端 5xx / 网络不通 / 限流 各自都有
@@ -415,7 +425,8 @@ export class LlmClient {
     if (lastErr instanceof AppError) {
       const c: number = (lastErr as AppError).code;
       if (c === ErrorCode.LLM_UNAVAILABLE || c === ErrorCode.NETWORK_REQUEST_FAILED ||
-        c === ErrorCode.NETWORK_TIMEOUT || c === ErrorCode.CLOUD_RATE_LIMITED) {
+        c === ErrorCode.NETWORK_TIMEOUT || c === ErrorCode.CLOUD_RATE_LIMITED ||
+        c === ErrorCode.CLOUD_QUOTA_EXHAUSTED || c === ErrorCode.CLOUD_TOKEN_INVALID) {
         throw lastErr;
       }
     }

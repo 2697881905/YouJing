@@ -25,6 +25,13 @@ export default function generationChannelTest(): void {
       expect(GenerationChannel.isLocalOf(true, 'https://bff.example.com')).assertTrue();
     });
 
+    it('force_local_once_overrides_bff_channel', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+      // 受阻屏的「改用本机规则引擎」：只有显式置真才把 BFF 档扳回端侧，默认仍走 BFF
+      expect(GenerationChannel.isLocalOf(false, 'https://bff.example.com', false)).assertFalse();
+      expect(GenerationChannel.isLocalOf(false, 'https://bff.example.com', true)).assertTrue();
+      expect(GenerationChannel.isLocalOf(true, '', true)).assertTrue();
+    });
+
     it('entitlement_only_required_for_bff', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
       // 这条是 P0 的直接断言：没有 BFF 就没有额度这回事
       expect(GenerationChannel.isLocalOf(false, '')).assertTrue();

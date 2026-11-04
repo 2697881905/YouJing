@@ -6,6 +6,14 @@
 
 ### Added
 
+- 2026-11-04（§5ci 续 167）：**生成受阻屏新增「改用本机规则引擎」出口**。服务/网络类失败
+  （`LLM_UNAVAILABLE`/`NETWORK_*`/`RATE_LIMITED`）此前只有「再试一次」，用户只能干等；
+  端侧合成零 token 且不依赖 BFF，现由 `GenerationChannel.useLocalOnce()` 一次性扳回端侧，
+  `GeneratingPage` 离开时复位。1 例 hypium，真机 239/239。
+- 2026-11-04：**第 17 把静态尺 `tools/audit_self_call.py`**——抓「方法体只有一条语句、
+  没有任何分支、却在调用自己」的无守卫递归（`--selftest` 阳性 4 / 阴性 6）。
+  阳性对照就是 HEAD 里那条真崩溃（见下方 2026-11-04 修复项）。
+
 - 2026-11-03（§5ci 续 155）：**会员卡显示本月用量**。订阅用户此前看不到 20 次/月用掉多少。
   新增 `membershipUsage` 纯判定，订阅在期时副标题追加「本月已用 N / 20 次」；
   未订阅/通行证态不显示。1 例 hypium，真机 235/235。
@@ -178,6 +186,22 @@
   自检覆盖不到的 TLS / 限流 / 日志脱敏三项写进 README 的人工清单。
 
 ### Fixed
+
+- 2026-11-04（§5ci 续 167）：**服务端 402 不再被包装成「模型没排通」**。`LlmClient` 的
+  外部原因出锅清单漏了 `CLOUD_QUOTA_EXHAUSTED`/`CLOUD_TOKEN_INVALID`，导致 402 被再撞一次、
+  包装成 `TRIP_GENERATE_RETRY_EXHAUSTED`，用户落到屏7 看到「改景点/换住宿/调节奏」三条
+  无用的修法，而 `GeneratingPage → Pricing` 这条本该走的付费路由被挡死。现 402 跳出重试循环、
+  顺手回刷权益（`/v1/entitlement`）、原码上抛；真机复跑确认落到付费页。
+- 2026-11-04（§5ci 续 167）：**付费页对「赠送用完的非会员」不再说「生成免费」**。
+  `PricingCopy` 新增 `giftSpent` 档：标题「免费次数已用完」+ 两条真能继续生成的路（1 例 hypium）。
+- 2026-11-04：**修掉上一轮提交的栈溢出**——`MinePage.refreshMembership()` 方法体只有
+  `this.refreshMembership();`，一进「我的」标签页即无限递归（hvigor 绿、hypium 237 绿、
+  16 把尺绿都没拦住）。现按权益缓存直读水合会员卡，真机实拍页面正常。
+- 2026-11-04（承接 `003d9d8`）：**IAP 收据改为对表华为官方的本地 JWS 验签**（外部会话实现，
+  本轮复核收口）：信任锚 Huawei CBG Root CA G2 + x5c 三级链 + ES256 + 叶子 OID，
+  入库幂等键只取 JWS 权威 `purchaseToken`；**非生产环境收据默认拒收**
+  （`IAP_ALLOW_SANDBOX=1` 才放行，preflight 出警告）；测试链私钥不入库、缺材料时
+  `gen-test-certs.sh` 现生成（带并行锁）。`bff npm test` 96→103/103。
 
 - 2026-11-03（§5ci 续 166）：**屏9 替换/补选活动改用唯一 id**。此前直接用 `spot.id`，
   同一景点在行程里出现两次会撞 `TripDao` 的 `${tripId}:${activityId}` 主键，整次编辑
