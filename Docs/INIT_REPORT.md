@@ -7340,3 +7340,25 @@ replacePath 后停在付费页，标题按 giftSpent 走，本来就落在可见
 闸门：hvigor BUILD SUCCESSFUL（17 executed）；十七把静态尺 0 硬失败
 （`audit_type` 仍留 1 条"待裁决"：付费页 `checkmark` 图标 14px，`IconSizes` 只有 control 22 / display 48 两档，
 不为一个站点动 token 契约）；真机深色复拍屏4 / 屏11 同机位。
+
+## 2026-11-04 续 184：屏16 旅行回顾第一次拍到"有内容"的样子，顺手修掉两处
+
+**怎么进去的**：`TripReviewPage` 的分支是 `checkedTotal === 0`（不是行程结束才显示），
+所以只要有一条打卡就能看到填充态。真机走通：屏9 「完成打卡」→ 手动打卡被允许（按钮不受距离拦，
+`距此站 969.5km` 也照打）→ 弹「已收下这枚勋章」→ 深链 `route Review` 看到 Day1 1/3、Day2 0/3、Day3 0/2。
+顺带确认一条产品边界：**日期选择器 `start: today` 让"补记一趟已经走完的旅行"整条路走不通**，
+深链预填 `--ps start 2026-10-20` 也被夹回今天。这条不改代码，交给用户拍板。
+
+实拍两处缺陷（深色档，同机位复拍 `rv.jpeg` → `rv2.jpeg`）：
+
+1. **三格统计里混进一个词。** `pvSpend` 在无账时写「未记账」，与同排的 `1 打卡`、`1 新章` 不同族：
+   18/600 的三个汉字顶在数字位上，下面又跟着标签「记账」，实拍读起来是自问自答。
+   改成恒为 `MoneyText.yuan(expenseTotal)`（空账 = `¥0`），三格都是数。
+   这张卡同时是离屏海报的模板（`posterCard(true)`），海报一起受益。
+2. **「完整行程」不像按钮。** 它挂 `YoujingButtonVariant.TEXT`，深色档渲染成一行裸白字；
+   而同一页空态里的「查看完整行程」用的是 SECONDARY。换成 SECONDARY 后与空态同族，
+   和左边的实心蓝钮形成清晰的两级动作。
+
+闸门：hvigor BUILD SUCCESSFUL（17 executed）；pre-commit 编译门禁过；真机复拍同机位确认两处都变。
+本轮之前 hypium 243/243 全绿（续 183 那批改动跑过），这两处只动文案与按钮 variant，
+`grep` 确认无测试断言「未记账」。

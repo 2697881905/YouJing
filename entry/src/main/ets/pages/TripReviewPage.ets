@@ -117,7 +117,9 @@ export struct TripReviewPage {
       this.pvMeta = `${review.dayCount} 天 · ${review.people} 人`;
       this.pvStops = `${review.checkedTotal}`;
       this.pvBadges = `${review.newBadges.length}`;
-      this.pvSpend = review.expenseTotal > 0 ? MoneyText.yuan(review.expenseTotal) : '未记账';
+      // 三格都是数：原来空账时这一格塞进「未记账」三个汉字，与同排的 1 / 1 不同族，
+      // 实拍读成「记账：未记账」的自问自答（屏16 真机 2026-11-04）
+      this.pvSpend = MoneyText.yuan(review.expenseTotal);
       this.loaded = true;
       this.loading = false;
       Logger.info('Ui.Review', `${this.tripId} 回顾 打卡 ${review.checkedTotal}/${review.spotTotal} ` +
@@ -309,7 +311,9 @@ export struct TripReviewPage {
           }
         })
         YoujingButton({
-          variant: YoujingButtonVariant.TEXT,
+          // 空态那一侧的「查看完整行程」本来就是 SECONDARY；这里用 TEXT 时它渲染成
+          // 一行裸白字，实拍读不出是可点的（屏16 真机 2026-11-04）
+          variant: YoujingButtonVariant.SECONDARY,
           label: '完整行程',
           buttonWidth: 120,
           onAction: (): void => {
