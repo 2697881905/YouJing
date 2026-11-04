@@ -5,6 +5,7 @@
  * 可离线断言，不依赖 @kit / RDB / UI。
  */
 
+import { DurationCn } from '../utils/DurationCn';
 import {
   Activity, ActivityCategory, ActivityStatus, Meal, TransportInfo, TripDay
 } from '../model/Trip';
@@ -291,7 +292,8 @@ export class SkipPlanner {
       return failed;
     }
     const suffix: string = carryIds.length > 0 ? '（部分站点待调整）' : '';
-    const note: string = `已顺延 ${delta} 分钟，后续行程整体后移${suffix}`;
+    // 时长统一走 DurationCn：顺延量可到 120 分钟，写成「120 分钟」不如「2小时」
+    const note: string = `已顺延 ${DurationCn.text(delta)}，后续行程整体后移${suffix}`;
     const outcome: ReplanOutcome = { day: work, note: note, usedFallback: false, changed: true };
     return outcome;
   }

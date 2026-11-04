@@ -6,6 +6,7 @@
  * 精修批次换 EXQUISITE）；深色零阴影经 isDarkMode 门控。
  */
 
+import { DurationCn } from '../utils/DurationCn';
 import { ACTIVE_TRIP_KEY, APP_NAV, EditTarget } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
@@ -502,7 +503,7 @@ export struct ItineraryPage {
     if (act === undefined || act.transport === undefined) {
       return '—';
     }
-    return `${act.transport.duration}分钟`;
+    return DurationCn.text(act.transport.duration);
   }
 
   private arrivalText(): string {
@@ -511,7 +512,7 @@ export struct ItineraryPage {
       return '当日首站，无通勤';
     }
     const detail: string = act.transport.detail.length > 0 ? ` · ${act.transport.detail}` : '';
-    return `${act.transport.mode} ${act.transport.duration}分钟${detail}`;
+    return `${act.transport.mode} ${DurationCn.text(act.transport.duration)}${detail}`;
   }
 
   private prevTitle(): string {
@@ -623,7 +624,7 @@ export struct ItineraryPage {
         SymbolGlyph(TransitSymbol.of(next.transport === undefined ? '' : next.transport.mode))
           .fontSize(IconSizes.control)
           .fontColor([ColorTokens.icon])
-        Text(`${next.transport?.mode} ${next.transport?.duration}分钟 · ${next.transport?.detail}`)
+        Text(`${next.transport?.mode} ${DurationCn.text(next.transport?.duration ?? 0)} · ${next.transport?.detail}`)
           .fontSize(TypeTokens.caption.size)
           .fontWeight(450)
           .fontColor(ColorTokens.muted)

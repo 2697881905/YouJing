@@ -217,7 +217,7 @@ export default function weatherSignalsTest(): void {
         }
         expect(nearOut.kind).assertEqual(SignalKind.BEHIND);
         expect(nearOut.deltaMin).assertEqual(30);
-        expect(nearOut.actionLabel).assertEqual('顺延 30 分钟');
+        expect(nearOut.actionLabel).assertEqual('顺延 30分钟');
       });
 
     it('signal_thresholds_and_checkin', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
@@ -314,7 +314,7 @@ export default function weatherSignalsTest(): void {
       expect(shifted.day.activities.map((a: Activity): string => a.id).join(','))
         .assertEqual('a1,a2,a3,a4,a5');
       expect(shifted.day.meals[1].time ?? '').assertEqual('18:00');
-      expect(shifted.note.indexOf('已顺延 45 分钟')).assertEqual(0);
+      expect(shifted.note.indexOf('已顺延 45分钟')).assertEqual(0);
       expect(shifted.note.indexOf('待调整')).assertEqual(-1);
     });
 

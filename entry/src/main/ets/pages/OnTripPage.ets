@@ -323,7 +323,7 @@ export struct OnTripPage {
       }
       const nx: DayStop | null = this.next;
       this.nextLeg = nx !== null && nx.hasTransport
-        ? `${nx.transportMode} ${nx.transportMin}分钟${nx.transportDetail.length > 0 ? ` · ${nx.transportDetail}` : ''}`
+        ? `${nx.transportMode} ${DurationCn.text(nx.transportMin)}${nx.transportDetail.length > 0 ? ` · ${nx.transportDetail}` : ''}`
         : '';
       await this.buildRows(marks);
       if (mySeq !== this.reloadSeq) {
@@ -911,8 +911,8 @@ export struct OnTripPage {
     }
     // 分钟数原样打出来是「已过 162分钟」——用户得自己做除法；过 1 小时就拆成时/分
     // 分钟数原样打出来是「已过 162分钟」——用户得自己做除法；过 1 小时就拆成时/分
-    // 同一行里两种数字间距（「5小时 · 已过 3 小时」）读起来像两套系统，统一带空格
-    return `${cur.time} 开始 · 建议 ${hoursText(cur.time, cur.endTime)} 小时 · 已过 ${DurationCn.text(this.elapsedMin)}`;
+    // 单位间距全仓统一走 TimeText/DurationCn 的紧凑写法（「5小时」而不是「5 小时」）
+    return `${cur.time} 开始 · 建议 ${hoursText(cur.time, cur.endTime)}小时 · 已过 ${DurationCn.text(this.elapsedMin)}`;
   }
 
   private progressPct(): number {

@@ -9,6 +9,7 @@
  * 替换语义 = 换节点不换槽：保留该位置的时间、结束时间与到达通勤。
  */
 
+import { DurationCn } from '../utils/DurationCn';
 import { APP_NAV, EditTarget } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
@@ -550,7 +551,7 @@ export struct EditItineraryPage {
     }
     const mode: string = act.transport.mode.length > 0 ? act.transport.mode : '步行';
     const detail: string = act.transport.detail.length > 0 ? ` · ${act.transport.detail}` : '';
-    return `${mode} ${act.transport.duration}分钟${detail}`;
+    return `${mode} ${DurationCn.text(act.transport.duration)}${detail}`;
   }
 
   private curDay(): TripDay | null {

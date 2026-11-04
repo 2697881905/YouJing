@@ -11,6 +11,7 @@
  * （住得最方便 / 离景点最近），toast 报平均直线距离，不谎报成导航里程。
  */
 
+import { DurationCn } from '../utils/DurationCn';
 import { APP_NAV, markDraftDirty } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
@@ -350,8 +351,8 @@ export struct StayPickPage {
           .margin({ top: SpaceTokens.sm })
       } else {
         Row() {
-          this.commuteCol(`${pick.area.airportMinutes}分钟`, '到机场')
-          this.commuteCol(`${pick.area.trainStationMinutes}分钟`, '到火车站')
+          this.commuteCol(DurationCn.text(pick.area.airportMinutes), '到机场')
+          this.commuteCol(DurationCn.text(pick.area.trainStationMinutes), '到火车站')
           this.commuteCol(pick.area.diningDensity, '餐饮密度')
         }
         .width('100%')
