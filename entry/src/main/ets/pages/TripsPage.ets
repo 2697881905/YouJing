@@ -294,27 +294,38 @@ export struct TripsPage {
     if (ids.length === 0) {
       return;
     }
-    // TripDao 一次只删一条：串行落库，避免并发写同一 RDB 句柄
+    // TripDao 一次只删一条：串行落库，避免并发写同一 RDB 句柄。
+    // **一条失败不能吞掉整批的收尾**：原来 catch 里只弹一句「删除失败」，
+    // 于是前面几条已经落库删掉的行程继续显示在列表上（点进去是空数据），
+    // 选择态也不退出——用户看到的是一屏删不掉的幽灵卡。现在记下真正删成功的 id，
+    // 收尾（清 activeTripId / 退选择态 / 重载 / 刷卡片）无论成败都跑一遍。
+    const done: string[] = [];
     let chain: Promise<void> = Promise.resolve();
     for (const id of ids) {
-      chain = chain.then((): Promise<void> => TripDao.deleteTrip(ctx, id));
+      chain = chain.then((): Promise<void> => TripDao.deleteTrip(ctx, id).then((): void => {
+        done.push(id);
+      }));
     }
-    chain.then((): void => {
-      // 费用格认「最后打开的那条」：批量里含它同样要清（与单删 doDelete 同一条规则）
-      if (ids.includes(activeTripId())) {
+    chain.catch((err: Error): void => {
+      Logger.error('Ui.Trips', `批量删除行程失败: ${err.message}`);
+    }).then((): void => {
+      // 费用格认「最后打开的那条」：只有它真的被删掉才清（与单删 doDelete 同一条规则）
+      if (done.includes(activeTripId())) {
         AppStorage.setOrCreate(ACTIVE_TRIP_KEY, '');
       }
       this.exitSelecting();
-      this.getUIContext().getPromptAction().showToast({ message: `已删除 ${ids.length} 条行程` });
+      const failed: number = ids.length - done.length;
+      this.getUIContext().getPromptAction().showToast({
+        message: failed === 0 ? `已删除 ${done.length} 条行程`
+          : `已删除 ${done.length} 条，${failed} 条没删掉，可重试`,
+        duration: failed === 0 ? 2000 : 3000
+      });
       this.reload().catch((err: Error): void => {
         Logger.error('Ui.Trips', `删除后重载失败: ${err.message}`);
       });
       WidgetSync.refreshAll(ctx).catch((err: Error): void => {
         Logger.warn('Ui.Trips', `卡片刷新失败: ${err.message}`);
       });
-    }).catch((err: Error): void => {
-      Logger.error('Ui.Trips', `批量删除行程失败: ${err.message}`);
-      this.getUIContext().getPromptAction().showToast({ message: '删除失败，详见日志' });
     });
   }
 
