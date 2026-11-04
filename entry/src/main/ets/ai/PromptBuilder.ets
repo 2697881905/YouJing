@@ -9,6 +9,7 @@ import { PlanParams, SelectedSpot } from '../model/PlanParams';
 import { Spot } from '../model/Spot';
 import { Area } from '../model/Area';
 import { DateUtils } from '../utils/DateUtils';
+import { TripLength } from '../utils/TripLength';
 
 export interface LlmRequest {
   system: string;
@@ -97,7 +98,7 @@ export class PromptBuilder {
   static userPrompt(params: PlanParams, spots: Spot[], area: Area): string {
     const lines: string[] = [];
     const b = params.basic;
-    const dayCount: number = DateUtils.spanDays(b.startDate, b.endDate);
+    const dayCount: number = TripLength.days(b);
     lines.push(`目的地：${b.destination}；日期：${b.startDate} 至 ${b.endDate}；` +
       `计划天数：${dayCount} 天；人数：${b.people}；预算：${b.budget} 元/人。`);
     lines.push(`风格：${params.style}；住宿档位：${params.stayTier}；交通偏好：${params.transit}；节奏：${params.paces.join('/') || 'standard'}。`);

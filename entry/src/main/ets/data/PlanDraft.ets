@@ -6,10 +6,11 @@
 import { PaceOption, SelectedSpot, SelectedArea, TransitPreference, TravelStyle, TripBasicInput } from '../model/PlanParams';
 import { BudgetConfig } from '../common/constants/BudgetConfig';
 import { DateUtils } from '../utils/DateUtils';
+import { TripLength } from '../utils/TripLength';
 
 export class PlanDraft {
   /** 屏2 未填日期时的默认档：今天起算 3 天 2 晚 */
-  static readonly DEFAULT_DAYS: number = 3;
+  static readonly DEFAULT_DAYS: number = TripLength.DEFAULT_DAYS;
   private static instance: PlanDraft | null = null;
 
   // 日期默认留空：具体日期由屏2 按「今天起算」填充（写死字面量会让新装用户在
@@ -62,10 +63,7 @@ export class PlanDraft {
    * 空串被当成了答案。这里把"没填"如实折算成屏2 那个默认档，草稿本身继续留空。
    */
   static days(b: TripBasicInput): number {
-    if (!DateUtils.isValidIsoDate(b.startDate) || !DateUtils.isValidIsoDate(b.endDate)) {
-      return PlanDraft.DEFAULT_DAYS;
-    }
-    return DateUtils.spanDays(b.startDate, b.endDate);
+    return TripLength.days(b);
   }
 
   /**

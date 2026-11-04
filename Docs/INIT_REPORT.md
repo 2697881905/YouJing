@@ -7489,3 +7489,29 @@ replacePath 后停在付费页，标题按 giftSpent 走，本来就落在可见
 
 真机五档复拍（空草稿 / 只给 start / 反向 / 三日 / 单日），屏2 与屏5 全部同答案：
 `3天2晚↔可用3天`、`3天2晚↔可用3天`、`1天↔可用1天`、`3天2晚↔可用3天`、`1天↔可用1天`。
+
+## 2026-11-05 续 190：浅色档 11 屏过完对比度尺，并把"行程长度只有一个来源"做成第 18 把尺
+
+**浅色档走查读数**（`--ps lightprobe 1` 冷启，dump + 截图各 11 份）：
+`audit_contrast.py` 逐屏跑下来 **10 屏 0 低**，屏2 报 1 条 `2.49:1`——取 bounds 一看是
+`[1006,38][1048,78]`，状态栏里的电量数字，不在本 App 窗口内，不是我们的文案。
+浅色档没有新增缺陷（今天改的三处已在续 188/189 两档各复拍过）。
+
+**新尺 `tools/audit_span_source.py`（第 18 把）**：把续 189 那次修复钉成不变式，两条规则——
+R1 抓 `DateUtils.spanDays(草稿日期对)`（必须走 `TripLength.days()`）、
+R2 抓手写 `${days}天${days-1}晚`（必须走 `TripSpan.text()`）。
+`--selftest` 阳性 4 / 阴性 5，阴性里包含"唯一口径自身"（`TripLength`/`TripSpan`/`PlanDraft` 三个文件按路径排除）
+与"页面 state 自己的日期对"（屏2 的 `spanDays(this.startDate, this.endDate)` 合法），
+先立住控制样本再出数，见 [[verify-the-scanner-before-trusting-a-zero]]。
+
+**首跑就抓到两条真漏**（我上一轮以为"只剩 ai/ 没跟"是低估）：
+`ai/PromptBuilder.ets:100` 与 `ai/LlmClient.ets:330` 都直接 `spanDays(basic.startDate, basic.endDate)`
+算出发给模型的 `days`——草稿日期没填时它们要求模型排 **1 天**，而用户屏2 看到的是 3天2晚。
+这条比屏5 的名额更要紧：它改变生成结果。
+修法不是让 `ai/` 去 import `data/PlanDraft`（`ai→data` 不是既有分层），
+而是把口径下沉成纯 util `utils/TripLength.ets`，`PlanDraft.days()` 与 `ai/` 两处都改为走它，
+`PlanDraft.DEFAULT_DAYS` 也从它取，避免两处各写一个 3。
+
+闸门：hvigor 两个模块 BUILD SUCCESSFUL；**hypium 245/245**；**十八把静态尺 0 硬失败**
+（`audit_type` 那条"待裁决"仍是付费页 checkmark 14px，`IconSizes` 只有 22/48 两档，未动契约）；
+`seed` 尺 0 硬失败 / 1 警告；README 的尺数与读数同步到十八把。

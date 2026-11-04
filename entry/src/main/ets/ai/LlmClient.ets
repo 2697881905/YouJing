@@ -35,6 +35,7 @@ import { Logger } from '../common/logger/Logger';
 import { AppError } from '../common/error/AppError';
 import { ErrorCode } from '../common/error/ErrorCode';
 import { TripGeneratePayload, buildTripGeneratePayload } from './TripRequestPayload';
+import { TripLength } from '../utils/TripLength';
 
 const TAG: string = 'Ai.LlmClient';
 
@@ -327,7 +328,7 @@ export class LlmClient {
         : new HttpLlmTransport(params, spots, area, passId));
     // 天数与出发日以用户输入为准：模型多吐一天时按窗口截断，少吐则失败重试
     const expect: TripExpect = {
-      days: DateUtils.spanDays(params.basic.startDate, params.basic.endDate),
+      days: TripLength.days(params.basic),
       startDate: params.basic.startDate
     };
     let lastErr: Error | null = null;

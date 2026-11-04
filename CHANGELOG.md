@@ -191,6 +191,13 @@
 
 ### Fixed
 
+- 2026-11-05（§5ci 续 190）：**发给模型的天数也走同一口径**——第 18 把尺 `tools/audit_span_source.py` 首跑抓到
+  `ai/PromptBuilder.ets:100` 与 `ai/LlmClient.ets:330` 仍直接 `spanDays(basic.startDate, basic.endDate)`，
+  草稿日期没填时它们要求模型排 **1 天**，而用户屏2 看到的是 3天2晚（比屏5 名额更要紧，它改变生成结果）。
+  口径下沉成纯 util `utils/TripLength.ets`（`ai→data` 不是既有分层），`PlanDraft.days()` 与两处 ai 都走它，
+  `DEFAULT_DAYS` 也从它取。新尺 R1/R2 分别钉「天数唯一口径」与「`N天N晚` 文案唯一口径」，
+  `--selftest` 阳性 4 / 阴性 5（含唯一口径自身与页面 state 两条阴性）。
+  同批浅色档 11 屏过完对比度尺：10 屏 0 低，屏2 那条 2.49:1 取 bounds 判定是状态栏电量数字，不在本 App 窗口。
 - 2026-11-04（§5ci 续 189）：**屏2 与屏5 对「这趟几天」给同一个答案**。
   草稿日期默认是空串（占位语义有两条 hypium 用例钉着），屏2 按「今天起算 3 天」填自己的页面 state
   且只在点「开始规划」时写回，屏5/屏6/屏7 却直接 `spanDays('','')` 取到 1 天——
