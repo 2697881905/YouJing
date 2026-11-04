@@ -7431,3 +7431,29 @@ replacePath 后停在付费页，标题按 giftSpent 走，本来就落在可见
    底稿 §5y 对表第三项就要"节点圆环 + 连续脊线"。是设计写死的代价，不是漏排。
 
 闸门：hvigor BUILD SUCCESSFUL（17 executed）、pre-commit 编译门禁过。
+
+## 2026-11-04 续 188：探针补上浅色档（`--ps lightprobe 1`），今天所有界面改动两档都复拍
+
+**为什么现在才拍浅色**：这台手机此刻系统就在深色档（23:40，夜间自动），
+本会话所有实拍都是深色——不是刻意选的，是环境给的。而 `EntryAbility` 只有 `darkprobe`
+这一个 App 级钉档开关（当初就是为了"不把用户的手机翻成深色去截图"才走 App 级 setColorMode），
+浅色档没有对应入口，`uimode`/`settings` 命令在这台机器上都不存在（第 4 把尺只能量像素就是这个原因）。
+
+**改的**：把 `applyDarkProbe` 扩成 `applyColorProbe`，`darkprobe 1` 口径不变（既有走查脚本与文档照旧），
+新增 `lightprobe 1` 钉进 `COLOR_MODE_LIGHT`；`darkProbe` 字段改名 `colorProbe`，
+`onWindowStageCreate` 那次 NOT_SET 复位的跳过条件同步跟上（不跳过就会"日志 isDarkMode=true、界面却仍是浅色"）。
+只在 debug 版、只在显式带参数时生效，release 形态零影响。
+
+**探针真不真，用 dump 的框架真值判**：冷启带 `lightprobe 1` 后画布 `#FFFFFFFF`、
+卡面 `#FFF7F7F8`、面板 `#FFF1F3F5` ——浅色资源确实生效，不是只翻了个日志。
+
+**两档复拍今天改的三处**：
+- 屏13 城市套章空轨（续 187 的 hairline）：深色 L=58 / 浅色 **L=230**（画布 L=255），两档都是可见凹槽；
+  已填蓝段深色 L=110 / 浅色 L=84。
+- 屏16 统计三格与「完整行程」按钮（续 184）：浅色档实拍确认 `¥0 / 记账` 与 SECONDARY 胶囊都成立，
+  浅色下那颗胶囊比深色淡一档但仍与画布分得开。
+- 屏4 行程卡空轨（续 183）：浅色卡面 `#F7F7F8` 对 sunken `#E9E9EC`，仍是"暗于卡面"的同一关系。
+
+闸门：hvigor BUILD SUCCESSFUL（17 executed）、pre-commit 编译门禁过；
+本轮之前全量跑过一遍——hypium 243/243、BFF 103/103、`npm run preflight` **通过 14 / 警告 0 / 阻断 0**
+（`HUAWEI_CLIENT_ID` 已配，上线自检第一次全绿）、十七把静态尺无新增红。
