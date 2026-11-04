@@ -53,7 +53,7 @@ export default function pricingCopyTest(): void {
       // 2026-11-04 真机：赠送用完的非会员被 402 送到付费页，当时仍写「生成免费」
       expect(pricingHeadline(false, 0, 20, true)).assertEqual('免费次数已用完');
       expect(pricingSubtitle(false, 0, 20, true))
-        .assertEqual('赠送的免费次数已用完；通行证解锁这一个行程，订阅解锁每月 20 次');
+        .assertEqual('赠送的免费次数已用完；通行证解锁这一趟，订阅每月 20 次');
       // 第 4 个入参有默认值：既有调用点口径不变
       expect(pricingHeadline(false, 0, 20)).assertEqual('解锁完整行程');
     });
