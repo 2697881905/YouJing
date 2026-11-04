@@ -17,6 +17,8 @@ import { common } from '@kit.AbilityKit';
 import { Logger } from '../common/logger/Logger';
 
 const TAG: string = 'Ui.TopStrip';
+/** 系统栏透明：带子颜色交给视图层，见 paint() 里的 A 档说明 */
+const TRANSPARENT_BAR: string = '#00000000';
 
 /** AppStorage 键：当前该涂这条带子的颜色**资源名**（不是色值，色值按档现解） */
 export const TOP_STRIP_KEY: string = 'topStripColorName';
@@ -58,7 +60,20 @@ export class TopStrip {
     } catch (e) {
       Logger.warn(TAG, `setWindowBackgroundColor 失败: ${(e as Error).message}`);
     }
-    const props: window.SystemBarProperties = { statusBarColor: color, navigationBarColor: color };
+    // A 档（2026-11-05）：两条系统栏改**透明**，带子的颜色只由视图层决定——
+    // `pages/Index` 那层根 Column 已经按 `stripName` 涂 canvas / map_strip_base，
+    // 系统层再涂一份是多余的第二个图层：它不参与顶栏材质与模糊采样，
+    // 滚动时和页面之间永远留一条硬边，用户读到的就是「通知栏区域与其他地方有色差、
+    // 布局没撑满整屏」。透明后带子就是页面本身，缝没有第二个来源。
+    //
+    // 代价：图标从此压在页面色上，必须显式给明暗，否则深色档白画布…反过来说，
+    // 浅色档配默认白图标会直接看不见。判据取 AppStorage 的 isDarkMode（与 seedDarkMode 同源）。
+    const isDark: boolean = AppStorage.get<boolean>('isDarkMode') ?? false;
+    const props: window.SystemBarProperties = {
+      statusBarColor: TRANSPARENT_BAR,
+      navigationBarColor: TRANSPARENT_BAR,
+      isStatusBarLightIcon: isDark
+    };
     win.setWindowSystemBarProperties(props).catch((err: Error): void => {
       Logger.warn(TAG, `setWindowSystemBarProperties 失败: ${err.message}`);
     });
