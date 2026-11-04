@@ -250,7 +250,9 @@ export struct PreferenceQAPage {
     }
     // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
     .backgroundColor(ColorTokens.canvas)
-    .titleBar(HdsChrome.bar({ mainTitle: '偏好追问', subTitle: `问题 ${this.qIndex + 1}/${this.questions.length}`, scrolled: this.barScrolled }))
+    // 向导其余四屏的标题栏都只写主标题，步序交给页内；这里原来还把
+    // 「问题 N/M」同时写进副标题和页内翻页器，同一句话在 200vp 内出现两遍
+    .titleBar(HdsChrome.bar({ mainTitle: '偏好追问', scrolled: this.barScrolled }))
     .titleMode(HdsNavDestinationTitleMode.MINI)
   }
 }
