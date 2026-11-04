@@ -30,7 +30,9 @@ export function pricingSubtitle(hasSubscription: boolean, usedToday: number, dai
     return `订阅每月 ${dailyCap} 次，下月 1 日恢复；单个行程通行证可立即继续`;
   }
   if (giftSpent) {
-    return `赠送的免费次数已用完；通行证解锁这一个行程，订阅解锁每月 ${subMonthlyCap(dailyCap)} 次`;
+    // 这句原来 27 字，真机在「每 / 月 20 次」中间断行——中文逐字断行会把词劈开，
+    // 付费页的说明行读起来像坏了。收成一句能落在单行内的长度（§5ci 续 192）
+    return `赠送的免费次数已用完；通行证解锁这一趟，订阅每月 ${subMonthlyCap(dailyCap)} 次`;
   }
   return '生成免费，导出与无限重排需解锁';
 }

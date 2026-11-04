@@ -18,7 +18,7 @@ export default function pricingCopyTest(): void {
         expect(subMonthlyCap(0)).assertEqual(20);
         expect(subCapLine(0)).assertEqual('每月 20 次生成上限');
         // giftSpent 那句也走同一口径
-        expect(pricingSubtitle(false, 0, 0, true, false).indexOf('订阅解锁每月 20 次') >= 0).assertTrue();
+        expect(pricingSubtitle(false, 0, 0, true, false).indexOf('订阅每月 20 次') >= 0).assertTrue();
       });
 
     it('subscriber_at_cap_explains_quota_not_unlock', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
