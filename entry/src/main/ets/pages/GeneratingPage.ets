@@ -207,7 +207,8 @@ export struct GeneratingPage {
             .margin({ top: SpaceTokens.xxs, bottom: SpaceTokens.sm })
           Progress({ value: Math.round(this.progress * 100), total: 100, type: ProgressType.Linear })
             .color(ColorTokens.primary)
-            .backgroundColor(ColorTokens.surfaceSunken)
+            // 同上：生成页整页是画布底，sunken 差 5 档
+            .backgroundColor(ColorTokens.hairline)
             .width('100%')
             .accessibilityText(`生成进度 ${Math.round(this.progress * 100)}%`)
         }

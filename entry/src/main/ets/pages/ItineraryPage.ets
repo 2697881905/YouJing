@@ -206,7 +206,8 @@ export struct ItineraryPage {
       Progress({ value: Math.min(100, this.dayLoad().ratio * 100), total: 100, type: ProgressType.Linear })
         .style(LOAD_BAR_STYLE)
         .color(this.loadBarColor())
-        .backgroundColor(ColorTokens.surfaceSunken)
+        // 同上：吸顶日标题这一条压在画布上，sunken 差 5 档判不出来
+        .backgroundColor(ColorTokens.hairline)
         .layoutWeight(1)
         // 条本身没有文字：读屏要能听到同一句读数
         .accessibilityText(DayLoadCalc.label(this.dayLoad()))

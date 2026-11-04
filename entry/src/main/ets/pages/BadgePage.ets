@@ -169,7 +169,9 @@ export struct BadgePage {
       if (this.stampTotal(city) > 0) {
         Progress({ value: this.stampCollected(city), total: this.stampTotal(city), type: ProgressType.Linear })
           .color(this.stampComplete(city) ? ColorTokens.success : ColorTokens.primary)
-          .backgroundColor(ColorTokens.surfaceSunken)
+          // 空轨跟**它压在什么上面**走：这条坐画布 #121212，
+          // sunken #0D0D0F 只差 5 档，实测整条看不见、只剩左边一小截蓝（屏13 真机 1/32 枚）
+          .backgroundColor(ColorTokens.hairline)
           .width('100%')
           .accessibilityText(`城市套章进度 ${this.stampCollected(city)} / ${this.stampTotal(city)}`)
         if (this.stampComplete(city)) {
