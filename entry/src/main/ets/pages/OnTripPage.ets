@@ -600,7 +600,8 @@ export struct OnTripPage {
    * 底稿帧（屏15 fc4e40cd）在这一节里排的是「07:40 早餐 已打卡 / 08:30 渡月桥 已打卡 /
    * 09:00 竹林 进行中」——三行两态，`check-status-ongoing` 有独立样式（时间与标签都走
    * `#0066CC`、不带对勾）。所以这一节的语义是"今天走到哪了"，不是字面只有已打卡；
-   * 分组头沿用帧的原句「今日已打卡」，不替帧改文案。
+   * 分组头因此按真值两态走（有打卡行=帧的原句「今日已打卡」，一行都没打卡=「今日进度」），
+   * 帧的原句只在它成立的那个态里保留。
    * 金额取挂在该节点上的开销合计。
    */
   private buildRows(marks: Record<string, number>): Promise<Record<string, number>> {
@@ -1026,12 +1027,19 @@ export struct OnTripPage {
     .backgroundColor(ColorTokens.surfaceElevated)
   }
 
+  /** 这一节里是否真有打卡记录（只有「进行中」占位行时不算） */
+  private hasCheckedIn(): boolean {
+    return this.rows.some((r: CheckedRow): boolean => !r.ongoing);
+  }
+
   @Builder
   groupHeader() {
     // 材质豁免：这条吸顶行住在卡片内（父 List 已 canvas 实色 + 圆角 clip），不是契约 §1024
     // 指的那条满宽"日分隔"玻璃栏；给它上材质等于在卡片里开玻璃，违 §1149。
     // 但它确实会压在滚动行上（sticky 无底板=文字叠文字），所以补一张与卡片同色的实底板。
-    Text('今日已打卡')
+    // 标题按真值走：底稿帧那句「今日已打卡」的前提是这一节里确有打卡行；
+    // 一行都没打卡时整节只剩「进行中」，标题再说「已打卡」就是空口白话（2026-11-04 真机实拍）。
+    Text(this.hasCheckedIn() ? '今日已打卡' : '今日进度')
       .fontSize(TypeTokens.overline.size)
       .fontWeight(600)
       .fontColor(ColorTokens.muted)
