@@ -624,9 +624,6 @@ export struct EditItineraryPage {
     const items: Array<HdsNavigationMenuItemOptions> = [
       HdsChrome.item($r('sys.symbol.plus_circle'), '补选景点', (): void => {
         this.openAdd();
-      }),
-      HdsChrome.item($r('sys.symbol.arrow_counterclockwise'), '撤销修改', (): void => {
-        this.undo();
       })];
     return HdsChrome.bar({ mainTitle: '编辑行程', menu: items, scrolled: this.barScrolled });
   }

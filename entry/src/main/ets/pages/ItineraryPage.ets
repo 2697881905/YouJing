@@ -1402,21 +1402,25 @@ export struct ItineraryPage {
     .titleBar(HdsChrome.bar({
       mainTitle: this.titleText,
       scrolled: this.barScrolled,
+      // 顺序按使用频率，不是按"导出/编辑/系统"的讲述顺序：真机实测 `menuMaxCount: 2`
+      // 只直出**第一枚**（第二枚位置被官方「更多」占掉），所以第一枚必须是最高频动作。
+      // 原来第一枚是「分享行程」，于是「编辑行程」——改行程的主路径——被收进溢出菜单，
+      // 而溢出菜单在注入点击下不展开（hdc uiInput 打不开 HDS 的 ⋯），自动化也够不着它。
       menu: [
-        HdsChrome.item($r('sys.symbol.share'), '分享行程', (): void => {
-          this.pathStack.pushPath({ name: 'Share', param: this.tripId });
-        }),
         HdsChrome.item($r('sys.symbol.square_and_pencil'), '编辑行程', (): void => {
           this.pathStack.pushPath({
             name: 'EditItinerary',
             param: { tripId: this.tripId, dayIndex: this.dayIndex } as EditTarget
           });
         }),
+        HdsChrome.item($r('sys.symbol.share'), '分享行程', (): void => {
+          this.pathStack.pushPath({ name: 'Share', param: this.tripId });
+        }),
         HdsChrome.item($r('sys.symbol.calendar'), '写入系统与提醒', (): void => {
           this.showSystemAccess = true;
         })
       ],
-      // 直出两枚、第三枚收进官方「更多」——屏11 帧在顶栏右侧画的就是 ellipsis
+      // 实测这一档只直出一枚 + 官方「更多」；屏11 帧在顶栏右侧画的就是 ellipsis，形态不变
       menuMaxCount: 2
     }))
     .onReady((ctx: NavDestinationContext): void => {
