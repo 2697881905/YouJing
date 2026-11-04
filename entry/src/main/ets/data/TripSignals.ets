@@ -10,6 +10,7 @@
  * 还会把「建议」变成不可复现的输出。
  */
 
+import { DurationCn } from '../utils/DurationCn';
 import { Activity, ActivityCategory, TripDay } from '../model/Trip';
 import { WeatherDay } from '../model/Weather';
 import { DateUtils } from '../utils/DateUtils';
@@ -166,7 +167,7 @@ export class TripSignals {
       key: `off_route:${current.id}`,
       kind: SignalKind.OFF_ROUTE,
       title: `离「${current.title}」${Geo.distanceText(distance)}`,
-      detail: `已过开始时间 ${ctx.nowMin - start} 分钟，看样子赶不上了`,
+      detail: `已过开始时间 ${DurationCn.text(ctx.nowMin - start)}，看样子赶不上了`,
       action: SignalAction.SKIP,
       targetId: current.id,
       deltaMin: 0,
@@ -182,12 +183,12 @@ export class TripSignals {
       const shifted: TripSuggestion = {
         key: `behind:${owed.id}`,
         kind: SignalKind.BEHIND,
-        title: `比计划晚 ${lag} 分钟`,
+        title: `比计划晚 ${DurationCn.text(lag)}`,
         detail: `「${owed.title}」还没打卡，后续按原时间排`,
         action: SignalAction.SHIFT,
         targetId: owed.id,
         deltaMin: delta,
-        actionLabel: `顺延 ${delta} 分钟`
+        actionLabel: `顺延 ${DurationCn.text(delta)}`
       };
       return shifted;
     }
@@ -197,7 +198,7 @@ export class TripSignals {
     const skipped: TripSuggestion = {
       key: `behind:${owed.id}`,
       kind: SignalKind.BEHIND,
-      title: `比计划晚 ${lag} 分钟`,
+      title: `比计划晚 ${DurationCn.text(lag)}`,
       detail: `「${owed.title}」还没打卡，今天没有可顺延的站`,
       action: SignalAction.SKIP,
       targetId: owed.id,

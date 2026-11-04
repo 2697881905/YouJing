@@ -8,6 +8,7 @@
  * 底稿里「周一人少，10:00 后团队到达」「打车 ¥1,900」这类无来源文案不保留。
  */
 
+import { DurationCn } from '../utils/DurationCn';
 import { ACTIVE_TRIP_KEY, APP_NAV } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { MoneyText } from '../utils/MoneyText';
@@ -908,7 +909,8 @@ export struct OnTripPage {
       const head: string = cur.time.length > 0 ? `${cur.time} · ${cur.kind}` : cur.kind;
       return cur.cost > 0 ? `${head} · 预估 ${MoneyText.yuan(cur.cost)}` : head;
     }
-    return `${cur.time} 开始 · 建议 ${hoursText(cur.time, cur.endTime)}小时 · 已过 ${this.elapsedMin}分钟`;
+    // 分钟数原样打出来是「已过 162分钟」——用户得自己做除法；过 1 小时就拆成时/分
+    return `${cur.time} 开始 · 建议 ${hoursText(cur.time, cur.endTime)}小时 · 已过 ${DurationCn.text(this.elapsedMin)}`;
   }
 
   private progressPct(): number {
