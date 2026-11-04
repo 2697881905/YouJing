@@ -7665,6 +7665,9 @@ python 把反斜杠+n 当字面量塞进 import 行 → `Invalid character` + `h
 - 尺：`bar_scroll` 22 处调用点全部已表态、`scroll_actions` / `label_fit` / `geometry` /
   `layout_patterns` / `button_width` / `material` / `colors` 均无新增偏差。
 
-**没验的（不含混）**：`verify_dock_tabs.sh` 要真机走 §4j 六项、`verify_scroll_clearance.py` 本轮未跑完；
-hypium 与离线六套在提交后补跑。内容整体上移 33.9vp 是本次预期内的观感变化，用户已确认不挤，
-但 dock 遮挡末行这一类几何回归只有真机能判，下一轮第一件事就是把它跑掉。
+**补跑结果（同夜）**：`verify_scroll_clearance.py` 第一次被自己的守卫挡下
+（"前台不像有径——不跟真人抢手机，退出"，那是正确行为不是通过），把 App 拉到前台重跑后出数：
+**滚到底无遮挡 pass**——SpotPick / StayPick / GenerateFailed 末行底边 736.3vp 对 dock 顶 748.8vp（净空 12.5vp），
+AreaMore 净空 190.7vp。内容整体上移 33.9vp 带来的 dock 遮挡风险到此销案。
+hypium 复跑 **246/246**。仍待真机人工对表的是 `verify_dock_tabs.sh` 的 §4j 六项
+（它要逐条看页签切换后的数据刷新，脚本给不出结论），与本次改动无关，属既有待办。
