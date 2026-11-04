@@ -8,7 +8,10 @@
  */
 
 export function pricingHeadline(hasSubscription: boolean, usedToday: number, dailyCap: number,
-  giftSpent: boolean = false): string {
+  giftSpent: boolean = false, exportGate: boolean = false): string {
+  if (exportGate) {
+    return '导出需要解锁';
+  }
   if (hasSubscription && dailyCap > 0 && usedToday >= dailyCap) {
     return '本月次数已用完';
   }
@@ -19,7 +22,10 @@ export function pricingHeadline(hasSubscription: boolean, usedToday: number, dai
 }
 
 export function pricingSubtitle(hasSubscription: boolean, usedToday: number, dailyCap: number,
-  giftSpent: boolean = false): string {
+  giftSpent: boolean = false, exportGate: boolean = false): string {
+  if (exportGate) {
+    return '通行证解锁这一个行程的导出、海报与分享；订阅解锁全部高级能力';
+  }
   if (hasSubscription && dailyCap > 0 && usedToday >= dailyCap) {
     return `订阅每月 ${dailyCap} 次，下月 1 日恢复；单个行程通行证可立即继续`;
   }

@@ -7280,3 +7280,25 @@ toast 会在面板背后响，等于噪音，已收回（代码里留了一行�
 **未验**：本机 `DEV_SKIP_BFF=true`，`canExport` 恒真，拦阻分支没在真机上触发过；
 判定函数本身有 `EntitlementExport.test` 覆盖，新加的只是那句提示。
 要验就把 `DEV_SKIP_BFF` 临时关成 false 再点导出。
+
+## 2026-11-04 续 182：导出被拦的反馈落到目的页标题上（上一轮的 toast 是无效的，已换做法）
+
+续 181 加的那句 `toast('导出日历需要通行证或订阅')` **实测不显示**：
+把 `DEV_SKIP_BFF` 临时关成 false（skip-worktree，不入库）造出真实拦阻态，
+点「导出日历文件 (.ics)」后截图整屏只有付费页，没有任何浮层——
+`toast()` 紧跟 `pushPath` 时提示被导航吃掉。上一轮我把这条写成"已修"，
+其实修的是个不生效的分支；这次改成把**理由带到目的页**。
+
+新增 `utils/PricingReason`（一次性标记，取用即清）：屏11 导出与屏16 海报两处门禁
+拦住时先 `markExportGate()` 再跳付费页；`PricingPage.aboutToAppear` 读到就换文案——
+`pricingHeadline/pricingSubtitle` 各加第 5 个入参 `exportGate`（默认 false，既有三档口径不变）。
+
+真机两条都验（`DEV_SKIP_BFF=false` 下）：
+① 屏11 点导出 → 付费页标题「**导出需要解锁**」+「通行证解锁这一个行程的导出、海报与分享；订阅解锁全部高级能力」；
+② 退回后从「我的」会员卡正常进 → 标题回到「免费次数已用完」，证明一次性标记被取用后正确复位。
+回归：`PricingCopy.test` 新增 1 例（含"会员从导出口径进来也不说次数"与默认参数不变两条）。
+验完把 `DEV_SKIP_BFF` 还原 true（那是本机联调便利开关，不是产品口径）。
+
+**方法论记一条**：反馈要放在**用户看得见的那一屏**。出发页上的 toast 在跳页场景不可靠；
+目的页的标题才是"为什么被拦"的稳定落点。同理适用于 `GeneratingPage → Pricing`（那条是
+replacePath 后停在付费页，标题按 giftSpent 走，本来就落在可见屏上）。

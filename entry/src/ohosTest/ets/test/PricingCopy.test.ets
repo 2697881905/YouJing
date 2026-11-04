@@ -27,6 +27,17 @@ export default function pricingCopyTest(): void {
       expect(pricingSubtitle(false, 20, 20)).assertEqual('生成免费，导出与无限重排需解锁');
     });
 
+    it('export_gate_uses_export_wording', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+      // 从导出/海报门禁进来的人刚做的动作不是生成，标题不能再说次数
+      expect(pricingHeadline(false, 0, 20, true, true)).assertEqual('导出需要解锁');
+      expect(pricingSubtitle(false, 0, 20, true, true))
+        .assertEqual('通行证解锁这一个行程的导出、海报与分享；订阅解锁全部高级能力');
+      // 会员也一样：他缺的不是次数而是「这一趟的导出」还没买
+      expect(pricingHeadline(true, 5, 20, false, true)).assertEqual('导出需要解锁');
+      // 第 5 个入参默认 false ⇒ 既有三档口径不变
+      expect(pricingHeadline(false, 0, 20, true)).assertEqual('免费次数已用完');
+    });
+
     it('gift_spent_non_member_gets_honest_copy', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
       // 2026-11-04 真机：赠送用完的非会员被 402 送到付费页，当时仍写「生成免费」
       expect(pricingHeadline(false, 0, 20, true)).assertEqual('免费次数已用完');

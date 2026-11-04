@@ -10,6 +10,7 @@
  * 分享行程文本，并如实告知，不假装海报已生成。
  */
 
+import { PricingReason } from '../utils/PricingReason';
 import { APP_NAV } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
@@ -153,6 +154,8 @@ export struct TripReviewPage {
       return;
     }
     if (!EntitlementStore.canExport(this.tripId)) {
+      // 海报同属导出族：反馈落在付费页标题上（toast 紧跟跳页时不显示）
+      PricingReason.markExportGate();
       this.pathStack.pushPath({ name: 'Pricing', param: this.tripId });
       return;
     }

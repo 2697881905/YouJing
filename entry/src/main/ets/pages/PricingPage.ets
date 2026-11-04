@@ -6,6 +6,7 @@
  * 购买成功后 BFF 校验 + EntitlementStore 更新 + finishPurchase 确认发货。
  */
 
+import { PricingReason } from '../utils/PricingReason';
 import { APP_NAV } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
@@ -50,8 +51,10 @@ export struct PricingPage {
     // giftSpent：非会员且赠送已用完 —— 他就是被「生成」的 402 送到这页的，
     // 不能再写「生成免费」（2026-11-04 真机走到这条时实拍到的误导）
     const giftSpent: boolean = !this.isMember && !this.passOwned && ent.giftRemaining <= 0;
-    this.headline = pricingHeadline(this.isMember, ent.usedToday, ent.dailyCap, giftSpent);
-    this.subtitle = pricingSubtitle(this.isMember, ent.usedToday, ent.dailyCap, giftSpent);
+    // 从导出/分享门禁进来的人刚做的动作不是生成，标题得换成导出口径（取用即清）
+    const exportGate: boolean = PricingReason.takeExportGate();
+    this.headline = pricingHeadline(this.isMember, ent.usedToday, ent.dailyCap, giftSpent, exportGate);
+    this.subtitle = pricingSubtitle(this.isMember, ent.usedToday, ent.dailyCap, giftSpent, exportGate);
   }
 
   private ctx(): common.UIAbilityContext {

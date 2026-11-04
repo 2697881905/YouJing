@@ -7,6 +7,7 @@
  * 该格改显「需预约」节点数（真数，且与 .ics 的提醒条数同源）。
  */
 
+import { PricingReason } from '../utils/PricingReason';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
@@ -115,9 +116,9 @@ export struct SharePage {
       return;
     }
     if (!EntitlementStore.canExport(this.tripId)) {
-      // 先说一句为什么再跳付费页：静默把人扔到「解锁行程」，用户只知道点了导出，
-      // 不知道是哪一条门禁拦的（与 GeneratingPage 送付费页同一口径）
-      this.toast('导出日历需要通行证或订阅');
+      // 反馈落在目的页标题上（真机实测：toast 紧跟 pushPath 时提示根本不显示，
+      // 截图里整屏没有浮层）——先标理由，付费页据此换成导出口径
+      PricingReason.markExportGate();
       this.pathStack.pushPath({ name: 'Pricing', param: this.tripId });
       return;
     }
