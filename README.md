@@ -85,7 +85,7 @@ verify 要设备票据 / notify 收 `jwsNotification` 并验签、按 `notificat
 `this.refreshMembership();`，hvigor 绿、hypium 237 绿、其余 16 把尺绿，真机一进「我的」就栈溢出。
 `--selftest` 阳性 4 / 阴性 6（有守卫的递归、委托到同名他类方法都不能报）|
 | 动效契约尺 | `python3 tools/audit_motion.py`（`--selftest` 30 条：阳性 13 类 / 阴性 13 类 / 键位点名 / 文档数字对表） | 判据：裸时长、`Curve` 枚举曲线、`.animation` 与 `.stateStyles` 顺序；**不做无声豁免**，W1–W5 白名单站点逐条打印 `file:line`；契约五档 + `ICurve` 自定义贝塞尔已真机坐实。跨仓取证跑在姊妹仓 197 个 `.ets` 上（HEAD 尺独有 11 条假红、新尺独有 0 条） |
-| 真机对比度 | `python3 tools/audit_contrast.py <dump.json> <screenshot>`（`--selftest` 零设备复算遮挡判定） | 17 屏两档：浅色 0 低；深色唯一低项是 **dock 选中蓝 4.10–4.75:1**（用户 2026-10-26 拍板维持 `#0A84FF`，§5ci 续 82 已把地图格从 3.05 抬到 4.10 与其他四格同档）；被遮住的框按**节点树**判，不靠像素猜 |
+| 真机对比度 | `python3 tools/audit_contrast.py <dump.json> <screenshot>`（`--selftest` 零设备复算遮挡判定） | 17 屏 + 2026-11-04 深色复测 3 屏（我的 27 节点 / 付费页 34 节点 / 向导首屏 27 节点）两档：浅色 0 低；深色唯一低项是 **dock 选中蓝 4.10–4.75:1**（用户 2026-10-26 拍板维持 `#0A84FF`，§5ci 续 82 已把地图格从 3.05 抬到 4.10 与其他四格同档）；被遮住的框按**节点树**判，不靠像素猜 |
 | 真机滚到底净空（+滚动区出屏） | `python3 tools/verify_scroll_clearance.py`（`--selftest` 零设备复算判据 5；**一次只跑一份**，两份同抢真机会互相甩离目标屏） | 17 屏全 pass；行程格 −48.3vp → −0.3vp（贴平） |
 
 取证约定：**结论要能被复现**。UI 问题必须同机位实拍复拍，布局争议用 `uitest dumpLayout`
