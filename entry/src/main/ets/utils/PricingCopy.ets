@@ -55,3 +55,35 @@ export function subMonthlyCap(dailyCap: number): number {
 export function subCapLine(dailyCap: number): string {
   return `每月 ${subMonthlyCap(dailyCap)} 次生成上限`;
 }
+
+/**
+ * 三档展示价格的唯一来源。
+ *
+ * 为什么需要：同一屏把 `¥19.9` 写了两种间距（计划卡「¥19.9 / 月」、按钮「¥19.9/月」），
+ * 且五个位置各写字面量——改价时必然漏一处，而付费页漏一处就是当场自相矛盾。
+ * 注意端侧现在拿不到 AGC 的实时商品价格（`IapStore` 只按 productId 发起购买），
+ * 所以这里仍是**声明价**：AGC 改了价格必须同步这九个字符，别指望界面自动跟上。
+ */
+export const PRICE_PASS: string = '¥9.9';
+export const PRICE_SUB_MONTH: string = '¥19.9';
+export const PRICE_SUB_YEAR: string = '¥98';
+
+export function passPriceLine(): string {
+  return `${PRICE_PASS}/单个行程`;
+}
+
+export function subPriceLine(): string {
+  return `${PRICE_SUB_MONTH}/月 · ${PRICE_SUB_YEAR}/年`;
+}
+
+export function buyPassLabel(): string {
+  return `购买行程通行证 ${PRICE_PASS}`;
+}
+
+export function subMonthLabel(): string {
+  return `订阅会员 ${PRICE_SUB_MONTH}/月`;
+}
+
+export function subYearLabel(): string {
+  return `订阅会员 ${PRICE_SUB_YEAR}/年`;
+}

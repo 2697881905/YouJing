@@ -19,7 +19,10 @@ import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton
 import { Logger } from '../common/logger/Logger';
 import { IapStore, PRODUCT_ID_SUB_MONTHLY, PRODUCT_ID_SUB_YEARLY, IapResult } from '../data/IapStore';
 import { EntitlementStore } from '../data/EntitlementStore';
-import { subCapLine, pricingHeadline, pricingSubtitle } from '../utils/PricingCopy';
+import {
+  subCapLine, pricingHeadline, pricingSubtitle, passPriceLine, subPriceLine,
+  buyPassLabel, subMonthLabel, subYearLabel
+} from '../utils/PricingCopy';
 import { subscriptionActive } from '../utils/MembershipCopy';
 import { DateUtils } from '../utils/DateUtils';
 import { common } from '@kit.AbilityKit';
@@ -158,7 +161,7 @@ export struct PricingPage {
 
         this.planCard(
           '行程通行证',
-          '¥9.9 / 单个行程',
+          passPriceLine(),
           // 「优先生成队列」全仓没有任何实现（BFF 无队列/并发优先级，见 §5ci 续 192），
           // 挂着就是拿一句做不到的承诺换一次付款。换成 determineQuotaSource 里成立的第三条：
           // 先判订阅额度、订阅用尽才落到 pass，而 pass 分支不计数 ⇒ 订阅用完仍能继续这一趟。
@@ -168,7 +171,7 @@ export struct PricingPage {
 
         this.planCard(
           '订阅会员',
-          '¥19.9 / 月  ·  ¥98 / 年',
+          subPriceLine(),
           [this.subCap, '全部高级能力', '行程历史无限保存'],
           false
         )
@@ -192,7 +195,7 @@ export struct PricingPage {
           } else {
             YoujingButton({
               variant: YoujingButtonVariant.PRIMARY,
-              label: this.purchasing ? '处理中…' : '购买行程通行证 ¥9.9',
+              label: this.purchasing ? '处理中…' : buyPassLabel(),
               fullWidth: true,
               disabled: this.purchasing,
               onAction: (): void => {
@@ -211,7 +214,7 @@ export struct PricingPage {
           } else {
             YoujingButton({
               variant: YoujingButtonVariant.SECONDARY,
-              label: '订阅会员 ¥19.9/月',
+              label: subMonthLabel(),
               fullWidth: true,
               disabled: this.purchasing,
               onAction: (): void => {
@@ -220,7 +223,7 @@ export struct PricingPage {
             })
             YoujingButton({
               variant: YoujingButtonVariant.SECONDARY,
-              label: '订阅会员 ¥98/年',
+              label: subYearLabel(),
               fullWidth: true,
               disabled: this.purchasing,
               onAction: (): void => {
