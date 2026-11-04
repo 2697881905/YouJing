@@ -188,6 +188,17 @@ export struct EditItineraryPage {
     return `${h}:${m}`;
   }
 
+  /**
+   * 屏8 的 meta 行读的是 `act.address`，而生成链路（utils/TripEnrich.backfillActivityPlaces）
+   * 写进去的是「城市 区」两段。编辑链路此前只写区，于是替换/补选过的站在同一屏里
+   * 比别的站少一段城市（真机实拍：同行「北京 延庆区」，替换后只剩「东城区」）。
+   * 口径收成一个函数，与回填那处同形。
+   */
+  private static placeOf(spot: Spot): string {
+    return spot.city.length > 0 && spot.district.length > 0
+      ? `${spot.city} ${spot.district}` : spot.district;
+  }
+
   private applyReplace(spot: Spot): void {
     const idx: number = this.replaceIdx;
     this.snapshot();
@@ -203,7 +214,7 @@ export struct EditItineraryPage {
       // 不能复用 spot.id：同景点在行程里出现两次会撞 TripDao 主键；也不复用 old.id，
       // 否则新景点会继承旧节点的打卡记录。
       id: mintEditActivityId('rep'), time: old.time, endTime: old.endTime, title: spot.name,
-      location: `${spot.city} ${spot.district}`, address: spot.district,
+      location: EditItineraryPage.placeOf(spot), address: EditItineraryPage.placeOf(spot),
       longitude: spot.longitude, latitude: spot.latitude,
       status: spot.booking.requiresBooking ? ActivityStatus.NOT_BOOKED : ActivityStatus.NO_NEED,
       category: ActivityCategory.SIGHT, note: old.note, reason: old.reason, transport: old.transport
@@ -224,7 +235,7 @@ export struct EditItineraryPage {
       id: mintEditActivityId('add'), time: EditItineraryPage.hhmm(start),
       endTime: EditItineraryPage.hhmm(start + spot.suggestedDuration),
       title: spot.name,
-      location: `${spot.city} ${spot.district}`, address: spot.district,
+      location: EditItineraryPage.placeOf(spot), address: EditItineraryPage.placeOf(spot),
       longitude: spot.longitude, latitude: spot.latitude,
       status: spot.booking.requiresBooking ? ActivityStatus.NOT_BOOKED : ActivityStatus.NO_NEED,
       category: ActivityCategory.SIGHT,
