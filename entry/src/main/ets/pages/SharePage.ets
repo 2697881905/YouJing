@@ -115,11 +115,16 @@ export struct SharePage {
       return;
     }
     if (!EntitlementStore.canExport(this.tripId)) {
+      // 先说一句为什么再跳付费页：静默把人扔到「解锁行程」，用户只知道点了导出，
+      // 不知道是哪一条门禁拦的（与 GeneratingPage 送付费页同一口径）
+      this.toast('导出日历需要通行证或订阅');
       this.pathStack.pushPath({ name: 'Pricing', param: this.tripId });
       return;
     }
     // 提醒提前量与 CalendarSync 同一口径：固定提前 1 天（Activity 不带 advanceDays）
     ShareExporter.shareIcs(this.ctx(), trip, ICS_ADVANCE_DAYS).then((events: number): void => {
+      // 成功不再补 toast：面板本身就是反馈。真机复拍确认拉起的是系统分享面板，
+      // 里面已经写着「北京 行程日历.ics · 3.38 KB」——在它背后再喊一句只是噪音。
       Logger.info('Ui.Share', `ics 导出 ${events} 事件`);
     }).catch((err: Error) => {
       Logger.warn('Ui.Share', `ics 导出失败: ${err.message}`);
