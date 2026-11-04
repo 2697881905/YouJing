@@ -20,7 +20,7 @@
 - 数据：`@kit.ArkData` RDB（当前 `DB_VERSION = 9`，带级联清理与版本迁移）、`preferences` 存账号/同意态。
 - 能力：Account Kit（华为账号，仅用于本机区分使用者）、Map Kit（地点检索 / 逆地理）、Calendar Kit、ShareKit、桌面卡片 FormKit、小艺 Skill。
 - 生成：`ai/` 三层防线——提示词内嵌 Schema → `response_format` → `TripParser` 逐字段守卫；Schema、接口、守卫同源（`ai/TripSchema.ets`）。
-- 测试：hypium（真机 204 例）+ 纯逻辑离线断言 + 十七把静态尺。
+- 测试：hypium（真机 243 例）+ 纯逻辑离线断言 + 十七把静态尺。
 
 ## 仓库结构
 
@@ -69,7 +69,7 @@ tools/                十七把静态尺 + 离线断言脚本
 | 闸门 | 命令 | 当前状态 |
 |---|---|---|
 | ArkTS 编译 | `hvigorw … assembleHap`（主 + `entry@ohosTest`） | 零 error，pre-commit 强制 |
-| 真机单测 | `hdc shell "aa test -b com.youjing.app -m entry_test -s unittest OpenHarmonyTestRunner -s timeout 300000"` | 237/237 |
+| 真机单测 | `hdc shell "aa test -b com.youjing.app -m entry_test -s unittest OpenHarmonyTestRunner -s timeout 300000"` | 243/243（2026-11-04 复跑） |
 | 纯逻辑离线断言 | `bash tools/verify_map_city.sh` / `verify_trip_intent.sh` / `verify_trip_review.sh` / `verify_replan_logic.sh` / `verify_weather_logic.sh` | 66 / 104 / 57 / 74+26 / 116 全绿 |
 | 商业化链路真实进程验收（**集成探针**，不占「十七把静态尺」计数） | `bash tools/probe_bff_commercial.sh` | import `bff/src/index.js` 起**真进程** + 真 HTTP 走「激活→扣额度→付费墙→付费→高级额度」；跑在 `mktemp -d` 副本里（**不污染开发库**）；上游 LLM 用本机桩；收据改为**测试证书链现签的 JWS**（本地验签，无远端服务可桩），**真模型/真供应商花费 0**。2026-11-04 复跑：必守行为 **24/24**、支付守卫缺陷 **1 条**（只剩 D5「换设备白拿赠送」，属产品口径；D1/D2/D3/D4 已被 fail-closed 校验关闭，D6/D7/D8/D9 已修）。**故意不进 `verify_*.sh` 通配**——它要起进程，且当前必然 rc=1（D5 未拍板），红是正确信号而不是闸门失可用 |
 | BFF 上线自检（**部署闸门**，不占静态尺计数） | `cd bff && npm run preflight` | 十四项检查（JWT 密钥、API Key、**IAP 收据本地 JWS 验签结构**（x5c 链+ES256+根信任+叶子 OID）、
@@ -95,7 +95,8 @@ verify 要设备票据 / notify 收 `jwsNotification` 并验签、按 `notificat
 
 - 深链直达：`hdc shell "aa start -b com.youjing.app -a EntryAbility --ps route <页面名>"`
   （如 `GenerateFailed` 直接看屏7 降级页）。
-- 色档探针（仅 debug 版）：`--ps darkprobe 1` 把本 App 钉进深色档，系统主题不动。
+- 色档探针（仅 debug 版）：`--ps darkprobe 1` / `--ps lightprobe 1` 把本 App 分别钉进深色或浅色档，
+  系统主题不动；探针有没有真生效，用 dump 的 `backgroundColor` 判（浅色冷启后画布应为 `#FFFFFFFF`）。
   浅色档走查用的是临时加的对称探针（`lightprobe` / `loginprobe` / `consentprobe`），
   取证完即撤、不入库——见 `Docs/INIT_REPORT.md` §5ci 续 59。
 - 日志：`hdc shell "hilog -x"`，LLM 每次调用的 token 用量与生成尝试次数都会落日志。
