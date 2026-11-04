@@ -271,9 +271,14 @@ struct Index {
     })
     .width('100%')
     .height('100%')
-    // 让出状态栏：加在 HdsTabs 上而不是壳层 Column 上，登录/同意闸门那两屏自己
-    // 用 expandSafeArea 铺到物理屏顶，被壳层垫一下就退回去了
-    .padding({ top: this.statusBarHeight })
+    // 状态栏避让交给栏体自己做，不在壳层垫。
+    // 为什么：`HdsChrome.bar` 早就双开了 `avoidLayoutSafeArea: true` + `enableComponentSafeArea: true`
+    // （有据首页同一配方），但这道 padding 把整个 HdsNavigation 往下挪了 34vp——
+    // 栏体避让的是它自己坐标系里已经不存在的安全区，而带子归壳层涂。
+    // 于是深色档滚动时栏体的渐变遮罩只压暗 y=106 以下，带子仍是画布：
+    // 真机量到带子 L=18 / 栏体 L=11 一条硬台阶（用户长期报的「通知栏有色差、布局没撑满」）。
+    // 撤掉 padding 后栏体从窗口 0 排起，遮罩与带子是同一层，缝没有第二个来源。
+    // 全仓只有这一处读 statusBarHeight（已 grep 确认），没有页面会重复让位。
   }
 
   build() {
