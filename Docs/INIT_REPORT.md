@@ -7302,3 +7302,41 @@ toast 会在面板背后响，等于噪音，已收回（代码里留了一行�
 **方法论记一条**：反馈要放在**用户看得见的那一屏**。出发页上的 toast 在跳页场景不可靠；
 目的页的标题才是"为什么被拦"的稳定落点。同理适用于 `GeneratingPage → Pricing`（那条是
 replacePath 后停在付费页，标题按 giftSpent 走，本来就落在可见屏上）。
+
+## 2026-11-04 续 183：进度条的"未填那一截"统一退成凹槽，费用页「还剩 N 天」补回今天
+
+逐屏实拍（深色档，Pocket 2 展开前的竖屏）抓到两类问题，都是"尺子量不出来、只有眼睛看得见"的那一类。
+
+**① 屏4 行程卡的进度条读起来像一条分隔线。** 框架默认轨色比卡面**亮**：
+沿 `Progress` 节点 bounds 取中线逐像素量，未填段 L=52，卡面 L=30（`surface_elevated #1E1E1E`）——
+亮于卡面，整条横贯卡片左右内边距，视觉上与 §5.14 登记过的「已花 0 时空轨读成分隔线」同一类缺陷。
+费用页 hero 卡那条早就按 §5.14 改过（轨色退到 `surface_sunken`，读成凹槽），
+但同一族另外三处没跟上：屏4 行程卡、屏9 本程进度、屏13 城市套章。本轮三处一起补齐（不只改被指到的那侧）。
+复拍同机位同点：未填段 L=52 → **L=13**（`surface_sunken #0D0D0F`，暗于卡面），
+已填蓝段 L=110 未动。浅色档同判：卡 #F7F7F8 / 槽 #E9E9EC，槽仍然可见但不再冒充线。
+
+**② 费用页「还剩 N 天」把今天算掉了。** `spanDays` 两头都含（`TodayPlan.test` 断言 06-11→06-15 = 5），
+而 `daysLeft = span - spanDays(start, today)`：11-04→11-06 的 3 天行程首日 `started` 已经是 1，
+于是首日写「还剩 2 天」、末日写「还剩 0 天」——同一张卡上面一行还写着「3 天」，自相矛盾。
+改成 `span - started + 1`（Day1→3、Day3→1、行程后→0）。真机复拍：「剩 ¥16,000 · **还剩 3 天**」。
+全仓 `spanDays` 其余调用点逐个核对过：屏4 的 `第 N 日` 与 `progress` 用同一起点、语义本就含当天，
+记账 `dayIndex` 是 1-based，都不需要跟着改。
+
+**③ 路由丢参**：`AppRouter` 的 Pricing 分支写的是 `PricingPage()`，而三处调用方
+（屏7 生成受阻、屏11 导出、屏16 海报）都 `param: tripId` 推了过来。
+`@Prop tripId` 恒空 ⇒ `passOwned` 永远判不出"这条行程已解锁"，
+`purchasePass()` 只能回落到 `activeTripId`——从 A 行程的分享页进付费墙、钱却绑到 B 行程。
+现补 `PricingPage({ tripId: tripIdOf(param) })`。
+**这一条只做到编译与代码级成立，运行时差异（已持通行证时隐藏购买键）没在真机上验**：
+需要一个真实生效的通行证，而沙盒收据默认被 `environmentAllowed` 拒收（续 17x 那条闸门），
+不为验证去放宽生产口径。深链 `--ps route Pricing --ps param <id>` 能正常落地、不崩。
+
+**取证纪律一条**：dumpLayout 里 `Progress` 的 `text` 是 `33.000000`，一度以为
+`.accessibilityText()` 没生效。反证后撤回——同屏自研控件的 accessibilityText
+（如「设置各分类预算上限」「XX页签」）在 dump 里同样不进 `description`，
+只有系统件（时钟）进；所以 dump 的 `description` 空 ≠ 读屏念的是裸浮点。
+这条不改成代码，也不登记缺陷。
+
+闸门：hvigor BUILD SUCCESSFUL（17 executed）；十七把静态尺 0 硬失败
+（`audit_type` 仍留 1 条"待裁决"：付费页 `checkmark` 图标 14px，`IconSizes` 只有 control 22 / display 48 两档，
+不为一个站点动 token 契约）；真机深色复拍屏4 / 屏11 同机位。

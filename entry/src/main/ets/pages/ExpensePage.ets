@@ -219,8 +219,10 @@ export struct ExpensePage {
       }
       this.plannedTotal = trip.overview.totalCost > 0 ? trip.overview.totalCost : sumDays;
       const span: number = DateUtils.spanDays(trip.startDate, trip.endDate);
-      const passed: number = DateUtils.spanDays(trip.startDate, DateUtils.todayIso());
-      this.daysLeft = Math.max(0, span - passed);
+      const started: number = DateUtils.spanDays(trip.startDate, DateUtils.todayIso());
+      // spanDays 两头都含：Day1 时 started 已经是 1，直接 span - started 会把「今天」
+      // 当成已过掉（3 天行程首日写「还剩 2 天」、末日写「还剩 0 天」，与同卡「3 天」自相矛盾）
+      this.daysLeft = Math.max(0, span - started + 1);
       return ExpenseDao.sumByCategory(context, trip.id);
     }).then((totals: CategoryTotal[]): Promise<Expense[]> => {
       this.applyTotals(totals);

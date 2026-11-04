@@ -1180,6 +1180,7 @@ export struct OnTripPage {
               if (this.totalMin > 0) {
                 Progress({ value: this.progressPct(), total: 100, type: ProgressType.Linear })
                   .color(ColorTokens.primary)
+                  .backgroundColor(ColorTokens.surfaceSunken)
                   .width('100%')
                   .margin({ top: SpaceTokens.sm })
                   .accessibilityText(`本程已完成 ${Math.round(this.progressPct())}%`)

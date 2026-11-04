@@ -471,6 +471,8 @@ export struct TripsPage {
           // 只有「旅行中」用品牌蓝；未出发/已结束退到分隔色，
           // 否则一列表全是同一条蓝线，读起来就是渲染残留（§5.14）
           .color(t.phase === 'onTrip' ? ColorTokens.primary : ColorTokens.separator)
+          // 未填的那一截同 §5.14：框架默认轨色比卡面亮，整条读起来就是卡里的一条分隔线
+          .backgroundColor(ColorTokens.surfaceSunken)
           .width('100%')
           // 不给可及名时读屏念的是框架原话「35.000000」（屏4 的进度条真机实测过这条）
           .accessibilityText(`行程进度 ${Math.round(t.progress)}%`)

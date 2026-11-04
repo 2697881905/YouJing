@@ -169,6 +169,7 @@ export struct BadgePage {
       if (this.stampTotal(city) > 0) {
         Progress({ value: this.stampCollected(city), total: this.stampTotal(city), type: ProgressType.Linear })
           .color(this.stampComplete(city) ? ColorTokens.success : ColorTokens.primary)
+          .backgroundColor(ColorTokens.surfaceSunken)
           .width('100%')
           .accessibilityText(`城市套章进度 ${this.stampCollected(city)} / ${this.stampTotal(city)}`)
         if (this.stampComplete(city)) {
