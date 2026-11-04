@@ -1420,8 +1420,12 @@ export struct ItineraryPage {
           this.showSystemAccess = true;
         })
       ],
-      // 实测这一档只直出一枚 + 官方「更多」；屏11 帧在顶栏右侧画的就是 ellipsis，形态不变
-      menuMaxCount: 2
+      // 三枚全部直出（不给 ⋯）。两条实测理由：
+      // ① 帧在屏10 顶栏**同时声明**了「分享」与「编辑」，`menuMaxCount: 2` 实测只直出第一枚，
+      //    等于把另一条帧声明的动作藏进溢出菜单；
+      // ② 官方 ⋯ 不吃注入点击（三种坐标都试过），藏进去的项自动化永远够不着。
+      //    宽度实测够用：标题「北京 · 3天2晚」右缘 x=590，三枚槽位占 636–1086。
+      menuMaxCount: 3
     }))
     .onReady((ctx: NavDestinationContext): void => {
       this.pathStack = ctx.pathStack;
