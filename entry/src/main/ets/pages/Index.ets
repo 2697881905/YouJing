@@ -300,6 +300,9 @@ struct Index {
     }
     .width('100%')
     .height('100%')
+    // ⚠ 这道按页签涂色别试着交给栏体：2026-11-05 试过 `HdsChrome.bar({ barBackground })`
+    // 并撤掉这里，栏体涂不出那层不透明底（dump 的 TitleBar 仍 #00000000），
+    // 地图格顶边从「平 L=55/56」变成「透底图渐变」，同机位复拍为证（§5ci 续 198）。
     .backgroundColor(this.stripName === STRIP_MAP ? $r('app.color.map_strip_base') : $r('app.color.canvas'))
   }
 }

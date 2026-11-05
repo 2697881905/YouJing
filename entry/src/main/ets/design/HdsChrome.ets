@@ -47,10 +47,11 @@ export interface ChromeSpec {
   menu?: Array<HdsNavigationMenuItemOptions>;
   /** 栏内最多直出几枚图标，其余收进官方「更多」；不给即 3 */
   menuMaxCount?: number;
-  /** 沉浸画布页（地图/全屏底图）：内容铺到状态栏下，栏体只作透明悬浮层。
-   *  ⚠ 真机实测这一项会把栏内两行翻转成分段在上、标题在下（契约 §1055 是标题在上），
-   *  底图类屏要连续顶边请用 barBackground，别用 fullBleed。 */
-  fullBleed?: boolean;
+  // 这里原有过一项 `fullBleed`（内容铺到状态栏下、栏体只作透明悬浮层）：全仓零调用点，
+  // 且真机实测它会把栏内两行翻转成分段在上、标题在下（契约 §1055 是标题在上）——已删。
+  // 2026-11-05 还试过用它的位置加 `barBackground`（把顶边基色交给栏体），也不成立：
+  // 栏体涂不出那层不透明底，撤掉壳层涂色后地图格顶边从「平 L=55/56」变成「透底图渐变」
+  // （同一机位复拍，见 Docs/INIT_REPORT.md §5ci 续 198）。底图基色仍由壳层 + TopStrip 单点涂。
   /** 页面滚动状态：驱动 blurRadius，静止时不给模糊（有据静止态白底白图标教训） */
   scrolled?: boolean;
   /** 本页是否存在可滚容器；false 时关滚动特效，避免静止态空糊 */
@@ -120,8 +121,10 @@ export class HdsChrome {
     const options: HdsNavigationTitleBarOptions = {
       content: content,
       style: style,
+      // 顶部让位只有这两条：栏体穿到状态栏下（带子与栏区同层），内容仍按安全区起排。
+      // 恒定 true 而不是留开关：唯一的候选用途（底图页满铺）实测会把栏内两行顺序翻掉。
       avoidLayoutSafeArea: true,
-      enableComponentSafeArea: spec.fullBleed !== true
+      enableComponentSafeArea: true
     };
     return options;
   }

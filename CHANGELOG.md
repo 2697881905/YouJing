@@ -577,6 +577,21 @@
 
 ### Changed
 
+- 2026-11-05（§5ci 续 198）：**L2 壳层形态照搬有据，L3「带子移交栏体」被真机证伪并回退**。
+  规划格的 `HdsNavigation`/`titleBar` 从 `Index` 搬进 `YoujingStartPage`，五格从此同构，
+  `PLAN_SCROLL_KEY` 与壳层 `planBarScrolled` 删除；壳层再包一层宿主 `Navigation`
+  （`hideTitleBar` + 显式 `Stack`）。宿主绑新增 `HOST_NAV` 而不是 `APP_NAV`——
+  一个 `NavPathStack` 只能被一个 `Navigation` 持有，抢绑会让向导链盖住 dock。
+  这条不变式做成 `audit_layout_patterns.py` 第 6 条规则 R6（自测阳性 1 处）。
+  读数：17 屏滚到底 pass、dock 顶边逐屏仍 776.6vp（**像素零变化**）、16 屏深链全到达、hypium 251/251。
+  L3 那半边不成立：`barBackground` 给实心色时 dump 的 `TitleBar` 仍 `#00000000`，
+  撤掉壳层涂色后地图格顶边从平 55/56 变成透底图渐变（同机位三列对照见 INIT_REPORT），
+  已回退并在代码注释里写明「别再试着交给栏体」；同时删掉零调用点且会翻乱栏内两行顺序的 `fullBleed`。
+  另修 `tools/build_install.sh`：多设备时不带 `-t` 的 `hdc install` 回 `[Fail] need connect-key`
+  却仍打「产物已装机」，现在断言 `install bundle successfully` 且不含 `[Fail]`，支持 `HDC_TARGET`。
+
+### Changed
+
 - 2026-11-05（§5ci 续 197）：**L1 几何单源落地——底部避让量只有一个来源**。
   旧写法 `barBottomMargin = floatingDockBottomMargin + navIndicatorHeight` 只看高度，
   而手势胶囊 27.9vp 与真机三键栏 27.8vp 高度重叠、分不开。现由 `utils/navInset`（纯几何）

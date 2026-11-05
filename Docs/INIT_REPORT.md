@@ -7725,3 +7725,55 @@ hypium 复跑 **246/246**。仍待真机人工对表的是 `verify_dock_tabs.sh`
 **待真人的一格**：Task 3 的图标明暗补设要在**真人滚到顶**之后复拍才有效——
 注入 fling 触发不了 HDS 的滚动遮罩（记忆 `hdc-injected-fling-does-not-engage-hds-scroll-effects`），
 脚本自证会出假绿，所以这一格不以我的读数结案。
+
+## 2026-11-05 续 198：L2 壳层形态落地（五格同构 + 宿主 Navigation），L3「带子移交栏体」被真机证伪
+
+### L2 落地（`9ad23e9`）
+
+规划格是五格里唯一的异形：它的 `HdsNavigation` 与 `titleBar` 挂在 `Index` 壳层，
+滚动状态只能经 `PLAN_SCROLL_KEY` 递一层。现在栏体搬进 `YoujingStartPage` 自己挂，
+桥接键与壳层的 `planBarScrolled` 一并删除；壳层再包一层宿主 `Navigation`（`hideTitleBar`、
+显式 `NavigationMode.Stack`——默认 Auto 在宽屏切 Split，整页会被关进 240vp 窄列）。
+
+**宿主绑 `HOST_NAV`，不绑 `APP_NAV`**：一个 `NavPathStack` 只能被一个 `Navigation` 持有，
+抢绑就把规划格的绑定夺走，向导链从「页签内」变成「盖住 dock 的全屏」。
+有据的宿主同样是独立栈（`HarmonyProject1/…/Index.ets:2055` 的 `this.pageStack`），这版才是照搬。
+这条不变式做成 `audit_layout_patterns.py` 的第 6 条规则 **R6**（自测注入阳性抓到 1 处；
+现仓 6 个绑定点 = `HOST_NAV`×1 + 五格各自 `this.pathStack`×5，正好证明五格同构）。
+
+**读数**：17 屏滚到底 pass 且 dock 顶边逐屏仍是 776.6vp（2427px）——**像素零变化**；
+16 屏深链全部到达；`bar` 调用点仍 22 处；hypium 251/251。
+计划里 `OnTrip/Review/AreaMore/GenerateFailed/Map` 五格的 marker 是旧文案，
+真机 dump 读到的标题是「旅行中」「旅行回顾」「全部区域」「生成受阻」与地图格日程条——
+判据按目的页标题+内容，不照抄 marker 串（沿用「断内容不断壳」）。
+
+顺带修了 `tools/build_install.sh` 一个真会骗人的洞：真机 + 模拟器同时在时，
+不带 `-t` 的 `hdc install` 回 `[Fail] need connect-key`，脚本却照样打「产物已装机」
+（管道尾行不是判据）。现在它断言 `install bundle successfully` 且不含 `[Fail]`，并支持 `HDC_TARGET`。
+
+### L3 证伪：带子色不能交给栏体（改动已回退，只留死字段清理）
+
+计划 Task 7 要「带子决策移交栏体」：`ChromeSpec` 加 `barBackground`，壳层根 Column 只涂画布。
+按这个改完装机，同一机位复拍地图格顶边（每行取中位灰阶）：
+
+| 采样行 y(px) | 0..106 带子 | 106..281 栏区 | 281 以下 |
+| --- | --- | --- | --- |
+| 批准基线（改前） | 55 / 56 / 55 | 56 / 56 / 56 | 56 / 56 |
+| L3 改动后 | 50 / 48 / 43 | 41 / 36 / 26 | 78 / 86 |
+| 回退后复拍 | 54 / 56 / 54 | 55 / 56 / 56 | 78 / 80 |
+
+机制在 dump 里读得出来：改后 `TitleBar` 节点仍 `#00000000`，也就是
+`HdsNavigationBackgroundStyle.backgroundColor` 给实心色并没有落成不透明层；
+而地图的 `XComponent` 从 y=281 起排，106..281 这段以前由**壳层那道不透明涂色**盖住，
+撤掉后就是栏体自身的半透明层压在底图上出的渐变。回退后壳层 Column 回到 `#FF2A3A53`，
+带子与栏区重新平 55/56，y=300 之后是底图内容本身（78/80，与基线 56 的差别是地图渲染到哪一片，
+不是缝）。
+
+**结论**：`pages/Index` 那道按页签涂色不是多余的图层，它就是顶边基色的实现点。
+已在两处代码注释里写明「别再试着交给栏体」并附本表，`ChromeSpec` 里那条
+「底图类屏要连续顶边请用 barBackground」的指路注释同时删掉——它指向一个不存在的解。
+`fullBleed`（全仓零调用点、且实测会把栏内两行顺序翻掉）一并删除。
+
+**尺的假红也要记一条**：把这段机制写进 `pages/Index` 的注释后，`audit_bar_scroll.py`
+把注释里的 `HdsChrome.bar(` 数成一个未表态调用点（22→23、报 Index:303）。
+尺现在跳过 `//` 与 `*` 开头的行，自测多了一条「注释不算调用点」的控制样本。

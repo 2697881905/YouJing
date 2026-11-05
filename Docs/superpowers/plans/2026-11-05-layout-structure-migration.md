@@ -889,6 +889,20 @@ git commit -m "refactor(布局): 壳层改外层 Navigation 宿主 + 五格同�
 
 ### Task 7: L3 顶栏接口对齐——带子决策移交栏体
 
+> **执行结论（2026-11-05）：Step 1–4 的「移交」不成立，功能改动已回退，本任务只落了死字段清理。**
+> 真机同一机位三列对照（详见 `Docs/INIT_REPORT.md` §5ci 续 198）：
+> `barBackground` 给实心色时 dump 的 `TitleBar` 节点仍是 `#00000000`，
+> 说明 `HdsNavigationBackgroundStyle.backgroundColor` 没有落成不透明层；
+> 撤掉壳层那道按页签涂色后，地图格顶边从「带子与栏区平 L=55/56」变成
+> 「L=50→26 的透底图渐变」（地图 `XComponent` 从 y=281 起排，106..281 以前正是被壳层盖住的那段）。
+> 回退后复拍回到 54/56/55/56，与批准基线一致。
+> **所以壳层涂色不是多余图层，它就是顶边基色的实现点**；本任务保留的只有
+> 删除零调用点且实测会翻乱栏内两行顺序的 `fullBleed`，以及把这条证伪写进
+> `HdsChrome` / `pages/Index` 的注释（别再试第三次）。
+> 顺带修了 `audit_bar_scroll.py` 的一个假红：注释里的 `HdsChrome.bar(` 被数成调用点，
+> 现在跳过 `//` 与 `*` 行，并加了一条控制样本。
+> Step 5 的真人复验随之一并作废（没有需要复验的视觉改动）。
+
 **Files:**
 - Modify: `entry/src/main/ets/design/HdsChrome.ets`（`ChromeSpec` + `bar()`）
 - Modify: `entry/src/main/ets/pages/Index.ets:310`（去掉带子涂色）
