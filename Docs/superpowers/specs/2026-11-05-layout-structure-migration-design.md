@@ -174,7 +174,7 @@ L1 → 复验 → 提交 → L2 → 复验 → 提交 → L3 → 复验 → 提�
 | 7 | 顶栏 `avoidLayoutSafeArea` + `maskExtraHeight: 0` + blur 50 两态 | `HdsChrome.bar()` | **已落地** | 与有据同一份字段；磨砂出图 Δ≈−9.5（§5ci 续 176 期） |
 | 8 | 「没有带子概念」：顶边基色交给栏体 | — | **平台不支持，已证伪** | 栏体给实心色时 dump 的 `TitleBar` 仍 `#00000000`；同机位三列对照（§5ci 续 198） |
 | 9 | dock `barFloatingStyle`：材质 / `barBottomMargin` / `barSideMargin` | `pages/Index:221` | **已落地** | 材质同为 IMMERSIVE/EXQUISITE；实测 328.3×56vp 与有据基线一致 |
-| 10 | dock `gradientMask`（92vp 渐变遮罩） | `gradientMask` + `glass_bar_gradient_mask` | **刚补齐** | 契约 §1067 三处玻璃面都要，此前整条漏；`audit_colors` 52→53 件偏差 0；`b55ba6b` |
+| 10 | dock `gradientMask`（92vp 渐变遮罩） | `gradientMask` + `glass_bar_gradient_mask` | **已落地并 A/B 复拍** | 契约 §1067 三处玻璃面都要，此前整条漏；`audit_colors` 52→53 件偏差 0；`b55ba6b`。A/B：「我的」格 dock 背后无内容当对照位，栏内逐行 +2/+1/+5/+7/+6 L，dock 上方无带子、下方无亮边；hypium 251/251（§5ci 续 200） |
 | 11 | dock `barWidth` 档位（medium/large 同值治「切页忽长忽短」） | 未设，走官方默认 | **待 md 档两帧** | 手机档两边实测同为 328.3vp，无差异可治；折叠/平板证据拿不到（模拟器文件通道挂） |
 | 12 | 悬浮玻璃的 API 门（`@since 6.1.0(23)`） | 无门 | **不该跟** | 有径 `compatibleSdkVersion 26.0.0`，门是死代码 |
 | 13 | 顶栏跟手收起 `dynamicHideTitleBar` + `bindToScrollable` | 未合入 | **待真人**（任务 #26） | 前提是 `enableComponentSafeArea=false`，正是第 8 条撞车处 |
