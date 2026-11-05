@@ -15,6 +15,7 @@ import { BudgetConfig } from '../common/constants/BudgetConfig';
 import { WidgetSync } from '../widget/TodayCard';
 import { TopStrip } from '../utils/TopStrip';
 import { initNavModeWatcher, refreshNavMode, publishNavAvoid } from '../utils/navMode';
+import { setSystemBarRefresher } from '../utils/systemBar';
 
 export default class EntryAbility extends UIAbility {
   private pendingRoute: string = '';
@@ -294,6 +295,10 @@ export default class EntryAbility extends UIAbility {
     // 窗口 y=0 起排，而 TabContent 仍按安全区在 106px 处裁切——首帧读不到
     // statusBarHeight 的话，每一屏顶部都会少一截（真机实测「有径」标题被压成 50px 高）。
     this.makeImmersive(windowStage);
+    // 注册补设器：HDS 挂载期与滚回顶部都会回写系统栏属性，只有 Ability 持有主窗口句柄
+    setSystemBarRefresher((): void => {
+      this.applySystemBarSurface();
+    });
     // 导航方式与底部避让要在 loadContent 之前起：dock 第一次 build 就要读到现值
     initNavModeWatcher(this.context);
 

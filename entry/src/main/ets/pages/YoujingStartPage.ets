@@ -27,6 +27,7 @@ import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton
 import { AccountStore } from '../data/AccountStore';
 import { DeviceActivator } from '../data/DeviceActivator';
 import { PlanDraft } from '../data/PlanDraft';
+import { requestSystemBarRefresh } from '../utils/systemBar';
 import { AccountKind, AccountState } from '../model/Account';
 import { TripBasicInput } from '../model/PlanParams';
 import { TripDao } from '../data/TripDao';
@@ -79,6 +80,10 @@ export struct YoujingStartPage {
     const on: boolean = this.barScroller.currentOffset().yOffset > 0;
     if (on !== this.barScrolled) {
       this.barScrolled = on;
+      if (!on) {
+        // 偏移回到 0：HDS 在这一帧回写系统栏属性，补设通道连发四发压住它
+        requestSystemBarRefresh();
+      }
       AppStorage.setOrCreate(PLAN_SCROLL_KEY, on);
     }
   }
