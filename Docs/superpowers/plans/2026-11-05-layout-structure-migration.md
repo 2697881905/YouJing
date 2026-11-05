@@ -743,7 +743,7 @@ git commit -m "docs(布局): L1 几何单源收口——两态 dock 实测、十
 - Consumes: `HdsChrome.bar`、`routerMap`、`APP_NAV`、`stackOfTab`
 - Produces: 五格统一「格内自带 `HdsNavigation` + `titleBar`」；外层 `Navigation` 仅作深链宿主且 `hideTitleBar(true)`；`routeTo` 语义不变（按 `tabOfRoute` 切页签后 push **该页签的栈**）
 
-- [ ] **Step 1: 规划格自带导航**
+- [x] **Step 1: 规划格自带导航**
 
 Modify `entry/src/main/ets/pages/YoujingStartPage.ets`：仿 `MinePage.ets:392-421` 的双分支形态改造 `build()`：
 
@@ -777,7 +777,7 @@ Modify `entry/src/main/ets/pages/YoujingStartPage.ets`：仿 `MinePage.ets:392-4
 ```
 并把原来经 `AppStorage(PLAN_SCROLL_KEY)` 外送滚动状态的桥接删掉（栏体现在归本页，`this.barScrolled` 直接可用）。
 
-- [ ] **Step 2: Index 五格同构 + 外层宿主**
+- [x] **Step 2: Index 五格同构 + 外层宿主**
 
 Modify `entry/src/main/ets/pages/Index.ets`：
 
@@ -817,14 +817,14 @@ Modify `entry/src/main/ets/pages/Index.ets`：
   }
 ```
 
-- [ ] **Step 3: 编译 + 装机**
+- [x] **Step 3: 编译 + 装机**
 
 ```bash
 tools/build_install.sh default
 ```
 Expected: `BUILD SUCCESSFUL`。若报 `The 'TabContent' component can have only one child component` 或 `Property 'tabBar' does not exist on type 'HdsNavigationAttribute'`，说明大括号配对被改坏——按 `git diff` 找回缺失的 `}`，不要靠删属性绕过。
 
-- [ ] **Step 4: 16 屏深链逐屏复验**
+- [x] **Step 4: 16 屏深链逐屏复验**
 
 ```bash
 cd /tmp/ui4 && python3 - <<'PY'
@@ -854,14 +854,14 @@ PY
 ```
 Expected: 16 屏全部 `✅`（判据是**目的页独有文本**，不判壳层——沿用本仓「断内容不断壳」的验收纪律）。
 
-- [ ] **Step 5: 尺与净空**
+- [x] **Step 5: 尺与净空**
 
 ```bash
 python3 tools/audit_bar_scroll.py && python3 tools/audit_inset_source.py && python3 tools/verify_scroll_clearance.py
 ```
 Expected: `bar 调用点 22 处，未表态 0 处`（规划格的 bar 从 Index 移到页面，调用点总数应仍是 22；若变 23 说明漏删了壳层那份，回去查 Step 2）、`避让量来源：偏差 0 项`、`滚到底无遮挡（pass）`。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 > **执行时修正（2026-11-05，Task 6 落地）**——三处按证据改了写法：
 > 1. **外层宿主不绑 `APP_NAV`，改绑新增的 `HOST_NAV`**。一个 `NavPathStack` 只能被一个
@@ -1084,7 +1084,7 @@ git commit -m "feat(布局): 顶栏跟手收起 + dock 尺寸按有据基准（3
 - Modify: `CHANGELOG.md`
 - Create: `Docs/superpowers/specs/2026-11-05-契约待改清单.md`（spec §6A 展开，交用户逐条确认）
 
-- [ ] **Step 1: 全量闸门**
+- [x] **Step 1: 全量闸门**
 
 ```bash
 for r in colors type geometry material fontfamily tnum elevation button_width scroll_actions label_fit a11y_name layout_patterns skip_worktree motion bar_scroll seed self_call span_source inset_source; do printf "%-15s " $r; python3 tools/audit_$r.py 2>&1 | tail -1 | cut -c1-70; done; \
@@ -1092,15 +1092,15 @@ bash tools/verify_dock_tabs.sh; python3 tools/verify_scroll_clearance.py
 ```
 Expected: 十九把无新增红；`verify_scroll_clearance` pass；`verify_dock_tabs.sh` 的 §4j 六项需真人逐条对，脚本只给证据目录。
 
-- [ ] **Step 2: hypium 新基线**
+- [x] **Step 2: hypium 新基线**
 
 按 Task 1 Step 5 的命令跑一次，把实际例数记进 README（预期 251/251，若 Task 8 加了用例以新增数为准）。
 
-- [ ] **Step 3: 写契约待改清单**
+- [x] **Step 3: 写契约待改清单**
 
 `Docs/superpowers/specs/2026-11-05-契约待改清单.md`，逐条给：契约条目原文、迁移后实现值、实测证据（哪个屏、哪个数字）、建议改法。**不碰 `~/Pictures/…/DESIGN.md` 本体**，只出清单。
 
-- [ ] **Step 4: 文档与提交**
+- [x] **Step 4: 文档与提交**
 
 ```bash
 git add README.md Docs/INIT_REPORT.md CHANGELOG.md Docs/superpowers/specs/2026-11-05-契约待改清单.md

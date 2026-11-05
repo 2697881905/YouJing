@@ -577,6 +577,22 @@
 
 ### Changed
 
+- 2026-11-05（§5ci 续 199）：**布局迁移收口——四层里两层落地、一层证伪、一层停在真人检查点**。
+  L4 的「dock 尺寸对齐有据」其实不是改动：真机 dock 板 `[55,2427][1081,2602]` ÷ 3.125 =
+  **328.3 × 56vp**，本来就是有据基准，尺寸由 `HdsTabs.barFloatingStyle` 产出，
+  `floatingDockWidth: 300` 全仓零消费点——两个 token 从此在注释里标明是**契约镜像不是输入**
+  （先删后补：`audit_geometry` 要求契约每个 layout 键都有同名 token，删掉即报「契约缺字段」2 项）。
+  `floatingDockClearance` **不降 84**：84 只在手势档刚好，三键档需要 112.8vp，
+  按 84 钉会把末行压进 dock 底下 28.8vp（算术，且本机无三键设备可复验），保持最大档 112。
+  跟手收起（`dynamicHideTitleBar`）不合入未验证代码：它要求 `enableComponentSafeArea=false`
+  才不会让内容跑 2.2 倍速，而 false 就是续 198 刚证伪的穿底形态；注入 fling 又触发不了 HDS 特效。
+  新增 `Docs/superpowers/specs/2026-11-05-契约待改清单.md`：C4 已落地 / C2 改注释 /
+  C3 契约不改（补实现约束）/ C1 待真人。DESIGN.md 本体未动。
+  收口读数：十九把尺无新增红、`bar` 22 处未表态 0、hypium **251/251**、
+  滚到底 17 屏 pass 且 dock 顶边逐屏 776.6vp。
+
+### Changed
+
 - 2026-11-05（§5ci 续 198）：**L2 壳层形态照搬有据，L3「带子移交栏体」被真机证伪并回退**。
   规划格的 `HdsNavigation`/`titleBar` 从 `Index` 搬进 `YoujingStartPage`，五格从此同构，
   `PLAN_SCROLL_KEY` 与壳层 `planBarScrolled` 删除；壳层再包一层宿主 `Navigation`
