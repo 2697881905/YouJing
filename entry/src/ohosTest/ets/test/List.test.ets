@@ -35,6 +35,7 @@ import bffErrorMapTest from './BffErrorMap.test';
 import membershipCopyTest from './MembershipCopy.test';
 import activityIdsTest from './ActivityIds.test';
 import durationCnTest from './DurationCn.test';
+import navInsetTest from './NavInset.test';
 
 export default function testsuite() {
   tripParserTest();
@@ -74,4 +75,5 @@ export default function testsuite() {
   membershipCopyTest();
   activityIdsTest();
   durationCnTest();
+  navInsetTest();
 }
