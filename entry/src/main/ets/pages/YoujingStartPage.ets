@@ -434,7 +434,7 @@ export struct YoujingStartPage {
     .width('100%')
     .height('100%')
     .scrollBar(BarState.Off)
-    .edgeEffect(EdgeEffect.Spring)
+    .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
     .onDidScroll((): void => {
       this.syncBarScroll();
     })

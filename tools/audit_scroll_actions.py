@@ -33,6 +33,10 @@ ACTION = re.compile(r"label:\s*'([^']+)'|Button\s*\(\s*\)\s*\{")
 PERCENT_HEIGHT = re.compile(r"\.height\(\s*'100%'\s*\)")
 # 滚动区自己的属性链：从 `}` 关掉 Scroll 之后那串以 `.` 开头的行
 CHAIN = re.compile(r"^\s*\.\w+")
+# 第二条检查（2026-11-06 续 206）：回弹必须常开。
+# 有据 43 处 `EdgeEffect.Spring` 里 40 处带 `{ alwaysEnabled: true }`，
+# 有径此前 14 处只 1 处带——后果是内容不满一屏时有据有橡皮筋、有径拉不动（读起来像卡死）。
+SPRING_BARE = re.compile(r'\.edgeEffect\(\s*EdgeEffect\.Spring\s*\)')
 
 
 def match_block(text, start_idx):
@@ -79,6 +83,18 @@ def scan_text(name, text):
             line_no = text[:m.start()].count('\n') + 1
             hits.append((name, line_no, labels))
         pos = m.end()
+    return hits
+
+
+def scan_spring(name, text):
+    """裸 `.edgeEffect(EdgeEffect.Spring)`（缺 alwaysEnabled）逐行抓；注释行不算。"""
+    hits = []
+    for i, line in enumerate(text.split('\n'), 1):
+        s = line.strip()
+        if s.startswith('//') or s.startswith('*') or s.startswith('/*'):
+            continue
+        if SPRING_BARE.search(line):
+            hits.append((name, i))
     return hits
 
 
@@ -132,6 +148,16 @@ def probe():
     r_good = scan_text('good.ets', good)
     r_far = scan_text('far.ets', far)
     ok = True
+    spring_bad = scan_spring('sb.ets', "    List()\n    .edgeEffect(EdgeEffect.Spring)\n")
+    spring_ok = scan_spring('sg.ets',
+                            "    .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })\n")
+    spring_doc = scan_spring('sd.ets', "  // 这里以前写 .edgeEffect(EdgeEffect.Spring) 裸形\n")
+    if not spring_bad:
+        print('PROBE FAILED: 注入的裸 EdgeEffect.Spring 没被抓到')
+        ok = False
+    if spring_ok or spring_doc:
+        print('PROBE FAILED: 已带 alwaysEnabled 的或注释里的 Spring 被误报')
+        ok = False
     if not r_bad:
         print('PROBE FAILED: 注入的阳性样本没被抓到（主操作在百分号定高的 Scroll 里）')
         ok = False
@@ -142,7 +168,7 @@ def probe():
         print('PROBE FAILED: 主操作距 Scroll 起点 >90 行的样本没抓到（说明还在用固定行窗）')
         ok = False
     if ok:
-        print('probe ok: 阳性抓到、阴性不报、162 行外的主操作也抓到。')
+        print('probe ok: 阳性抓到、阴性不报、162 行外的主操作也抓到、裸 Spring 抓到而带 alwaysEnabled/注释不报。')
     return 0 if ok else 1
 
 
@@ -162,10 +188,16 @@ def main():
                 print('%s:%d  Scroll 用 .height(\'100%\') 且主操作在其内: %s'
                       % (rel, line_no, '、'.join(labels)))
                 total += 1
+            for name, line_no in scan_spring(fn, text):
+                rel = os.path.relpath(path, ROOT)
+                print('%s:%d  EdgeEffect.Spring 裸形（缺 alwaysEnabled，内容不满一屏时拉不动）'
+                      % (rel, line_no))
+                total += 1
     if total == 0:
-        print('scroll-action: 没有主操作困在百分比定高的滚动区里 (pass)')
+        print('scroll-action: 没有主操作困在百分比定高的滚动区里，且回弹全部常开 (pass)')
         return 0
-    print('\n%d 处。修法：主操作移出滚动区 + 给滚动区确定上限（见 §5ci 续 15/17）。' % total)
+    print('\n%d 处。主操作困住→移出滚动区 + 确定上限（§5ci 续 15/17）；'
+          '裸 Spring→补 { alwaysEnabled: true }（§5ci 续 206）。' % total)
     return 1
 
 

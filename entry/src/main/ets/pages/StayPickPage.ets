@@ -524,7 +524,7 @@ export struct StayPickPage {
           .lanes(listLanesForBreakpoint(this.bp))
           .layoutWeight(1)
           .scrollBar(BarState.Off)
-          .edgeEffect(EdgeEffect.Spring)
+          .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
           .cachedCount(4)
           .alignListItem(ListItemAlign.Start)
           // 滚动预留跟着钉底条抬高的一档补回来

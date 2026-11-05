@@ -550,7 +550,7 @@ export struct SpotPickPage {
             }
             .lanes(listLanesForBreakpoint(this.bp))
             .scrollBar(BarState.Off)
-            .edgeEffect(EdgeEffect.Spring)
+            .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
             .sticky(StickyStyle.Header)
             .cachedCount(6)
             // 滚动预留跟着钉底条抬高的一档补回来

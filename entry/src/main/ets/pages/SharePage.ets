@@ -345,7 +345,7 @@ export struct SharePage {
           }
           .layoutWeight(1)
           .scrollBar(BarState.Off)
-          .edgeEffect(EdgeEffect.Spring)
+          .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
           .cachedCount(4)
           .alignListItem(ListItemAlign.Start)
           // 钉底动作条已撤（见下），只需让出 dock 自身净空

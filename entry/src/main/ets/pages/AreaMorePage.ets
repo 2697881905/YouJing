@@ -249,7 +249,7 @@ export struct AreaMorePage {
           }
           .lanes(listLanesForBreakpoint(this.bp))
           .scrollBar(BarState.Off)
-          .edgeEffect(EdgeEffect.Spring)
+          .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
           .sticky(StickyStyle.Header)
           .cachedCount(6)
           // 真机实拍（§5o）：这一屏最后一片区域整行压在浮动 dock 底下，

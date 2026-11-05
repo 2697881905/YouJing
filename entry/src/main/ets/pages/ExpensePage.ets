@@ -966,7 +966,7 @@ export struct ExpensePage {
         // 通栏子级本身占满不受影响，只有这枚定宽栏被摆到中间。
         .alignListItem(ListItemAlign.Center)
         .scrollBar(BarState.Off)
-        .edgeEffect(EdgeEffect.Spring)
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .cachedCount(6)
         // 「+ 记一笔」是这条 List 的最后一行，而 dock 是浮在内容上的：
         // 通用 94 比 dock 实占的 112 少 18vp，滚到底按钮下沿仍藏在 dock 底下

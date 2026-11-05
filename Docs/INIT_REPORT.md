@@ -7951,97 +7951,6 @@ barBackgroundEffect pageFlipMode onSelected onUnselected cachedMaxCount barBackg
 **闸门**：`audit_motion` 动效违规 0、十九把尺无新增红、hypium **251/251**、
 双 HAP BUILD SUCCESSFUL 且装机断言通过。本轮零 LLM、未动任何用户数据。
 
-## 2026-11-06 续 205：dock 板宽 328.3vp 是漏设 `barWidth`——契约与有据都是 300，已按档显式给
-
-**这条推翻我自己上一轮的判断**。覆盖对表第 11 条当时判「不跟」，理由是"有径不复现切页跳宽"。
-那个理由只验了**症状**，没验**绝对宽度**：有据在
-`Index.barFloatingStyle.barWidth = { smallWidth: 300, mediumWidth: sm?420:560, largeWidth: 560 }`
-（`HarmonyProject1/entry/src/main/ets/pages/Index.ets:2007`），而有径**整条 barWidth 没设**，
-官方按内容自己排 ⇒ 真机 dock 板 `[55,2427][1081,2602]` = **328.3vp**。
-有据同位实测量到 `[99,2427][1037,2602]` ÷ 3.125 = **300.2vp**（它 `utils/cardTokens` 注释里就写着）。
-契约 `Floating dock 300 × 64px` 也要 300。**两台机器并排放就是两条长短不同的玻璃条**，
-这正是"同系列产品设计语言要一致"要避免的那类差异。
-
-**顺带纠正一条我自己写进 token 的错话**：`LayoutTokens.floatingDockWidth` 的旧注释说
-"328.3 由官方件产出、设计侧改不动它，别靠改 token 对齐"。错——`barWidth` 就是改它的入口。
-现在这个 token 从"镜像读数"变回**输入值**，并补两个档位 token：
-`floatingDockMediumWidth: 420` / `floatingDockWideWidth: 560`（560 与 medium 取同值的理由照有据：
-600–840vp 窗口按 Tabs 宽高比在 medium/large 间二选一，含资料区的页面会把比值压跌破 0.8 ⇒ 跳档）。
-
-**改后真机复量（Pocket 2，手势档，密度 3.125）**
-
-| 量 | 期望 | 实测 | 结论 |
-| --- | --- | --- | --- |
-| dock 板 bounds | 有据 `[99,2427][1037,2602]` | `[99,2427][1037,2602]` | **逐像素相同** |
-| 板宽 | 契约 300vp | 938px ÷ 3.125 = **300.2vp** | ✓ |
-| 槽距 pitch | 板宽随动 | 172.5px = 55.2vp（原 60.8vp） | 胶囊公式按实测反算，自动跟 |
-| 胶囊容器宽 | `pitch×1.22+32` = 99.3vp | 99.5vp | 差 0.6px |
-| 胶囊中心 vs 槽中心 | 0 | 地图 **0.0px**、我的 **1.0px**、规划 **1.0px** | ✓ |
-| 副本文字 | 跟随选中 | 地图格显「地图」、我的格显「我的」 | ✓ |
-
-**并纠正续 203 那条"溢出"**：33px（现 32px）是**容器外框**——里面含 `DOCK_PILL_MINI_PAD=16vp`
-的透明命中/阴影垫。按**看得见的玻璃本体**算：地图格左沿 117px、我的格右沿 1019px，
-而板是 99..1037 ⇒ **玻璃本体没有探出圆角端**，五格全在板内。续 203 里留给真人判的那条边界，
-量法本身之前是错的，已在原文就地更正。
-
-**没做完的部分要讲清**：md 档（Mate X7 展开 707.2vp）这次会从 321.9vp 变成 560vp，
-**这一档本机测不了**，且正要起模拟器复拍时设备被真人接走（dump 里已经是控制中心 +
-有据的发布圈选面板），所以按纪律停手，没有再点。md 档的表达式与有据逐字相同，
-但"逐字相同"不等于"在有径上量过"——留作下一条待验。
-**闸门**：十九把尺全绿（含 `audit_geometry` 对新 token 无报、`audit_layout_patterns` R6 0 处）、
-hypium **251/251**、双包构建装机断言通过。本轮零 LLM、未动任何用户数据。
-
-## 2026-11-06 续 206：整表重扫又挖出 8 条差异——先修了 2 条真的，其余登记待裁/待量
-
-`barWidth` 那条教训（**"没设这个字段"本身就是一种差异**，而我此前只按症状判过）说明覆盖对表
-可能是按"我记得问过的维度"建的，不是按有据的实际配置面建的。所以这轮做了一次
-**源码级整表重扫**：逐字段枚举有据的 `HdsTabs`/`barFloatingStyle`/`titleBar`/系统栏/安全区/
-断点消费面，再回到有径找同名标识符与同名字面值。子代理交回 11 条，
-**我逐条回读原文件复核**，其中 2 条当场确认是我的缺陷并修掉，其余登记。
-
-### 已修 ①：胶囊盖住的那颗官方页签没隐（我的移植漏了 opacity gate）
-
-有据 `pages/Index.ets:1499-1505` 的 `tabBarBuilder` 写得很直白：
-`.opacity(this.dockPillCovered === index ? 0 : 1)`，注释是
-"被玻璃胶囊盖住的那一颗整份隐掉：胶囊是真磨砂，留着它只会在玻璃下面**糊出一团同色光晕**，
-而清晰的那份由胶囊自己带"。有径的 `tabLabel` **没有这道 gate**（全仓 grep
-`opacity(this.dockPillCovered` 0 命中）⇒ 选中格是"官方图标 + 玻璃 + 清晰副本"三层同色叠印。
-这正是我上一轮请用户判观感时**没交代的一个已知缺陷**——先修掉再请眼睛看，否则判的是坏样本。
-
-补在 [entry/src/main/ets/pages/Index.ets:358](entry/src/main/ets/pages/Index.ets) 的 `tabLabel` 外层 Column 上。
-`onAreaChange` 留在同一节点：opacity 不参与布局测量，槽位上报不受影响（有据同一写法）。
-`dockPillCovered` 初值 −1 ⇒ 落位前官方五颗照常可见，不会闪空白。
-
-### 已修 ②：系统栏只给了顶部图标开关，缺 `isNavigationBarLightIcon` 与两条内容色
-
-有据 `entryability/EntryAbility.ets:135/149-155` 六个字段，并有真机实证的注释：
-- **审核问题④**：只设背景/不设内容色时，状态栏文字由系统按「系统深浅」自选 ⇒
-  应用主题与系统深浅不一致就出现**浅底白字（对比度 1.1 < 3）**；
-- **2026-10-25 实证**：`statusBarContentColor` 只染时间等文字，右侧信号/WiFi/电池图标
-  仍按系统默认渲白 ⇒ 图标开关与内容色**两处同设，谁生效用谁**。
-
-有径 `utils/TopStrip.ets:72-76` 只写了 `statusBarColor / navigationBarColor / isStatusBarLightIcon`
-三项。补齐后（值照有据 `dark ? '#FFFFFFFF' : '#FF000000'`，纯黑/白 vs 画布对比度 > 15）
-三键机型的底部键帽图标也跟着应用主题。**这条改动只碰系统栏属性、不碰布局几何**，
-所以尺和 hypium 都测不到它，必须靠肉眼看状态栏——装机与复拍都等设备空出来。
-
-### 登记未动的 6 条（按"并排放一眼能不能看出"排）
-
-| # | 差异 | 有据 | 有径 | 为什么这轮没动 |
-| --- | --- | --- | --- | --- |
-| 1 | **页签左右滑动切页** | `Index.ets:2020 .scrollable(true)`（注释"整页左右滑动切页已开放"） | `Index.ets:477 .scrollable(false)`，来自 WIP 骨架提交 `26ca492`，文档里没有一句解释为什么关 | 这是**交互面**，且一旦开就要连带把胶囊起飞从 `onChange` 挪到 `onAnimationStart`（有据 `:2025` 的理由：onChange 是落定之后才发，玻璃会晚半拍）。要不要让用户横滑切页是产品决定，我不替用户拍 |
-| 2 | **顶栏栏级沉浸材质** | 11 个文件在 titleBar `style.systemMaterialEffect = {101, 0}`（与 dock 同档 EXQUISITE，才有折射） | `design/HdsChrome.ets` **0 处**栏级材质，只有 blurRadius 50 | 视觉收益最大的一条，但**只能靠像素判**（材质是否绘制不看 dump 的字段，看折射）。设备被真人占用，盲改等于交一份没验的码 |
-| 3 | **穿底采样链** | 子页 `enableComponentSafeArea: false` × 7 + `clip(false)` + `bindToScrollable` | `HdsChrome` 恒 `true`；`.clip(false)` 只在胶囊层；`bindToScrollable` 全仓 0 命中 | 与续 198 证伪的顶边基色直接冲突（穿底会把带子硬台阶请回来），也正是任务 #26 那一格 |
-| 4 | **回弹边缘效果** | 43 处 `EdgeEffect.Spring`，其中 **40 处带 `{alwaysEnabled: true}`** | 14 处 Spring，仅 `ChipRow.ets:114` 1 处带 | 内容不满一屏时有据有橡皮筋、有径拉不动。机械改动、零几何影响，但要"手感"判，且和 #2 一样等眼睛 |
-| 5 | **贴底控件的第二避让通道** | `bottomBarInsetVp`（手势档也留 16vp、键盘聚焦归零）被 `DetailActionBar`/`ChatView` 消费 | 有径**发布该键但 0 消费方**（只有 PreferenceQA 的一句注释解释为何不用它） | 有径没有"贴底输入栏"那种常驻控件（钉底条全走 `floatingDockClearance`），所以这条现在没有落点；等做评论区/输入栏时再按有据接 |
-| 6 | **页签格尺寸档** | 图标 24×24、图文距 3、槽盒 64×54 | 图标 `IconSizes.control`=22、图文距 `SpaceTokens.xxs`=4、无槽盒 | 差 2vp/1vp，且会连带胶囊副本按 `pitch×1.22` 反算的位置。有径的 22 来自自己的 token 契约，改它要先动契约，不值当在没眼睛时做 |
-
-**过程记录**：这轮**没有装机、没有点屏**——dump 显示前台是有据的发布编辑页（真人在写帖子），
-按纪律只做只读检查。所以两处已修项的状态是"代码就位 + 编译与尺通过"，
-**装机与实拍都排在设备空出来之后**，我不把没看过的说成看过。
-**闸门**：十九把尺全绿、`audit_contrast` 无低阈值项、pre-commit 构建闸通过；
-hypium 本轮未跑（跑它要占设备）。
-
 ## 2026-11-06 续 203：胶囊五格逐位复测 + 浅色档解出表面关系（观感仍等人）
 
 续 202 只核了「规划」这一格。本轮把它欠的两项自证补完：**五格是不是都落在槽中心**、
@@ -8143,3 +8052,122 @@ dock 板 `[55,2427][1081,2602]`，`tabLabel` 外层上报到 5 个槽位。逐�
 按纪律停手没点；回读才确认是 `hdc install` 停掉有径后系统把后一个窗口顶了上来。
 判"有人在用"要看得见**该 App 自己的节点在动**，不能只看 bundle 名换了。
 
+
+## 2026-11-06 续 205：dock 板宽 328.3vp 是漏设 `barWidth`——契约与有据都是 300，已按档显式给
+
+**这条推翻我自己上一轮的判断**。覆盖对表第 11 条当时判「不跟」，理由是"有径不复现切页跳宽"。
+那个理由只验了**症状**，没验**绝对宽度**：有据在
+`Index.barFloatingStyle.barWidth = { smallWidth: 300, mediumWidth: sm?420:560, largeWidth: 560 }`
+（`HarmonyProject1/entry/src/main/ets/pages/Index.ets:2007`），而有径**整条 barWidth 没设**，
+官方按内容自己排 ⇒ 真机 dock 板 `[55,2427][1081,2602]` = **328.3vp**。
+有据同位实测量到 `[99,2427][1037,2602]` ÷ 3.125 = **300.2vp**（它 `utils/cardTokens` 注释里就写着）。
+契约 `Floating dock 300 × 64px` 也要 300。**两台机器并排放就是两条长短不同的玻璃条**，
+这正是"同系列产品设计语言要一致"要避免的那类差异。
+
+**顺带纠正一条我自己写进 token 的错话**：`LayoutTokens.floatingDockWidth` 的旧注释说
+"328.3 由官方件产出、设计侧改不动它，别靠改 token 对齐"。错——`barWidth` 就是改它的入口。
+现在这个 token 从"镜像读数"变回**输入值**，并补两个档位 token：
+`floatingDockMediumWidth: 420` / `floatingDockWideWidth: 560`（560 与 medium 取同值的理由照有据：
+600–840vp 窗口按 Tabs 宽高比在 medium/large 间二选一，含资料区的页面会把比值压跌破 0.8 ⇒ 跳档）。
+
+**改后真机复量（Pocket 2，手势档，密度 3.125）**
+
+| 量 | 期望 | 实测 | 结论 |
+| --- | --- | --- | --- |
+| dock 板 bounds | 有据 `[99,2427][1037,2602]` | `[99,2427][1037,2602]` | **逐像素相同** |
+| 板宽 | 契约 300vp | 938px ÷ 3.125 = **300.2vp** | ✓ |
+| 槽距 pitch | 板宽随动 | 172.5px = 55.2vp（原 60.8vp） | 胶囊公式按实测反算，自动跟 |
+| 胶囊容器宽 | `pitch×1.22+32` = 99.3vp | 99.5vp | 差 0.6px |
+| 胶囊中心 vs 槽中心 | 0 | 地图 **0.0px**、我的 **1.0px**、规划 **1.0px** | ✓ |
+| 副本文字 | 跟随选中 | 地图格显「地图」、我的格显「我的」 | ✓ |
+
+**并纠正续 203 那条"溢出"**：33px（现 32px）是**容器外框**——里面含 `DOCK_PILL_MINI_PAD=16vp`
+的透明命中/阴影垫。按**看得见的玻璃本体**算：地图格左沿 117px、我的格右沿 1019px，
+而板是 99..1037 ⇒ **玻璃本体没有探出圆角端**，五格全在板内。续 203 里留给真人判的那条边界，
+量法本身之前是错的，已在原文就地更正。
+
+**没做完的部分要讲清**：md 档（Mate X7 展开 707.2vp）这次会从 321.9vp 变成 560vp，
+**这一档本机测不了**，且正要起模拟器复拍时设备被真人接走（dump 里已经是控制中心 +
+有据的发布圈选面板），所以按纪律停手，没有再点。md 档的表达式与有据逐字相同，
+但"逐字相同"不等于"在有径上量过"——留作下一条待验。
+**闸门**：十九把尺全绿（含 `audit_geometry` 对新 token 无报、`audit_layout_patterns` R6 0 处）、
+hypium **251/251**、双包构建装机断言通过。本轮零 LLM、未动任何用户数据。
+
+## 2026-11-06 续 206：整表重扫又挖出 8 条差异——先修了 2 条真的，其余登记待裁/待量
+
+`barWidth` 那条教训（**"没设这个字段"本身就是一种差异**，而我此前只按症状判过）说明覆盖对表
+可能是按"我记得问过的维度"建的，不是按有据的实际配置面建的。所以这轮做了一次
+**源码级整表重扫**：逐字段枚举有据的 `HdsTabs`/`barFloatingStyle`/`titleBar`/系统栏/安全区/
+断点消费面，再回到有径找同名标识符与同名字面值。子代理交回 11 条，
+**我逐条回读原文件复核**，其中 2 条当场确认是我的缺陷并修掉，其余登记。
+
+### 已修 ①：胶囊盖住的那颗官方页签没隐（我的移植漏了 opacity gate）
+
+有据 `pages/Index.ets:1499-1505` 的 `tabBarBuilder` 写得很直白：
+`.opacity(this.dockPillCovered === index ? 0 : 1)`，注释是
+"被玻璃胶囊盖住的那一颗整份隐掉：胶囊是真磨砂，留着它只会在玻璃下面**糊出一团同色光晕**，
+而清晰的那份由胶囊自己带"。有径的 `tabLabel` **没有这道 gate**（全仓 grep
+`opacity(this.dockPillCovered` 0 命中）⇒ 选中格是"官方图标 + 玻璃 + 清晰副本"三层同色叠印。
+这正是我上一轮请用户判观感时**没交代的一个已知缺陷**——先修掉再请眼睛看，否则判的是坏样本。
+
+补在 [entry/src/main/ets/pages/Index.ets:358](entry/src/main/ets/pages/Index.ets) 的 `tabLabel` 外层 Column 上。
+`onAreaChange` 留在同一节点：opacity 不参与布局测量，槽位上报不受影响（有据同一写法）。
+`dockPillCovered` 初值 −1 ⇒ 落位前官方五颗照常可见，不会闪空白。
+
+### 已修 ②：系统栏只给了顶部图标开关，缺 `isNavigationBarLightIcon` 与两条内容色
+
+有据 `entryability/EntryAbility.ets:135/149-155` 六个字段，并有真机实证的注释：
+- **审核问题④**：只设背景/不设内容色时，状态栏文字由系统按「系统深浅」自选 ⇒
+  应用主题与系统深浅不一致就出现**浅底白字（对比度 1.1 < 3）**；
+- **2026-10-25 实证**：`statusBarContentColor` 只染时间等文字，右侧信号/WiFi/电池图标
+  仍按系统默认渲白 ⇒ 图标开关与内容色**两处同设，谁生效用谁**。
+
+有径 `utils/TopStrip.ets:72-76` 只写了 `statusBarColor / navigationBarColor / isStatusBarLightIcon`
+三项。补齐后（值照有据 `dark ? '#FFFFFFFF' : '#FF000000'`，纯黑/白 vs 画布对比度 > 15）
+三键机型的底部键帽图标也跟着应用主题。**这条改动只碰系统栏属性、不碰布局几何**，
+所以尺和 hypium 都测不到它，必须靠肉眼看状态栏——装机与复拍都等设备空出来。
+
+### 登记未动的 6 条（按"并排放一眼能不能看出"排）
+
+| # | 差异 | 有据 | 有径 | 为什么这轮没动 |
+| --- | --- | --- | --- | --- |
+| 1 | **页签左右滑动切页** | `Index.ets:2020 .scrollable(true)`（注释"整页左右滑动切页已开放"） | `Index.ets:477 .scrollable(false)`，来自 WIP 骨架提交 `26ca492`，文档里没有一句解释为什么关 | 这是**交互面**，且一旦开就要连带把胶囊起飞从 `onChange` 挪到 `onAnimationStart`（有据 `:2025` 的理由：onChange 是落定之后才发，玻璃会晚半拍）。要不要让用户横滑切页是产品决定，我不替用户拍 |
+| 2 | **顶栏栏级沉浸材质** | 11 个文件在 titleBar `style.systemMaterialEffect = {101, 0}`（与 dock 同档 EXQUISITE，才有折射） | `design/HdsChrome.ets` **0 处**栏级材质，只有 blurRadius 50 | 视觉收益最大的一条，但**只能靠像素判**（材质是否绘制不看 dump 的字段，看折射）。设备被真人占用，盲改等于交一份没验的码 |
+| 3 | **穿底采样链** | 子页 `enableComponentSafeArea: false` × 7 + `clip(false)` + `bindToScrollable` | `HdsChrome` 恒 `true`；`.clip(false)` 只在胶囊层；`bindToScrollable` 全仓 0 命中 | 与续 198 证伪的顶边基色直接冲突（穿底会把带子硬台阶请回来），也正是任务 #26 那一格 |
+| 4 | **回弹边缘效果** | 43 处 `EdgeEffect.Spring`，其中 **40 处带 `{alwaysEnabled: true}`** | 14 处 Spring，仅 `ChipRow.ets:114` 1 处带 | 内容不满一屏时有据有橡皮筋、有径拉不动。机械改动、零几何影响，但要"手感"判，且和 #2 一样等眼睛 |
+| 5 | **贴底控件的第二避让通道** | `bottomBarInsetVp`（手势档也留 16vp、键盘聚焦归零）被 `DetailActionBar`/`ChatView` 消费 | 有径**发布该键但 0 消费方**（只有 PreferenceQA 的一句注释解释为何不用它） | 有径没有"贴底输入栏"那种常驻控件（钉底条全走 `floatingDockClearance`），所以这条现在没有落点；等做评论区/输入栏时再按有据接 |
+| 6 | **页签格尺寸档** | 图标 24×24、图文距 3、槽盒 64×54 | 图标 `IconSizes.control`=22、图文距 `SpaceTokens.xxs`=4、无槽盒 | 差 2vp/1vp，且会连带胶囊副本按 `pitch×1.22` 反算的位置。有径的 22 来自自己的 token 契约，改它要先动契约，不值当在没眼睛时做 |
+
+**过程记录**：这轮**没有装机、没有点屏**——dump 显示前台是有据的发布编辑页（真人在写帖子），
+按纪律只做只读检查。所以两处已修项的状态是"代码就位 + 编译与尺通过"，
+**装机与实拍都排在设备空出来之后**，我不把没看过的说成看过。
+**闸门**：十九把尺全绿、pre-commit 构建闸通过；hypium 本轮未跑（跑它要占设备）。
+（更正：本条初稿写过"`audit_contrast` 无低阈值项"，那句不作数——`tools/audit_contrast.py` 不是全仓静态尺，
+它要吃 `(dump.json, screenshot.png)` 两个参数，无参运行只打用法并以非 0 退出；它是真机帧工具，不能算进"尺全绿"。）
+
+## 2026-11-06 续 207：回弹常开——13 处裸 `EdgeEffect.Spring` 补齐（覆盖对表第 21 行）
+
+续 206 登记的 6 条里，这条不需要设备也能做完代码面，所以先做它。
+
+**实测计数**（我自己 grep 复核过，不是转述子代理）：
+有据 `EdgeEffect.Spring` **43 处、其中 40 处带 `{ alwaysEnabled: true }`**；
+有径 14 处里只有 `components/ChipRow.ets:114` 1 处带。
+差的不是风格：`alwaysEnabled` 关掉时，**内容不满一屏的列表根本拉不动**，
+用户读起来是"这页卡住了"，而有据同样的空态有橡皮筋反馈。
+
+**改了什么**：13 个页面各 1 处，`.edgeEffect(EdgeEffect.Spring)` →
+`.edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })`
+（AreaMore / Badge / Expense / Itinerary / OnTrip / PreferenceQA / Share / SpotPick /
+StayPick / TripInput / TripReview / Trips / YoujingStart）。
+零几何影响——不动 bounds、不动 padding，所以静态尺量不到它，能钉住的只有下面那条新规则。
+
+**滚动行为尺扩第二条**：`tools/audit_scroll_actions.py` 原来只查"主操作困在百分比定高滚动区"，
+现在加一条 `SPRING_BARE`：裸 `.edgeEffect(EdgeEffect.Spring)` 判偏差，注释行不算。
+`--probe` 同步加三组控制样本（裸形必须抓到 / 带 `alwaysEnabled` 必须不报 / 注释里提到必须不报），
+一次跑红正好抓到那 13 处、改完全绿。**这条是"检测器报 0 前先反证它抓得到"的常规动作**
+（见 [[verify-the-scanner-before-trusting-a-zero]]）。
+
+**没验的部分照实说**：回弹是**手感**判据，本机没装机也没点屏（设备仍在真人手里）。
+所以这轮的状态是"与有据代码同值 + 尺钉住不变式"，不是"用户已确认手感对"。
+装机后要在屏1/屏3/屏9 各拉一次短内容列表；如果用户觉得不该弹，回退就是 13 处删掉同一个参数、
+尺子同笔改掉（不留半套）。

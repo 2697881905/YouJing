@@ -663,7 +663,7 @@ export struct TripsPage {
             }
             .lanes(listLanesForBreakpoint(this.bp))
             .scrollBar(BarState.Off)
-            .edgeEffect(EdgeEffect.Spring)
+            .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
             .cachedCount(4)
             .onDidScroll((): void => {
               this.syncBarScroll();

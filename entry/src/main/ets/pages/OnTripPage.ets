@@ -1353,7 +1353,7 @@ export struct OnTripPage {
         .clip(true)
       }
       .scrollBar(BarState.Off)
-      .edgeEffect(EdgeEffect.Spring)
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .sticky(StickyStyle.Header)
       .cachedCount(6)
       .padding({ left: this.wideInset(), right: this.wideInset(),

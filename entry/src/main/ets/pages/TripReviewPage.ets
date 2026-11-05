@@ -578,7 +578,7 @@ export struct TripReviewPage {
     })
     .layoutWeight(1)
     .scrollBar(BarState.Off)
-    .edgeEffect(EdgeEffect.Spring)
+    .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
     .cachedCount(6)
     .padding({ left: this.wideInset(), right: this.wideInset(),
       bottom: LayoutTokens.floatingDockClearance })

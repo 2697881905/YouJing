@@ -185,7 +185,7 @@ L1 → 复验 → 提交 → L2 → 复验 → 提交 → L3 → 复验 → 提�
 | 18 | 页签左右滑动切页 `.scrollable(true)` | `.scrollable(false)` | **待用户裁决** | 有据 `Index.ets:2020` 明确开放；有径的 false 来自 WIP 骨架提交 `26ca492`，文档里没有一个字解释为什么关。开它要连带把胶囊起飞从 `onChange` 迁到 `onAnimationStart`（有据 `:2025`：onChange 落定后才发，玻璃晚半拍）。属交互/产品决定 |
 | 19 | 顶栏栏级沉浸材质 `systemMaterialEffect {101,0}` | `design/HdsChrome.ets` **0 处** | **未做（只能靠像素判）** | 有据 11 个文件在 titleBar style 上给栏级材质，与 dock 同档 EXQUISITE（`cardTokens.ets:52-54`：ADAPTIVE 只出普通半透，EXQUISITE 才出折射）。有径顶栏只有 blurRadius 50 ⇒ 栏面与 dock 面材质断代。判据只有实拍，设备被真人占用时不盲改 |
 | 20 | 穿底采样链（子页 `enableComponentSafeArea:false` + `clip(false)` + `bindToScrollable`） | 恒 `true`；`clip(false)` 只在胶囊层；`bindToScrollable` 0 命中 | **与第 8 条撞车，未做** | 有据 7 个子页 false。这正是任务 #26 的前提，也是续 198 证伪的那块顶边几何 |
-| 21 | 回弹边缘效果 `EdgeEffect.Spring {alwaysEnabled:true}` | 14 处 Spring 仅 1 处带 | **未做（待手感判）** | 有据 43 处 Spring、**40 处带 alwaysEnabled**（实测计数）。后果：内容不满一屏时有据有橡皮筋、有径拉不动。零几何影响，机械改动，但要手感 |
+| 21 | 回弹边缘效果 `EdgeEffect.Spring {alwaysEnabled:true}` | 14 处全部带（13 处续 207 补齐） | **代码已对齐，手感待复拍** | 有据 43 处 Spring、**40 处带 alwaysEnabled**（实测计数）；有径此前 14 处只 1 处带。后果：内容不满一屏时有据有橡皮筋、有径拉不动（读起来像卡死）。滚动行为尺 `tools/audit_scroll_actions.py` 扩第二条钉住"裸 Spring 即偏差"，probe 加三组控制样本，先跑红抓到 13 处、改完全绿（§5ci 续 207） |
 | 22 | 贴底控件第二避让通道 `bottomBarInsetVp` | 发布该键、**0 消费方** | **暂时无落点** | 有据由 `DetailActionBar.ets:83/253`、`ChatView.ets:129/1635` 消费（手势档也留 16vp、键盘聚焦归零）。有径没有常驻贴底输入栏，钉底条全走 `floatingDockClearance`；等有评论/输入栏那屏再按有据接 |
 | 23 | 页签格尺寸档（图标 24 / 图文距 3 / 槽盒 64×54） | 图标 `IconSizes.control`=22、`SpaceTokens.xxs`=4、无槽盒 | **不改（先动契约）** | 差 2vp/1vp，且会连带胶囊副本按 `pitch×1.22` 反算的位置。有径的 22 来自自身 token 契约，改它要先改契约，不值当在没眼睛时做 |
 

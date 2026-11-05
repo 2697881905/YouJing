@@ -1362,7 +1362,7 @@ export struct ItineraryPage {
           }
           .layoutWeight(1)
           .scrollBar(BarState.Off)
-          .edgeEffect(EdgeEffect.Spring)
+          .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
           .sticky(StickyStyle.Header)
           .cachedCount(6)
           .padding({ left: SpaceTokens.base, right: SpaceTokens.base,

@@ -208,7 +208,7 @@ export struct PreferenceQAPage {
         .lanes(listLanesForBreakpoint(this.bp))
         .layoutWeight(1)
         .scrollBar(BarState.Off)
-        .edgeEffect(EdgeEffect.Spring)
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .cachedCount(6)
         .alignListItem(ListItemAlign.Start)
         .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
