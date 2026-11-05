@@ -180,6 +180,14 @@ L1 → 复验 → 提交 → L2 → 复验 → 提交 → L3 → 复验 → 提�
 | 13 | 顶栏跟手收起 `dynamicHideTitleBar` + `bindToScrollable` | 未合入 | **待真人**（任务 #26） | 前提是 `enableComponentSafeArea=false`，正是第 8 条撞车处 |
 | 14 | dock 液态选中胶囊（`dockPill*` 覆盖层 + 按压缩放 + 落影收紧） | **已移植**（`components/HdsMiniBarButton.ets` + `pages/Index` 覆盖层） | **五格逐位核过 + 浅色档已量，观感待真人** | 官方件里没有这条路：SDK `hds_tabs.json` 的 attrs 全表（`barMode/barWidth/barOverlap/barBackgroundColor/barBackgroundEffect/barBackgroundStyle/fadingEdge/divider/customContentTransition/onSelected`…）**没有任何选中指示器属性**，只能做覆盖层 + 内联官方 `hds_button` 源码（有据 `components/HdsMiniBarButton.ets`，6.3KB）。有据动机出自华为开发者联盟文章《对沉浸光感tabbar的优化改造》，其基线 §7.6.32 逐条对表：**痛点①（高光与图标同层）不存在**（TabBar 下只有 5 个 Column、无表面节点），**痛点②（选中只靠 fillColor，通透背景下辨识度不足）正中**——有径是同一形态（选中只换 `primary` vs `icon`），所以这条对我们同样成立。已知两个必躲的坑：`componentUtils.getRectangleById` 对 TabBar 子树 y 偏低 88px（实测槽位 y=2439、接口回 2527），要用 `onAreaChange` 窗口坐标并与 `.position()` 同源；胶囊里那份不能用 `@Builder` 传参（值快照不刷，要靠 key 随 `dockPillCovered` 的 `ForEach` 强制重建）。另：真磨砂必然糊掉下层官方图标，**胶囊内复制一份内容是必需品不是美化**；浅色档 Dock 已到 251/上限 255，体积只能靠反向压暗做（§7.6.27 结论 3）；真机核对：容器 106.2×78.4vp 与公式 0 差、中心 x/y 各差 0.5px/1px、副本对官方残差 dx=1px dy=4px（有据同源残差，我试的第三种算法反而错到 88px 已退回）；连点「我的↔规划」切页正常（命中没被吃）；**五格逐位**（续 203）：dock 板 `[55,2427][1081,2602]`，五格胶囊中心减槽中心**同为 +0.5px**、胶囊内副本五格分别落「地图/行程/规划/费用/我的」；**已知边界**：首末两格胶囊溢出 dock 板 33px（=10.6vp，出自 `pitch×1.22` 公式本身，有据同值，未擅自收窄以免五格宽度不齐）；**浅色档已量**（续 203，App 级 setColorMode 探针）：画布 255 / dock 252 / 胶囊 249，表面差 **−0.026**，即浅色档胶囊比 dock **暗** 3 级——与有据 §7.6.27「白面到 251 无向上余量、体积只能反向压暗」同型，深色档则相反为提亮。剩观感、按压缩放、md 档宽度三项 |
 | 15 | 一镜到底转场（`customNavContentTransition` + `componentSnapshot`） | **零实现** | **未开始** | 属转场体系不是布局骨架；要不要做是产品取舍，没替用户拍 |
+| 16 | 胶囊盖住的官方页签整份隐掉（`opacity(dockPillCovered===i ? 0 : 1)`） | `pages/Index.tabLabel` 已补 gate | **已修（未装机复拍）** | 有据 `Index.ets:1499-1505` 原话"留着它只会在玻璃下面糊出一团同色光晕"；有径此前全仓 0 处该 gate ⇒ 选中格三层同色叠印。这是续 202 请用户判观感时**没交代的已知缺陷**，先修再判（§5ci 续 206） |
+| 17 | 系统栏六字段（含 `isNavigationBarLightIcon` + 两条 `*ContentColor`） | `utils/TopStrip` 已补齐 | **已修（未装机复拍）** | 有据 `EntryAbility.ets:135/149-155` + 两条实证注释：审核问题④「不设内容色 ⇒ 应用主题≠系统深浅时浅底白字，对比度 1.1<3」；2026-10-25「`statusBarContentColor` 只染文字，图标仍按系统渲白，故开关与内容色两处同设」。有径此前只给 3 字段（§5ci 续 206） |
+| 18 | 页签左右滑动切页 `.scrollable(true)` | `.scrollable(false)` | **待用户裁决** | 有据 `Index.ets:2020` 明确开放；有径的 false 来自 WIP 骨架提交 `26ca492`，文档里没有一个字解释为什么关。开它要连带把胶囊起飞从 `onChange` 迁到 `onAnimationStart`（有据 `:2025`：onChange 落定后才发，玻璃晚半拍）。属交互/产品决定 |
+| 19 | 顶栏栏级沉浸材质 `systemMaterialEffect {101,0}` | `design/HdsChrome.ets` **0 处** | **未做（只能靠像素判）** | 有据 11 个文件在 titleBar style 上给栏级材质，与 dock 同档 EXQUISITE（`cardTokens.ets:52-54`：ADAPTIVE 只出普通半透，EXQUISITE 才出折射）。有径顶栏只有 blurRadius 50 ⇒ 栏面与 dock 面材质断代。判据只有实拍，设备被真人占用时不盲改 |
+| 20 | 穿底采样链（子页 `enableComponentSafeArea:false` + `clip(false)` + `bindToScrollable`） | 恒 `true`；`clip(false)` 只在胶囊层；`bindToScrollable` 0 命中 | **与第 8 条撞车，未做** | 有据 7 个子页 false。这正是任务 #26 的前提，也是续 198 证伪的那块顶边几何 |
+| 21 | 回弹边缘效果 `EdgeEffect.Spring {alwaysEnabled:true}` | 14 处 Spring 仅 1 处带 | **未做（待手感判）** | 有据 43 处 Spring、**40 处带 alwaysEnabled**（实测计数）。后果：内容不满一屏时有据有橡皮筋、有径拉不动。零几何影响，机械改动，但要手感 |
+| 22 | 贴底控件第二避让通道 `bottomBarInsetVp` | 发布该键、**0 消费方** | **暂时无落点** | 有据由 `DetailActionBar.ets:83/253`、`ChatView.ets:129/1635` 消费（手势档也留 16vp、键盘聚焦归零）。有径没有常驻贴底输入栏，钉底条全走 `floatingDockClearance`；等有评论/输入栏那屏再按有据接 |
+| 23 | 页签格尺寸档（图标 24 / 图文距 3 / 槽盒 64×54） | 图标 `IconSizes.control`=22、`SpaceTokens.xxs`=4、无槽盒 | **不改（先动契约）** | 差 2vp/1vp，且会连带胶囊副本按 `pitch×1.22` 反算的位置。有径的 22 来自自身 token 契约，改它要先改契约，不值当在没眼睛时做 |
 
 **读法**：1–7、9、10、11 已按有据落地（10 有 A/B 复拍；11 的「不跟」原判已在续 205 推翻并补齐，
 手机档逐像素对齐，md 档待量）；8 是平台限制不是偷懒（有对照读数）；
@@ -187,3 +195,10 @@ L1 → 复验 → 提交 → L2 → 复验 → 提交 → L3 → 复验 → 提�
 还剩两格都要真人眼睛：**13 顶栏跟手收起**（前提是穿底，正撞第 8 条）、
 **14 dock 液态选中胶囊**（五格逐位 + 浅色档已量，剩鼓包/spring 落定的观感、按压缩放手感与 md 档宽度）。
 所以「按有据的界面结构和布局体系来」这条目标**尚未全部达成**，本表就是它的剩余清单。
+
+**2026-11-06 续 206 之后**：`barWidth` 那条（第 11 行）被判错教会我一件事——这张表原来是
+按"我记得问过的维度"建的，不是按有据的实际配置面建的。所以做了一次源码级整表重扫，
+新增 **16–23 共 8 行**：16/17 当场确认是我的缺陷并已修（都还没装机复拍，设备被真人占用）；
+18 是交互决定，留给用户；19/20/21 只能靠像素或手感判，不盲改；22 当前没有落点；
+23 要先动契约。**这张表现在 23 行，其中 9 行仍未收口**
+（4、13、15、16、17、18、19、20、21）——目标完成度按这张表算，不按提交数算。

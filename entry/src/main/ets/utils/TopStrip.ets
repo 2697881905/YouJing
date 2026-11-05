@@ -69,10 +69,17 @@ export class TopStrip {
     // 代价：图标从此压在页面色上，必须显式给明暗，否则深色档白画布…反过来说，
     // 浅色档配默认白图标会直接看不见。判据取 AppStorage 的 isDarkMode（与 seedDarkMode 同源）。
     const isDark: boolean = AppStorage.get<boolean>('isDarkMode') ?? false;
+    // 内容色必须显式跟**应用主题**（有据 审核问题④ 的实证）：只给图标开关时，状态栏时间等
+    // 文字仍按「系统深浅」自选，应用内主题与系统深浅不一致就出现浅底白字（对比度 1.1 < 3）。
+    // 纯黑/纯白 vs 画布色对比度均 > 15。图标开关与内容色两处同设，谁生效用谁。
+    const barContentColor: string = isDark ? '#FFFFFFFF' : '#FF000000';
     const props: window.SystemBarProperties = {
       statusBarColor: TRANSPARENT_BAR,
       navigationBarColor: TRANSPARENT_BAR,
-      isStatusBarLightIcon: isDark
+      isStatusBarLightIcon: isDark,
+      isNavigationBarLightIcon: isDark,
+      statusBarContentColor: barContentColor,
+      navigationBarContentColor: barContentColor
     };
     win.setWindowSystemBarProperties(props).catch((err: Error): void => {
       Logger.warn(TAG, `setWindowSystemBarProperties 失败: ${err.message}`);

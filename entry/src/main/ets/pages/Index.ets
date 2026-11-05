@@ -360,6 +360,9 @@ struct Index {
     Column() {
       this.tabItemContent(idx)
     }
+    // 被玻璃胶囊盖住的那一颗整份隐掉：胶囊是真磨砂，留着它只会在玻璃下面糊出一团同色光晕，
+    // 清晰的那份由胶囊自己带（有据 `tabBarBuilder` 同一道 gate；漏掉它就是我这份移植的缺陷）。
+    .opacity(this.dockPillCovered === idx ? 0 : 1)
     .accessibilityText(`${DOCK_TABS[idx].label}页签`)
     .onAreaChange((_o: Area, n: Area): void => {
       this.recordDockSlotArea(idx, n);
