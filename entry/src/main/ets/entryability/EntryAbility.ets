@@ -14,6 +14,7 @@ import { BuildConfig } from '../common/constants/BuildConfig';
 import { BudgetConfig } from '../common/constants/BudgetConfig';
 import { WidgetSync } from '../widget/TodayCard';
 import { TopStrip } from '../utils/TopStrip';
+import { initNavModeWatcher, refreshNavMode, publishNavAvoid } from '../utils/navMode';
 
 export default class EntryAbility extends UIAbility {
   private pendingRoute: string = '';
@@ -241,6 +242,8 @@ export default class EntryAbility extends UIAbility {
       AppStorage.setOrCreate('statusBarHeight', density > 0 ? top / density : 0);
       AppStorage.setOrCreate('navIndicatorPx', nav);
       AppStorage.setOrCreate('navIndicatorHeight', density > 0 ? nav / density : 0);
+      // 把避让矩形的宽也交进 navMode：只看高度判不开手势条与三键栏（两者实测 27.9 / 27.8vp）
+      publishNavAvoid(win);
       Logger.info('EntryAbility', `避让区 状态栏=${top}px 指示条=${nav}px 密度=${density}`);
     } catch (err) {
       Logger.warn('EntryAbility', `读避让区失败: ${(err as Error).message}`);
@@ -291,6 +294,8 @@ export default class EntryAbility extends UIAbility {
     // 窗口 y=0 起排，而 TabContent 仍按安全区在 106px 处裁切——首帧读不到
     // statusBarHeight 的话，每一屏顶部都会少一截（真机实测「有径」标题被压成 50px 高）。
     this.makeImmersive(windowStage);
+    // 导航方式与底部避让要在 loadContent 之前起：dock 第一次 build 就要读到现值
+    initNavModeWatcher(this.context);
 
     windowStage.loadContent('pages/Index', (err) => {
       if (err.code) {
@@ -338,6 +343,8 @@ export default class EntryAbility extends UIAbility {
     this.visible = true;
     // 后台期间别的窗口可能把系统栏属性改回去，回前台重设一次
     this.applySystemBarSurface();
+    // 后台期间切换导航方式不会派发 avoidAreaChange，回前台必须重算一次
+    refreshNavMode(this.context);
     this.routePending();
   }
 
