@@ -97,7 +97,9 @@ export struct AreaMorePage {
       .fontWeight(600)
       .fontColor(ColorTokens.muted)
       .width('100%')
+      .backgroundColor(ColorTokens.canvas)
       .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.xxs })
+      // 同上：吸顶组头没有底板就会与滚过来的行字压字（SpotPickPage 同族）。
   }
 
   @Builder

@@ -581,6 +581,17 @@
 
 ### Changed
 
+- 2026-11-06（§5ci 续 218）：**覆盖对表第 29 行落地——两处吸顶组头补不透明底板（中途我自己加错一次横向内缩）**。
+  五处 `sticky(StickyStyle.Header)` 逐处读 builder 本体：`OnTripPage`/`BadgePage`/`ItineraryPage` 都有
+  `canvas` 底板（第三处是条件式），**没底板的是 `SpotPickPage:238-247` 与 `AreaMorePage:94-101` 两处裸 Text**——
+  吸顶时下面行的字会从组头底下透出来叠成两行。有据同位是定高 36 + 实底板（`PublishTagPanel.ets:83-86`），
+  有径自己另外三处也都是 canvas ⇒ 两处各加一行 `.backgroundColor(ColorTokens.canvas)`（跟本仓一致，不抄 elevated）。
+  **中途自造的新缺陷被自己拦下**：第一版顺手把组头 padding 写成 `{top,bottom,left:base,right:base}`，
+  回读发现这两页的 List 已带 `left/right: base`（`SpotPickPage:561`、`AreaMorePage:259`），组头在内容区里，
+  再加一层就是 32vp 的新错位 ⇒ 横向部分撤回、只留底板。教训：照抄参照件的一个数值前，
+  先确认本地上下文有没有已经给过它。十九把尺全 0 + 构建闸过；"字压字有没有消失"要滚动实拍，已并入任务 #30。
+  本轮零 LLM、未动用户数据、没碰手机。
+
 - 2026-11-06（§5ci 续 217）：**向导实机冒烟到屏3——22 处卡面内缩改动没弄坏流程；行程屏故意没验**。
   手机仍在真人手里，改在模拟器走真实流程：游客进壳层 → 规划 → 屏2 基础信息 → 屏4 偏好问答四题 → **屏3 选景点**。
   每步都 dump 过：屏2 正常（内缩实测 16.0×3）、屏4 四题连过不卡死、屏3 组卡与行完整

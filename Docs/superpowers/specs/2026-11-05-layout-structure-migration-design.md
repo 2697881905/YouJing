@@ -193,7 +193,7 @@ L1 → 复验 → 提交 → L2 → 复验 → 提交 → L3 → 复验 → 提�
 | 26 | 胶囊高度 = `segmentedHeight` 36（`ChipRow.ets:23`） | `minTouchTarget` 44（`TripInputPage.ets:557`） | **契约冲突，倾向保留 44** | DESIGN.md「Min touch target 44×44 — even when the drawn glyph is 12px」；收到 36 会破命中区（§5ci 续 212） |
 | 27 | 空态：图形 44 + 标题 `headline` 18 serif，件被 12 个文件消费 | 图形 48 + 标题 `title` 21 serif，`EmptyState(` 消费方 **0**（各页内联） | **档名冲突 + 内部一致性待办** | 有径图形档封闭为 22/48，44 是命中盒不是图形档（`EmptyState.ets:29-30`）；件没接不等于画错，但各屏内联会各自漂移（§5ci 续 212） |
 | 28 | 通用卡内缩钉 16（`BaseCard.ets:12`；它自己的 `CARD_PADDING` 0 消费、`PublishSection.ets:23` 又覆盖成 12） | **有径内部不一致**：同一 `RadiusTokens.card`(20) 配 `sm`=12 共 26 处、配 `base`=16 共 18 处 | **真缺陷，待逐屏复拍**（任务 #34） | 与「跟不跟有据」无关，是有径自己同一种卡两屏跳 4vp；批量收口属「改完必须逐屏量 bounds 反证」类（§5ci 续 212） |
-| 29 | 吸顶组头底板（`PublishTagPanel.ets:83-86` 定高 36 + `elevated` 实底板） | 抽查**推翻**了「只有 OnTripPage 有底板」：`ItineraryPage.ets:800` 就有条件底板，`SpotPick`/`Badge`/`AreaMore` 各 1–4 处 `backgroundColor` | **未定缺陷，需逐处读 builder 本体** | 登记缺陷前先读消费方；本轮不据此改动（§5ci 续 212） |
+| 29 | 吸顶组头底板（`PublishTagPanel.ets:83-86` 定高 36 + `elevated` 实底板） | 逐处读 builder 本体后定案：`OnTripPage`/`BadgePage`/`ItineraryPage:800` 有 canvas 底板；**`SpotPickPage:238-247` 与 `AreaMorePage:94-101` 是裸 Text 无底板** | **已修（滚动实拍待做）** | 无底板时吸顶行文字与滚过来的行叠成两行；两处各加 `.backgroundColor(ColorTokens.canvas)`（跟本仓三处一致，不抄有据的 `elevated`）。另拦下我自己顺手加的横向内缩——这两页 List 已带 `left/right: base`，再加就是 32vp 新错位（§5ci 续 218） |
 
 
 **读法**：1–7、9、10、11 已按有据落地（10 有 A/B 复拍；11 的「不跟」原判已在续 205 推翻并补齐，
