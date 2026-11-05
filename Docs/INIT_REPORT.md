@@ -8230,3 +8230,35 @@ dump 的槽位中心取点（1774, 2283）才切成功。这条落点错也说�
 **顺带把欠的回归补上**：续 206/207 两轮提交时都没跑 hypium（怕占用户的手机），
 这轮在模拟器跑完 **251/251、Failure 0、Error 0** ⇒ `alwaysEnabled`、系统栏字段、opacity gate
 三处改动没打坏任何一条用例。
+
+## 2026-11-06 续 210：两 App 的 token 逐个对数——圆角/投影/字阶已经同源，差异在间距档名与图标档
+
+配置面扫过两轮之后，剩下最容易骗人的是**数值本身**：同一个 `SpaceTokens.md` 在两个 App 里
+可能不是同一个数。这轮把两边的 space / radius / shadow / type / icon 全表读出来逐字段对。
+
+| 族 | 有据 | 有径 | 判定 |
+| --- | --- | --- | --- |
+| 圆角 | 0 / 6 / 10 / 14 / 20 / 28 + `floatingBar` 30 + `pill` 999 | none0 / media6 / capsule10 / reason14 / card20 / hero28 + `dock` 30 + `pill` 999 | **值全同**，只是名字不同 ✓ |
+| 投影 | `cardContact` 1·#08000000·0、`cardAmbient` 10·#12000000·3、`pillFloat` 8·#26000000·3、`floating` 16·#18000000·6 | 同名四档**逐字段相同**，另多 `segmented` 8·#0F000000·0、`popover` 8·#12000000·0 | **已同源** ✓（有径的两档是它自己的控件） |
+| 字阶 | headline 18/600/24、body 16/400/24、callout 14/400/20、caption 12/450/16、navLabel 10/400/14、`displaySerif` 32/700/44、`titleSerif` 21/700/32 | 同一份数（display/title 走 serif 是有径契约写法） | **已同源** ✓ |
+| 字阶 overline | 11/600/**14** | 11/600/**0**（占位，含义是"这档不设行高"） | ⚠ 见下 |
+| 间距 | xs4 / sm8 / md12 / base16 / lg20 / xl24 / x2l32 / x3l48 | xxs4 / xs8 / sm12 / base16 / md20 / lg24 / xl32 / xxl48 | **梯子一模一样，但档名整体差一格** ⚠ |
+| 图标 | `tabBar` / `standard` 24 | `IconSizes.control` 22 | 覆盖对表第 23 行，未动（改它要先动契约） |
+| 通用 | `contentMaxWidth` 720、`minTouchTarget` 44、`gridGutter` 12 | 720 / 44 / `itemGap` 12 | ✓ |
+
+**两条会咬人的坑，都做了实物防呆**
+1. **间距档名差一格**：有据 `sm`=8 而有径 `sm`=12；有据 `xl`=24 对有径 `xl`=32。
+   从有据抄公式时照字面翻译，**每处都会静默多 8vp**。这轮就把一个真实风险写死在文档里：
+   欠账 #2 那条"照有据派生净空"的公式，有据写作 `… + SpaceTokens.xl`（24），
+   在有径必须落 `SpaceTokens.lg`（24）——已在清单里就地标注（§5ci 续 210 之前那段）。
+   不做全仓改名：几百个消费点要逐个按**语义**重映射而不是换名，零视觉收益、错一格就是全局位移。
+2. **`lineHeight: 0` 是占位不是值**：有径 `overline` / `time` 两档行高写 0（= 这档不设行高），
+   而有据同位是 14。谁把它喂进 `.lineHeight(TypeTokens.overline.lineHeight)` 就等于
+   `.lineHeight(0)`，行盒压到字高以下——和记忆里「占位空串喂给差值 helper 会静默变成一个数」同族。
+   现在 `tools/audit_type.py` 多一条硬规则：`.lineHeight(0)` 或
+   `.lineHeight(TypeTokens.overline|time.lineHeight)` 直接判偏差（阳性样本验过能抓、
+   正常写法不误报），`TypeTokens` 里也写进注释。当前全仓 0 处违规（先反证尺子抓得到，再信这个 0）。
+
+**结论**：在**看得见的数值**层面，有径与有据的圆角、投影、字阶已经同源；
+剩下的真实差异只有图标档 24↔22（要先动契约）和上面两条命名/占位坑。
+本轮零 LLM、未动用户数据、没碰设备。

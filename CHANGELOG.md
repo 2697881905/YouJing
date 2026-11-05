@@ -581,6 +581,20 @@
 
 ### Changed
 
+- 2026-11-06（§5ci 续 210）：**两 App 设计 token 逐个对数：圆角/投影/字阶已同源，差异在间距档名与图标档**。
+  有据 radius 0/6/10/14/20/28+30+999 与有径同值（名字不同）；shadow 五档 `cardContact` 1·#08000000·0、
+  `cardAmbient` 10·#12000000·3、`pillFloat` 8·#26000000·3、`floating` 16·#18000000·6 **逐字段相同**；
+  字阶 headline/body/callout/caption/navLabel 与 serif 两档全部同数；`contentMaxWidth` 720、`minTouchTarget` 44、
+  `gridGutter` 12 一致。真实差异只剩图标档（有据 `tabBar` 24 ↔ 有径 `IconSizes.control` 22，要先动契约，见第 23 行）。
+  **两条会咬人的坑做了防呆**：① 两 App 间距梯子是同一串 4/8/12/16/20/24/32/48，但**档名整体差一格**
+  （有据 `sm`=8 对有径 `sm`=12、有据 `xl`=24 对有径 `xl`=32），从有据抄公式照字面翻译每处会静默多 8vp——
+  已在契约待改清单欠账 #2 就地标注"有据 `SpaceTokens.xl` ⇒ 有径应落 `SpaceTokens.lg`"；不做全仓改名
+  （几百消费点要按语义重映射，零视觉收益、错一格就是全局位移）。② 有径 `overline`/`time` 的 `lineHeight: 0`
+  是"这档不设行高"的占位（有据同位是 14），喂进 `.lineHeight()` 等于 `.lineHeight(0)` 会把行盒压到字高以下；
+  `tools/audit_type.py` 新增硬规则抓 `.lineHeight(0)` 与 `.lineHeight(TypeTokens.overline|time.lineHeight)`，
+  先喂阳性样本证明尺子抓得到、正常写法不误报，当前全仓 0 处违规；`TypeTokens` 同步写明含义。
+  本轮零 LLM、未动用户数据、没碰设备。
+
 - 2026-11-06（§5ci 续 209）：**系统栏内容色做了"应用主题≠系统深浅"的对照量，并补跑 hypium 251/251**。
   模拟器系统档是浅色，用 App 级 `setColorMode` 探针把有径钉进深色档（正是有据审核问题④的原始触发条件），
   被动抓帧量状态带：`darkprobe` 下带子中位 18 = 画布中位（系统栏透明生效）、带子最亮 2% 均值 **253**

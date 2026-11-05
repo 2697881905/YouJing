@@ -17,6 +17,10 @@ import sys
 
 ALLOWED_TEXT_SIZES = {10, 11, 12, 14, 16, 18, 21, 32}
 ICON_TOKEN_SIZES = {12, 14, 18, 20, 22, 48}
+# `TypeTokens.overline / .time` 的 lineHeight 是 0，含义是「这一档不设行高、走系统默认」
+#（有据同位是 11/600/**14**）。0 一旦被喂进 `.lineHeight()` 就是把"没设"变成"设成 0"，
+# 行盒会压到字高以下——同族坑见记忆「占位空串喂给差值 helper 会静默变成一个数」。
+ZERO_LH = re.compile(r'\.lineHeight\(\s*(?:TypeTokens\.(overline|time)\.lineHeight|0)\s*\)')
 
 
 def owner_of(lines, idx):
@@ -40,11 +44,15 @@ def main():
                    glob.glob(os.path.join(root, 'entry/src/main/ets/widget/**/*.ets'), recursive=True))
     bad = []
     icon_literals = []
+    zero_lh = []
     for path in files:
         rel = os.path.relpath(path, root)
         lines = open(path, encoding='utf-8').read().split('\n')
         for i, line in enumerate(lines):
             code = re.sub(r'//.*', '', line)
+            zl = ZERO_LH.search(code)
+            if zl:
+                zero_lh.append((rel, i + 1, zl.group(0)))
             m = re.search(r'\.fontSize\(\s*(\d+)\s*\)', code)
             if not m:
                 continue
@@ -68,7 +76,10 @@ def main():
     print('== 图标/未识别（含待裁决档位）==', len(icon_literals))
     for rel, ln, size, why in icon_literals:
         print('  {:44} L{:<5} {}px {}'.format(rel, ln, size, why))
-    return 1 if bad else 0
+    print('== 行高 0 被显式喂进 .lineHeight()（必须修）==', len(zero_lh))
+    for rel, ln, text in zero_lh:
+        print('  {:44} L{:<5} {}'.format(rel, ln, text))
+    return 1 if (bad or zero_lh) else 0
 
 
 if __name__ == '__main__':

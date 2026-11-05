@@ -51,6 +51,9 @@ export interface FontFamilyNamesType {
 }
 
 export const TypeTokens: TypeTokensType = {
+  // ⚠ overline / time 两档的 lineHeight 写 0，含义是「这一档不设行高、走系统默认」，不是行高值。
+  // 把它直接喂进 `.lineHeight(0)` 会把行盒压到字高以下（`tools/audit_type.py` 已钉住这条）；
+  // 有据同位 overline 是 11/600/**14**，确实要行高时按 14 显式写。
   display: { family: FAMILY_SERIF, size: 32, weight: 700, lineHeight: 44 },
   title: { family: FAMILY_SERIF, size: 21, weight: 700, lineHeight: 32 },
   headline: { family: FAMILY_SANS, size: 18, weight: 600, lineHeight: 24 },
