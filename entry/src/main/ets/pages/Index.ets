@@ -39,6 +39,7 @@ import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { HDS_MATERIAL_LEVEL_EXQUISITE, HDS_MATERIAL_TYPE_IMMERSIVE } from '../utils/immersiveMaterial';
 import { TopStrip, TOP_STRIP_KEY, STRIP_CANVAS, STRIP_MAP } from '../utils/TopStrip';
+import { BOTTOM_NAV_INSET_KEY } from '../utils/navMode';
 
 const TAG: string = 'Index';
 
@@ -51,19 +52,12 @@ struct Index {
   /** 运行期切页签的请求（AppNav.enterPlanningFlow 写）；冷启不走这条路 */
   @StorageProp(TAB_SWITCH_KEY) @Watch('applyTabSwitch') tabSwitch: string = '';
   /**
-   * 状态栏高度（vp）。窗口铺满物理屏之后，页面是从窗口 y=0 起排的，而 `TabContent`
-   * 仍按安全区在状态栏下沿裁切 —— 不让位的话每屏顶部都会少一截（真机实测
-   * 「有径」标题 144px 的框被裁成 50px）。让位收在壳层这一处，
-   * 20 个页面不用各自读避让区（见 EntryAbility.makeImmersive）。
+   * 底部避让量（vp）：唯一来源是 `utils/navMode` 的判定结果，不在这里按「指示条高度」自己算。
+   *  ⚠ 必须 @StorageLink **并且在 build 的属性里直读**——只挂 link 不进 build，ArkUI 不为它
+   *  建立更新绑定，刷新全是空操作（有据 navMode 文件头写明的踩坑）。
+   *  旧写法 `floatingDockBottomMargin + navIndicatorHeight` 在看不到三键栏的机型上会多垫 27.8vp。
    */
-  @StorageProp('statusBarHeight') statusBarHeight: number = 0;
-  /**
-   * 底部指示条高度（vp）。`barBottomMargin` 是从**容器底**量的，窗口铺满物理屏之后
-   * 容器底就是物理屏底，所以这一格必须自己加回去 —— 不加，dock 会从契约钉的
-   * 「28px above the system nav inset」掉到指示条上沿（真机实测掉 27.8vp，
-   * 连带让 `floatingDockClearance: 112` 多让了 27.8vp）。
-   */
-  @StorageProp('navIndicatorHeight') navIndicatorHeight: number = 0;
+  @StorageLink(BOTTOM_NAV_INSET_KEY) dockNavInset: number = 0;
   /**
    * 顶部该用哪个底色资源名（画布 / 底图基色），与系统带同源、由 TopStrip 写。
    * 壳层 Column 必须跟着换：栏是透明的，栏区露的就是这层的底色 ——
@@ -243,7 +237,7 @@ struct Index {
         materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
         materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE
       },
-      barBottomMargin: LayoutTokens.floatingDockBottomMargin + this.navIndicatorHeight,
+      barBottomMargin: LayoutTokens.floatingDockBottomMargin + this.dockNavInset,
       barSideMargin: LayoutTokens.pagePadding
     })
     .onChange((index: number): void => {
@@ -278,7 +272,8 @@ struct Index {
     // 于是深色档滚动时栏体的渐变遮罩只压暗 y=106 以下，带子仍是画布：
     // 真机量到带子 L=18 / 栏体 L=11 一条硬台阶（用户长期报的「通知栏有色差、布局没撑满」）。
     // 撤掉 padding 后栏体从窗口 0 排起，遮罩与带子是同一层，缝没有第二个来源。
-    // 全仓只有这一处读 statusBarHeight（已 grep 确认），没有页面会重复让位。
+    // 壳层不读任何避让区：顶部让位归栏体（HdsChrome.bar 的 avoidLayoutSafeArea），
+    // 底部让位归 navMode 发布的 dockNavInset，两处各只有一个来源。
   }
 
   build() {

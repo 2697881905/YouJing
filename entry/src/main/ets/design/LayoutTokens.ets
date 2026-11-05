@@ -42,13 +42,18 @@ export interface LayoutTokensType {
   tabBarHeight: number;
   /** 浮动 dock 宽 */
   floatingDockWidth: number;
-  /** 浮动 dock 距底（系统安全区由窗口 avoidSafeArea 兜底，不另设叠加 token） */
+  /** 浮动 dock 距底基线（不含底部避让量；避让量由 utils/navMode 单源给出，见 pages/Index 的 dockNavInset） */
   floatingDockBottomMargin: number;
+  /** 浮动 dock 栏体高（有据真值；2026-11-05 真机 dock 板 56.2vp 取整） */
+  floatingDockBarHeight: number;
   /**
    * 钉底按钮条必须给悬浮 dock 让出的净空（vp）。
+   * 构成 = floatingDockBarHeight(56) + floatingDockBottomMargin(28) + 底部避让量。
    * 真机实测 dock 板 bounds [55,2340][1080,2515]，屏高 2690px ÷ 密度 3.125 →
-   * 屏底到 dock 顶边 = (2690-2340)/3.125 = 112vp。此前屏2 的「开始规划」钉底条
-   * 只留 md=16，被 dock 直接压住（实拍可见蓝条叠在按钮上）。
+   * 屏底到 dock 顶边 = (2690-2340)/3.125 = 112vp（= 手势档 84 + 三键档多出的 27.8）。
+   * 此前屏2 的「开始规划」钉底条只留 md=16，被 dock 直接压住（实拍可见蓝条叠在按钮上）。
+   * ⚠ dock 边距单源化后 dock 在**手势档**下会下移 27.8vp，实际净空只需 84；这里按最大档
+   * 钉死 112，宁多勿少（多的是滚动区底部空白，不是遮挡），L4 再按档派生。
    */
   floatingDockClearance: number;
   /** 浮动 dock 左右距边 */
@@ -124,6 +129,7 @@ export const LayoutTokens: LayoutTokensType = {
   tabBarHeight: 64,
   floatingDockWidth: 300,
   floatingDockBottomMargin: 28,
+  floatingDockBarHeight: 56,
   floatingDockClearance: 112,
   floatingDockSideMargin: 16,
   bottomScrollReserve: 94,

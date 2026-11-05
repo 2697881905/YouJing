@@ -643,7 +643,10 @@ Expected: `== 滚到底无遮挡（pass）==`，退出码 0。
 > 日志给出 `指示条=87px` ÷ 3.125 = **27.84vp**，旧代码是 `28 + navIndicatorHeight = 55.84vp`；
 > 有据的语义是「手势档 dock 边距恒 0，基线 28vp 已含指示条空间」。
 > 所以改读单源键后 **dock 下移约 27.8vp**——这是「按有据布局体系」的预期可见变化，不是回归。
-> 判据改为：dock 顶边从 748.8vp 变为 **约 721vp**，且 `verify_scroll_clearance.py` 仍必须 pass
+> 判据改为：dock 顶边从 748.8vp **下移**到 **约 776.6vp**（本行原写「约 721vp」，是把「下移」
+> 算成了 y 变小；2026-11-05 Task 4 装机实测 dock 板 `[55,2427][1081,2602]`，
+> 2427÷3.125=776.6vp，与迁移前差正好 +27.84vp，方向和量级都符合本段文字），
+> 且 `verify_scroll_clearance.py` 仍必须 pass
 > （末行要还能滚出来）；若净空不足，走 Task 8 的预留调整，不回退本步。
 > 另：真机 `settings` 键可用且报 `showType=-1`（手势），权威信号链路已验证通畅。
 ```bash
@@ -659,7 +662,9 @@ def w(n):
     for c in n.get('children',[]): w(c)
 w(t); print(out[:6])"
 ```
-Expected: dock 顶边 y 与迁移前记录值（748.8vp 换算 ≈ 2340px）差 ≤3px。
+Expected: dock 顶边 y = **2427px（776.6vp）**，即迁移前记录值 2340px 的 +87px（= 指示条 27.84vp）。
+本行原写「与 2340px 差 ≤3px」，那是单源化之前的旧判据，与本段上方的执行时修正冲突，已作废。
+另附 dock 板高实测 2602-2427=175px ÷ 3.125 = **56vp**，与新 token `floatingDockBarHeight` 对齐。
 
 - [ ] **Step 6: 提交**
 
