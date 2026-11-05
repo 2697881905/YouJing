@@ -8380,3 +8380,47 @@ dump 的槽位中心取点（1774, 2283）才切成功。这条落点错也说�
 **为什么值得立这把尺**：这条不是「跟不跟有据」的口味题，而是 有径 **自己内部**同一种卡两屏跳 4vp；
 钉住之后，以后新增卡面只要写错档就红，不用再靠人记得去对齐。
 本轮零 LLM、未动任何用户数据、没碰设备（前台仍是有据）。
+
+## 2026-11-06 续 214：卡面内缩按契约收到 16——23 处 sm(12) 改 base(16)，尺从 30 降到 5
+
+**动手前先查谁钉着它**（记忆 check-pinned-defaults-before-changing-them），这一查把"要不要跟有据"
+变成了"有径自己没守自己的契约"。DESIGN.md 里连钉四处：
+- `:997` `spacing.base = 16px → Card padding, page horizontal padding, block separation`
+- `:1100` **Cards.** `surface-elevated`, 20px radius, **16px padding**, 12px internal gap, `cardAmbient`
+- `:1048` Post card：20px radius、**16px padding**、文字块留 12
+- `:1053` 原话就是「有径 reuses the same card and gutter numbers for its own trip list
+  so the two apps feel cut from one cloth」——**"跟有据同布料"是契约自己写的**
+
+最硬的一条是 `:1041`：**嵌套件圆角 = 父圆角 − 父内缩**，「20px 卡 + 16px 内缩 ⇒ 媒体件 6px 圆角，
+这就是 `xs` 为什么是 6 而不是 8」。而代码里媒体角确实钉 `RadiusTokens.media`=6。
+⇒ 那 23 处 `padding(SpaceTokens.sm)`=12 不只内缩错了，它把契约推导 6 这个数的前提也拆了
+（按 12 算应该是 8）。所以这不是口味题，是实现与契约互相矛盾。
+
+**改了什么**：23 处卡面内缩 `sm`(12) → `base`(16)。
+- 18 处单参式 `.padding(SpaceTokens.sm)`：`BadgePage:221`、`EditItineraryPage:342/486`、
+  `GeneratingPage:244/254`、`ItineraryPage:945/1018`、`OnTripPage:991/1034`、`PricingPage:292`、
+  `TripInputPage:810/833/871/906/966`、`TripReviewPage:432`、`TripsPage:486/549`
+- 5 处对象式（只有左右）：`ExpensePage:881/905`、`OnTripPage:1350`、`SharePage:339`、`StayPickPage:508`
+
+**尺子这轮补了两条豁免，都是读出来的不是猜的**：
+1. **按钮链豁免**——半径行上下 4 行里出现 `.buttonStyle(` / `.type(ButtonType` 就不判。
+   那排城市胶囊（`TripInputPage.ets:557-561`）是控件内边距，披的是卡圆角，按卡面规范档判就是误报。
+2. **面板豁免**——`.padding(LayoutTokens.sheetPanelPadding)` 不判。契约给半模态钉的是面板内缩 20，
+   不是卡面 16（`PrivacyConsentDialog.ets:101`、`BadgeEarnedDialog.ets:78` 两例）。
+自测仍是阳性 2 / 阴性 4，两条豁免各留了样本。
+
+**读数**：`audit_card_inset` 从 **30 → 5**。剩下 5 处不是"还没改"，是**要逐处读**：
+`EditItineraryPage:424`（xs=8，可能是紧凑嵌套卡）、`ItineraryPage:1297`（字面量）、
+`TripMapView:319` / `ItineraryPage:735` / `SpotPickPage:547`（8 行内找不到具名 padding，
+内缩在子级给）。留在任务 #34。
+
+**验证到哪一步、没到哪一步**（这条必须讲清）：
+- 已过：pre-commit 构建闸；`audit_label_fit`（定宽容器放不下自身文案）0、`audit_geometry` 0、
+  `audit_button_width` 0、`audit_a11y_name` 0、`audit_scroll_actions` 0；其余尺同前一轮口径
+  （十九把 0、`audit_card_inset` 现在只剩 5 处待读、`audit_contrast` 2=缺参数）。
+- **没过**：真机/模拟器逐屏 bounds 复拍。这轮开始时模拟器已经停了、手机仍在真人手里，
+  所以 23 处「每屏卡面松 4vp」的几何变化**只有静态护栏，没有实拍**。
+  护栏能挡住"文字放不下"这一类，挡不住密度观感。
+  逐屏量 bounds 已并进任务 #30/#34；如果复拍发现某屏不合适，回退就是这一笔提交
+  （`git revert`，改动是纯 token 替换、无连带逻辑）。
+本轮零 LLM、未动任何用户数据、没碰设备。

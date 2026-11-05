@@ -339,7 +339,7 @@ export struct EditItineraryPage {
         .fontWeight(600)
         .fontColor(ColorTokens.ink)
     }
-    .padding(SpaceTokens.sm)
+    .padding(SpaceTokens.base)
     .borderRadius(RadiusTokens.card)
     // 拖动抬起的预览行：填 canvas 时深色档与底同色，抬起来看不出区别（同 TripsPage/StayPickPage 那批）
     .backgroundColor(ColorTokens.surfaceElevated)
@@ -483,7 +483,7 @@ export struct EditItineraryPage {
             }
             .alignItems(HorizontalAlign.Start)
             .width('100%')
-            .padding(SpaceTokens.sm)
+            .padding(SpaceTokens.base)
             .borderRadius(RadiusTokens.card)
             .backgroundColor(ColorTokens.surfacePanel)
           }

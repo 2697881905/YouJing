@@ -429,7 +429,7 @@ export struct TripReviewPage {
       }
     }
     .width('100%')
-    .padding(SpaceTokens.sm)
+    .padding(SpaceTokens.base)
     .borderRadius(RadiusTokens.card)
     .backgroundColor(ColorTokens.surfaceElevated)
     .alignItems(VerticalAlign.Center)

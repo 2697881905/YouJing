@@ -56,6 +56,11 @@ def nearest_padding_token(lines, idx):
         if PADDING.search(lines[j]):
             if FLUSH.search(lines[j]):
                 return '满铺豁免', j + 1
+            if 'LayoutTokens.sheetPanelPadding' in lines[j]:
+                # 对话框/半模态披着卡圆角：契约钉的是面板内缩 20（`sheetPanelPadding`），
+                # 不是卡面 16，判成混用就是把弹窗当卡（`PrivacyConsentDialog.ets:101`、
+                # `BadgeEarnedDialog.ets:78` 两例）。
+                return '面板豁免', j + 1
             m = TOKEN_IN.search(lines[j])
             return (m.group(1) if m else '字面量'), j + 1
     return None, None
@@ -70,10 +75,15 @@ def scan(path, canonical):
             continue
         if not CARD_RADIUS.search(line):
             continue
+        # 披着卡圆角的**按钮**不是卡：它的左右内缩是控件内边距（如 `TripInputPage.ets:557-561`
+        # 那排城市胶囊），按卡面规范档判就是误报。窗口取半径行上下 4 行，够覆盖 Button 的属性链。
+        window = '\n'.join(lines[max(0, i - 4):i + 5])
+        if '.buttonStyle(' in window or '.type(ButtonType' in window:
+            continue
         tok, ln = nearest_padding_token(lines, i)
         if tok is None:
             out.append((path, i + 1, '无 padding', ln, '卡面没有具名内缩'))
-        elif tok == '满铺豁免':
+        elif tok in ('满铺豁免', '面板豁免'):
             pass
         elif tok != canonical:
             out.append((path, i + 1, tok, ln, '与规范档 %s 不一致' % canonical))
@@ -88,7 +98,7 @@ def selftest(canonical):
         for i, line in enumerate(lines):
             if CARD_RADIUS.search(line):
                 tok, _ = nearest_padding_token(lines, i)
-                hit = (tok is not None and tok not in (canon, '满铺豁免'))
+                hit = (tok is not None and tok not in (canon, '满铺豁免', '面板豁免'))
         if hit != expect_hit:
             print('  SELFTEST FAIL %s -> got=%s want=%s' % (note, hit, expect_hit))
             bad += 1

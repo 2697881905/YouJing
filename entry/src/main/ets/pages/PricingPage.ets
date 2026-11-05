@@ -289,7 +289,7 @@ export struct PricingPage {
       }, (f: string, idx: number): string => `feat-${idx}`)
     }
     .width('100%')
-    .padding(SpaceTokens.sm)
+    .padding(SpaceTokens.base)
     .borderRadius(RadiusTokens.card)
     .backgroundColor(highlight ? ColorTokens.surfaceElevated : ColorTokens.surfaceSunken)
     .borderWidth(highlight ? 2 : 0)

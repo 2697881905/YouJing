@@ -942,7 +942,7 @@ export struct ItineraryPage {
               // （三格也比四格稳：把断点钉成 lg 复拍时，四格在窄列里会整个竖排）
             }
             .width('100%')
-            .padding(SpaceTokens.sm)
+            .padding(SpaceTokens.base)
             .borderRadius(RadiusTokens.card)
             // 契约：玻璃只有四处，sheet 内的卡片不是玻璃。
             // 原来挂的 barMaterial 在 bindSheet builder 内属生效范围外（immersiveMaterial 自书铁律），
@@ -1015,7 +1015,7 @@ export struct ItineraryPage {
               .padding({ top: SpaceTokens.sm })
             }
             .width('100%')
-            .padding(SpaceTokens.sm)
+            .padding(SpaceTokens.base)
             .borderRadius(RadiusTokens.card)
             .backgroundColor(ColorTokens.surfaceElevated)
             .margin({ top: SpaceTokens.sm, bottom: SpaceTokens.lg })

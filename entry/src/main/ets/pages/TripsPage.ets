@@ -483,7 +483,7 @@ export struct TripsPage {
     }
     .alignItems(HorizontalAlign.Start)
     .width('100%')
-    .padding(SpaceTokens.sm)
+    .padding(SpaceTokens.base)
     .borderRadius(RadiusTokens.card)
     // 契约 components.card.backgroundColor = {colors.surface-elevated}。
     // 原来填 canvas：浅色档靠 cardAmbient 投影还分得开卡与底，深色档投影实测不可见
@@ -546,7 +546,7 @@ export struct TripsPage {
             .fontColor([ColorTokens.icon])
         }
         .width('100%')
-        .padding(SpaceTokens.sm)
+        .padding(SpaceTokens.base)
         .borderRadius(RadiusTokens.card)
         .backgroundColor(ColorTokens.primaryTint)
         .alignItems(VerticalAlign.Center)

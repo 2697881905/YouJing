@@ -505,7 +505,7 @@ export struct StayPickPage {
                   .width('100%')
                   .height('100%')
                   .justifyContent(FlexAlign.Center)
-                  .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+                  .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
                 }
               }
               .width('100%')

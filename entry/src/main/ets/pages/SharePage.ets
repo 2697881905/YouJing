@@ -336,7 +336,7 @@ export struct SharePage {
                 })
               }
               .divider({ strokeWidth: LayoutTokens.hairlineWidth, color: ColorTokens.separator })
-              .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+              .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
               .backgroundColor(ColorTokens.surfaceSubtle)
               .borderRadius(RadiusTokens.card)
               .clip(true)

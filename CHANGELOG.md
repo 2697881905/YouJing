@@ -581,6 +581,19 @@
 
 ### Changed
 
+- 2026-11-06（§5ci 续 214）：**卡面内缩按契约收到 16——23 处 sm(12) 改 base(16)，尺读数 30→5**。
+  动手前查"谁钉着它"，结果这一条从「要不要跟有据」变成「有径没守自己的契约」：DESIGN.md :997
+  `spacing.base 16px → Card padding`、:1100 Cards 钉 20 圆角 + **16 内缩** + 12 内距、:1048 同款、
+  :1053 更直接写「有径 reuses the same card and gutter numbers … feel cut from one cloth」。
+  最硬的是 :1041「嵌套件圆角 = 父圆角 − 父内缩 ⇒ 20−16=6，这就是 xs 为什么是 6 不是 8」，
+  而代码媒体角正钉 `RadiusTokens.media`=6 —— 那 23 处 12 不只内缩错，还把契约推出 6 的前提拆了。
+  改动：18 处单参 `.padding(SpaceTokens.sm)` + 5 处对象式左右（`ExpensePage:881/905`、`OnTripPage:1350`、
+  `SharePage:339`、`StayPickPage:508`）全部收到 `base`；尺补两条例证式豁免（按钮链 `.buttonStyle(`/`.type(ButtonType`、
+  面板 `sheetPanelPadding`=20），自测阳性 2/阴性 4 不变。剩 5 处需逐处读（xs=8 紧凑卡、字面量、内缩在子级），留任务 #34。
+  **验证边界讲清**：过了 pre-commit 构建闸 + `audit_label_fit`/`geometry`/`button_width`/`a11y_name`/`scroll_actions` 全 0；
+  **没过的是逐屏 bounds 复拍**（模拟器已停、手机在真人手里），静态护栏挡得住"文字放不下"，挡不住密度观感；
+  复拍若不合适就 revert 这一笔（纯 token 替换、无连带逻辑）。零 LLM、未动用户数据、没碰设备。
+
 - 2026-11-06（§5ci 续 213）：**卡面内缩做成第 20 把尺 `tools/audit_card_inset.py`，并把上一条的计数纠正为配对数**。
   续 212 那句「26 处 vs 18 处」是 `grep -c` 的全仓出现次数，不是卡面配对数——只能靠人肉对齐说得清的数就该做成尺。
   新尺判据：属性链里出现 `.borderRadius(RadiusTokens.card)` 时，往上找最近的 `.padding(...)` 必须用规范档

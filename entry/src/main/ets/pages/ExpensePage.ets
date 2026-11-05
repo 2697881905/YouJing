@@ -878,7 +878,7 @@ export struct ExpensePage {
             }, (cat: CategorySpend): string => `cat-${this.seg}-${cat.name}-${cat.amount}-${cat.pct}`)
           }
           .divider({ strokeWidth: LayoutTokens.hairlineWidth, color: ColorTokens.separator })
-          .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+          .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
           .backgroundColor(ColorTokens.canvas)
           .borderRadius(RadiusTokens.card)
           .clip(true)
@@ -902,7 +902,7 @@ export struct ExpensePage {
             }, (r: Receipt): string => `rc-${r.id}-${r.time}-${r.name}-${r.amount}`)
           }
           .divider({ strokeWidth: LayoutTokens.hairlineWidth, color: ColorTokens.separator })
-          .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+          .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
           .backgroundColor(ColorTokens.canvas)
           .borderRadius(RadiusTokens.card)
           .clip(true)

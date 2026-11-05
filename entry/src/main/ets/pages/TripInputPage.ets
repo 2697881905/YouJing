@@ -807,7 +807,7 @@ export struct TripInputPage {
             }
             .alignItems(HorizontalAlign.Start)
             .width('100%')
-            .padding(SpaceTokens.sm)
+            .padding(SpaceTokens.base)
             .borderRadius(RadiusTokens.card)
             .backgroundColor(ColorTokens.surfaceSubtle)
             .margin({ bottom: SpaceTokens.base })
@@ -830,7 +830,7 @@ export struct TripInputPage {
                   this.chevron()
                 }
                 .width('100%')
-                .padding(SpaceTokens.sm)
+                .padding(SpaceTokens.base)
                 .borderRadius(RadiusTokens.card)
                 .backgroundColor(ColorTokens.surfaceSubtle)
               }
@@ -868,7 +868,7 @@ export struct TripInputPage {
                   this.chevron()
                 }
                 .width('100%')
-                .padding(SpaceTokens.sm)
+                .padding(SpaceTokens.base)
                 .borderRadius(RadiusTokens.card)
                 .backgroundColor(ColorTokens.surfaceSubtle)
               }
@@ -903,7 +903,7 @@ export struct TripInputPage {
                 }
               }
               .width('100%')
-              .padding(SpaceTokens.sm)
+              .padding(SpaceTokens.base)
               .borderRadius(RadiusTokens.card)
               .backgroundColor(ColorTokens.surfaceSubtle)
 
@@ -963,7 +963,7 @@ export struct TripInputPage {
                 .justifyContent(FlexAlign.SpaceBetween)
               }
               .width('100%')
-              .padding(SpaceTokens.sm)
+              .padding(SpaceTokens.base)
               .borderRadius(RadiusTokens.card)
               .backgroundColor(ColorTokens.surfaceSubtle)
             }

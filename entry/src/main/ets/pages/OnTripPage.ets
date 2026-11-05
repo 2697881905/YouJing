@@ -988,7 +988,7 @@ export struct OnTripPage {
       }
     }
     .width('100%')
-    .padding(SpaceTokens.sm)
+    .padding(SpaceTokens.base)
     .borderRadius(RadiusTokens.card)
     .backgroundColor(ColorTokens.surfaceElevated)
   }
@@ -1031,7 +1031,7 @@ export struct OnTripPage {
     }
     .alignItems(HorizontalAlign.Start)
     .width('100%')
-    .padding(SpaceTokens.sm)
+    .padding(SpaceTokens.base)
     .borderRadius(RadiusTokens.card)
     .backgroundColor(ColorTokens.surfaceElevated)
   }
@@ -1347,7 +1347,7 @@ export struct OnTripPage {
           }, (row: CheckedRow): string => `ck-${row.time}-${row.name}-${row.amount}`)
         }
         .divider({ strokeWidth: LayoutTokens.hairlineWidth, color: ColorTokens.separator })
-        .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+        .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
         .backgroundColor(ColorTokens.canvas)
         .borderRadius(RadiusTokens.card)
         .clip(true)

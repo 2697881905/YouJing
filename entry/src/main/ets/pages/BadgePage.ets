@@ -218,7 +218,7 @@ export struct BadgePage {
           .fontColor([ColorTokens.icon])
       }
       .width('100%')
-      .padding(SpaceTokens.sm)
+      .padding(SpaceTokens.base)
       .alignItems(VerticalAlign.Center)
       .borderRadius(RadiusTokens.card)
       .backgroundColor(ColorTokens.surfaceElevated)

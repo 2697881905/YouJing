@@ -241,7 +241,7 @@ export struct GeneratingPage {
             this.skeletonRow()
             this.skeletonRow()
           }
-          .padding(SpaceTokens.sm)
+          .padding(SpaceTokens.base)
           .borderRadius(RadiusTokens.card)
           .backgroundColor(ColorTokens.surfaceElevated)
           .width('100%')
@@ -251,7 +251,7 @@ export struct GeneratingPage {
             this.skeletonRow()
             this.skeletonRow()
           }
-          .padding(SpaceTokens.sm)
+          .padding(SpaceTokens.base)
           .borderRadius(RadiusTokens.card)
           .backgroundColor(ColorTokens.surfaceElevated)
           .width('100%')
