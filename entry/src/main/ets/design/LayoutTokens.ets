@@ -40,23 +40,32 @@ export interface LayoutTokensType {
   segmentedControlHeight: number;
   /** 底部 tab 栏高 */
   tabBarHeight: number;
-  /** 浮动 dock 宽 */
+  /**
+   * 契约 `layout.floating-dock-width` 的镜像值（`audit_geometry` 要求每个 layout 键都有同名 token）。
+   * ⚠ 它**不是**实现输入：dock 的实际宽度由 `HdsTabs.barFloatingStyle` 决定，
+   * 真机 dock 板 `[55,2427][1081,2602]` ÷ 3.125 = **328.3vp**，与契约的 300 不符。
+   * 这条差异已进本次迁移的契约待改清单（照「有据」实测基准），别靠改这里"对齐"。
+   */
   floatingDockWidth: number;
-  /** 浮动 dock 距底基线（不含底部避让量；避让量由 utils/navMode 单源给出，见 pages/Index 的 dockNavInset） */
+  /**
+   * 浮动 dock 距底基线（不含底部避让量；避让量由 `utils/navMode` 单源给出，见 `pages/Index` 的 `dockNavInset`）。
+   * dock 真渲染尺寸：328.3 × 56vp，左右各离边 17.6vp（实测，非本文件算出）。
+   */
   floatingDockBottomMargin: number;
-  /** 浮动 dock 栏体高（有据真值；2026-11-05 真机 dock 板 56.2vp 取整） */
+  /** 浮动 dock 栏体高（有据真值；2026-11-05 真机 dock 板 56vp 实测） */
   floatingDockBarHeight: number;
   /**
    * 钉底按钮条必须给悬浮 dock 让出的净空（vp）。
-   * 构成 = floatingDockBarHeight(56) + floatingDockBottomMargin(28) + 底部避让量。
-   * 真机实测 dock 板 bounds [55,2340][1080,2515]，屏高 2690px ÷ 密度 3.125 →
-   * 屏底到 dock 顶边 = (2690-2340)/3.125 = 112vp（= 手势档 84 + 三键档多出的 27.8）。
+   * 构成 = `floatingDockBarHeight`(56) + `floatingDockBottomMargin`(28) + 底部避让量。
+   * 手势档避让量 0 ⇒ 84vp（真机实测 (2690-2427)÷3.125 = 84.2vp，与公式对上）；
+   * 三键档 ≈ 28.8vp ⇒ 需要 112.8vp。
    * 此前屏2 的「开始规划」钉底条只留 md=16，被 dock 直接压住（实拍可见蓝条叠在按钮上）。
-   * ⚠ dock 边距单源化后 dock 在**手势档**下会下移 27.8vp，实际净空只需 84；这里按最大档
-   * 钉死 112，宁多勿少（多的是滚动区底部空白，不是遮挡），L4 再按档派生。
+   * ⚠ 现值按**最大档**钉 112，不是随手留大：按 84 钉在手势档刚好，但在三键档会把末行压进
+   * dock 底下 28.8vp（84 < 112.8 是算术，不是猜测），而多出来的那 28vp 只是滚动区底部空白。
+   * 按档派生要等 24 处消费点都能直读 `dockNavInset`，属本层之后的活。
    */
   floatingDockClearance: number;
-  /** 浮动 dock 左右距边 */
+  /** 契约 `layout.floating-dock-side-margin` 的镜像值；实现走 `barSideMargin: pagePadding`（同为 16） */
   floatingDockSideMargin: number;
   /** 通用底部滚动预留 */
   bottomScrollReserve: number;

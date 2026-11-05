@@ -992,6 +992,28 @@ git commit -m "refactor(布局): 带子色决策移交栏体——barBackground/
 
 ### Task 8: L4 顶栏跟手收起 + dock 尺寸对齐有据
 
+> **执行结论（2026-11-05）：Step 3 按证据改写、Step 1–2 停在真人检查点。**
+>
+> **Step 3「dock 尺寸对齐有据」不是一次改动**：真机 dock 板 `[55,2427][1081,2602]` ÷ 3.125
+> = **328.3 × 56vp**，本来就是有据基准——因为它由 `HdsTabs.barFloatingStyle` 产出，
+> 不由 `floatingDockWidth: 300` 算出来。把 token 改成 328.3 是**把镜像值当输入**，
+> 而 `audit_geometry.py` 要求契约每个 layout 键都有同名 token，所以两个 token 保留原值、
+> 注释改成写清「这是契约镜像，实测是 328.3×56，差异进 Task 9 的契约待改清单」。
+>
+> **`floatingDockClearance` 不降 84**：84 只在手势档刚好（实测 (2690-2427)÷3.125=84.2vp），
+> 三键档 dock 抬高 `barHeight+1≈28.8vp` ⇒ 需要 112.8vp，按 84 钉会把末行压进 dock 底下
+> （这是算术，不是猜测，且本机没有三键设备可复验）。保持 112 = 最大档上界，
+> 多出的 28vp 是滚动区底部空白而不是遮挡。按档派生的前提是 24 处消费点都能直读 `dockNavInset`，
+> 那是独立一轮的活，不在本层夹带。
+>
+> **Step 1–2（跟手收起）未执行，停在真人检查点**，两个理由都是硬的：
+> ① 前提条件与已证伪的 L3 撞车——`dynamicHideTitleBar` 必须配 `enableComponentSafeArea=false`
+> 才不会让内容跑 2.2 倍速（记忆 `arkui-hds-dynamichide-safearea-double-speed`，真机踩过、
+> `hideRatio` 治不了），而 `false` 就是「穿底」形态，动的正是 Task 7 刚刚证伪的那块顶边几何；
+> ② 这一层脚本无法自证（注入 fling 不触发 HDS 滚动特效），本仓库的纪律是不合入无法验证的代码。
+> 要开这一格，需要真人配合跑一遍：五格各滚到底再回顶，看顶栏收起有无跳变、内容位置是否抖、
+> 以及地图格顶边是否退回 Task 7 那种渐变。
+
 **Files:**
 - Modify: `entry/src/main/ets/design/HdsChrome.ets`（新增 `hideOnScroll` 支持）
 - Modify: 五格根页（`MapPage` / `TripsPage` / `ExpensePage` / `MinePage` / `YoujingStartPage`）
