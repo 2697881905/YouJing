@@ -8314,3 +8314,43 @@ dump 的槽位中心取点（1774, 2283）才切成功。这条落点错也说�
 
 我的建议是 **(c)**，但它改的是交互而不是像素，且验收要真人滑一遍——**留给用户拍**（任务 #33）。
 本轮零 LLM、未动任何用户数据；模拟器已停。
+
+
+## 2026-11-06 续 212：第三次扫（组件选档语义）——剩下的可见差异大多是「两份契约在互相不同意」
+
+配置面（`HdsTabs`/`titleBar`/系统栏/安全区/断点）和 token 数值都扫过两轮之后，
+还剩一种差异是这两把尺子扫不出来的：**token 梯子一样，但每个组件挑了不同的一档**。
+这轮就扫这个（卡片/分组头/胶囊/按钮/人物行/空态/弹层/数字）。
+
+**先说子代理交回来的两条被我抽查推翻的**（登记缺陷前必须读消费方，
+见 [[dont-register-a-defect-from-a-grep-miss]]）：
+- 「吸顶组头只有 OnTripPage 给了底板」——不成立。`ItineraryPage.ets:800` 的日组头就写了
+  `.backgroundColor(this.glassOn && !this.isDark ? Color.Transparent : ColorTokens.canvas)`，
+  另外三页 `SpotPick/Badge/AreaMore` 在 sticky 调用前的窗口里也各有 1–4 处 `backgroundColor`。
+  所以这一族**没有登记成缺陷**，只留一条"要逐处读 builder 本体再判"的待办。
+- 「有据 EmptyState 有 27 个消费点」——数字对不上，我这边数到的是 **12 个文件**在用；
+  有径侧 `EmptyState(` 的调用点确实是 **0**（这条成立）。
+
+**真正的发现是这次的重构式认识**：剩下那些"并排放看得出来"的差异，
+**几乎都不是有径没实现，而是两份契约互相不同意**——有径的 DESIGN.md 把值钉死了：
+
+| 差异 | 有据 | 有径 | 有径的契约原文 |
+| --- | --- | --- | --- |
+| 按钮标签字号 | `DesignButton.ets:91` = `callout` **14** | `YoujingButton.ets:54` = `body` **16** | DESIGN.md:922 `body … Option labels, descriptions, input text, **buttons**`；:809 还专门按「16px semibold 不算 WCAG 大字」论证过实心主钮的文字对比度 |
+| 选中胶囊的表面 | `ChipRow.ets:80` = 实心 `brandSolid` + 白字 | `TripInputPage.ets:561` = `primaryTint` + `ink` 字 + 1px `primary` 描边 | DESIGN.md:440-444 `selectedBackgroundColor: primary-tint` / `selectedTextColor: ink` / `selectedBorder: 1px solid primary` |
+| 胶囊高度 | `ChipRow.ets:23` = `segmentedHeight` **36** | `TripInputPage.ets:557` = `minTouchTarget` **44** | DESIGN.md `Min touch target 44 × 4px — even when the drawn glyph is 12px` |
+| 空态规格 | `EmptyState.ets:30/36` = 图形 **44** + 标题 `headline` 18 serif | 件与内联都是图形 **48** + 标题 `title` 21 serif | 有径的图形档是封闭两档 22/48，**44 在 有径 是命中盒不是图形档**（`EmptyState.ets:29-30` 写明） |
+
+这四条我不擅自改：改哪一条都是**动 有径 的权威契约**（用户明确说过不许为了过闸改 DESIGN.md），
+而且每条都是全 App 尺度的观感摆动（比如按钮字号一处改，几十屏同时变）。
+**要用户逐条裁决**：要么"有据赢"→ 我改实现 + 同笔改契约 + 逐屏复拍；
+要么"这条是 有径 的品牌表达"→ 记成有意偏离，覆盖对表就地标注，别再当欠账挂着。
+
+**这次唯一挖到的真缺陷在 有径 自己内部**：同一个 `RadiusTokens.card`(20) 圆角配了两种内缩——
+`SpaceTokens.sm`(12) **26 处** vs `SpaceTokens.base`(16) **18 处**（`TripsPage.ets:486/549` 用 12，
+`MinePage.ets:207/239` 用 16）。同一种卡在两屏之间内容离边跳 4vp，而有据的通用卡钉 16。
+这条与"跟不跟有据"无关，是 有径 自己不一致；但把 26 处收到 16 会让每一屏的卡面变松一圈，
+属于"改完必须逐屏量 bounds 反证"的批量改动（见 [[verify-batch-edits-by-measuring]]），
+所以登记成任务 #34，等设备空出来与 #30 那次实拍一起做。
+
+本轮零 LLM、未动任何用户数据、没碰设备（前台仍是有据）。
