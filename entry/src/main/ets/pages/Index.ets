@@ -40,6 +40,7 @@ import { HdsMiniBarButton } from '../components/HdsMiniBarButton';
 import { HDS_MATERIAL_LEVEL_EXQUISITE, HDS_MATERIAL_TYPE_IMMERSIVE } from '../utils/immersiveMaterial';
 import { TopStrip, TOP_STRIP_KEY, STRIP_CANVAS, STRIP_MAP } from '../utils/TopStrip';
 import { BOTTOM_NAV_INSET_KEY } from '../utils/navMode';
+import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
 
 const TAG: string = 'Index';
 
@@ -90,6 +91,8 @@ struct Index {
    *  旧写法 `floatingDockBottomMargin + navIndicatorHeight` 在看不到三键栏的机型上会多垫 27.8vp。
    */
   @StorageLink(BOTTOM_NAV_INSET_KEY) dockNavInset: number = 0;
+  /** 断点（唯一来源 utils/breakpointCenter.ets）：只用来选 dock 的 barWidth 档 */
+  @StorageProp(KEY_CURRENT_BREAKPOINT) bp: string = 'sm';
   /**
    * 顶部该用哪个底色资源名（画布 / 底图基色），与系统带同源、由 TopStrip 写。
    * 壳层 Column 必须跟着换：栏是透明的，栏区露的就是这层的底色 ——
@@ -482,6 +485,15 @@ struct Index {
       },
       barBottomMargin: LayoutTokens.floatingDockBottomMargin + this.dockNavInset,
       barSideMargin: LayoutTokens.pagePadding,
+      // 板宽显式给档（照「有据」`Index.barFloatingStyle.barWidth`）：不给的话官方按内容自己排，
+      // 真机实测排成 328.3vp——契约与有据都是 300（有据同位实量 [99,2427][1037,2602]÷3.125=300.2vp），
+      // 两台机器并排放就是两条长短不同的玻璃条。600vp 以上把 medium/large 取同值 560 的理由见
+      // LayoutTokens.floatingDockWideWidth 注释（有据的用户实测"切页底栏忽长忽短"）。
+      barWidth: {
+        smallWidth: LayoutTokens.floatingDockWidth,
+        mediumWidth: this.bp === 'sm' ? LayoutTokens.floatingDockMediumWidth : LayoutTokens.floatingDockWideWidth,
+        largeWidth: LayoutTokens.floatingDockWideWidth
+      },
       // 契约 §Translucency：三处玻璃栏面都带 92px 渐变遮罩把内容淡进栏里。
       // 顶栏那条由 IMMERSIVE_GRADIENT_BLUR 自带，dock 这条官方件不默认给，必须显式声明
       //（照「有据」`Index.barFloatingStyle` 同一份配方；色值走资源，深浅两档各一档）。

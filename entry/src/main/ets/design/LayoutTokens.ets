@@ -41,12 +41,20 @@ export interface LayoutTokensType {
   /** 底部 tab 栏高 */
   tabBarHeight: number;
   /**
-   * 契约 `layout.floating-dock-width` 的镜像值（`audit_geometry` 要求每个 layout 键都有同名 token）。
-   * ⚠ 它**不是**实现输入：dock 的实际宽度由 `HdsTabs.barFloatingStyle` 决定，
-   * 真机 dock 板 `[55,2427][1081,2602]` ÷ 3.125 = **328.3vp**，与契约的 300 不符。
-   * 这条差异已进本次迁移的契约待改清单（照「有据」实测基准），别靠改这里"对齐"。
+   * dock 板宽（vp）＝契约 `Floating dock 300 × 64px` 的**输入值**，不是读数。
+   * `HdsTabs.barFloatingStyle.barWidth.smallWidth` 直接吃它：不设 barWidth 时官方自己按
+   * 内容算，真机实测会排成 328.3vp（旧版就是这样），比契约和「有据」都宽 28vp。
+   * 有据侧同位实测量到 [99,2427][1037,2602] ÷ 3.125 = 300.2vp（`utils/cardTokens` 注释）。
    */
   floatingDockWidth: number;
+  /** 440–600vp 窗口的 medium 档板宽（有据 `Index.barFloatingStyle` 同值 420） */
+  floatingDockMediumWidth: number;
+  /**
+   * 600vp 以上窗口的 medium/large 两档**取同值** 560（照有据）：官方规则是 600–840vp 按
+   * Tabs 宽高比在 medium/large 间二选一，含资料区的页面会把宽高比压跌破 0.8，
+   * 于是切页时底栏忽长忽短（有据的用户实测反馈）。两档同值后跳档不存在。
+   */
+  floatingDockWideWidth: number;
   /**
    * 浮动 dock 距底基线（不含底部避让量；避让量由 `utils/navMode` 单源给出，见 `pages/Index` 的 `dockNavInset`）。
    * dock 真渲染尺寸：328.3 × 56vp，左右各离边 17.6vp（实测，非本文件算出）。
@@ -148,6 +156,8 @@ export const LayoutTokens: LayoutTokensType = {
   segmentedControlHeight: 36,
   tabBarHeight: 64,
   floatingDockWidth: 300,
+  floatingDockMediumWidth: 420,
+  floatingDockWideWidth: 560,
   floatingDockBottomMargin: 28,
   floatingDockBarHeight: 56,
   barGradientMaskHeight: 92,
