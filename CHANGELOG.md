@@ -577,6 +577,19 @@
 
 ### Changed
 
+- 2026-11-05（§5ci 续 197）：**L1 几何单源落地——底部避让量只有一个来源**。
+  旧写法 `barBottomMargin = floatingDockBottomMargin + navIndicatorHeight` 只看高度，
+  而手势胶囊 27.9vp 与真机三键栏 27.8vp 高度重叠、分不开。现由 `utils/navInset`（纯几何）
+  + `utils/navMode`（`settings` 权威信号 / avoidArea 宽度兜底 / 键观察者）算出 `bottomNavInsetVp`，
+  `pages/Index` 用 `@StorageLink` 在 build 里直读。真机手势档 dock 因此下移 27.84vp
+  （顶边 2340→2427px，板高 175px=56vp 与新 token `floatingDockBarHeight` 对齐）；
+  模拟器无 settings 键、走兜底，判出避让量 0（只看高度会误判成三键、白抬 28.8vp）。
+  17 屏 `verify_scroll_clearance` **pass**（最小净空 27.5vp）、hypium **251/251**、
+  新增第 19 把尺 `tools/audit_inset_source.py`（阳性对照是续 196 那条真缺陷 padding）。
+  三键档的真机数据点仍缺，已量化风险：各页底部预留按最大档钉 112vp，多的是空白不是遮挡。
+
+### Changed
+
 - 2026-11-05（§5ci 续 195）：**A 档——两条系统栏改透明，顶部带子的颜色只由视图层决定**。
   用户长期报「滚动时看出布局没撑满、通知栏区域与其他地方有色差」。取证发现带子本身与页面同色连续
   （屏8 深色 `y=0..386` 全程 L=18），真正的台阶在分段栏那块玻璃板（L=71）；

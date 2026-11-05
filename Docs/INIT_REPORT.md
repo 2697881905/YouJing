@@ -7671,3 +7671,57 @@ python 把反斜杠+n 当字面量塞进 import 行 → `Invalid character` + `h
 AreaMore 净空 190.7vp。内容整体上移 33.9vp 带来的 dock 遮挡风险到此销案。
 hypium 复跑 **246/246**。仍待真机人工对表的是 `verify_dock_tabs.sh` 的 §4j 六项
 （它要逐条看页签切换后的数据刷新，脚本给不出结论），与本次改动无关，属既有待办。
+
+## 2026-11-05 续 197：L1「几何单源」落地——避让量只有一个来源，dock 两态实测
+
+迁移计划 `Docs/superpowers/plans/2026-11-05-layout-structure-migration.md` Task 1–5，分支
+`feat/layout-structure-migration`（不在 main 上动，装机复验路径保持可用）。四层里的 **L1** 收口。
+
+**落了什么**
+
+1. `utils/navInset.ets`（新增，零 `@kit` 纯几何）：`spansFullWidth` / `isThreeButton` /
+   `computeNavInset` / `computeBarInset`。判定不能只看高度——手势胶囊实测 27.9vp、
+   真机三键栏实测 27.8vp，两档高度重叠，唯一分得开的是**避让矩形是否横贯整屏**（阈值 0.9）。
+2. `utils/navMode.ets`（新增，胶水层）：先读 `settings` 的 `float_navigation_info`
+   （`showType` 0=三键 / 1=悬浮球 / -1=手势，`region[3]` 给真实栏高），读不到才落 avoidArea 兜底；
+   另注册 `registerKeyObserver`，系统里改导航方式不用重启。发布键 `bottomNavInsetVp`。
+3. `utils/systemBar.ets`（新增）：HDS 滚回顶部会回写图标明暗，单发压不住，
+   补设 400/1000/1800/3000ms 四发。
+4. `pages/Index.ets`：dock 边距从 `floatingDockBottomMargin + navIndicatorHeight` 改成
+   `+ @StorageLink(BOTTOM_NAV_INSET_KEY) dockNavInset`；同时删掉已无消费方的
+   `statusBarHeight` 声明（全仓 `this.statusBarHeight` 零命中）。
+   响应式约定：**必须 @StorageLink 且在 build 属性里直读**，只挂 link 不进 build 时 ArkUI 不建绑定。
+5. `LayoutTokens`：新增 `floatingDockBarHeight: 56`（dock 板高真值）；
+   `floatingDockClearance` 仍钉 112（= 56 + 28 + 手势档 0 的 84 之外，再含三键档那 27.8），
+   按档派生留给 L4，本层不夹带观感变化。
+
+**实测数字（两态）**
+
+- **真机 Pocket 2（手势档，settings 键可用 `showType=-1`）**：dock 板从 `[55,2340][1080,2515]`
+  变为 `[55,2427][1081,2602]`——顶边 748.8vp → **776.6vp**，正好下移 27.84vp（旧代码多垫的那一档）；
+  板高 175px ÷ 3.125 = **56vp**，与新 token 对齐；dock 底距屏底 28.2vp = 基线 `floatingDockBottomMargin`。
+- **模拟器 Mate 90 Pro Max（1320×2848，密度 3.375，`settings` 无此键 → 走兜底）**：
+  日志 `float_navigation_info 为空，保持 avoidArea 兜底判定`，指示条 94px=27.85vp。
+  dock 板 `[106,2564][1214,2753]`：顶边 759.7vp、板高 189px=56vp、距屏底 27.9vp=基线 28
+  ⇒ **兜底判出的避让量是 0**。这条是反推出来的：`isThreeButton` 只要返回真，dock 就会抬到
+  `28 + 27.85 + 1`，实测没抬，所以宽度判据确实把它挡下了（屏底画的是居中胶囊，
+  实量 376px=111.4vp，只占屏宽 28.5%，远不横贯）。
+  **它是重叠区间在真实运行时里的证据**：只看高度会误判成三键、dock 白抬 28.8vp。
+- **三键档的真机数据点仍缺**：手上这台 Pocket 2 与本机模拟器都是手势档，切三键要真人改系统设置。
+  已量化风险而非当作未知：三键档 dock 会抬高 `barHeight+1≈28.8vp`，而各页底部预留按最大档钉 112vp，
+  多出来的是滚动区底部空白、不是遮挡；真机侧要补的一格已进 Day-0 待办。
+
+**闸门读数**
+
+- `verify_scroll_clearance.py`：**滚到底无遮挡 pass**，17 屏 dock 顶全为 776.6vp，
+  净空最小 27.5vp（Itinerary）/ 27.8vp（Share），其余 40.0–484.5vp。
+- 十九把静态尺全绿（新增第 19 把 `tools/audit_inset_source.py`，`--selftest` **阳性 3 / 阴性 3**；
+  R1 禁把 `statusBarHeight`/`navIndicatorHeight`/`navBarHeight` 写进 `padding|margin|height`，
+  R2 禁 dock 边距绕开 `bottomNavInsetVp`；豁免只有发布点三处）。
+  它的阳性对照就是续 196 那条真缺陷 padding。`type` 那条 PricingPage 14px 是既有待裁决项，不算新增。
+- hypium **251/251**（246 → 251 是 `NavInset.test.ets` 五条：重叠区间、悬浮球、宽度阈值两侧、手势归零）。
+- 产物自证：`abc` 里 `dockNavInset` ×4、`bottomNavInsetVp` ×1 才装机（`tools/build_install.sh` 判据）。
+
+**待真人的一格**：Task 3 的图标明暗补设要在**真人滚到顶**之后复拍才有效——
+注入 fling 触发不了 HDS 的滚动遮罩（记忆 `hdc-injected-fling-does-not-engage-hds-scroll-effects`），
+脚本自证会出假绿，所以这一格不以我的读数结案。

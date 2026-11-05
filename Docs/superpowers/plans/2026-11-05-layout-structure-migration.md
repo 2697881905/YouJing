@@ -41,7 +41,7 @@
   - `computeNavInset(heightVp: number, bottomRectWidthVp: number, windowWidthVp: number): number`（悬浮 dock 边距语义：手势恒 0）
   - `computeBarInset(heightVp: number, bottomRectWidthVp: number, windowWidthVp: number): number`（内容级底部内边距：手势 16）
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `entry/src/ohosTest/ets/test/NavInset.test.ets`：
 
@@ -98,7 +98,7 @@ export default function navInsetTest(): void {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 ```bash
 cd /Users/itxiaobai/HarmonyProject2 && DEVECO_SDK_HOME=/Applications/DevEco-Studio.app/Contents/sdk \
@@ -107,7 +107,7 @@ cd /Users/itxiaobai/HarmonyProject2 && DEVECO_SDK_HOME=/Applications/DevEco-Stud
 ```
 Expected: 编译失败，报 `Cannot find module '../utils/navInset'`（模块还不存在，这就是失败态）。
 
-- [ ] **Step 3: 写最小实现**
+- [x] **Step 3: 写最小实现**
 
 创建 `entry/src/main/ets/utils/navInset.ets`：
 
@@ -163,11 +163,11 @@ export function computeBarInset(heightVp: number, bottomRectWidthVp: number, win
 }
 ```
 
-- [ ] **Step 4: 注册测试套**
+- [x] **Step 4: 注册测试套**
 
 Modify `entry/src/ohosTest/ets/test/List.test.ets`：在 import 区末尾加 `import navInsetTest from './NavInset.test';`，在 `export default function testsuite() {` 体内加一行 `navInsetTest();`。（不注册就不跑——这是本仓已知陷阱。）
 
-- [ ] **Step 5: 跑测试确认通过**
+- [x] **Step 5: 跑测试确认通过**
 
 ```bash
 cd /Users/itxiaobai/HarmonyProject2 && DEVECO_SDK_HOME=/Applications/DevEco-Studio.app/Contents/sdk \
@@ -180,7 +180,7 @@ cd /Users/itxiaobai/HarmonyProject2 && DEVECO_SDK_HOME=/Applications/DevEco-Stud
 ```
 Expected: `Tests run: 251, Failure: 0, Error: 0`（基线 246 + 本任务 5 例）。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add entry/src/main/ets/utils/navInset.ets entry/src/ohosTest/ets/test/NavInset.test.ets entry/src/ohosTest/ets/test/List.test.ets
@@ -206,7 +206,7 @@ git commit -m "feat(布局): 底部避让判定抽成零依赖纯模块 navInset
   - `bottomNavInset(): number`（非响应式取现值，给不方便挂 `@StorageLink` 的调用点）
   - `isThreeButtonNav(): boolean`
 
-- [ ] **Step 1: 写实现**
+- [x] **Step 1: 写实现**
 
 创建 `entry/src/main/ets/utils/navMode.ets`：
 
@@ -350,7 +350,7 @@ export function publishNavAvoid(win: window.Window): void {
 }
 ```
 
-- [ ] **Step 2: 接 EntryAbility**
+- [x] **Step 2: 接 EntryAbility**
 
 Modify `entry/src/main/ets/entryability/EntryAbility.ets`：
 
@@ -371,14 +371,14 @@ import { initNavModeWatcher, refreshNavMode, publishNavAvoid } from '../utils/na
       refreshNavMode(this.context);
 ```
 
-- [ ] **Step 3: 编译验证**
+- [x] **Step 3: 编译验证**
 
 ```bash
 tools/build_install.sh default
 ```
 Expected: `BUILD SUCCESSFUL` → 装机成功；无 `arkts-no-misplaced-imports`、无索引签名错误。
 
-- [ ] **Step 4: 真机取一次日志**
+- [x] **Step 4: 真机取一次日志**
 
 ```bash
 /Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hdc shell aa start -b com.youjing.app -a EntryAbility
@@ -387,7 +387,7 @@ sleep 5
 ```
 Expected: 出现 `settings 权威信号=…` 或 `兜底判据=…` 其中一条——证明链路真的跑到了，不是静默失败。**没有日志就是没接上，不许进下一步。**
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add entry/src/main/ets/utils/navMode.ets entry/src/main/ets/entryability/EntryAbility.ets
@@ -407,7 +407,7 @@ git commit -m "feat(布局): navMode 胶水层——settings 权威信号 + avoi
 - Consumes: `EntryAbility.applySystemBarSurface()`（已有，private → 本次经 refresher 注入，不改可见性）
 - Produces: `setSystemBarRefresher(fn: () => void): void`、`requestSystemBarRefresh(): void`
 
-- [ ] **Step 1: 写实现**
+- [x] **Step 1: 写实现**
 
 创建 `entry/src/main/ets/utils/systemBar.ets`：
 
@@ -446,7 +446,7 @@ export function requestSystemBarRefresh(): void {
 }
 ```
 
-- [ ] **Step 2: EntryAbility 注册**
+- [x] **Step 2: EntryAbility 注册**
 
 Modify `entry/src/main/ets/entryability/EntryAbility.ets`：import 区加 `import { setSystemBarRefresher } from '../utils/systemBar';`；在 `onWindowStageCreate` 里 `makeImmersive(windowStage)` 调用**之后**加：
 ```ets
@@ -455,7 +455,7 @@ Modify `entry/src/main/ets/entryability/EntryAbility.ets`：import 区加 `impor
     });
 ```
 
-- [ ] **Step 3: 样板页接回顶触发**
+- [x] **Step 3: 样板页接回顶触发**
 
 Modify `entry/src/main/ets/pages/YoujingStartPage.ets`，在 `syncBarScroll()` 里（现有 `if (on !== this.barScrolled)` 之后）加：
 ```ets
@@ -468,6 +468,9 @@ Modify `entry/src/main/ets/pages/YoujingStartPage.ets`，在 `syncBarScroll()` �
 并在类字段区加 `private wasScrolled: boolean = false;`，import 区加 `import { requestSystemBarRefresh } from '../utils/systemBar';`。
 
 - [ ] **Step 4: 真机验证（必须真人）**
+
+> **执行时状态（2026-11-05）**：代码侧已落地并提交（`bc2de7e`），这一步**等人**。
+> 注入 fling 触发不了 HDS 滚动遮罩，脚本自证会出假绿，所以图标明暗只能真人滚到顶后被动抓帧。
 
 ```bash
 tools/build_install.sh default
@@ -484,7 +487,7 @@ print('状态栏图标区最亮点', max(row), '背景', sorted(row)[len(row)//2
 ```
 Expected: `✅ 图标可见`。深浅两档各跑一次（浅色用 `--ps lightprobe 1` 冷启）。**这一步脚本无法自证（注入 fling 不触发 HDS 特效），必须真人配合。**
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add entry/src/main/ets/utils/systemBar.ets entry/src/main/ets/entryability/EntryAbility.ets entry/src/main/ets/pages/YoujingStartPage.ets
@@ -505,7 +508,7 @@ git commit -m "feat(布局): 系统栏补设通道——HDS 滚回顶部会回�
 - Consumes: Task 2 的 `BOTTOM_NAV_INSET_KEY`
 - Produces: `LayoutTokens.floatingDockBarHeight: number = 56`（有据 dock 栏高真值），`floatingDockClearance` 改为 `floatingDockBarHeight + floatingDockBottomMargin + 12` 的派生注释（值保持 112 不变，避免本层夹带观感变化）
 
-- [ ] **Step 1: 写失败尺**
+- [x] **Step 1: 写失败尺**
 
 创建 `tools/audit_inset_source.py`：
 
@@ -590,14 +593,14 @@ if __name__ == '__main__':
     sys.exit(main())
 ```
 
-- [ ] **Step 2: 跑尺确认它现在是红的**
+- [x] **Step 2: 跑尺确认它现在是红的**
 
 ```bash
 python3 tools/audit_inset_source.py
 ```
 Expected: `自测通过：阳性 2 / 阴性 3`，随后 `避让量来源：偏差 1 项` 并列出 `Index.ets:246` 的 `+ this.navIndicatorHeight`，退出码 1。（**尺必须先红**，红了才证明它抓得到真东西。）
 
-- [ ] **Step 3: 改 Index 消费方式**
+- [x] **Step 3: 改 Index 消费方式**
 
 Modify `entry/src/main/ets/pages/Index.ets`：
 
@@ -625,14 +628,14 @@ import { BOTTOM_NAV_INSET_KEY } from '../utils/navMode';
       barBottomMargin: LayoutTokens.floatingDockBottomMargin + this.dockNavInset,
 ```
 
-- [ ] **Step 4: 跑尺确认转绿 + 编译装机**
+- [x] **Step 4: 跑尺确认转绿 + 编译装机**
 
 ```bash
 python3 tools/audit_inset_source.py && tools/build_install.sh default
 ```
 Expected: `避让量来源：偏差 0 项` + `BUILD SUCCESSFUL` + 装机成功。
 
-- [ ] **Step 5: 真机净空复验**
+- [x] **Step 5: 真机净空复验**
 
 ```bash
 python3 tools/verify_scroll_clearance.py
@@ -666,7 +669,7 @@ Expected: dock 顶边 y = **2427px（776.6vp）**，即迁移前记录值 2340px
 本行原写「与 2340px 差 ≤3px」，那是单源化之前的旧判据，与本段上方的执行时修正冲突，已作废。
 另附 dock 板高实测 2602-2427=175px ÷ 3.125 = **56vp**，与新 token `floatingDockBarHeight` 对齐。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add entry/src/main/ets/pages/Index.ets tools/audit_inset_source.py README.md
@@ -685,14 +688,14 @@ git commit -m "feat(布局): dock 边距改读 navMode 单源 + 第 19 把尺 au
 - Consumes: Task 1–4 全部产物
 - Produces: L1 的验收记录（三键/手势两态 dock 位置、图标明暗补设、尺数十九把）
 
-- [ ] **Step 1: 跑全量闸门**
+- [x] **Step 1: 跑全量闸门**
 
 ```bash
 for r in colors type geometry material fontfamily tnum elevation button_width scroll_actions label_fit a11y_name layout_patterns skip_worktree motion bar_scroll seed self_call span_source inset_source; do printf "%-15s " $r; python3 tools/audit_$r.py 2>&1 | tail -1 | cut -c1-70; done
 ```
 Expected: 十九把全部无新增红（`type` 那条「待裁决」是既有项，不算新增）。
 
-- [ ] **Step 2: hypium 全量**
+- [x] **Step 2: hypium 全量**
 
 ```bash
 export DEVECO_SDK_HOME=/Applications/DevEco-Studio.app/Contents/sdk && HDC=/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hdc && \
@@ -704,13 +707,22 @@ Expected: `Tests run: 251, Failure: 0, Error: 0`。
 
 - [ ] **Step 3: 三键态实测（模拟器）**
 
+> **执行时状态（2026-11-05）**：本步的前提「模拟器可切三键导航」在本机不成立——
+> Mate 90 Pro Max 起出来就是**手势胶囊**（屏底实量 376px=111.4vp，占屏宽 28.5%），
+> 且 `hdc` 没有切导航方式的命令、`settings` 键在这台上查不到（`QueryValue failed, rows=0`）。
+> 已拿到的等价证据：**兜底链路在这台无 settings 键的机器上跑通并判对**——
+> 指示条 94px=27.85vp（与真机三键栏 27.8vp 重叠），若只看高度就会误判三键、dock 白抬 28.8vp；
+> 实测 dock 板 `[106,2564][1214,2753]`，距屏底 27.9vp=基线 28 ⇒ 避让量 0，宽度判据挡下了误判。
+> **仍缺的真数据点**：真三键档下 dock 顶边是否抬高 `barHeight+1`。要么真人把 Pocket 2 系统设置切成三键，
+> 要么等一台默认三键的设备；风险已量化（各页底部预留按最大档 112vp 钉死，多的是空白不是遮挡）。
+
 在模拟器（可切三键导航）上装机后取 dock 顶边，与手势态对比：
 ```bash
 python3 tools/verify_scroll_clearance.py
 ```
 Expected: 三键态下 dock 顶边比手势态**高约 28.8vp**（栏高 + 1），且 `滚到底无遮挡 pass`；手势态数值不变。若模拟器拿不到 settings 键，日志应出现 `兜底判据=…`，此时用「宽度占比」那条兜底也能判对——这正是 Task 1 用例钉的重叠区间。
 
-- [ ] **Step 4: 写文档并提交**
+- [x] **Step 4: 写文档并提交**
 
 `Docs/INIT_REPORT.md` 新增一节「续 N：L1 几何单源落地」，必须含：三键/手势两态实测数字、图标补设的真人验证结论、第 19 把尺的自测阳性/阴性条数、`verify_scroll_clearance` 读数。`CHANGELOG.md` 的 `### Changed` 顶部加一条同主题条目。
 
