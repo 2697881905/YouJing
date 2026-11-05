@@ -7778,6 +7778,51 @@ hypium 复跑 **246/246**。仍待真机人工对表的是 `verify_dock_tabs.sh`
 把注释里的 `HdsChrome.bar(` 数成一个未表态调用点（22→23、报 Index:303）。
 尺现在跳过 `//` 与 `*` 开头的行，自测多了一条「注释不算调用点」的控制样本。
 
+## 2026-11-05 续 199：L4 收口——dock 尺寸是读数不是改动、净空保持最大档，契约待改清单出稿
+
+迁移计划 Task 8–9。四层到此：**L1 落地 / L2 落地 / L3 证伪 / L4 停在真人检查点**。
+
+### dock 尺寸：契约的 300×64 从来不是实现输入
+
+Task 8 写的是「按有据基准把 dock 改成 328.3×56、预留 84」。真机量下来 dock 板
+`[55,2427][1081,2602]` ÷ 3.125 = **328.3 × 56vp**，左右各离边 17.6vp——它本来就是有据基准，
+因为尺寸由 `HdsTabs.barFloatingStyle` 里官方件自己排，`LayoutTokens.floatingDockWidth: 300`
+**全仓零消费点**。所以这一步没有"改尺寸"，只有把两个 token 的注释写成实话：
+它们是契约镜像（`audit_geometry.py` 要求每个 layout 键都有同名 token），不是输入。
+我一开始把这两个 token 删了，`audit_geometry` 立刻报「契约缺 token 字段（必须补）」2 项——
+这条尺的作用就在这儿，于是按它的口径恢复原值、只改注释。
+
+### 净空为什么保持 112 而不是 84
+
+`floatingDockClearance` 的构成是 `栏体 56 + 基线 28 + 底部避让量`。
+手势档避让量 0 ⇒ 84vp（实测 (2690-2427)÷3.125 = 84.2vp，与公式对上）；
+三键档避让量 `栏高+1≈28.8vp` ⇒ 需要 **112.8vp**。按 84 钉，三键档就会把末行压进 dock 底下
+28.8vp——这是算术不是猜测，而本机（Pocket 2 手势档 + Mate 90 Pro Max 手势胶囊）**没有三键设备可复验**。
+多留的那 28vp 在手势档只是滚动区底部空白，不是遮挡。**按档派生才是正解**，
+但它要求 24 处 `bottom: floatingDockClearance` 都能直读 `dockNavInset`，那是独立一轮的活，
+不在这一层夹带。
+
+### L4 跟手收起：不合入未验证的代码
+
+`dynamicHideTitleBar` 有两个硬前提：① 必须配 `enableComponentSafeArea=false` 才不会让内容跑
+2.2 倍速（真机踩过、`hideRatio` 治不了），而 false 就是穿底形态，动的正是续 198 刚证伪的那块顶边几何；
+② 这一层脚本无法自证——注入 fling 不触发 HDS 滚动特效，脚本复拍只会得到"两态一样"的假绿。
+按「无法验证的代码不合入」，这一格停在真人检查点（任务 #26），要真人跑的是：
+五格各滚到底再回顶，看顶栏收起有无跳变、内容位置是否抖、地图格顶边是否退回渐变，深浅两档各一遍。
+
+### 契约待改清单出稿（`Docs/superpowers/specs/2026-11-05-契约待改清单.md`）
+
+四条逐条给「契约原文 / 迁移后实现 / 实测证据 / 建议改法 / 状态」，结论是
+**C4 已落地（建议契约把 "28px above the system nav inset" 改写清楚）、
+C2 不用改实现（建议契约按真渲染 328.3×56 改）、
+C3 被真机证伪（契约保持原样，补一句实现约束）、
+C1 等真人验收再谈**。DESIGN.md 本体一个字没动。
+
+**收口读数**：十九把尺无新增红（`type` 那条 PricingPage 14px 是既有待裁决项）；
+`bar` 调用点 22 处未表态 0；`inset_source` 偏差 0；`geometry` 偏差 0；
+hypium 251/251；`verify_scroll_clearance` 最近一次全跑（L2 之后）17 屏 pass、
+dock 顶边逐屏 776.6vp——L3 已回退、L4 只改注释，滚动几何自那次起未变，故未重复跑 15 分钟的全量。
+分支 `feat/layout-structure-migration` 上共 7 个提交（`e36001a`→`1f53115`），未 push。
 ## 2026-11-06 续 200：dock 参数级对表——92vp 渐变遮罩此前整条漏做
 
 迁移四层收口后接着做**参数级对表**（把有据 `Index.barFloatingStyle` 的字段逐个比过来），
@@ -7828,50 +7873,41 @@ hypium 复跑 **246/246**。仍待真机人工对表的是 `verify_dock_tabs.sh`
 这条写进尺外教训：**判"某个字段没生效"之前，先确认自己量的位置就是它作用的位置。**
 
 **闸门**：`audit_colors` 53 件偏差 0、`audit_material` 0、`audit_geometry` 0、
-双 HAP `BUILD SUCCESSFUL` 且装机断言通过；hypium 见本条末尾补跑读数。本轮零 LLM、未动任何用户数据。
+双 HAP `BUILD SUCCESSFUL` 且装机断言通过；hypium 在同一产物上 **251/251**。本轮零 LLM、未动任何用户数据。
 
-## 2026-11-05 续 199：L4 收口——dock 尺寸是读数不是改动、净空保持最大档，契约待改清单出稿
+## 2026-11-06 续 201：md 档 dock 第一次量到——barWidth 那格判「不跟」；液态胶囊确认官方没有路
 
-迁移计划 Task 8–9。四层到此：**L1 落地 / L2 落地 / L3 证伪 / L4 停在真人检查点**。
+覆盖对表（`Docs/superpowers/specs/2026-11-05-layout-structure-migration-design.md` §10）还剩两格要证据，
+这轮把第一格量完了。
 
-### dock 尺寸：契约的 300×64 从来不是实现输入
+**md 档 dock 首帧**（Mate X7 模拟器展开态，窗口 2210×2416px，密度 3.125 ⇒ 707.2×773.1vp）：
 
-Task 8 写的是「按有据基准把 dock 改成 328.3×56、预留 84」。真机量下来 dock 板
-`[55,2427][1081,2602]` ÷ 3.125 = **328.3 × 56vp**，左右各离边 17.6vp——它本来就是有据基准，
-因为尺寸由 `HdsTabs.barFloatingStyle` 里官方件自己排，`LayoutTokens.floatingDockWidth: 300`
-**全仓零消费点**。所以这一步没有"改尺寸"，只有把两个 token 的注释写成实话：
-它们是契约镜像（`audit_geometry.py` 要求每个 layout 键都有同名 token），不是输入。
-我一开始把这两个 token 删了，`audit_geometry` 立刻报「契约缺 token 字段（必须补）」2 项——
-这条尺的作用就在这儿，于是按它的口径恢复原值、只改注释。
+| 页签 | dock 板 bounds | 换算 |
+| --- | --- | --- |
+| 规划 | `[602,2153][1608,2328]` | **321.9 × 56vp**，中心 x=1105 = 窗口中心 |
+| 我的 | `[602,2153][1608,2328]` | 完全一致 |
 
-### 净空为什么保持 112 而不是 84
+有据设 `barWidth` 是因为它撞过一条用户实测反馈：「我的」页标题栏含资料区、内容区显著变矮，
+600–840vp 窗口下 Tabs 宽高比跌破 0.8，系统在 medium/large 之间跳档 ⇒ **切页时底栏忽长忽短**。
+我特意挑「规划 vs 我的」这两格做对照（后者就是那个扳机位），**两档读数一模一样、不跳**。
+手机档两边也都是 328.3×56vp。⇒ **这一格判「不跟」**：没有差异可治，设了 `barWidth` 反而会
+把 md 档从 321.9vp 强行改成 560vp，那是制造变化不是对齐。
 
-`floatingDockClearance` 的构成是 `栏体 56 + 基线 28 + 底部避让量`。
-手势档避让量 0 ⇒ 84vp（实测 (2690-2427)÷3.125 = 84.2vp，与公式对上）；
-三键档避让量 `栏高+1≈28.8vp` ⇒ 需要 **112.8vp**。按 84 钉，三键档就会把末行压进 dock 底下
-28.8vp——这是算术不是猜测，而本机（Pocket 2 手势档 + Mate 90 Pro Max 手势胶囊）**没有三键设备可复验**。
-多留的那 28vp 在手势档只是滚动区底部空白，不是遮挡。**按档派生才是正解**，
-但它要求 24 处 `bottom: floatingDockClearance` 都能直读 `dockNavInset`，那是独立一轮的活，
-不在这一层夹带。
+**第二格（液态选中胶囊）确认官方件里没有这条路**：SDK
+`.../ets-loader/components/hds_tabs.json` 的 attrs 全表是
+`vertical scrollable barMode barWidth barHeight animationDuration onChange onAnimationStart onAnimationEnd
+onGestureSwipe barPosition barOverlap barBackgroundColor customContentTransition barBackgroundBlurStyle
+onContentWillChange animationMode edgeEffect onTabBarClick fadingEdge divider barGridAlign
+barBackgroundEffect pageFlipMode onSelected onUnselected cachedMaxCount barBackgroundStyle`
+——**没有任何选中指示器/胶囊类属性**。所以只能照有据做覆盖层 + 内联官方 `hds_button` 源码
+（`HdsMiniBarButton.ets`，6.3KB）。有据的动机出自华为官方文章《对沉浸光感tabbar的优化改造》两条痛点，
+其基线 §7.6.32 逐条对表：痛点①（高光与图标同层盖住图标）**不存在**，
+痛点②（**选中只靠 fillColor，通透背景下辨识度不足**）**正中**——有径的选中态同样只换
+`primary` vs `icon` 一个颜色，所以这条对我们成立，值得做。
+但它是有感的视觉件（体积、rim、行进动画），要真人看过效果才算收口，这轮不动手。
 
-### L4 跟手收起：不合入未验证的代码
+**顺带一条模拟器边界**（记下来省下次时间）：Mate X7 展开态首装会回到隐私同意闸门，
+`同意并继续` 那颗官方 Button **按父 Button 的 bounds 中心点得动**（点文本节点位置不行）；
+过闸门后还要点「暂不登录，使用本机游客空间」才进五格。`snapshot_display` 与 `file recv`
+在这台上一度挂死，但 `uitest dumpLayout` 一直可用——**量几何不需要截图，别被截图卡住整轮**。
 
-`dynamicHideTitleBar` 有两个硬前提：① 必须配 `enableComponentSafeArea=false` 才不会让内容跑
-2.2 倍速（真机踩过、`hideRatio` 治不了），而 false 就是穿底形态，动的正是续 198 刚证伪的那块顶边几何；
-② 这一层脚本无法自证——注入 fling 不触发 HDS 滚动特效，脚本复拍只会得到"两态一样"的假绿。
-按「无法验证的代码不合入」，这一格停在真人检查点（任务 #26），要真人跑的是：
-五格各滚到底再回顶，看顶栏收起有无跳变、内容位置是否抖、地图格顶边是否退回渐变，深浅两档各一遍。
-
-### 契约待改清单出稿（`Docs/superpowers/specs/2026-11-05-契约待改清单.md`）
-
-四条逐条给「契约原文 / 迁移后实现 / 实测证据 / 建议改法 / 状态」，结论是
-**C4 已落地（建议契约把 "28px above the system nav inset" 改写清楚）、
-C2 不用改实现（建议契约按真渲染 328.3×56 改）、
-C3 被真机证伪（契约保持原样，补一句实现约束）、
-C1 等真人验收再谈**。DESIGN.md 本体一个字没动。
-
-**收口读数**：十九把尺无新增红（`type` 那条 PricingPage 14px 是既有待裁决项）；
-`bar` 调用点 22 处未表态 0；`inset_source` 偏差 0；`geometry` 偏差 0；
-hypium 251/251；`verify_scroll_clearance` 最近一次全跑（L2 之后）17 屏 pass、
-dock 顶边逐屏 776.6vp——L3 已回退、L4 只改注释，滚动几何自那次起未变，故未重复跑 15 分钟的全量。
-分支 `feat/layout-structure-migration` 上共 7 个提交（`e36001a`→`1f53115`），未 push。

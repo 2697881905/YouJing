@@ -175,12 +175,15 @@ L1 → 复验 → 提交 → L2 → 复验 → 提交 → L3 → 复验 → 提�
 | 8 | 「没有带子概念」：顶边基色交给栏体 | — | **平台不支持，已证伪** | 栏体给实心色时 dump 的 `TitleBar` 仍 `#00000000`；同机位三列对照（§5ci 续 198） |
 | 9 | dock `barFloatingStyle`：材质 / `barBottomMargin` / `barSideMargin` | `pages/Index:221` | **已落地** | 材质同为 IMMERSIVE/EXQUISITE；实测 328.3×56vp 与有据基线一致 |
 | 10 | dock `gradientMask`（92vp 渐变遮罩） | `gradientMask` + `glass_bar_gradient_mask` | **已落地并 A/B 复拍** | 契约 §1067 三处玻璃面都要，此前整条漏；`audit_colors` 52→53 件偏差 0；`b55ba6b`。A/B：「我的」格 dock 背后无内容当对照位，栏内逐行 +2/+1/+5/+7/+6 L，dock 上方无带子、下方无亮边；hypium 251/251（§5ci 续 200） |
-| 11 | dock `barWidth` 档位（medium/large 同值治「切页忽长忽短」） | 未设，走官方默认 | **待 md 档两帧** | 手机档两边实测同为 328.3vp，无差异可治；折叠/平板证据拿不到（模拟器文件通道挂） |
+| 11 | dock `barWidth` 档位（medium/large 同值治「切页忽长忽短」） | 未设，走官方默认 | **判为不跟（已量）** | 2026-11-06 Mate X7 模拟器展开态实测：窗口 2210px=707.2vp（md 档），dock 板 `[602,2153][1608,2328]` = **321.9 × 56vp**，中心 1105 正好是窗口中心；**规划格与「我的」格两次读数完全相同**——而有据那条缺陷的扳机正是「我的页标题栏含资料区使内容区显著变矮 → Tabs 宽高比跌破 0.8 → 系统在 medium/large 间跳档」，在有径不复现。手机档两边同为 328.3×56vp。所以这里没有差异可治，不跟 |
 | 12 | 悬浮玻璃的 API 门（`@since 6.1.0(23)`） | 无门 | **不该跟** | 有径 `compatibleSdkVersion 26.0.0`，门是死代码 |
 | 13 | 顶栏跟手收起 `dynamicHideTitleBar` + `bindToScrollable` | 未合入 | **待真人**（任务 #26） | 前提是 `enableComponentSafeArea=false`，正是第 8 条撞车处 |
-| 14 | dock 液态选中胶囊（`dockPill*` 覆盖层 + 按压缩放 + 落影收紧） | **零实现**（有据 `Index.ets` 内 131 处） | **未开始的下一层** | 已知两个坑必须先躲：`componentUtils.getRectangleById` 对 TabBar 子树 y 偏低 88px（要用 `onAreaChange` 窗口坐标同源）；胶囊里那份不能用 `@Builder` 传参（值快照不刷，要靠 key 随 `dockPillCovered` 的 `ForEach` 强制重建） |
+| 14 | dock 液态选中胶囊（`dockPill*` 覆盖层 + 按压缩放 + 落影收紧） | **零实现**（有据 `Index.ets` 内 131 处） | **未开始的下一层** | 官方件里没有这条路：SDK `hds_tabs.json` 的 attrs 全表（`barMode/barWidth/barOverlap/barBackgroundColor/barBackgroundEffect/barBackgroundStyle/fadingEdge/divider/customContentTransition/onSelected`…）**没有任何选中指示器属性**，只能做覆盖层 + 内联官方 `hds_button` 源码（有据 `components/HdsMiniBarButton.ets`，6.3KB）。有据动机出自华为开发者联盟文章《对沉浸光感tabbar的优化改造》，其基线 §7.6.32 逐条对表：**痛点①（高光与图标同层）不存在**（TabBar 下只有 5 个 Column、无表面节点），**痛点②（选中只靠 fillColor，通透背景下辨识度不足）正中**——有径是同一形态（选中只换 `primary` vs `icon`），所以这条对我们同样成立。已知两个必躲的坑：`componentUtils.getRectangleById` 对 TabBar 子树 y 偏低 88px（实测槽位 y=2439、接口回 2527），要用 `onAreaChange` 窗口坐标并与 `.position()` 同源；胶囊里那份不能用 `@Builder` 传参（值快照不刷，要靠 key 随 `dockPillCovered` 的 `ForEach` 强制重建）。另：真磨砂必然糊掉下层官方图标，**胶囊内复制一份内容是必需品不是美化**；浅色档 Dock 已到 251/上限 255，体积只能靠反向压暗做（§7.6.27 结论 3） |
 | 15 | 一镜到底转场（`customNavContentTransition` + `componentSnapshot`） | **零实现** | **未开始** | 属转场体系不是布局骨架；要不要做是产品取舍，没替用户拍 |
 
-**读法**：1–7、9、10 已按有据落地；8 是平台限制不是偷懒（有对照读数）；11、13、14、15 是**还剩的四格**，
-其中 13/14 需要设备与真人，11 需要折叠屏/平板帧，15 需要产品决定。
+**读法**：1–7、9、10 已按有据落地（10 有 A/B 复拍）；8 是平台限制不是偷懒（有对照读数）；
+11 与 12 经实测**判为不跟**（11 = md 档切页不跳宽，12 = 有径 API 26 上那道门是死代码）；
+还剩两格：**13 顶栏跟手收起**（要真人，且前提是穿底，正撞第 8 条）、
+**14 dock 液态选中胶囊**（官方件无选中指示器属性，只能覆盖层 + 内联 `hds_button`；
+有据的痛点②「只靠 fillColor 辨识度不足」在有径同样成立）。
 所以「按有据的界面结构和布局体系来」这条目标**尚未全部达成**，本表就是它的剩余清单。
