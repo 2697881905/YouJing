@@ -39,10 +39,23 @@ SELFTEST = [
      '规范档换成 sm 时 base 就成了偏差'),
     ('  .padding(0)\n  .borderRadius(RadiusTokens.card)\n', 'base', False,
      '整宽按钮披卡圆角：padding(0) 是满铺，不是混用'),
+    ('      .padding(SpaceTokens.sm)\n      }\n      .width(\'100%\')\n'
+     '      .height(200)\n      .borderRadius(RadiusTokens.card)\n', 'base', False,
+     'padding 属于上一个兄弟节点（跨出链）——地图卡那行覆盖钮的真形状'),
+    ('  .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })\n'
+     '  .borderRadius(RadiusTokens.card)\n', 'base', False,
+     '只有上下节奏、横向在父级：拖动态行'),
+    ('  .height(\'100%\')\n  .borderRadius(RadiusTokens.card)\n  .clip(true)\n', 'base', False,
+     '媒体铺满卡（clip 容器）本来就没有内容内缩：地图卡/分组容器'),
+    ('  .padding(SpaceTokens.base)\n  .borderRadius(RadiusTokens.card)\n  .clip(true)\n', 'base', False,
+     'clip 不影响判定：规范档仍是规范档'),
 ]
 
 
 FLUSH = re.compile(r'\.padding\(\s*0\s*\)')
+
+
+BLOCK_CLOSE = re.compile(r'^\s*}\s*(?:,\s*)?$')
 
 
 def nearest_padding_token(lines, idx):
@@ -53,6 +66,11 @@ def nearest_padding_token(lines, idx):
     内缩由里面的内容自己给，不是卡面内缩——算进偏差就是把一种有意的满铺件当成混用。
     """
     for j in range(idx, max(-1, idx - LOOKBACK), -1):
+        if j != idx and BLOCK_CLOSE.match(lines[j]):
+            # 已经跨出当前节点的属性链：这个 padding 属于**上一个兄弟节点**，
+            # 不是这张卡的内缩。真例：`ItineraryPage.ets:1297` 是地图卡里那行覆盖钮的
+            # padding，`1303` 的 `borderRadius(card)` 属于父卡——配对起来就是假偏差。
+            return None, None
         if PADDING.search(lines[j]):
             if FLUSH.search(lines[j]):
                 return '满铺豁免', j + 1
@@ -61,6 +79,10 @@ def nearest_padding_token(lines, idx):
                 # 不是卡面 16，判成混用就是把弹窗当卡（`PrivacyConsentDialog.ets:101`、
                 # `BadgeEarnedDialog.ets:78` 两例）。
                 return '面板豁免', j + 1
+            if 'left' not in lines[j] and 'right' not in lines[j] and '{' in lines[j]:
+                # `.padding({ top: xs, bottom: xs })`：只给上下节奏，横向内缩在父级，
+                # 不是卡内容内缩。真例：`EditItineraryPage.ets:424` 的拖动态行。
+                return '无横向内缩', j + 1
             m = TOKEN_IN.search(lines[j])
             return (m.group(1) if m else '字面量'), j + 1
     return None, None
@@ -82,8 +104,11 @@ def scan(path, canonical):
             continue
         tok, ln = nearest_padding_token(lines, i)
         if tok is None:
-            out.append((path, i + 1, '无 padding', ln, '卡面没有具名内缩'))
-        elif tok in ('满铺豁免', '面板豁免'):
+            # 链里没有 padding **不算偏差**：媒体铺满的卡（地图卡、分组容器）本来就没有内容内缩，
+            # 内缩由里面的行自己给（真例 `TripMapView.ets:319`、`SpotPickPage.ets:547`、
+            # `StayPickPage.ets:513`）。这条与自测同口径，免得"放宽尺子"和"归零"混为一谈。
+            pass
+        elif tok in ('满铺豁免', '面板豁免', '无横向内缩'):
             pass
         elif tok != canonical:
             out.append((path, i + 1, tok, ln, '与规范档 %s 不一致' % canonical))
@@ -98,7 +123,7 @@ def selftest(canonical):
         for i, line in enumerate(lines):
             if CARD_RADIUS.search(line):
                 tok, _ = nearest_padding_token(lines, i)
-                hit = (tok is not None and tok not in (canon, '满铺豁免', '面板豁免'))
+                hit = (tok is not None and tok not in (canon, '满铺豁免', '面板豁免', '无横向内缩'))
         if hit != expect_hit:
             print('  SELFTEST FAIL %s -> got=%s want=%s' % (note, hit, expect_hit))
             bad += 1
