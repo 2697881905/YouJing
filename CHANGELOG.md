@@ -577,6 +577,21 @@
 
 ### Changed
 
+- 2026-11-06（§5ci 续 204）：**通用底部滚动预留按档派生——契约外欠账 #1 结案**。
+  契约 `Bottom scroll reserve = 94px + nav inset`（DESIGN.md:1014）写了加档，实现没写：
+  `TripInputPage` / `PreferenceQAPage` 两处都填裸 `94`。94 是**手势档**的数（dock 净空 84 + 10 余量），
+  三键档 dock 整条多让 27.84vp 后栏顶抬到 111.84vp，94 就剩"末行藏进栏底 18vp"——
+  与 C4 同一条算术，这次漏在页面侧（有据同类写法早有先例：`PublishPreviewPage` 的 `md + bottomNavInset()`）。
+  两处各加 `@StorageLink(BOTTOM_NAV_INSET_KEY) dockNavInset` 并在 build 属性里直读，
+  键取 `bottomNavInsetVp` 而非 `bottomBarInsetVp`（后者手势档也加指示条高度，会把现有像素顶高 28vp）。
+  第 19 把尺扩 **R3**（`bottomScrollReserve` 出现却不含 `dockNavInset` 判偏差）：先跑红正好抓到那两处，
+  改完转绿，自测阳性 3→4 / 阴性 3→4。真机复量：屏2 末端最低内容底边 2301px、dock 顶 2427px，
+  净差 126px 没藏；屏4 四道题比视口短、预留这屏吃不到（只证明没弄坏）；
+  三键档本机测不了（切系统导航方式不该拿用户设备做实验），加档值由 `utils/navInset` 5 例钉着。
+  其余 26 处 `floatingDockClearance: 112` 是最大档上界、任何档都盖得住，不属本尺范围（续 199 已记取舍）。
+  闸门：十九把尺全绿、hypium **251/251**、双包构建装机断言通过，
+  产物新鲜度按 `modules.abc` 内 `dockNavInset` 出现 4 次核对。全程未点任何发起模型生成的入口，零 LLM。
+
 - 2026-11-06（§5ci 续 203）：**胶囊补完两项自证——五格逐位 + 浅色档表面关系**。
   续 202 只核了「规划」一格；本轮逐格切过去量，dock 板 `[55,2427][1081,2602]` 上
   **五格胶囊中心减槽中心同为 +0.5px**，胶囊内副本分别落「地图/行程/规划/费用/我的」

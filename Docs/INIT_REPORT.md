@@ -8004,3 +8004,48 @@ dock 板 `[55,2427][1081,2602]`，`tabLabel` 外层上报到 5 个槽位。逐�
 前两项是眼睛的活，第三项要另起模拟器——如果用户对观感有否决，重做后重测才不浪费，
 所以先交给人看。任务 #27 保持开着。本轮零 LLM、未动任何用户数据。
 
+## 2026-11-06 续 204：契约外欠账 #1 结案——通用滚动预留按档派生（R3 上尺）
+
+顺带发现里第 1 条（`bottomScrollReserve: 94`）关掉。这条不是"要不要跟有据"的取舍，
+是**契约自己写了加档、实现没写**：DESIGN.md:1014 原文
+`| Bottom scroll reserve | 94px + nav inset | so the last stop can scroll clear of the dock |`，
+而有径两处消费点都写成裸 `94`。有据侧同类写法在 `PublishPreviewPage.ets:706`
+（`.padding({ top: statusBarHeight + sm, bottom: md + bottomNavInset() })`，注释标"审核问题③"），
+同一族问题它已经踩过一次。
+
+**为什么 94 会漏**：94 = dock 净空 84 + 10 余量，这是**手势档**的数。三键档 dock 整条往下
+`barBottomMargin` 之外还要多让 27.84vp（栏高 + 1），栏顶从 84vp 抬到 111.84vp，
+94 就只剩 94−111.84 = **末行藏进栏底 18vp**。与 C4 同一条算术，只是这次漏在页面侧。
+
+**改了什么**（两处，`LayoutTokens.bottomScrollReserve` 的全部消费点）
+- `pages/TripInputPage.ets:972`（屏2 表单滚到底）
+- `pages/PreferenceQAPage.ets:215`（屏4 偏好问答）
+
+两处各加 `@StorageLink(BOTTOM_NAV_INSET_KEY) dockNavInset` 并在 build 属性里**直读**
+（只挂 link 不进 build 的坑见 navMode 文件头），写成 `bottomScrollReserve + this.dockNavInset`。
+键选 `bottomNavInsetVp` 而不是 `bottomBarInsetVp`：后者手势档也加指示条高度，
+会把这两屏**现在好好看着没问题**的像素整体顶高 28vp；前者手势档恒 0，
+本轮改动在用户这台机器（settings `float_navigation_info` 报 `showType=-1`）上是**算术恒等**。
+
+**第 19 把尺扩 R3**：`LayoutTokens.bottomScrollReserve` 出现却不含 `dockNavInset` 的行判偏差。
+先跑红（正是那两处：`PreferenceQAPage:208` / `TripInputPage:968`），改完转绿；
+自测样本阳性 3→4、阴性 3→4。另 26 处 `floatingDockClearance: 112` **不在本尺范围**——
+112 本来就是最大档上界（84+27.84），任何档都盖得住，只是手势档下多让 28vp，
+这是续 199 记过的取舍，不是缺陷。
+
+**真机复量（Pocket 2，密度 3.125，手势档）**
+- 屏2：走到表单末端，最低内容底边 2301px，dock 顶 2427px → **净差 126px（40.3vp）**，没藏。
+- 屏4：`List` 边界 `[0,470][1136,2166]`，最低 `ListItem` 底 1872px——四道题比视口短，
+  **滚动预留这屏压根没吃到**（所以这屏的实测只证明"没弄坏"，证明不了预留值本身）。
+- 三键档**本机测不了**：切系统导航方式不是 hdc 能做的，也不该拿用户的系统设置做实验。
+  该档的加档值由 `utils/navInset` 那 5 例 hypium 钉着，页面侧只是把同一个数读进来。
+
+**闸门**：十九把尺（含新 R3）全绿、hypium **251/251**、`build_install.sh` 双包构建装机断言通过，
+产物新鲜度按 `modules.abc` 里 `dockNavInset` 出现 4 次核对（防 UP-TO-DATE 复用旧产物）。
+设备侧走查全程未点任何会发起模型生成的入口（「开始规划」只 push `PreferenceQA`，已读源码确认），
+零 LLM、未动用户数据。
+
+**一条过程纠正值得记**：装机后 dump 到前台是 `com.youju.app`（有据），我先以为是有人在用手机，
+按纪律停手没点；回读才确认是 `hdc install` 停掉有径后系统把后一个窗口顶了上来。
+判"有人在用"要看得见**该 App 自己的节点在动**，不能只看 bundle 名换了。
+

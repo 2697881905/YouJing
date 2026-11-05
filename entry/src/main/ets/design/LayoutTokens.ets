@@ -74,7 +74,11 @@ export interface LayoutTokensType {
   floatingDockClearance: number;
   /** 契约 `layout.floating-dock-side-margin` 的镜像值；实现走 `barSideMargin: pagePadding`（同为 16） */
   floatingDockSideMargin: number;
-  /** 通用底部滚动预留 */
+  /**
+   * 通用底部滚动预留（契约 `Bottom scroll reserve = 94px + nav inset`，DESIGN.md:1014）。
+   * 消费方必须写成 `bottomScrollReserve + dockNavInset`（第 19 把尺 R3 钉住）：
+   * 94 只盖得住手势档的 dock（84+10 余量），三键档 dock 整条下移 27.8vp 后末行会藏进栏底。
+   */
   bottomScrollReserve: number;
   /** 行分隔线宽（唯一允许的分隔线宽） */
   hairlineWidth: number;

@@ -19,12 +19,18 @@ import { OptionCard } from '../components/OptionCard';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
+import { BOTTOM_NAV_INSET_KEY } from '../utils/navMode';
 import { FlowSteps, FLOW_STEP_PREFERENCE_QA } from '../components/FlowSteps';
 
 @Component
 export struct PreferenceQAPage {
   /** 断点（唯一来源 utils/breakpointCenter.ets）：宽屏下列表并成多栏，不再被整屏拉宽 */
   @StorageProp(KEY_CURRENT_BREAKPOINT) bp: string = 'sm';
+  /**
+   * 底部避让量（单源 utils/navMode）。取「Dock 边距」那把键而不是 `bottomBarInsetVp`：
+   * 前者手势档恒 0（94 已够盖 dock），后者手势档也加指示条高度，会把现有渲染整体顶高 28vp。
+   */
+  @StorageLink(BOTTOM_NAV_INSET_KEY) dockNavInset: number = 0;
 
   private pathStack: NavPathStack = APP_NAV;
   @State private qIndex: number = 0;
@@ -205,7 +211,8 @@ export struct PreferenceQAPage {
         .edgeEffect(EdgeEffect.Spring)
         .cachedCount(6)
         .alignListItem(ListItemAlign.Start)
-        .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: LayoutTokens.bottomScrollReserve })
+        .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
+          bottom: LayoutTokens.bottomScrollReserve + this.dockNavInset })
         .onDidScroll((): void => {
           this.syncBarScroll();
         })

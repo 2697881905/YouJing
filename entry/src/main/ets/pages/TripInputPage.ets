@@ -31,6 +31,7 @@ import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
 import { longFormMaxWidth } from '../utils/responsive';
 import { SUPPORTED_CITIES, POPULAR_MAP_CITIES, isMapCity } from '../common/constants/Cities';
 import { TripSpan } from '../utils/TripSpan';
+import { BOTTOM_NAV_INSET_KEY } from '../utils/navMode';
 
 // 京都为 mock 演示城（底稿帧同源），标注「示例数据」不谎报是正式内置库；
 // 正式种子城从 Cities 单点取（DataSeeder 与一句话解析读同一份）
@@ -44,6 +45,8 @@ export struct TripInputPage {
   private pathStack: NavPathStack = APP_NAV;
   /** 断点（唯一来源 utils/breakpointCenter.ets） */
   @StorageProp(KEY_CURRENT_BREAKPOINT) bp: string = 'sm';
+  /** 底部避让量（单源 utils/navMode，取 Dock 那把键：手势档恒 0，不动现有像素） */
+  @StorageLink(BOTTOM_NAV_INSET_KEY) dockNavInset: number = 0;
   @State private party: number = 2;
   @State private city: string = '北京';
   @State private startDate: string = '';
@@ -965,7 +968,8 @@ export struct TripInputPage {
               .backgroundColor(ColorTokens.surfaceSubtle)
             }
           }
-          .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: LayoutTokens.bottomScrollReserve })
+          .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
+            bottom: LayoutTokens.bottomScrollReserve + this.dockNavInset })
           // 表单不收窄到 720 的话，宽屏上一行「目的地」能拉到八百多 vp，
           // 输入框与滑杆的可用长度就失去意义
           .width(longFormMaxWidth(this.bp, LayoutTokens.contentMaxWidth))
