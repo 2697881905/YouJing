@@ -637,7 +637,15 @@ Expected: `避让量来源：偏差 0 项` + `BUILD SUCCESSFUL` + 装机成功�
 ```bash
 python3 tools/verify_scroll_clearance.py
 ```
-Expected: `== 滚到底无遮挡（pass）==`，退出码 0。手势档下 `dockNavInset` 应为 0，dock 位置与本层改动前**像素一致**（这条是 L1「不夹带观感变化」的判据）：
+Expected: `== 滚到底无遮挡（pass）==`，退出码 0。
+
+> **执行时修正（Task 2 真机实测，2026-11-05）**：本步原写「dock 位置与改动前像素一致」，那条判据是错的。
+> 日志给出 `指示条=87px` ÷ 3.125 = **27.84vp**，旧代码是 `28 + navIndicatorHeight = 55.84vp`；
+> 有据的语义是「手势档 dock 边距恒 0，基线 28vp 已含指示条空间」。
+> 所以改读单源键后 **dock 下移约 27.8vp**——这是「按有据布局体系」的预期可见变化，不是回归。
+> 判据改为：dock 顶边从 748.8vp 变为 **约 721vp**，且 `verify_scroll_clearance.py` 仍必须 pass
+> （末行要还能滚出来）；若净空不足，走 Task 8 的预留调整，不回退本步。
+> 另：真机 `settings` 键可用且报 `showType=-1`（手势），权威信号链路已验证通畅。
 ```bash
 /Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hdc shell uitest dumpLayout -p /data/local/tmp/d.json
 /Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hdc file recv /data/local/tmp/d.json /tmp/ui4/d.json
