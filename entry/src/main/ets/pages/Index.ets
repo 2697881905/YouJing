@@ -35,11 +35,45 @@ import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
+import { MotionCurves, MotionTokens } from '../design/MotionTokens';
+import { HdsMiniBarButton } from '../components/HdsMiniBarButton';
 import { HDS_MATERIAL_LEVEL_EXQUISITE, HDS_MATERIAL_TYPE_IMMERSIVE } from '../utils/immersiveMaterial';
 import { TopStrip, TOP_STRIP_KEY, STRIP_CANVAS, STRIP_MAP } from '../utils/TopStrip';
 import { BOTTOM_NAV_INSET_KEY } from '../utils/navMode';
 
 const TAG: string = 'Index';
+
+/** 覆盖层与槽位的窗口矩形（vp），全部来自 `onAreaChange` */
+interface DockArea {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** 胶囊的一帧几何：中心点相对覆盖层左上角，单位 vp */
+interface DockPillFrame {
+  cx: number;
+  cy: number;
+  w: number;
+  h: number;
+}
+
+// —— dock 液态选中胶囊（照「有据」§7.6.32，家族里第五个件见 components/HdsMiniBarButton）——
+// 官方 HdsTabs 的 attrs 全表没有任何选中指示器属性，选中态只换 fillColor：
+// 深蓝 #0A84FF 压在带白叠加的玻璃面上，正是原文说的「通透背景下辨识度不足」。
+// 尺寸按参照图的**比例**来而不是往槽位里塞：胶囊宽 ≈ 1.22 倍实测槽距、高 ≈ 0.96 倍实测槽高，
+// 它是盖过槽位的——做成"槽位内缩"会比内容还窄，玻璃的体积感无从谈起（有据第一版就是这么错的）。
+const DOCK_PILL_W_RATIO: number = 1.22;
+const DOCK_PILL_H_RATIO: number = 0.96;
+/** 行进中的额外放大（鼓包），落定由 springBounce 收回静止尺寸 */
+const DOCK_PILL_BULGE: number = 10;
+/** HdsMiniBarButton 容器的 contentPadding 补偿：容器 size = 玻璃条 + padding×4，
+ *  玻璃在容器内居中，所以 `.position()` 要反向补 padding×2=16，副本与官方份才逐像素重合
+ *  （有据上一版只补 8，残差偏下 8vp 致底部溢出栏沿）。 */
+const DOCK_PILL_MINI_PAD: number = 16;
+/** 覆盖层与槽位谁先布局不固定，量不到就按帧重试这么多回 */
+const DOCK_PILL_MEASURE_RETRIES: number = 6;
 
 @Entry
 @Component
@@ -62,6 +96,21 @@ struct Index {
    * 只换系统带不换这里，顶边会多出第二条色差（真机实测带子 56、栏区 18）。
    */
   @StorageProp(TOP_STRIP_KEY) stripName: string = STRIP_CANVAS;
+  /** 胶囊 ready 前不画：画一个坐标错的色块比缺一个色块更像 bug（有据同款判据） */
+  @State private dockPillReady: boolean = false;
+  /** 胶囊当前盖住（并代替官方那份显示清晰副本）的页签下标；-1 = 还没落位 */
+  @State private dockPillCovered: number = -1;
+  /** 手指正按在玻璃上：按压缩放反馈 */
+  @State private dockPillPressed: boolean = false;
+  @State private dockPillX: number = 0;
+  @State private dockPillY: number = 0;
+  @State private dockPillW: number = 0;
+  @State private dockPillH: number = 0;
+  /** 五颗槽位的窗口矩形（vp），由 tabLabel 的 onAreaChange 逐颗上报 */
+  private dockSlotAreas: DockArea[] = [];
+  /** 覆盖层自己的窗口矩形：胶囊坐标换算成它的相对值 */
+  private dockLayerArea: DockArea | null = null;
+  private dockPillMeasureTries: number = 0;
   private hdsController: HdsTabsController = new HdsTabsController();
 
   /** 解析 'index:timestamp' 并切到该页签；同页签或解析不出就什么都不做 */
@@ -121,8 +170,175 @@ struct Index {
    * 4.39:1 与 **3.05:1**，未选中 `muted` 在地图格上是 4.24~4.77:1。当年那次决定量的是
    * 画布那一侧（4.46），地图格这一侧从没进过视野。
    */
+  /**
+   * 记录某个页签槽位的窗口矩形（vp）。五颗各回调一次，齐了才定位。
+   * ⚠ 坐标只能用 `onAreaChange` 的 `globalPosition`：`componentUtils.getRectangleById`
+   * 对 TabBar 子树返回的 y 比实际渲染低 88px（真机实测槽位在 y=2439、接口回 2527），
+   * 照它画会把胶囊整个甩到 dock 底下（有据 2026-10-27 踩过，同一条也写进本仓记忆）。
+   */
+  private recordDockSlotArea(index: number, area: Area): void {
+    this.dockSlotAreas[index] = {
+      x: Number(area.globalPosition.x),
+      y: Number(area.globalPosition.y),
+      w: Number(area.width),
+      h: Number(area.height)
+    };
+    this.dockPillSnapOrRetry(this.currentTab);
+  }
+
+  /** 量出 index 号槽位上胶囊的一帧几何；任一环缺数据返回 null——宁可这一帧不画 */
+  private dockPillFrameOf(index: number): DockPillFrame | null {
+    const count: number = DOCK_TABS.length;
+    const layer: DockArea | null = this.dockLayerArea;
+    const first: DockArea | undefined = this.dockSlotAreas[0];
+    const last: DockArea | undefined = this.dockSlotAreas[count - 1];
+    const slot: DockArea | undefined = this.dockSlotAreas[index];
+    if (layer === null || layer.w <= 0 || first === undefined || last === undefined
+      || slot === undefined || slot.w <= 0 || index < 0 || index >= count) {
+      return null;
+    }
+    // 一律换算到覆盖层自己的坐标系：两者都是窗口坐标，差值就是 .position() 要的相对值
+    const firstCx: number = first.x - layer.x + first.w / 2;
+    const lastCx: number = last.x - layer.x + last.w / 2;
+    const cx: number = slot.x - layer.x + slot.w / 2;
+    // Y 锚 dock 栏体几何中心，只用本页传给系统的两个已知量算，不吃任何上报偏差。
+    // ⚠ 这里的避让量必须和 barFloatingStyle.barBottomMargin 读同一个 @StorageLink（dockNavInset）：
+    // 两处各自调 bottomNavInset() 会一个停在旧值、一个跟到新值（有据模拟器实测差 31.7vp）。
+    const cy: number = layer.h - (LayoutTokens.floatingDockBottomMargin + this.dockNavInset)
+      - LayoutTokens.floatingDockBarHeight / 2;
+    // 槽距由两端中心反算（不写死）：换 dock 宽度档、换导航方式、转屏都会变
+    const pitch: number = count > 1 ? (lastCx - firstCx) / (count - 1) : first.w;
+    const frame: DockPillFrame = {
+      cx: cx,
+      cy: cy,
+      w: pitch * DOCK_PILL_W_RATIO,
+      h: slot.h * DOCK_PILL_H_RATIO
+    };
+    return frame;
+  }
+
+  /** 即时贴到 index 号槽位（无动画）。覆盖层与槽位谁先布局不固定，量不到就按帧重试几回 */
+  private dockPillSnapOrRetry(index: number): void {
+    const frame: DockPillFrame | null = this.dockPillFrameOf(index);
+    if (frame === null) {
+      if (this.dockPillMeasureTries < DOCK_PILL_MEASURE_RETRIES) {
+        this.dockPillMeasureTries += 1;
+        setTimeout((): void => {
+          this.dockPillSnapOrRetry(index);
+        }, 60);
+      }
+      return;
+    }
+    this.dockPillX = frame.cx;
+    this.dockPillY = frame.cy;
+    this.dockPillW = frame.w;
+    this.dockPillH = frame.h;
+    this.dockPillCovered = index;
+    this.dockPillReady = true;
+  }
+
+  /** 切页：先鼓包 + 位移（行进），到点再 spring 收回静止尺寸——「液态」观感的 tap 分支 */
+  private dockPillTravel(index: number): void {
+    const frame: DockPillFrame | null = this.dockPillFrameOf(index);
+    if (frame === null || !this.dockPillReady) {
+      this.dockPillSnapOrRetry(index);
+      return;
+    }
+    if (this.dockPillCovered === index && Math.abs(this.dockPillX - frame.cx) < 0.5) {
+      return;
+    }
+    const ui: UIContext = this.getUIContext();
+    ui.animateTo({ duration: MotionTokens.container, curve: MotionCurves.standard }, (): void => {
+      this.dockPillX = frame.cx;
+      this.dockPillY = frame.cy;
+      this.dockPillW = frame.w + DOCK_PILL_BULGE;
+      this.dockPillH = frame.h + DOCK_PILL_BULGE;
+        this.dockPillCovered = index;
+    });
+    setTimeout((): void => {
+      ui.animateTo({ duration: MotionTokens.container, curve: MotionCurves.springBounce }, (): void => {
+        this.dockPillW = frame.w;
+        this.dockPillH = frame.h;
+      });
+    }, MotionTokens.container);
+  }
+
+  /**
+   * 三层结构（全部居中叠放），照「有据」§7.6.32 的终解：
+   * ① 玻璃渲染层 = HdsMiniBarButton，只出玻璃、内容槽留空（自绘 tint/rim/blur 复刻不出
+   *    玻璃折射，做成"色块贴片"就是这条路的第一个错）；
+   * ② 清晰副本层落在 **V1 上下文**（本 Stack 的直接子节点）——绝不能画进 ① 的尾随闭包：
+   *    那是 @ComponentV2，闭包里读页面 V1 @State 不触发它的渲染更新，副本会停在旧值
+   *    （真机实证「胶囊飞到消息里画的还是首页」）；也不能直接 `this.tabLabel(i)` 传参：
+   *    @Builder 的参数是**值快照**，所以用 key 随 covered 变化的单元素 ForEach 强制重建；
+   * ③ 命中层独占玻璃区域的触摸（①的 bar 是 HdsTabs 的 native 渲染层，手势挂在玻璃上收不到）。
+   */
   @Builder
-  tabLabel(idx: number) {
+  dockSelectionPill() {
+    Stack({ alignContent: Alignment.Center }) {
+      HdsMiniBarButton({
+        maskColor: '#00ffffff',
+        barWidth: this.dockPillW,
+        barHeight: this.dockPillH,
+        materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
+        materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE
+      }) {
+        Column()
+      }
+      Column() {
+        ForEach([this.dockPillCovered], (i: number) => {
+          this.tabItemContent(i)
+        }, (i: number): string => String(i))
+      }
+      .width(this.dockPillW)
+      // 与玻璃条同高、内容显式居中：官方那份被 Stack 居中，这里 Column 主轴默认从顶排，
+      // 漏写居中实测会高 9px（有据 §7.6.32 同款结论）。
+      // 实测残差：副本比官方那份低约 4px（1.3vp）——有据用的是同一条公式，残差同源，
+      // 我试过按「官方内容盒 50vp vs 槽位 48.3vp」再平移一次，结果被推到容器外 88px，
+      // 说明 globalPosition 的语义不支持那套推算，故退回与有据逐字一致的写法。
+      .height(this.dockPillH)
+      // 副本必须与官方那份逐像素重合，否则落位瞬间图标会跳一下：
+      // 官方那份被 Stack 居中，这里 Column 主轴默认从顶排，必须显式居中（实测漏写高 9px）
+      .justifyContent(FlexAlign.Center)
+      .alignItems(HorizontalAlign.Center)
+      Column()
+        .width(this.dockPillW + DOCK_PILL_MINI_PAD * 2)
+        .height(this.dockPillH + DOCK_PILL_MINI_PAD * 2)
+        .onTouch((event: TouchEvent): void => {
+          const pressed: boolean = event.type === TouchType.Down || event.type === TouchType.Move;
+          if (pressed !== this.dockPillPressed) {
+            this.getUIContext().animateTo({
+              duration: MotionTokens.press,
+              curve: MotionCurves.standard
+            }, (): void => {
+              this.dockPillPressed = pressed;
+            });
+          }
+        })
+    }
+    .clip(false)
+    // HdsMiniBarButton 容器 size = 玻璃条 + contentPadding×4，玻璃在容器内居中，
+    // 所以 .position() 以容器左上角为锚时要反向补 padding×2=16（只补 8 会整体偏下 8vp）
+    .position({
+      x: this.dockPillX - this.dockPillW / 2 - DOCK_PILL_MINI_PAD,
+      y: this.dockPillY - this.dockPillH / 2 - DOCK_PILL_MINI_PAD
+    })
+    .scale({
+      x: this.dockPillPressed ? MotionTokens.pressScale : 1,
+      y: this.dockPillPressed ? MotionTokens.pressScale : 1
+    })
+    // ⚠ 必须是 Transparent 而不是 None：把命中收进来的同时，让玻璃区域以外的点击
+    // 透给下层官方页签——改完这一档必须真点一次切页，确认没吃掉官方页签的点击
+    .hitTestBehavior(HitTestMode.Transparent)
+  }
+
+  /**
+   * 页签格的内容本体（图标 + 标签）。**不带任何上报**——胶囊里的清晰副本也复用这一份，
+   * 若把 `onAreaChange` 写在这里，副本那一次回调会把自己所在的胶囊坐标当成槽位写回去，
+   * 定位就自指了（有据把这两层拆成 `tabItemContent` / `tabBar` 正是为此）。
+   */
+  @Builder
+  tabItemContent(idx: number) {
     Column({ space: SpaceTokens.xxs }) {
       SymbolGlyph(DOCK_TABS[idx].symbol)
         .fontSize(IconSizes.control)
@@ -134,7 +350,17 @@ struct Index {
     }
     .height(LayoutTokens.tabItemHeight)
     .justifyContent(FlexAlign.Center)
+  }
+
+  @Builder
+  tabLabel(idx: number) {
+    Column() {
+      this.tabItemContent(idx)
+    }
     .accessibilityText(`${DOCK_TABS[idx].label}页签`)
+    .onAreaChange((_o: Area, n: Area): void => {
+      this.recordDockSlotArea(idx, n);
+    })
   }
 
   /** 登录态：'' 水合中 / guest / huawei（AccountStore 推的 AppStorage 键） */
@@ -182,8 +408,37 @@ struct Index {
       index === TAB_MAP && stackOfTab(TAB_MAP).size() === 0 ? STRIP_MAP : STRIP_CANVAS);
   }
 
+  /**
+   * 五格 + 悬浮 dock 的容器层。dock 选中胶囊必须与 dock **同层**才能盖在它上面，
+   * 所以这里是一层 Stack：底下是官方 HdsTabs（dock 由它自己排），上面是覆盖式胶囊。
+   * 覆盖层自己的窗口矩形由这里的 `onAreaChange` 上报，胶囊坐标一律换算到它的相对系，
+   * 这样转屏 / 换 dock 宽度档 / 换导航方式都不用重算公式。
+   */
   @Builder
   mainTabs() {
+    Stack({ alignContent: Alignment.TopStart }) {
+      this.dockTabsBody()
+      if (this.dockPillReady) {
+        this.dockSelectionPill()
+      }
+    }
+    .width('100%')
+    .height('100%')
+    // 覆盖层自己不参与命中，把触摸让给下层官方页签；胶囊那层单独收命中
+    .hitTestBehavior(HitTestMode.None)
+    .onAreaChange((_o: Area, n: Area): void => {
+      this.dockLayerArea = {
+        x: Number(n.globalPosition.x),
+        y: Number(n.globalPosition.y),
+        w: Number(n.width),
+        h: Number(n.height)
+      };
+      this.dockPillSnapOrRetry(this.currentTab);
+    })
+  }
+
+  @Builder
+  dockTabsBody() {
     HdsTabs({ controller: this.hdsController, index: this.wantTab }) {
       // 顺序必须与 AppNav 的 TAB_* 常量、DOCK_TABS 下标逐一对齐，三者错位的后果见 AppNav 注释
       TabContent() {
@@ -239,6 +494,8 @@ struct Index {
       this.currentTab = index;
       AppStorage.setOrCreate(TAB_INDEX_KEY, index);
       this.syncTopStrip(index);
+      // 胶囊跟着落位：行进 320ms + 落定回弹（观感收口要真人看，这里只保证几何对）
+      this.dockPillTravel(index);
       // 五个 tab 根页只在 aboutToAppear 取一次数：在别处新建/编辑完行程、记完费用
       // 再切回页签，看到的还是第一次进入那份。广播一条，根页序号对上才重取
       announceTabShown(index);

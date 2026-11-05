@@ -7911,3 +7911,43 @@ barBackgroundEffect pageFlipMode onSelected onUnselected cachedMaxCount barBackg
 过闸门后还要点「暂不登录，使用本机游客空间」才进五格。`snapshot_display` 与 `file recv`
 在这台上一度挂死，但 `uitest dumpLayout` 一直可用——**量几何不需要截图，别被截图卡住整轮**。
 
+## 2026-11-06 续 202：dock 液态选中胶囊移植落地（有据第 14 条），几何逐位核过、观感等人
+
+覆盖对表里最后一格能自己做的部分做完了。**官方件确实没有这条路**（`hds_tabs.json` 的 attrs
+全表没有任何选中指示器属性），所以照有据的做法：覆盖层 + 内联官方 `hds_button` 源码。
+
+**落了什么**
+- `components/HdsMiniBarButton.ets`（204 行）：与有据同一份逐字移植，它对上游 1.0.1 的三处偏离
+  一起继承（不 ohpm 依赖是 SDK 校验、斩断 `@hms.hds.hdsMaterial` 静态 import 是低版本启动即崩、
+  内部 `scrollable(false)` 是手势竞争）。文件头写明来源，以及"有径只取玻璃能力、不接拖拽形变"。
+- `pages/Index.ets`：覆盖层 `Stack`（与 HdsTabs 同层，`hitTestBehavior(None)` + `onAreaChange` 上报层矩形）、
+  槽位上报（挂在 `tabLabel` 的外层 Column，**副本层不报**——报了就自指）、
+  `dockPillFrameOf / dockPillSnapOrRetry / dockPillTravel`、三层胶囊（玻璃 / 清晰副本 / 命中层）。
+- `design/MotionTokens.ets`：新增 `MotionCurves.springBounce`（落定回弹）。按该文件约定动效参数
+  只在这里登记一次、页面不各自调参；时长用现成的 `container`(320) / `press`(140)，
+  **没有**为这一格扩契约的时长阶梯。
+
+**几何逐位核过（真机 dump，密度 3.125）**
+
+| 量 | 期望（公式） | 实测 | 差 |
+| --- | --- | --- | --- |
+| 容器宽 | `pitch×1.22 + 32` = 106.2vp | `[402,2393][734,2638]` → 332px = 106.2vp | 0 |
+| 容器高 | `slotH×0.96 + 32` = 78.4vp | 245px = 78.4vp | 0 |
+| 容器中心 x | 槽位中心 567.5px | 568px | 0.5px |
+| 容器中心 y | 栏几何中心 2514.5px | 2515.5px | 1px |
+| 副本 vs 官方「规划」文字 | 逐像素重合 | dx=1px，**dy=4px（1.28vp）** | 残差 |
+
+**一条负结果值得记**：那 4px 我没吃掉。试过按"官方内容盒是 `tabItemHeight` 50vp、
+而槽位节点只报 48.3vp"再给副本层做一次 `translate`，结果副本被推到容器**外** 88px——
+说明 `onAreaChange` 的 `globalPosition` 不支持那样反推。回读有据源码确认**它自己就是
+`.height(dockPillH)` + 居中、留这 4px**，于是退回与它逐字一致的写法，把这条当已知残差记下，
+别再叠第三种算法（同源教训见 [[visual-diff-name-the-effect-before-measuring]]）。
+
+**命中没被吃掉**（有据特别警告过改 `hitTestBehavior` 必须真点验证）：
+脚本连点「我的」→「规划」，标题分别落到 `我的` / `规划`，切页正常 ✓。
+
+**还没收口的**：行进鼓包 + spring 落定的**观感**、按压缩放、浅色档、md 档宽度——
+这些要么要真人眼睛、要么要浅色档复拍，我不替用户宣布完成（任务 #27 保持开着）。
+**闸门**：`audit_motion` 动效违规 0、十九把尺无新增红、hypium **251/251**、
+双 HAP BUILD SUCCESSFUL 且装机断言通过。本轮零 LLM、未动任何用户数据。
+

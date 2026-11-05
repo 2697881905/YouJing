@@ -44,4 +44,7 @@ export class MotionCurves {
   static readonly standard: ICurve = curves.cubicBezierCurve(0.2, 0.8, 0.2, 1);
   static readonly decelerate: ICurve = curves.cubicBezierCurve(0, 0, 0.2, 1);
   static readonly linear: ICurve = curves.cubicBezierCurve(0, 0, 1, 1);
+  /** dock 选中胶囊落定的回弹（有据 §7.6.32 同款果冻感）。
+   *  response/damping 是动效层参数，按本文件约定只在这里登记一次，页面不许各自调。 */
+  static readonly springBounce: ICurve = curves.springMotion(0.4, 0.55);
 }
