@@ -226,7 +226,14 @@ struct Index {
         materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE
       },
       barBottomMargin: LayoutTokens.floatingDockBottomMargin + this.dockNavInset,
-      barSideMargin: LayoutTokens.pagePadding
+      barSideMargin: LayoutTokens.pagePadding,
+      // 契约 §Translucency：三处玻璃栏面都带 92px 渐变遮罩把内容淡进栏里。
+      // 顶栏那条由 IMMERSIVE_GRADIENT_BLUR 自带，dock 这条官方件不默认给，必须显式声明
+      //（照「有据」`Index.barFloatingStyle` 同一份配方；色值走资源，深浅两档各一档）。
+      gradientMask: {
+        maskColor: $r('app.color.glass_bar_gradient_mask'),
+        maskHeight: LayoutTokens.barGradientMaskHeight
+      }
     })
     .onChange((index: number): void => {
       this.currentTab = index;

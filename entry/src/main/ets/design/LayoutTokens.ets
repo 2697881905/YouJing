@@ -55,6 +55,13 @@ export interface LayoutTokensType {
   /** 浮动 dock 栏体高（有据真值；2026-11-05 真机 dock 板 56vp 实测） */
   floatingDockBarHeight: number;
   /**
+   * 玻璃栏面把内容淡进去的那段遮罩高（vp）。契约 §Shapes/Translucency 三处栏面
+   * （顶栏 / 悬浮 dock / 吸顶日栏）统一 **92px gradient mask**；
+   * 顶栏那条由 `ScrollEffectType.IMMERSIVE_GRADIENT_BLUR` 自带，dock 要显式声明
+   * （`HdsTabs.barFloatingStyle.gradientMask`），此前漏了。
+   */
+  barGradientMaskHeight: number;
+  /**
    * 钉底按钮条必须给悬浮 dock 让出的净空（vp）。
    * 构成 = `floatingDockBarHeight`(56) + `floatingDockBottomMargin`(28) + 底部避让量。
    * 手势档避让量 0 ⇒ 84vp（真机实测 (2690-2427)÷3.125 = 84.2vp，与公式对上）；
@@ -139,6 +146,7 @@ export const LayoutTokens: LayoutTokensType = {
   floatingDockWidth: 300,
   floatingDockBottomMargin: 28,
   floatingDockBarHeight: 56,
+  barGradientMaskHeight: 92,
   floatingDockClearance: 112,
   floatingDockSideMargin: 16,
   bottomScrollReserve: 94,

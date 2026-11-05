@@ -7778,6 +7778,45 @@ hypium 复跑 **246/246**。仍待真机人工对表的是 `verify_dock_tabs.sh`
 把注释里的 `HdsChrome.bar(` 数成一个未表态调用点（22→23、报 Index:303）。
 尺现在跳过 `//` 与 `*` 开头的行，自测多了一条「注释不算调用点」的控制样本。
 
+## 2026-11-06 续 200：dock 参数级对表——92vp 渐变遮罩此前整条漏做
+
+迁移四层收口后接着做**参数级对表**（把有据 `Index.barFloatingStyle` 的字段逐个比过来），
+比出三条差异，两条该跟、一条不该跟：
+
+| 字段 | 有据 | 有径改前 | 处置 |
+| --- | --- | --- | --- |
+| `gradientMask` | `{ maskColor: bar_gradient_mask, maskHeight: 92 }` | **整条没有** | **补上**（本条） |
+| `barWidth` 档位 | small 300 / medium 600vp 以上两档同值 560 / large 560 | 未设，走官方默认 | **暂不跟**，见下 |
+| 悬浮玻璃的 API 门 | `hdsFloatingBar = isImmersiveLightSenseSupported()`（@since 6.1.0(23)） | 无门 | **不该跟**：有径 `compatibleSdkVersion 26.0.0`，门是死代码 |
+
+**为什么渐变遮罩该补**：契约 §Translucency 的成文口径是「三处玻璃栏面（顶栏 / 悬浮 dock /
+吸顶日栏）都是 blur 50 + 1px 描边 + **92px gradient mask** 把内容淡进栏里」（DESIGN.md:1067），
+且 `components.top-bar-immersive` 明确写了 `bottomGradientMask: {colors.glass-bar-gradient-mask}`
+（:349）。顶栏那条由 `ScrollEffectType.IMMERSIVE_GRADIENT_BLUR` 自带、`maskExtraHeight: 0`
+与有据同档；**dock 这条官方件不默认给，必须显式声明**——我们漏了，等于三处玻璃面只做全了两处。
+
+**色值不是我定的**：契约 Translucency ledger 直接给了 `glass-bar-gradient-mask`
+= 浅色 `66 F2 F2 F5` / 深色 `66 2A 2F 36`，与有据用的完全一致（同系列共用这套透明值）。
+新增两份资源后 `audit_colors.py` 的核对件数 **52 → 53、偏差 0**——这条尺逐件比过两档，
+所以色值抄错一位会被它当场抓到，这次的 0 是它核过的 0。
+
+**`barWidth` 为什么暂不跟**：有据自己的实测基线（`HarmonyProject1/docs/harmonyos-official-ui-alignment-baseline.md:130`）
+写的是「胶囊 **328.3 × 56vp**，左右外边距 17.6」，而有径真机 dock 板也是 `[55,2427][1081,2602]` = 328.3×56vp
+——**手机档两边已经一致**（它设了 `smallWidth: 300` 却没落出 300，说明档位选择由系统按窗口尺寸算）。
+它设 medium/large 同值 560 是为治一条用户实测反馈「600–840vp 窗口切页时底栏忽长忽短」，
+那条只在折叠屏展开/平板上出现；有径要跟进得先在 md 档拿到「切页前后 dock 宽度」两帧，
+本机 Mate X7 模拟器这轮 `file recv` 通道挂死（`snapshot_display` 拿不到帧），拿不到证据就不改。
+
+**未复拍（记在账上，下次设备空出来第一批补）**：
+① dock 渐变遮罩的实际出图——量法：滚动列表让内容穿过 dock 顶边，取 dock 顶（真机 2427px）以上
+92vp 内每行中位灰阶，补上前后可见一条渐强带；深色档最明显。
+② 顺带一条流程教训：这轮第一次剖面读数（L≈115 全程平）其实是**手机锁屏壁纸**——
+设备锁屏时 `snapshot_display` 照样出图、`dumpLayout` 文本节点为空。
+**读数前先断言 dump 里有目标屏的文字节点**，否则量的不是 App（见 [[assert-current-screen-before-each-action]]）。
+
+**闸门**：`audit_colors` 53 件偏差 0、`audit_material` 0、`audit_geometry` 0、
+双 HAP `BUILD SUCCESSFUL` 且装机断言通过。本轮零 LLM、未动任何用户数据。
+
 ## 2026-11-05 续 199：L4 收口——dock 尺寸是读数不是改动、净空保持最大档，契约待改清单出稿
 
 迁移计划 Task 8–9。四层到此：**L1 落地 / L2 落地 / L3 证伪 / L4 停在真人检查点**。

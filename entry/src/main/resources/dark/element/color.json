@@ -7,6 +7,7 @@
     { "name": "surface_subtle", "value": "#FF232326" },
     { "name": "surface_panel", "value": "#FF28282C" },
     { "name": "surface_sunken", "value": "#FF0D0D0F" },
+    { "name": "glass_bar_gradient_mask", "value": "#662A2F36" },
     { "name": "skeleton_base", "value": "#FF2A2A2F" },
     { "name": "skeleton_highlight", "value": "#FF35353B" },
     { "name": "ink", "value": "#FFF2F2F4" },

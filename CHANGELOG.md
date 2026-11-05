@@ -577,6 +577,23 @@
 
 ### Changed
 
+- 2026-11-06（§5ci 续 200）：**dock 参数级对表——92vp 渐变遮罩此前整条漏做**。
+  契约 §Translucency 写的是三处玻璃栏面（顶栏 / 悬浮 dock / 吸顶日栏）统一
+  blur 50 + 1px 描边 + **92px gradient mask**，`top-bar-immersive` 也明确声明了
+  `bottomGradientMask`；顶栏那条由 `IMMERSIVE_GRADIENT_BLUR` 自带，
+  但 dock 这条官方件不默认给、必须显式声明 `barFloatingStyle.gradientMask`——我们没写，
+  等于三处玻璃面只做全两处。新增资源 `glass_bar_gradient_mask`
+  （浅色 `#66F2F2F5` / 深色 `#662A2F36`，逐字取自契约 Translucency ledger，与有据同值），
+  `audit_colors.py` 核对件数 **52→53、偏差 0**；`barGradientMaskHeight: 92` 进 LayoutTokens。
+  有据另两条不跟：`barWidth` 档位（它自己的实测基线就是 328.3×56vp，与有径真机一致，
+  md 档那条「切页忽长忽短」需要折叠屏/平板两帧才能判，本机模拟器文件通道挂死）；
+  API 门（有径 `compatibleSdkVersion 26.0.0`，那道门是死代码）。
+  **遮罩出图仍未真机复拍**（手机锁屏、模拟器 `snapshot_display` 取不到帧），量法写在续 200。
+  顺带记一条读数纪律：这轮第一次剖面量到的 L≈115 全是**锁屏壁纸**——
+  锁屏时截图照样出图但 dump 文本节点为空，量之前必须断言 dump 里有目标屏的文字。
+
+### Changed
+
 - 2026-11-05（§5ci 续 199）：**布局迁移收口——四层里两层落地、一层证伪、一层停在真人检查点**。
   L4 的「dock 尺寸对齐有据」其实不是改动：真机 dock 板 `[55,2427][1081,2602]` ÷ 3.125 =
   **328.3 × 56vp**，本来就是有据基准，尺寸由 `HdsTabs.barFloatingStyle` 产出，
