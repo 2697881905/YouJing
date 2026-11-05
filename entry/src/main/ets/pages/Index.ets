@@ -12,8 +12,7 @@
  * 首帧就在目标 tab；运行期（App 已存活时的 onNewWant）才用 changeIndex。
  */
 
-import { APP_NAV, ACTIVE_TRIP_KEY, TAB_INDEX_KEY, TAB_SWITCH_KEY, DOCK_TABS, announceTabShown, stackOfTab, TAB_PLAN, TAB_ITINERARY, TAB_MAP, TAB_EXPENSE, TAB_MINE, PLAN_SCROLL_KEY } from '../common/constants/AppNav';
-import { routerMap } from './AppRouter';
+import { HOST_NAV, ACTIVE_TRIP_KEY, TAB_INDEX_KEY, TAB_SWITCH_KEY, DOCK_TABS, announceTabShown, stackOfTab, TAB_PLAN, TAB_ITINERARY, TAB_MAP, TAB_EXPENSE, TAB_MINE } from '../common/constants/AppNav';
 import { TripDao, TripSummary } from '../data/TripDao';
 import { AUTH_STATE_KEY } from '../data/AccountStore';
 import { ConsentStore, CONSENT_AGREED_KEY } from '../utils/ConsentStore';
@@ -31,8 +30,7 @@ import { MapPage } from './MapPage';
 import { ExpensePage } from './ExpensePage';
 import { TripsPage } from './TripsPage';
 import { MinePage } from './MinePage';
-import { HdsNavigation, HdsNavigationTitleMode, HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
-import { HdsChrome } from '../design/HdsChrome';
+import { HdsTabs, HdsTabsController } from '@kit.UIDesignKit';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
@@ -64,8 +62,6 @@ struct Index {
    * 只换系统带不换这里，顶边会多出第二条色差（真机实测带子 56、栏区 18）。
    */
   @StorageProp(TOP_STRIP_KEY) stripName: string = STRIP_CANVAS;
-  /** 规划格的顶栏磨砂：滚动容器在 YoujingStartPage 里，状态经 PLAN_SCROLL_KEY 递过来 */
-  @StorageProp(PLAN_SCROLL_KEY) planBarScrolled: boolean = false;
   private hdsController: HdsTabsController = new HdsTabsController();
 
   /** 解析 'index:timestamp' 并切到该页签；同页签或解析不出就什么都不做 */
@@ -201,18 +197,10 @@ struct Index {
       .tabBar(this.tabLabel(TAB_ITINERARY))
 
       // 规划 tab：门面 + 屏2→屏6 向导链都走 APP_NAV（主链 16 个文件的字段不动）。
-      // 2026-11-03 主功能页化：挂官方标题栏（与其余四格同构），页面内不再自绘品牌块——
-      // 「规划」页作为主功能页从官方栏起排，滚动磨砂走 HdsChrome 的既定两态。
+      // 2026-11-05 五格同构：`HdsNavigation(APP_NAV)` 与它的 titleBar 都搬进页面自己挂，
+      // 壳层不再替这一格代管顶栏（以前只有它是异形，滚动状态还得经 AppStorage 递一层）。
       TabContent() {
-        HdsNavigation(APP_NAV) {
-          YoujingStartPage()
-        }
-        .navDestination(routerMap)
-        .mode(NavigationMode.Stack)
-        .titleMode(HdsNavigationTitleMode.MINI)
-        .hideBackButton(true)
-        .titleBar(HdsChrome.bar({ mainTitle: '规划', scrolled: this.planBarScrolled }))
-        .backgroundColor($r('app.color.canvas'))
+        YoujingStartPage()
       }
       .tabBar(this.tabLabel(TAB_PLAN))
 
@@ -297,7 +285,17 @@ struct Index {
           }
         })
       } else {
-        this.mainTabs()
+        // 外层宿主（有据形态）：Navigation 只包住五格，标题栏收起、模式显式 Stack
+        // （默认 Auto 在宽屏会切 Split，整页被关进 240vp 窄列）。
+        // 绑 `HOST_NAV` 而不是任何一格的栈：一个 NavPathStack 只能被一个 Navigation 持有，
+        // 抢绑 `APP_NAV` 会把规划格的绑定夺走，向导链就从「页签内」变成「盖住 dock 的全屏」。
+        Navigation(HOST_NAV) {
+          this.mainTabs()
+        }
+        .mode(NavigationMode.Stack)
+        .hideTitleBar(true)
+        .width('100%')
+        .height('100%')
       }
     }
     .width('100%')

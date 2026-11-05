@@ -19,7 +19,8 @@ MODULE="${1:-default}"
 cd "$(dirname "$0")/.."
 
 LOG="$(mktemp)"
-trap 'rm -f "$LOG"' EXIT
+INSTALL_LOG="$(mktemp)"
+trap 'rm -f "$LOG" "$INSTALL_LOG"' EXIT
 
 echo "==> 构建 entry@${MODULE}（debug）"
 DEVECO_SDK_HOME="$SDK_HOME" node "$HVIGOR" \
@@ -46,5 +47,19 @@ if [[ "$(stat -f %m "$HAP")" -lt "$(date -v-5M +%s 2>/dev/null || echo 0)" ]]; t
 fi
 
 echo "==> 装机 $HAP"
-"$HDC" install -r "$HAP" | tail -1
-echo "==> 完成：本轮构建成功且产物已装机"
+# 多设备时（真机 + 模拟器同时在）不带 -t 的 install 会回 "[Fail]...need connect-key"，
+# 而管道尾部照样是 hdc 的正常收尾字样——只看退出码或最后一行会把失败读成成功。
+INSTALL_LOG="$(mktemp)"
+if [[ -n "${HDC_TARGET:-}" ]]; then
+  "$HDC" -t "$HDC_TARGET" install -r "$HAP" >"$INSTALL_LOG" 2>&1
+else
+  "$HDC" install -r "$HAP" >"$INSTALL_LOG" 2>&1
+fi
+if grep -q "install bundle successfully" "$INSTALL_LOG" && ! grep -q "\[Fail\]" "$INSTALL_LOG"; then
+  tail -1 "$INSTALL_LOG"
+  echo "==> 完成：本轮构建成功且产物已装机${HDC_TARGET:+（目标 $HDC_TARGET）}"
+else
+  echo "!! 装机未成功，屏幕跑的还是上一轮产物。hdc 原文："
+  cat "$INSTALL_LOG"
+  exit 1
+fi

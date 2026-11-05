@@ -6,7 +6,7 @@
 （Docs/INIT_REPORT.md §5b–§5h）里**反复撞到的五类版式缺陷**，
 把它们从"撞一个修一个"变成可重跑的规则。
 
-五条规则：
+六条规则：
   R1 钉底层没让位悬浮 dock        —— Stack(alignContent: Bottom) 里的钉底块，
                                      底部净空必须 >= floatingDockClearance
   R2 永不填充的装饰占位块        —— Column()/Row() 只有尺寸+底色、没有子节点，
@@ -14,6 +14,7 @@
   R3 可点节点热区 < 44vp          —— 带 onClick/bindMenu 的节点写死了小于 44 的宽高
   R4 裸 Text/SymbolGlyph 当按钮   —— 句内联链接是合法写法，白名单外都该换官方 Button
   R5 同一 @Builder 里重复的字面量 —— 「今日暂无安排」印两遍那一类
+  R6 同一个 NavPathStack 被两处 Navigation 构造点持有 —— 后绑的把栈抢走（L2 宿主形状）
 
 用法：python3 tools/audit_layout_patterns.py            # 跑全部
       python3 tools/audit_layout_patterns.py --rule R3  # 只跑一条
@@ -247,9 +248,38 @@ def r5():
     return out
 
 
+# ---------- R6 ----------
+NAV_BIND = re.compile(r'\b(?:Hds)?Navigation\s*\(\s*(this\.[A-Za-z_][A-Za-z0-9_]*|[A-Z_][A-Z0-9_]*)\s*\)')
+
+
+def r6():
+    """一个 NavPathStack 只能被一个 Navigation 持有；绑两处 = 后绑的把栈抢走。
+
+    2026-11-05 L2 落地时踩到的形状：外层宿主若写 `Navigation(APP_NAV)`，规划格自己的
+    `HdsNavigation(APP_NAV)` 就失去绑定，向导链从「页签内」变成「盖住 dock 的全屏」。
+    宿主必须用独立栈（`HOST_NAV`）。
+    """
+    owners = {}
+    for p in ets_files():
+        for i, line in enumerate(lines(p), 1):
+            if line.strip().startswith(('//', '*')):
+                continue
+            m = NAV_BIND.search(line)
+            if not m:
+                continue
+            expr = m.group(1)
+            # this.pathStack 是每页各自的成员，身份要按「文件 + 表达式」算
+            key = expr if not expr.startswith('this.') else '%s#%s' % (os.path.basename(p), expr)
+            owners.setdefault(key, []).append((p, i, line.strip()[:72]))
+    return [(v[0][0], v[0][1],
+             '栈 %s 被 %d 个 Navigation 构造点持有（%s）——一个栈只能绑一个 Navigation'
+             % (k, len(v), '；'.join('%s:%d' % (os.path.basename(f), ln) for f, ln, _ in v)))
+            for k, v in sorted(owners.items()) if len(v) > 1]
+
+
 RULES = {'R1': ('钉底层未让位 dock', r1), 'R2': ('永不填充的空块', r2),
          'R3': ('可点热区 < 44vp', r3), 'R4': ('裸文本当按钮', r4),
-         'R5': ('疑似重复文案', r5)}
+         'R5': ('疑似重复文案', r5), 'R6': ('同一导航栈被多处绑定', r6)}
 
 
 def self_test():
@@ -260,13 +290,19 @@ def self_test():
     io.open(probe, 'w', encoding='utf-8').write(
         "@Builder\nexport function probe() {\n  Button('x')\n    .height(20)\n    .width(20)\n"
         "    .onClick((): void => {})\n  Text('链')\n    .onClick((): void => {})\n}\n")
+    probe6 = os.path.join(ROOT, 'pages', '_SelfTestProbe6.ets')
+    io.open(probe6, 'w', encoding='utf-8').write(
+        '@Component\nexport struct P6 {\n  build() {\n    HdsNavigation(APP_NAV) {\n      Text(\'a\')\n    }\n'
+        '    Navigation(APP_NAV) {\n      Text(\'b\')\n    }\n  }\n}\n')
     try:
         c3 = [x for x in r3() if '_SelfTestProbe' in x[0]]
         c4 = [x for x in r4() if '_SelfTestProbe' in x[0]]
+        c6 = [x for x in r6() if '_SelfTestProbe6' in x[0]]
     finally:
         os.remove(probe)
-    print('自测注入阳性：R3 抓到 %d 处，R4 抓到 %d 处' % (len(c3), len(c4)))
-    return len(c3) >= 1 and len(c4) >= 1
+        os.remove(probe6)
+    print('自测注入阳性：R3 抓到 %d 处，R4 抓到 %d 处，R6 抓到 %d 处' % (len(c3), len(c4), len(c6)))
+    return len(c3) >= 1 and len(c4) >= 1 and len(c6) >= 1
 
 
 def main():

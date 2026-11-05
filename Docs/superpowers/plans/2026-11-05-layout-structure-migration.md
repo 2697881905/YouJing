@@ -863,6 +863,23 @@ Expected: `bar 调用点 22 处，未表态 0 处`（规划格的 bar 从 Index 
 
 - [ ] **Step 6: 提交**
 
+> **执行时修正（2026-11-05，Task 6 落地）**——三处按证据改了写法：
+> 1. **外层宿主不绑 `APP_NAV`，改绑新增的 `HOST_NAV`**。一个 `NavPathStack` 只能被一个
+>    `Navigation` 持有，宿主若抢绑规划格的栈，`YoujingStartPage` 里那个
+>    `HdsNavigation(APP_NAV)` 就失去绑定，向导链从「页签内」变成「盖住 dock 的全屏」。
+>    有据 `Index.ets:2055` 的宿主本来就是独立的 `this.pageStack`，这版才是照搬。
+>    新增第 6 条版式规则 `audit_layout_patterns.py --rule R6` 钉住这条不变式
+>    （自测注入阳性 R6 抓到 1 处；现仓 6 个绑定点：`HOST_NAV`×1 + 五格各自 `this.pathStack`×5）。
+> 2. **`YoujingStartPage` 不加 `rootMode` 双分支**：全仓它只有 Index 一个调用点（grep 确认），
+>    另一支永远不跑，属为假想需求留形。直接单分支自带 `HdsNavigation`。
+> 3. **`build()` 外层保持 `Column`**，没按计划改成 `Stack(alignContent: Bottom)`——
+>    L2 要的是宿主 `Navigation`，换容器是夹带风险（`height('100%')` 在定高容器里的既有坑）。
+>
+> Step 4 的 16 屏判据也要改：`OnTrip/Review/AreaMore/GenerateFailed/Map` 五格的 marker
+> 是旧文案，真机 dump 显示**全部到达**（标题分别是「旅行中」「旅行回顾」「全部区域」「生成受阻」
+> 与地图格的日程筛选条），只是这些屏在当前数据下走空态 / 无错误码分支。
+> 判据按「目的页标题 + 内容」而不是照抄 marker 串（沿用「断内容不断壳」）。
+
 ```bash
 git add entry/src/main/ets/pages/Index.ets entry/src/main/ets/pages/YoujingStartPage.ets
 git commit -m "refactor(布局): 壳层改外层 Navigation 宿主 + 五格同构自带 HdsNavigation（有据形态）"

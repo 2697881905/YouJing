@@ -17,6 +17,14 @@ export const EXPENSE_NAV: NavPathStack = new NavPathStack();
 export const TRIPS_NAV: NavPathStack = new NavPathStack();
 /** 新「我的」页（个人信息 + 勋章卡 + 设置）的栈 */
 export const PROFILE_NAV: NavPathStack = new NavPathStack();
+/**
+ * 壳层宿主栈（对齐「有据」`Index` 的 `pageStack`：外层 `Navigation` 只做宿主，
+ * 不承载任何一格的导航）。
+ * ⚠ 它**不能**等于任何一格自己的栈：一个 `NavPathStack` 只能被一个 `Navigation` 持有，
+ * 外层若绑 `APP_NAV`，规划格那个 `HdsNavigation(APP_NAV)` 的绑定会被抢走，
+ * 向导链就会从「页签内」改成「盖住 dock 的全屏」——那是观感回归不是重构。
+ */
+export const HOST_NAV: NavPathStack = new NavPathStack();
 
 /**
  * tab 序号，与 `Index` 里 TabContent 的顺序、以及 `DOCK_TABS` 的下标**必须同时改**。
@@ -74,15 +82,6 @@ export const TAB_SWITCH_KEY: string = 'dockTabSwitchRequest';
  * 根页 `@StorageProp` + `@Watch` 这个键，序号对上才重取。
  */
 export const TAB_SHOWN_KEY: string = 'dockTabShownTick';
-
-/**
- * AppStorage 键：规划格（首页）的顶栏磨砂两态。
- *
- * 为什么这一页要走 AppStorage 而不是像别的页那样自己传 `scrolled`：
- * 规划格的滚动容器在 `YoujingStartPage` 里，而它的顶栏挂在 `Index` 的
- * `HdsNavigation(APP_NAV)` 上——状态和消费者隔了一层组件，其余 17 页都是同页自产自销。
- */
-export const PLAN_SCROLL_KEY: string = 'planBarScrolled';
 
 /** 请求把 dock 切到某个页签，由 Index 的 @Watch 调 changeIndex 落地 */
 export function requestTab(index: number): void {

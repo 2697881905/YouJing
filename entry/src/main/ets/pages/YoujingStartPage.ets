@@ -1,8 +1,9 @@
 /**
  * 屏1 首启与静默登录（帧 77ed8d08）——五格导航后它是「规划」格的根页。
  * 2026-11-03 主功能页化（对齐「有据」家族契约 v2）：
- * - 标题栏交还官方 HdsChrome（Index 挂 `mainTitle: '规划'` 的 bar，与其余四格同构），
- *   本页不再自绘品牌块（字牌 + 英文 overline + 标语是首启门面的残留，不是工作台形态）。
+ * - 标题栏交还官方 HdsChrome，本页不再自绘品牌块（字牌 + 英文 overline + 标语是首启门面的残留，
+ *   不是工作台形态）。2026-11-05 起这条 `HdsNavigation(APP_NAV)` 由**本页自己**挂（以前挂在
+ *   Index 壳层里，滚动状态只能经 AppStorage 递一层，是五格里唯一的异形）。
  * - 内容按主功能页骨架重排：创建入口（serif 页题 + 副题 + 唯一实心主按钮）
  *   → 草稿续办卡（field-row 卡形态：overline + headline 值 + chevron，契约行卡规格）
  *   → 「规划预览」分区 overline + 预览卡（spine 几何与屏8 同源）。
@@ -16,7 +17,10 @@
  * 状态栏 mock 为设备 chrome，不实现。这一屏不读行程数据（历史行程归「行程」格）。
  */
 
-import { APP_NAV, enterPlanningFlow, markDraftDirty, DRAFT_DIRTY_KEY, isDraftDirty, PLAN_SCROLL_KEY } from '../common/constants/AppNav';
+import { APP_NAV, enterPlanningFlow, markDraftDirty, DRAFT_DIRTY_KEY, isDraftDirty } from '../common/constants/AppNav';
+import { routerMap } from './AppRouter';
+import { HdsChrome } from '../design/HdsChrome';
+import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
@@ -69,12 +73,12 @@ export struct YoujingStartPage {
   }
 
   private barScroller: Scroller = new Scroller();
-  private barScrolled: boolean = false;
+  /** 顶栏磨砂两态。必须 @State：栏体现在就挂在本页的 HdsNavigation 上，值变了要触发它重建 */
+  @State private barScrolled: boolean = false;
 
   /**
    * 绝对滚动偏移 → 顶栏磨砂两态。用**绝对偏移**而不是每帧增量：松手回弹的负增量
    * 会在静止时把磨砂打灭（有据 2026-10-24 根因，契约 §Translucency）。
-   * 顶栏挂在 Index 的 HdsNavigation 上，所以这一页只能经 AppStorage 把状态递出去。
    */
   private syncBarScroll(): void {
     const on: boolean = this.barScroller.currentOffset().yOffset > 0;
@@ -84,7 +88,6 @@ export struct YoujingStartPage {
         // 偏移回到 0：HDS 在这一帧回写系统栏属性，补设通道连发四发压住它
         requestSystemBarRefresh();
       }
-      AppStorage.setOrCreate(PLAN_SCROLL_KEY, on);
     }
   }
 
@@ -255,7 +258,29 @@ export struct YoujingStartPage {
     .margin({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
   }
 
+  /**
+   * 五格同构（有据形态）：格内自带 `HdsNavigation` + `titleBar`，向导链的深链目的页
+   * 也从这一层解析（`.navDestination(routerMap)`）。
+   * 外层 `Index` 的 `Navigation(HOST_NAV)` 只是宿主，不持有本页的栈——
+   * 一个 NavPathStack 只能被一个 Navigation 持有，抢绑的后果是向导链盖住 dock。
+   */
   build() {
+    HdsNavigation(this.pathStack) {
+      this.scrollBody()
+    }
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .hideBackButton(true)
+    .titleBar(HdsChrome.bar({ mainTitle: '规划', scrolled: this.barScrolled }))
+    .navDestination(routerMap)
+    .mode(NavigationMode.Stack)
+    .width('100%')
+    .height('100%')
+    // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（§5ci 续 80）
+    .backgroundColor($r('app.color.canvas'))
+  }
+
+  @Builder
+  scrollBody() {
     Scroll(this.barScroller) {
       Column() {
         // ① 创建入口：serif 页题 + 副题（屏2 同款页题档与文案，主功能页从这里的排版起算）
