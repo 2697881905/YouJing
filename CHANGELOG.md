@@ -581,6 +581,21 @@
 
 ### Changed
 
+- 2026-11-06（§5ci 续 211）：**第 18/19 两行各补一条硬证据：`barMaterial()` 写了没接；横滑切页在有径会撞进行级滑动删除**。
+  想用模拟器拍有据顶栏当参照帧，但这条路废了：`install` 29MB HAP 挂死 5 分钟无输出、
+  `aa start com.youju.app` 挂死、`snapshot_display` + `file recv` 也开始挂（同一台模拟器 25 分钟前还能出帧），
+  于是按纪律停手回源码找证据，两条都找到了。
+  **栏级材质（第 19 行）**：`utils/immersiveMaterial.ets:235` 的 `barMaterial(style, withShadow, enabled)` 早已带
+  `deviceInfo.apiAvailable('26.0.0')` + `isSystemMaterialActive()` 双门，但**全仓除自身文件外 0 调用点**——写了没接的死码。
+  有据的写法更简单：不用 modifier，直接在 `TitleBarStyleOptions` 上写 `style.systemMaterialEffect = {101, 0}`
+  （`HomeTab.ets:1048/1076`，注释标明这是**栏级**入口、`content.menu` 无逐颗材质槽位）；有径同一个对象就在
+  `HdsChrome.ets:103` ⇒ 真实改动是一个字段加一道门。没盲改的原因：材质是否绘制只能靠像素判，
+  手机在真人手里、模拟器像素通路刚证明不可靠（同族先例：栏体涂不出不透明层那次，字段全绿而像素是错的）。
+  **横滑切页（第 18 行）**：有据 `.scrollable(true)` 能开是因为它**全仓 `swipeAction` 命中 0 处**、四个 Tab 根页没有
+  行级横向手势；有径 `TripsPage.ets:648`、`ExpensePage.ets:901` 有行级 `swipeAction`（后者滑出来是**删除票据**），
+  再加 `MapPage` 的 Map Kit 平移 ⇒ 照抄 `true` 会把误删路径变短、拖图变翻页。摊开三条路并推荐第三条
+  （按格开 `.scrollable(状态值)`，只在规划/我的放开），属交互决定留给用户（任务 #33）。零 LLM、未动用户数据；模拟器已停。
+
 - 2026-11-06（§5ci 续 210）：**两 App 设计 token 逐个对数：圆角/投影/字阶已同源，差异在间距档名与图标档**。
   有据 radius 0/6/10/14/20/28+30+999 与有径同值（名字不同）；shadow 五档 `cardContact` 1·#08000000·0、
   `cardAmbient` 10·#12000000·3、`pillFloat` 8·#26000000·3、`floating` 16·#18000000·6 **逐字段相同**；

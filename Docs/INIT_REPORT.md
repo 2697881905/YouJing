@@ -8262,3 +8262,55 @@ dump 的槽位中心取点（1774, 2283）才切成功。这条落点错也说�
 **结论**：在**看得见的数值**层面，有径与有据的圆角、投影、字阶已经同源；
 剩下的真实差异只有图标档 24↔22（要先动契约）和上面两条命名/占位坑。
 本轮零 LLM、未动用户数据、没碰设备。
+
+## 2026-11-06 续 211：第 18/19 两行各补一条硬证据——`barMaterial()` 是写了没接的死码；横滑切页在有径会撞进行级滑动删除
+
+本来想去模拟器拍「有据的顶栏材质长什么样」当参照帧，结果这条路本身废了：
+`hdc install` 有据的 29MB HAP 挂死 5 分钟无输出、`aa start com.youju.app` 挂死、
+连 `snapshot_display` + `file recv` 也开始挂（同一个模拟器 25 分钟前还能出帧）。
+按纪律不跟挂死的设备较劲，改成回源码找证据——两条都找到了。
+
+### ① 第 19 行（顶栏栏级材质）：有径**早就有**一个没人调的材质 helper
+
+`utils/immersiveMaterial.ets:235` 有 `barMaterial(style, withShadow, enabled)`，
+内部走 `deviceInfo.apiAvailable('26.0.0')` + `isSystemMaterialActive()` 双门，
+返回一个 `attributeModifier`。**全仓 grep 它在 `immersiveMaterial.ets` 之外的调用点：0 处**
+——即"写了没接"的死码（判据是消费方，不是文件存在，见 [[dont-register-a-defect-from-a-grep-miss]]）。
+
+有据的做法比我原先设想的更简单，它不用 modifier，而是**声明式一个字段**：
+`HomeTab.ets:1048/1076` 在 `TitleBarStyleOptions` 上写
+`style.systemMaterialEffect = { materialType: HDS_MATERIAL_TYPE_IMMERSIVE(101), materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE(0) }`，
+注释还特别写明「`systemMaterialEffect` 是**栏级**入口，官方没有给 `content.menu` 逐颗材质的槽位」。
+有径这边同一个对象就在 `design/HdsChrome.ets:103`（`const style: TitleBarStyleOptions = {...}`），
+所以真正的改动是**一个字段 + 一道 `isImmersiveLightSenseSupported()` 门**，不是新机制。
+这轮没写进去：材质画没画只能靠像素判，而像素通路（模拟器）刚证明不可靠，
+手机又在真人手里——**不拿"看起来应该没问题"当验收**（同族先例：栏体涂不出不透明层那次，
+`dump` 的字段全绿但像素是错的）。配方已写进任务 #31。
+
+### ② 第 18 行（横滑切页）：有据能开、有径不能照抄，原因在行级手势
+
+有据 `Index.ets:2020` 是 `.scrollable(true)`，注释"整页左右滑动切页已开放"。
+但**有据全仓 `swipeAction` 命中 0 处**（`grep -rln` 空），它的五个 Tab 根页
+（`HomeTab` / `CircleTab` / `MessagePage` / `ProfilePage`）没有任何行级横向手势，
+所以 Tabs 自己吃掉横滑没有对手。
+
+有径不一样，两个 Tab 根页有**行级横向手势**，其中一个还是破坏性动作：
+
+| Tab 根页 | 横向手势 | 风险 |
+| --- | --- | --- |
+| `TripsPage.ets:648` | `.swipeAction(this.selecting …)`（选择模式下才挂） | 与切页抢同一条横向位移 |
+| `ExpensePage.ets:901` | `.swipeAction({ end: this.receiptDelete(r), edgeEffect: SwipeEdgeEffect.Spring })` | **滑出来的是「删除票据」**，误滑即删用户数据 |
+| `MapPage` | Map Kit 的 `XComponent` 自带平移 | 拖地图的手势被 Tabs 抢走就变成切页 |
+| `YoujingStartPage` / `MinePage` | 无 | 开横滑没有对手 |
+
+所以这不是"跟不跟有据"的是非题，是一道取舍题，三条路摊开：
+- **(a) 保持 `false`**：偏离有据，但理由第一次写进文档（此前它只是 WIP 提交 `26ca492` 里一个没解释的默认值）。
+- **(b) 照抄 `true`**：五格都能横滑，代价是费用格可能误滑出删除、地图格拖图会翻页。
+  这条我不建议——它把"误删用户数据"的路径变短了（同族纪律见 [[hdc-double-tap-unsafe-on-destructive-rows]]）。
+- **(c) 按格开**：`.scrollable(...)` 吃一个状态值，只在无行级手势的格（规划 / 我的）放开，
+  行程格按 `selecting` 动态收放，费用与地图格保持关。手感上多数场景与有据一致，
+  又保住破坏性行；代价是多一个状态与一张"哪些格该开"的表，且**手势仲裁结果必须真机试**
+  （`onContentWillChange` 同时挡点击与滑动那条坑见 [[arkui-tabs-lazy-content-and-changeindex]]）。
+
+我的建议是 **(c)**，但它改的是交互而不是像素，且验收要真人滑一遍——**留给用户拍**（任务 #33）。
+本轮零 LLM、未动任何用户数据；模拟器已停。
