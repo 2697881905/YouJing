@@ -15,10 +15,13 @@ r"""主操作是否在"按百分比定高、可能不进可滚状态"的滚动�
    （主操作在滚动区之外），必须一次抓到、一次不报，否则读数不作数。
 
 用法：
-  python3 tools/audit_scroll_actions.py            # 全仓
+  python3 tools/audit_scroll_actions.py            # 全仓（两条硬检查 + 未表态计数）
   python3 tools/audit_scroll_actions.py --probe    # 反证尺子抓得到
+  python3 tools/audit_scroll_actions.py --edges    # 第三条：未表态 edgeEffect 的宿主清单 + 反证
 
-退出码 0 = 没有"主操作困在百分比定高滚动区里"的实例；1 = 有。
+退出码 0 = 没有"主操作困在百分比定高滚动区里"、没有裸 Spring 的实例；1 = 有。
+第三条（续 238 加的"字段整个没写"）默认只报数：那 12 处要逐处把属性挂到**宿主自己**的链上，
+挂错到子级 Column 一样编译通过、只是回弹不生效，必须配装机复拍才能收，见任务 #39。
 """
 
 import os
@@ -98,6 +101,61 @@ def scan_spring(name, text):
     return hits
 
 
+# 第三条检查（2026-11-06 续 238）：**根本没表态** edgeEffect 的滚动宿主。
+# 前两条抓的都是"值写错了"（百分号定高困住主操作、裸 Spring 缺 alwaysEnabled），
+# 这一条抓"字段整个没写"——同一段思路用在第 4 行时才暴露出这类盲区（对表单位应该是调用点）。
+# 真值：有据 47 处滚动宿主里 43 处表态（≈1:1），有径 26 处里只有 14 处表态。
+# 默认只报数不拦闸：这 12 处要一处一处挂到**该宿主自己的属性链**上（挂到子级 Column 上
+# 编译照过、行为却是子级没有回弹），批量改必须逐处双向核链 + 装机复拍，见任务 #39。
+SCROLLABLE = re.compile(r'(?<![A-Za-z0-9_.])(Scroll|List|Grid|WaterFlow)\s*\(')
+
+
+def call_close_paren(text, open_idx):
+    depth = 0
+    for j in range(open_idx, len(text)):
+        if text[j] == '(':
+            depth += 1
+        elif text[j] == ')':
+            depth -= 1
+            if depth == 0:
+                return j
+    return -1
+
+
+def scan_missing_edge(name, text):
+    hits = []
+    for m in SCROLLABLE.finditer(text):
+        line = text[:m.start()].split('\n')[-1].strip()
+        if line.startswith('//') or line.startswith('*'):
+            continue
+        op = text.index('(', m.start())
+        close = call_close_paren(text, op)
+        if close < 0:
+            continue
+        brace = text.find('{', close)
+        if brace < 0:
+            continue
+        body, end = match_block(text, brace)
+        if '.edgeEffect(' not in chain_after(text, end):
+            hits.append((name, text[:m.start()].count('\n') + 1, m.group(1)))
+    return hits
+
+
+def probe_missing_edge():
+    """一正一负：没表态的必须报，表态挂在宿主自己链上的必须不报。"""
+    missing = "  demo() {\n    List() {\n      ListItem() { Text('a') }\n    }\n    .width('100%')\n  }\n"
+    present = "  demo() {\n    List() {\n      ListItem() { Text('a') }\n    }\n    .width('100%')\n" \
+              "    .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })\n  }\n"
+    wrong_host = "  demo() {\n    Column() {\n      List() {\n        ListItem() { Text('a') }\n      }\n" \
+                 "      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })\n    }\n  }\n"
+    a = bool(scan_missing_edge('m.ets', missing))
+    b = bool(scan_missing_edge('p.ets', present))
+    c = len(scan_missing_edge('w.ets', wrong_host))
+    ok = a and not b and c == 0
+    print('  反证：未表态抓到=%s 已表态不报=%s 挂对宿主不误报=%s' % (a, not b, c == 0))
+    return 0 if ok else 1
+
+
 def probe():
     """注入一正一负：正的必须被抓，负的必须不报，否则尺子无效。"""
     bad = """  demoSheet() {
@@ -175,7 +233,26 @@ def probe():
 def main():
     if '--probe' in sys.argv:
         return probe()
+    if '--edges' in sys.argv:
+        if probe_missing_edge() != 0:
+            return 1
+        n = 0
+        for dirpath, _dirs, files in os.walk(SRC):
+            for fn in sorted(files):
+                if not fn.endswith('.ets'):
+                    continue
+                path = os.path.join(dirpath, fn)
+                with open(path, encoding='utf-8') as fh:
+                    text = fh.read()
+                for _n, line_no, tag in scan_missing_edge(fn, text):
+                    print('%s:%d  %s 没表态 edgeEffect（有据同宿主 1:1 带 Spring）'
+                          % (os.path.relpath(path, ROOT), line_no, tag))
+                    n += 1
+        print('未表态滚动宿主 %d 处（默认只报数不拦闸；逐处挂链 + 装机复拍后把 '
+              'total += 这行放开即成硬闸，见任务 #39）' % n)
+        return 0
     total = 0
+    missing_edges = 0
     for dirpath, _dirs, files in os.walk(SRC):
         for fn in sorted(files):
             if not fn.endswith('.ets'):
@@ -193,8 +270,10 @@ def main():
                 print('%s:%d  EdgeEffect.Spring 裸形（缺 alwaysEnabled，内容不满一屏时拉不动）'
                       % (rel, line_no))
                 total += 1
+            missing_edges += len(scan_missing_edge(fn, text))
     if total == 0:
-        print('scroll-action: 没有主操作困在百分比定高的滚动区里，且回弹全部常开 (pass)')
+        print('scroll-action: 没有主操作困在百分比定高的滚动区里，且回弹全部常开 (pass)'
+              '；另有未表态 edgeEffect 宿主 %d 处待逐处挂链（--edges 看清单）' % missing_edges)
         return 0
     print('\n%d 处。主操作困住→移出滚动区 + 确定上限（§5ci 续 15/17）；'
           '裸 Spring→补 { alwaysEnabled: true }（§5ci 续 206）。' % total)
