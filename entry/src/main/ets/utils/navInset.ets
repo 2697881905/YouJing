@@ -47,3 +47,31 @@ export function computeBarInset(heightVp: number, bottomRectWidthVp: number, win
   return isThreeButton(heightVp, bottomRectWidthVp, windowWidthVp)
     ? heightVp + NAV_INSET_EXTRA : GESTURE_INDICATOR_INSET;
 }
+
+/**
+ * 底部避让的高度真值：指示条那条有读数就用它，读不到（0）才回退 `TYPE_SYSTEM`。
+ *
+ * 为什么要回退：三键栏的高度在部分 ROM 只上报进 `TYPE_SYSTEM.bottomRect`，此时
+ * `TYPE_NAVIGATION_INDICATOR` 是 0；只读一条就把硬件栏判成「没有」、dock 压在三颗键上。
+ *
+ * ⚠ 有意偏离有据（有据 `Index.ets:643-652` 取 `Math.max(sysH, navH)`）：
+ * 两值都非 0 且 `sysH > navH` 时我们也用指示条那条，不跟到满宽的 system rect 上——
+ * 那正是「手势档被误判三键、dock 白抬 28.9vp」的入口，而"真机两档各自的
+ * `TYPE_SYSTEM.bottomRect` 到底报多少"今天没有设备可量。华为 ROM 上三键由
+ * settings `showType=0` 权威路径处理，本条只影响 settings 缺失设备的兜底。
+ */
+export function bottomAvoidHeightVp(systemHeightVp: number, indicatorHeightVp: number): number {
+  return indicatorHeightVp > 0 ? indicatorHeightVp : systemHeightVp;
+}
+
+/**
+ * 宽度必须跟着「出高度那条 rect」。
+ *
+ * 否则三键栏的高度来自满宽的 `TYPE_SYSTEM`、宽度却取了居中窄手势条的那条，
+ * `isThreeButton` 的第二个条件被自己拆台——栏高够了、宽度不够，判成手势、dock 不抬。
+ * 同高按指示条优先，与有据 `navH >= sysH` 同向。
+ */
+export function bottomAvoidRectWidthVp(systemHeightVp: number, systemWidthVp: number,
+  indicatorHeightVp: number, indicatorWidthVp: number): number {
+  return indicatorHeightVp > 0 ? indicatorWidthVp : systemWidthVp;
+}

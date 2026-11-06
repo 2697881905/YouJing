@@ -6,7 +6,8 @@
 import { describe, it, expect, TestType, Size, Level } from '@ohos/hypium';
 import {
   GESTURE_INDICATOR_MAX, NAV_INSET_EXTRA, GESTURE_INDICATOR_INSET,
-  spansFullWidth, isThreeButton, computeNavInset, computeBarInset
+  spansFullWidth, isThreeButton, computeNavInset, computeBarInset,
+  bottomAvoidHeightVp, bottomAvoidRectWidthVp
 } from '../../../main/ets/utils/navInset';
 
 export default function navInsetTest(): void {
@@ -45,6 +46,39 @@ export default function navInsetTest(): void {
     it('zero_window_width_never_divides',
       TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
         expect(spansFullWidth(100, 0)).assertFalse();
+      });
+
+    // —— 两条 avoid rect 的选取（publishNavAvoid 此前只读指示条那一条）——
+    it('bar_height_taken_from_system_rect_when_indicator_reports_zero',
+      TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+        // 三键栏高度上报进 TYPE_SYSTEM、指示条为 0：只读一条会把硬件栏判成「没有」
+        expect(bottomAvoidHeightVp(27.8, 0)).assertEqual(27.8);
+        expect(bottomAvoidRectWidthVp(27.8, 363.5, 0, 0)).assertEqual(363.5);
+        expect(isThreeButton(bottomAvoidHeightVp(27.8, 0),
+          bottomAvoidRectWidthVp(27.8, 363.5, 0, 0), 363.5)).assertTrue();
+        expect(computeNavInset(bottomAvoidHeightVp(27.8, 0),
+          bottomAvoidRectWidthVp(27.8, 363.5, 0, 0), 363.5))
+          .assertEqual(27.8 + NAV_INSET_EXTRA);
+      });
+
+    it('both_rects_reported_keeps_indicator_and_does_not_jump_to_full_width',
+      TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+        // 有意偏离有据的取最大值写法（见 navInset 文件头 ⚠）：两值都非 0 时留在指示条那条，
+        // 不跟到满宽的 TYPE_SYSTEM——跟过去就是「手势档误判三键、dock 白抬 28.9vp」的入口
+        expect(bottomAvoidHeightVp(27.8, 9.0)).assertEqual(9.0);
+        expect(bottomAvoidRectWidthVp(27.8, 363.5, 9.0, 137)).assertEqual(137);
+        expect(isThreeButton(bottomAvoidHeightVp(27.8, 9.0),
+          bottomAvoidRectWidthVp(27.8, 363.5, 9.0, 137), 363.5)).assertFalse();
+        expect(computeNavInset(bottomAvoidHeightVp(27.8, 9.0),
+          bottomAvoidRectWidthVp(27.8, 363.5, 9.0, 137), 363.5)).assertEqual(0);
+      });
+
+    it('equal_heights_prefer_indicator_as_youju_does',
+      TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+        // 同高时按指示条优先（有据 navH >= sysH）：宽度落回窄胶囊 → 保守判手势、dock 不抬
+        expect(bottomAvoidHeightVp(28, 28)).assertEqual(28);
+        expect(bottomAvoidRectWidthVp(28, 363.5, 28, 137)).assertEqual(137);
+        expect(isThreeButton(28, bottomAvoidRectWidthVp(28, 363.5, 28, 137), 363.5)).assertFalse();
       });
   });
 }

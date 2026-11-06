@@ -194,6 +194,8 @@ L1 → 复验 → 提交 → L2 → 复验 → 提交 → L3 → 复验 → 提�
 | 27 | 空态：图形 44 + 标题 `headline` 18 serif，件被 12 个文件消费 | 图形 48 + 标题 `title` 21 serif，`EmptyState(` 消费方 0 | **档位保留 48/21；「接线」已否** | 有径图形档封闭为 22/48，44 是命中盒不是图形档。**接线被证据推翻**（续 223）：三处内联空态外层布局各不相同（TripsPage 逐段间距 16/8/24 + 说明限宽 240、BadgePage `layoutWeight`+居中+`padding(base)`、AreaMorePage 48+title+callout+主按钮），`EmptyState` 件不是直接替换；三处档位逐行读过已一致（48/21/serif700 + small），"0 消费"不等于漂移 |
 | 28 | 通用卡内缩钉 16（`BaseCard.ets:12`；它自己的 `CARD_PADDING` 0 消费、`PublishSection.ets:23` 又覆盖成 12） | **有径内部不一致**：同一 `RadiusTokens.card`(20) 配 `sm`=12 共 26 处、配 `base`=16 共 18 处 | **已收口**（22 处改到 16、尺归 0；手机档行程屏实拍 16.0×2，续 220） | 与「跟不跟有据」无关，是有径自己同一种卡两屏跳 4vp；批量收口属「改完必须逐屏量 bounds 反证」类（§5ci 续 212） |
 | 29 | 吸顶组头两件事：**不透明底板** 与 **带高单源**（`PublishTagPanel.ets:83-86` `height(segmentedHeight)`=36 + `alignItems(VerticalAlign.Center)` + 实底板） | 底板：`SpotPickPage`/`AreaMorePage` 原是裸 Text（续 218 已补）；带高：五处全部靠 `padding({top,bottom})` 凑，合计只有 8+4 与 12+4 两种值，且没有一处钉在 token 上 | **代码已照有据钉成一条（`stickyHeaderHeight` 36），滚动实拍待做** | 无底板时吸顶行文字与滚过来的行叠成两行；底板已用本仓 `canvas`（不抄有据 `elevated`）。续 235 再补第二件事：带高原来是 padding 凑，四处落在不同档、且改不动——现四处钉 `LayoutTokens.stickyHeaderHeight = 36`（契约对单行组头无写档，DESIGN.md 只给 `day-header.height = day-divider-height` :468-475，所以取值按有据同位），`dayHeader` 保留契约的 44。尺 `audit_sticky_header.py` 加第 5 条：底板 + 带高 token 缺一不可，并用真代码反证（HEAD 版四处全部命中）；**不复用 `segmentedControlHeight`**——两个 36 绑一起后，组头里塞进一条分段控件就会让尺误判为已钉高，这条洞用自测样本封住。另拦下我顺手加的横向内缩——这两页 List 已带 `left/right: base`，再加就是 32vp 新错位（§5ci 续 218、续 235） |
+| 30 | 兜底链路的底部避让测量（`Index.ets:640-652` / `PostDetailView.ets:500-512` 两条 rect 一起读、取 max，宽度跟着出高度那条走） | `utils/navMode.publishNavAvoid` 此前**只读** `TYPE_NAVIGATION_INDICATOR` 一条 | **已补双 rect（判定数学抽进 `navInset`，6 组离线断言全过），写法有意偏离有据** | 补的动机是真的：三键栏高度在部分 ROM 只上报进 `TYPE_SYSTEM.bottomRect`，那条读到 0 就把硬件栏判成「没有」、dock 压在三颗键上。**不跟 max 的理由也一样硬**：`sysH > navH > 0` 时跟过去就是拿满宽的 system rect 去配三键判定，而这恰好是「手势档误判三键、dock 白抬 28.9vp」的入口——这条判据的原文就写在 `navInset.ets` 文件头。今天没有设备能量真机两档各自的 `TYPE_SYSTEM.bottomRect`，所以落的是保守形（指示条有读数就用它，为 0 才回退 system），差异用一条用例钉住（`both_rects_reported_keeps_indicator_and_does_not_jump_to_full_width`）。**待测**：设备回来后在两档各读一次两条 rect 的真值，若三键档下 system 那条确实更高且满宽，就把这两个函数换成有据的 max 形并删那条用例（任务 #37）。华为 ROM 的三键本由 settings `showType=0` 权威路径处理，这条只影响 settings 缺失设备的兜底（§5ci 续 237） |
+| 31 | 材质入口的消费面（`GlassBlurStyle` 被 14 处、`TopButtonMaterialModifier` 5 处、`FloatingTopButtonMaterialModifier` 3 处 import） | `utils/immersiveMaterial.ets` 三个名字**都只有声明、零 import 方** | **待裁决：删死码 / 还是顶栏钮该接材质没接** | 有据那 12 个消费方全是自绘玻璃件（`GlassPanel`/`ImmersiveSurface`/`DesignButton`/`BottomTabBar`…），而有径的既定规则是**官方件优先、禁自绘**，所以「没消费」本身可能是对的；但也可能是「顶栏钮该挂材质却没挂」的半成品（与第 19 行的栏级材质是同一处观感，任务 #31）。两种处置代价不同：删——三个类连两份材质缓存一起清掉，零行为变化、可编译验证；接——要给顶栏钮加 `attributeModifier`，是可见变化，必须真机 A/B 才判得了（§5ci 续 237） |
 
 
 **读法**：1–7、9、10、11 已按有据落地（10 有 A/B 复拍；11 的「不跟」原判已在续 205 推翻并补齐，
@@ -202,6 +204,10 @@ L1 → 复验 → 提交 → L2 → 复验 → 提交 → L3 → 复验 → 提�
 还剩两格都要真人眼睛：**13 顶栏跟手收起**（前提是穿底，正撞第 8 条）、
 **14 dock 液态选中胶囊**（五格逐位 + 浅色档已量，剩鼓包/spring 落定的观感、按压缩放手感与 md 档宽度）。
 所以「按有据的界面结构和布局体系来」这条目标**尚未全部达成**，本表就是它的剩余清单。
+（2026-11-06 续 235–237 又补三格与一次接线：第 29 行加上"带高也得有单源"这半件事、
+第 30 行是有径此前只读一条 avoid rect 的兜底缺口（已落保守形、写法有意偏离有据）、
+第 31 行是三个材质入口在有径零消费（删还是接，需一句裁决）；同轮查出第 4 行的补设通道
+此前只接了 1/16 个宿主，现已全量接线并由第 22 把尺钉住。）
 
 **2026-11-06 续 206 之后**：`barWidth` 那条（第 11 行）被判错教会我一件事——这张表原来是
 按"我记得问过的维度"建的，不是按有据的实际配置面建的。所以做了一次源码级整表重扫，

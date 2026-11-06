@@ -8989,3 +8989,46 @@ R3 `utils/systemBar.ets` 连发必须 ≥3 发且末发 ≥2500ms——单发 40
 **自我更正**：第 4 行的"代码落地"当初只核到"机制文件存在"，没核到"每个宿主都调了它"。
 参照件的对表单位应该是**调用点**而不是文件——这正是「从参照 App 迁移结构要逐字段枚举它的配置面」
 在跨文件层面的同一件事，已把这条并进尺里。本轮零 LLM、未动用户数据。
+
+## 2026-11-06 续 237：把「对表单位是调用点」跑成一次普查——查出兜底避让只读一条 rect、材质入口三处零消费
+
+上一轮的第 4 行是"机制文件在、调用点没接满"。既然这个查法有效，就把它系统化：
+列出两仓 `utils/` 的**同名导出**，按 `import` 语句数真实消费方（第一版按名字全文计数，
+把定义文件自己也算进去了，navMode 的两个内部函数因此被误报成"有据在用"——计数前先排掉定义文件）。
+
+**有 import 方、有径零消费的只有 6 个名字**，逐个读完后的结论分三类：
+
+1. `navMode.reportBottomAvoid` / `refreshBottomNavInset`：**不是缺口，是架构差**——有径把这两个
+   收在 `publishNavAvoid()` 内部调用，有据让页面直接调。名字对不上不等于没实现，
+   这类必须读到实现点才算判过（"否定判断要读消费方"）。
+2. `breakpointCenter.KEY_IS_WIDE_PANE`：有径写 AppStorage 三处、**读方零处**（有据 1 处读）。
+   有径宽屏走 `bp` 键 + `listLanesForBreakpoint`，这个布尔是半成品，登记为待清理。
+3. `immersiveMaterial.GlassBlurStyle` / `TopButtonMaterialModifier` /
+   `FloatingTopButtonMaterialModifier`：有径只有声明、零 import；有据被 12 个**自绘玻璃件**消费
+   （`GlassPanel`/`ImmersiveSurface`/`DesignButton`/`BottomTabBar`…）。有径的既定规则是官方件优先、
+   禁自绘，所以"没消费"可能是对的；但也可能是"顶栏钮该挂材质没挂"的半成品——两种处置代价差很多，
+   已写成对表第 31 行等一句裁决（删：零行为变化；接：可见变化，必须真机 A/B）。
+
+**这一轮真正落进代码的是 avoid rect**：`publishNavAvoid()` 此前只读
+`TYPE_NAVIGATION_INDICATOR`，有据 `Index.ets:640-652` 与 `PostDetailView.ets:500-512` 都是
+两条一起读、高度取 max、宽度跟着出高度那条走（"否则满宽三键栏会被窄手势条带偏"）。
+只读一条的后果是真的：三键栏高度在部分 ROM 只进 `TYPE_SYSTEM`，那条读到 0 就把硬件栏
+判成"没有"、dock 压在三颗键上。
+
+**但没有照抄 max**，落的是保守形：指示条有读数就用它，为 0 才回退 system。
+原因是 `sysH > navH > 0` 时跟到 max 就等于拿满宽的 system rect 去配三键判定，
+而这正是本仓 `navInset.ets` 文件头那条真机教训（手势档误判三键、dock 白抬 28.9vp）的入口；
+"真机两档各自的 `TYPE_SYSTEM.bottomRect` 到底报多少"今天没设备能量。
+判据抽成两个纯函数 `bottomAvoidHeightVp` / `bottomAvoidRectWidthVp`，
+偏离点单独钉成用例 `both_rects_reported_keeps_indicator_and_does_not_jump_to_full_width`，
+换回有据写法的条件也写在对表第 30 行（任务 #37 是那次测量）。
+
+**验证（全在无设备条件下）**：
+- 纯逻辑离线断言 6 组全过（`node --experimental-strip-types` 跑真实模块的 .ts 拷贝，
+  含两条原有用例不回归）；
+- hypium `NavInset.test.ets` 由 5 例增至 8 例，`entry@ohosTest` 与 `entry@default` 双 HAP
+  BUILD SUCCESSFUL（产物 14:36 新写，不是 UP-TO-DATE 复用）；
+- 22 把尺全跑：除 `audit_contrast`（缺 dump＋帧参数按用法退 2）外全部 0。
+
+**边界**：真机跑不了，8 例 hypium 只是"写好了、编过了"，不是"过了"；
+dock 在用户 Pocket 2 上的实际边距本轮未重装（上一版产物仍在设备上）。本轮零 LLM、未动用户数据。

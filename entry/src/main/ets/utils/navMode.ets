@@ -19,7 +19,8 @@ import { window } from '@kit.ArkUI';
 import { Logger } from '../common/logger/Logger';
 import {
   NAV_MODE_GESTURE, NAV_MODE_THREE_BUTTON, NAV_MODE_FLOATING_BALL,
-  isThreeButton, computeNavInset, computeBarInset
+  isThreeButton, computeNavInset, computeBarInset,
+  bottomAvoidHeightVp, bottomAvoidRectWidthVp
 } from './navInset';
 
 const TAG: string = 'Ui.NavMode';
@@ -121,14 +122,27 @@ export function bottomNavInset(): number {
   return AppStorage.get<number>(BOTTOM_NAV_INSET_KEY) ?? 0;
 }
 
-/** EntryAbility 在 avoidArea 变化/首帧时调用，把窗口真值灌进兜底链路 */
+/**
+ * EntryAbility 在 avoidArea 变化/首帧时调用，把窗口真值灌进兜底链路。
+ *
+ * 两条 rect 都要读（此前只读 `TYPE_NAVIGATION_INDICATOR` 一条）：三键栏的高度在部分
+ * ROM 只上报进 `TYPE_SYSTEM.bottomRect`，那条读到 0 就把硬件栏判成「没有」、dock 压在键上。
+ * 取法与有据不同（有意偏离，理由写在 `navInset.bottomAvoidHeightVp` 的注释里）：
+ * 指示条有读数就用它，为 0 才回退 system；宽度跟着出高度那条走。判据本体在 `navInset.ets`，可进 hypium。
+ */
 export function publishNavAvoid(win: window.Window): void {
   try {
-    const density: number = display.getDefaultDisplaySync().densityPixels;
-    const rect: window.Rect = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR).bottomRect;
     const d: display.Display = display.getDefaultDisplaySync();
-    reportBottomAvoid(density > 0 ? rect.height / density : 0,
-      density > 0 ? rect.width / density : 0,
+    const density: number = d.densityPixels;
+    const sysRect: window.Rect = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM).bottomRect;
+    const indRect: window.Rect =
+      win.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR).bottomRect;
+    const sysH: number = density > 0 ? sysRect.height / density : 0;
+    const sysW: number = density > 0 ? sysRect.width / density : 0;
+    const indH: number = density > 0 ? indRect.height / density : 0;
+    const indW: number = density > 0 ? indRect.width / density : 0;
+    reportBottomAvoid(bottomAvoidHeightVp(sysH, indH),
+      bottomAvoidRectWidthVp(sysH, sysW, indH, indW),
       density > 0 ? d.width / density : 0);
   } catch (err) {
     Logger.warn(TAG, `发布导航避让区失败: ${(err as Error).message}`);
