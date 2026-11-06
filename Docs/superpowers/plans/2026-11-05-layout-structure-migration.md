@@ -1170,7 +1170,7 @@ git commit -m "docs(布局): 迁移收口——十九把尺读数、hypium 新�
 5. 第 15 行一镜到底转场：属转场体系不是布局骨架，要不要做是产品取舍。
 6. 第 19/20 行 穿底 + 栏级材质：**同一个改动**。真机取证已证明栏体下面从来没有内容
    （地图格 y100–260 全 255、底图从 300 开始），没穿底材质就是白压白；配方在任务 #31。
-7. **push**（分支 63 个提交，本地 `main..HEAD`）与 **合并 main**。
+7. **push** 与 **合并 main**（分支领先本地 `main` 的提交数以 `git rev-list --count main..HEAD` 现算为准，写死就会过期——本轮实测从 63 涨到 66）。
 8. **第 31 行 材质入口三处零消费**（任务 #38）：`GlassBlurStyle`/`TopButtonMaterialModifier`/
    `FloatingTopButtonMaterialModifier` 在有径只有声明、0 个 import 方。删（零行为变化）或
    给顶栏钮接材质（可见变化，必须真机 A/B）——两句之一即可，默认建议删，
