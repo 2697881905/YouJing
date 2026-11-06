@@ -9100,3 +9100,36 @@ dock 在用户 Pocket 2 上的实际边距本轮未重装（上一版产物仍�
 **边界**：回弹手感（松手回位的阻尼、横向 chip 条侧向 overscroll 是否合适）只能装机后用手指判，
 本轮设备仍不可达、未安装；任务 #39 的代码部分完成、复拍部分保留。22 把尺除
 `audit_contrast`（缺 dump＋帧参数按用法退 2）外全 0。本轮零 LLM、未动用户数据。
+
+## 2026-11-06 续 240：把「配置面普查」做成从 SDK 声明出发的全表比对——dock 与顶栏字段面已对称，差异收敛到 4 个名字
+
+前面的普查是从**代码里出现过的名字**反推维度，天生看不见"两边都没写过"和"只在一边存在的文件"。
+这次改成从 SDK 声明出发列全表：`hds_tabs.json` 28 属性、`HdsTabsFloatingStyle` 10 字段、
+`hdsnavigation.json` 25 属性、`hdsnavdestination.json` 23 属性、`TitleBarStyleOptions` 6 字段、
+`HdsNavigationTitleBarStyle` 2 字段，共 94 个面，逐个数两仓设没设。
+
+**读数**（两边都设 / 一边为 0 / 两边都不设）：
+- dock：28 属性里 11 个两边都设、17 个两边都不设（`miniBar`/`adaptToHandedness`/`lightColor`/
+  `thermoCtrl`/`barOpacity`…），**一边为 0 的 0 个**；`HdsTabsFloatingStyle` 10 字段同样对称。
+- 顶栏：`TitleBarStyleOptions` 6 字段里 4 个两边都设、2 个都不设；`HdsNavigationTitleBarStyle` 2 个都设。
+- Navigation/NavDestination：一边为 0 的只有 4 个名字——`dynamicHideTitleBar`(1/0)、
+  `bindToScrollable`(11/0)、`customNavContentTransition`(1/0)、`onBackPressed`(3/0)，
+  全部已经归在对表第 13、19/20、15 行里，不是新格。
+
+**新判的一格：`onBackPressed` + `utils/overlayBackGuard.ets` → 不适用，不是漏迁。**
+有据只在 3 个宿主登记（`CircleTab:282`、`ChatView:207`、`PostDetailView:459`），守的全是**自绘**
+覆盖层（图片查看器、发文面板）；而有据自己的文件头写了反向判据——"系统返回手势直接 pop 该页
+就是正确行为，故不登记"（`VideoPlayerPage`/`VideoPlayerDestination`）。
+有径的载体普查：`bindSheet` 19 处、`bindContentCover` 0、`openCustomDialog` 0、`.zIndex(` 0、
+自绘全屏条件层 0。半模态由系统返回自己收，登记面不存在，所以搬一个空壳守卫只会多一处要维护的注销配对
+（有据文件头明说回调闭包持有页面实例、必须成对注销，否则拖住已销毁页面）。
+
+**两处计数坑（都会造成假缺口，记下来防重复踩）**：
+1. 属性名第一版按 `name[=(:]` 且带 `(?<![\w.])` 排除前导点——链式属性 `.onChange(` 全被排除掉了，
+   于是报出 `onChange`/`divider`/`edgeEffect` 三个"一边为 0"的假差异；改成 `.name(` 与 `name:` 双形态匹配后差异消失。
+2. 之前的文件级普查只比"两仓同名文件"，**只存在于有据的模块永远不会进视野**——本轮按目录列
+   "仅在有据"清单（utils 45 个、components 60 个）才发现 `overlayBackGuard`、`longTake/`、
+   `navigationTransition`、`design/{tokens,components,motion}` 的组织差异；其余归类下来都是
+   圈子/帖子/结构化发文的功能件，不属于结构与布局体系。
+
+本轮**零 .ets 改动**（只写文档），闸门与产物仍是续 239 那批。零 LLM、未动用户数据。
