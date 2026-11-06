@@ -126,7 +126,7 @@ HdsChrome.bar(spec) ──▶ 栏体几何与避让（含带子覆盖）；页�
 | # | 冲突项 | 有径契约现值 | 有据做法 | 默认处置 |
 |---|---|---|---|---|
 | 1 | 顶栏跟手收起 | 顶栏常驻 + 静止/滚动两态磨砂 | `dynamicHideTitleBar` SCROLL_UP_TO 跟手收起 | **按有据**，L4 落地 |
-| 2 | dock 尺寸基准 | 宽 300 / 底距 28 / 预留 112 | 胶囊 328.3×56，整块预留 84vp | **按有据**，L1 起随 inset 一起改 |
+| 2 | dock 尺寸基准 | 宽 300 / 底距 28 / 预留 112 | 胶囊 328.3×56，整块预留 84vp（**历史读数，现状见第 9/11 行：300.2×56**） | **按有据**，L1 起随 inset 一起改 |
 | 3 | 栏面模糊半径 | `layout.glass-blur = 50` | 三处栏面同 50 | 已一致，无需决策 |
 | 4 | 系统栏图标明暗补设通道（HDS 回顶会回写） | `utils/systemBar.ets` | **代码落地；「回顶回写」一格无判据** | 注入 `uitest uiInput swipe` 在这台机器上**滚不动**（行程列表/详情/我的三页、每次 ≥1000px，y 坐标全不变）⇒ 三态带子读数相同是**假绿**，不能用。这条与「注入 fling 不触发 HDS 滚动特效」「注入 drag 命中不稳」同源，必须手指滚下去再回顶（§5ci 续 225） |
 | 5 | 吸顶组头材质 | sticky 组头吃不到 systemMaterial（实测） | 未用到该形态 | 有径侧保持现状并记档：**这条不是观感分歧，是平台能力缺失**，照搬不出一致效果 |
@@ -136,7 +136,7 @@ HdsChrome.bar(spec) ──▶ 栏体几何与避让（含带子覆盖）；页�
 | # | 契约条目 | 现值（有径） | 迁移后 | 落在哪层 |
 |---|---|---|---|---|
 | C1 | 顶栏行为 | 常驻 + 两态磨砂 | 跟手收起（SCROLL_UP_TO，hideRatio 1.0） | L4 |
-| C2 | dock 尺寸 | 宽 300 / 底距 28 / 预留 112 | 胶囊 328.3×56 / 整块预留 84vp（含 inset 派生） | L1+L3 |
+| C2 | dock 尺寸 | 宽 300 / 底距 28 / 预留 112 | 胶囊 328.3×56 / 整块预留 84vp（**历史读数，现状见第 9/11 行**） | L1+L3 |
 | C3 | 状态栏带子 | 四处玻璃面之一，壳层涂 | 无带子概念：系统栏透明 + 栏体铺穿 | L3 |
 | C4 | 底部避让 | 常量 112 硬编码 | `navMode` 按导航方式派生 | L1 |
 
@@ -191,7 +191,7 @@ L1 → 复验 → 提交 → L2 → 复验 → 提交 → L3 → 复验 → 提�
 | 24 | 按钮标签字档 = `callout` 14（`DesignButton.ets:91`） | 现为 `body` 16（`YoujingButton.ets:54`） | **已裁决：保留 16（有意偏离有据）** | DESIGN.md:922 把 buttons 归 `body`；:809 按「16px semibold 不算 WCAG 大字」论证过实心主钮对比度。改 14 是全 App 尺度摆动且那段论证要重算（§5ci 续 222） |
 | 25 | 选中胶囊表面 = 实心 `brandSolid` + 白字（`ChipRow.ets:80`） | `primaryTint` + `ink` + 1px `primary` 描边（`TripInputPage.ets:561`） | **已裁决：保留 tint+描边（有意偏离有据）** | 有径契约只有一套选中语义（`option-chip`），城市胶囊与四题选项卡共用；改实心要么把选项卡也染成整块蓝、要么把契约拆两套。有据无"整卡选中"对照件（§5ci 续 222） |
 | 26 | 胶囊高度 = `segmentedHeight` 36（`ChipRow.ets:23`） | `minTouchTarget` 44（`TripInputPage.ets:557`） | **已裁决：保留 44（有意偏离有据）** | 「Min touch target 44×44」是硬线，收到 36 破命中区（§5ci 续 222） |
-| 27 | 空态：图形 44 + 标题 `headline` 18 serif，件被 12 个文件消费 | 图形 48 + 标题 `title` 21 serif，`EmptyState(` 消费方 0 | **档位已裁决：保留 48/21；接线待做** | 有径图形档封闭为 22/48，44 是命中盒不是图形档；件与 TripsPage 内联同规格，接线对那屏像素中性，其余屏逐屏量（§5ci 续 222） |
+| 27 | 空态：图形 44 + 标题 `headline` 18 serif，件被 12 个文件消费 | 图形 48 + 标题 `title` 21 serif，`EmptyState(` 消费方 0 | **档位保留 48/21；「接线」已否** | 有径图形档封闭为 22/48，44 是命中盒不是图形档。**接线被证据推翻**（续 223）：三处内联空态外层布局各不相同（TripsPage 逐段间距 16/8/24 + 说明限宽 240、BadgePage `layoutWeight`+居中+`padding(base)`、AreaMorePage 48+title+callout+主按钮），`EmptyState` 件不是直接替换；三处档位逐行读过已一致（48/21/serif700 + small），"0 消费"不等于漂移 |
 | 28 | 通用卡内缩钉 16（`BaseCard.ets:12`；它自己的 `CARD_PADDING` 0 消费、`PublishSection.ets:23` 又覆盖成 12） | **有径内部不一致**：同一 `RadiusTokens.card`(20) 配 `sm`=12 共 26 处、配 `base`=16 共 18 处 | **已收口**（22 处改到 16、尺归 0；手机档行程屏实拍 16.0×2，续 220） | 与「跟不跟有据」无关，是有径自己同一种卡两屏跳 4vp；批量收口属「改完必须逐屏量 bounds 反证」类（§5ci 续 212） |
 | 29 | 吸顶组头底板（`PublishTagPanel.ets:83-86` 定高 36 + `elevated` 实底板） | 逐处读 builder 本体后定案：`OnTripPage`/`BadgePage`/`ItineraryPage:800` 有 canvas 底板；**`SpotPickPage:238-247` 与 `AreaMorePage:94-101` 是裸 Text 无底板** | **已修（滚动实拍待做）** | 无底板时吸顶行文字与滚过来的行叠成两行；两处各加 `.backgroundColor(ColorTokens.canvas)`（跟本仓三处一致，不抄有据的 `elevated`）。另拦下我自己顺手加的横向内缩——这两页 List 已带 `left/right: base`，再加就是 32vp 新错位（§5ci 续 218） |
 

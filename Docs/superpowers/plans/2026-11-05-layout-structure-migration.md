@@ -1021,7 +1021,7 @@ git commit -m "refactor(布局): 带子色决策移交栏体——barBackground/
 
 **Interfaces:**
 - Consumes: Task 4 的 `dockNavInset`
-- Produces: `ChromeSpec.hideOnScroll?: boolean` + `ChromeSpec.scroller?: Scroller`；`floatingDockWidth: 328.3`、`floatingDockBarHeight: 56`、`floatingDockClearance: 84`（有据 §130 基准）
+- Produces: `ChromeSpec.hideOnScroll?: boolean` + `ChromeSpec.scroller?: Scroller`；`floatingDockWidth: **300**`（**2026-11-06 续 205 更正**：原写 328.3 是"不设 `barWidth` 时官方排出来的读数"，把它写进 token 是把镜像当输入；正确做法是 `barWidth.smallWidth = 300`，真机实测板宽 300.2vp、与有据逐像素相同）、`floatingDockBarHeight: 56`、`floatingDockClearance: **112**`（**续 199 更正**：84 是手势档 dock 净空本身，按 84 钉会在三键档把末行压进 dock；112 是最大档上界，属既定取舍，见续 223）
 
 - [ ] **Step 1: 栏体跟手收起**
 
@@ -1049,7 +1049,7 @@ Modify `entry/src/main/ets/design/HdsChrome.ets`：`ChromeSpec` 加
 
 Modify `entry/src/main/ets/design/LayoutTokens.ets`：
 ```ets
-  floatingDockWidth: 328.3,        // 有据 §130 实测基准（原 300）
+  floatingDockWidth: 300,          // **续 205 更正**：原写 328.3 是官方默认排版的读数；现在由 barWidth.smallWidth 显式给 300（真机 300.2vp 与有据同值）
   floatingDockBarHeight: 56,       // 栏体高，dock 预留的基数
   floatingDockBottomMargin: 28,
   floatingDockClearance: 84,       // 整块预留 = 56 栏 + 28 底部安全区（原 112 是推导值，按基准改）
