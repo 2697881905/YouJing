@@ -1,0 +1,129 @@
+#!/usr/bin/env python3
+"""逐屏结构巡检：用 App 自带的 `--ps route` 深链把每个页面直接拉起来，
+dumpLayout 读真树，检查三件确定性的事——页面起得来、顶栏是 56vp 的 MINI 档、
+底部悬浮 dock 板在位。
+
+为什么要它（§5ci 续 247）：本仓有一整类改动只有"跑起来"才暴露
+（16 页系统栏接线、13 页 edgeEffect 挂载、4 处吸顶带高），
+而"承接外部改动要真机逐屏跑"这条纪律此前只能靠手工点屏，成本高到没人肯每轮做。
+深链把路径压成一条命令，所以这一轮把它做成闸门。
+
+用法：
+  python3 tools/verify_route_sweep.py                 # 全部路由
+  python3 tools/verify_route_sweep.py --target 127.0.0.1:5555
+  python3 tools/verify_route_sweep.py --only SpotPick,AreaMore
+
+退出码 0 = 每一屏都过；1 = 有屏没起来 / 顶栏档不对 / dock 板不在。
+读的是 bounds 像素，vp 换算用屏宽实测密度（不硬编 3.0/3.125）。
+"""
+import argparse
+import json
+import re
+import subprocess
+import sys
+import time
+
+BUNDLE = 'com.youjing.app'
+ROUTES = ['TripInput', 'PreferenceQA', 'SpotPick', 'StayPick', 'Generating', 'Itinerary',
+          'GenerateFailed', 'EditItinerary', 'Expense', 'Trips', 'OnTrip', 'Share',
+          'AreaMore', 'Map', 'Badges', 'Review', 'Pricing']
+TITLE_BAR_VP = 56.0          # HdsNavDestinationTitleMode.MINI 的档高（SDK 注释）
+DOCK_MIN_VP, DOCK_MAX_VP = 250.0, 340.0   # 手机档 300vp，留裕度
+NEAR_BOTTOM_PX = 460          # dock 板下沿离物理底不远
+
+
+def hdc(target, args, timeout=90):
+    return subprocess.run(['hdc', '-t', target] + args,
+                          capture_output=True, text=True, timeout=timeout)
+
+
+def layout(target):
+    hdc(target, ['shell', 'uitest', 'dumpLayout', '-p', '/data/local/tmp/sweep.json'])
+    out = hdc(target, ['shell', 'cat', '/data/local/tmp/sweep.json']).stdout
+    i = out.find('{')
+    if i < 0:
+        return []
+    items = []
+
+    def walk(n):
+        a = n.get('attributes', {})
+        m = re.match(r'\[(-?\d+),(-?\d+)\]\[(-?\d+),(-?\d+)\]', a.get('bounds', ''))
+        if m:
+            x1, y1, x2, y2 = [int(v) for v in m.groups()]
+            items.append((a.get('type', ''), x1, y1, x2, y2))
+        for c in n.get('children', []):
+            walk(c)
+
+    try:
+        walk(json.loads(out[i:]))
+    except json.JSONDecodeError:
+        return []
+    return items
+
+
+def check(items):
+    """返回 (是否通过, 读数说明)。元组是 (type, x1, y1, x2, y2)，索引别搞混。"""
+    if len(items) < 40:
+        return False, '节点只有 %d 个——页面没起来' % len(items)
+
+    def w(it):
+        return it[3] - it[1]
+
+    def h(it):
+        return it[4] - it[2]
+
+    H = max(it[4] for it in items)
+    W = max(it[3] for it in items)
+    density = W / 391.0 if abs(W - 1320) < 40 else W / 363.5   # sm 档两种常见实测宽
+    band = [it for it in items
+            if abs(h(it) - TITLE_BAR_VP * density) <= 5 * density
+            and w(it) > 0.7 * W and it[2] < 0.12 * H]
+    dock = [it for it in items
+            if it[2] > H - NEAR_BOTTOM_PX
+            and DOCK_MIN_VP * density < w(it) < DOCK_MAX_VP * density
+            and h(it) > 40 * density]
+    problems = []
+    if not band:
+        problems.append('没认出 %.0fvp 顶栏带（MINI 档掉了？）' % TITLE_BAR_VP)
+    if not dock:
+        problems.append('底部没找到 dock 板（宽 250–340vp 的悬浮条）')
+    ok = not problems
+    detail = '节点 %d ｜ 屏 %dx%d ｜ 密度≈%.3f ｜ 顶栏带 %d 处 ｜ dock 候选 %d 个%s' % (
+        len(items), W, H, density, len(band), len(dock),
+        '' if ok else ' → ' + '；'.join(problems))
+    return ok, detail
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--target', default='127.0.0.1:5555')
+    ap.add_argument('--only', default='')
+    ap.add_argument('--settle', type=float, default=5.0)
+    args = ap.parse_args()
+    routes = [r.strip() for r in args.only.split(',') if r.strip()] or ROUTES
+
+    alive = subprocess.run(['hdc', '-t', args.target, 'shell', 'echo', 'ok'],
+                           capture_output=True, text=True, timeout=30).stdout
+    if 'ok' not in alive:
+        print('目标 %s 不在线：先起模拟器（Emulator -hvd "Mate 90 Pro Max" '
+              '-path ~/.Huawei/Emulator/deployed）或接真机' % args.target)
+        return 1
+
+    bad = 0
+    for name in routes:
+        hdc(args.target, ['shell', 'aa', 'force-stop', BUNDLE])
+        time.sleep(1.2)
+        hdc(args.target, ['shell', 'aa', 'start', '-a', 'EntryAbility', '-b', BUNDLE,
+                          '--ps', 'route', name])
+        time.sleep(args.settle)
+        items = layout(args.target)
+        ok, detail = check(items)
+        print('  %-16s %s  %s' % (name, 'OK ' if ok else 'FAIL', detail))
+        bad += 0 if ok else 1
+    print('逐屏结构巡检：%d 屏，失败 %d 屏。' % (len(routes), bad))
+    print('读数口径＝dumpLayout 的 bounds 像素；观感（回弹/模糊/胶囊）不在本尺能力内，仍需真人。')
+    return 1 if bad else 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

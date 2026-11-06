@@ -9313,3 +9313,33 @@ aa test -b com.youjing.app -m entry_test -s unittest OpenHarmonyTestRunner
 - 上一轮真机 251/251 的读数没有被"推翻"，只是这次是在**更新后的代码**上重新取得。
 
 收尾：`aa force-stop` + kill 本次起的模拟器实例。本轮零 .ets 改动、零 LLM、未动用户数据。
+
+## 2026-11-06 续 247：逐屏结构巡检做成闸门 `tools/verify_route_sweep.py`——17 屏全过
+
+"承接外部改动要真机逐屏跑"这条纪律一直落不下去，原因是手工点屏太贵。
+续 245 发现 App 自带 `aa start --ps route <页名>`（`EntryAbility.applyWant` → `AppRouter`，
+17 个路由名）之后，这件事就能一条命令做完，于是把它做成尺。
+
+**检查三件确定性的事**（读 `uitest dumpLayout` 的 bounds 像素，密度按屏宽实测反推，不硬编 3.0/3.125）：
+① 页面起得来（节点数 ≥40）；② 顶部有 **56vp 的 MINI 顶栏带**（SDK 注释里 MINI 就是这个档高，
+   也是续 242 第 23 把尺钉的那个值在运行时的对应物）；③ 底部有 **250–340vp 的悬浮 dock 板**。
+
+**读数（Mate 90 Pro Max，1320×2848，密度≈3.376）**：`TripInput / PreferenceQA / SpotPick / StayPick /
+Generating / Itinerary / GenerateFailed / EditItinerary / Expense / Trips / OnTrip / Share /
+AreaMore / Map / Badges / Review / Pricing` **17 屏全 OK，失败 0**。
+每屏顶栏带 2 处（`Map`/`Pricing` 4 处），dock 候选 2 个。
+这一条把"续 236 的 15 页接线 + 续 239 的 13 页挂载 + 续 235 的 4 处带高改动有没有跑坏界面"
+从"只跑了单元"升级成"每屏壳与 dock 都在位"。
+
+**对照实验（先证明它会红，再信它的绿）**：
+- 目标不在线 → 直接报"目标不在线"并退 1，不会全绿；
+- 传不存在的路由 `NoSuchRoute` → **FAIL**（落回没有 MINI 顶栏的宿主页），`Badges` 同时 OK。
+- 但要诚实写清边界：这条 FAIL 是**副作用**，不是"页面身份校验"。所以这把尺证明的是
+  "该路由落点有顶栏带 + dock 板"，不证明"落点就是那一页"；要断言页面身份得比文案，
+  本尺故意不做——否则任何一次正常的文案改动都会被当成结构失败来红。
+- 观感（回弹、模糊、胶囊、材质折射）不在 bounds 能力内，第 21/14/19/20 行仍需真人。
+
+开发过程自己也写错两处并当场改掉：元组索引把 `(type,x1,y1,x2,y2)` 当 `(x1,?,x2)` 用，
+第一次跑出 TypeError；以及链式条件里留了一段废语法。工具落库前跑通 17 屏 + 两个对照。
+
+收尾：`aa force-stop` + kill 本次起的模拟器实例，临时脚本删除。本轮零 .ets 改动、零 LLM、未动用户数据。
