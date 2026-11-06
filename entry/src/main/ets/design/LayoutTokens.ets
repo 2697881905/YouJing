@@ -112,6 +112,14 @@ export interface LayoutTokensType {
   mapHeightCompact: number;
   /** 日分割线区高（吸顶日标题） */
   dayDividerHeight: number;
+  /**
+   * 单行吸顶组头带高。契约对这一形状**没有**写档（DESIGN.md 只给 `day-header.height =
+   * layout.day-divider-height`，:468-475；单行组头无条目），所以按有据同位取值：
+   * `height(LayoutTokens.segmentedHeight)` ＝ 36（`PublishTagPanel.ets:83`）。
+   * 本仓单列一个名字而不是复用 `segmentedControlHeight`：两个 36 一旦互相绑定，
+   * 改分段控件会静默改到吸顶带，而尺也没法分辨组头里是不是恰好装了个分段条。
+   */
+  stickyHeaderHeight: number;
   /** 追问选项间隙 */
   questionOptionGap: number;
   /** 追问进度圆点直径（契约 question-progress-dot 6） */
@@ -183,6 +191,7 @@ export const LayoutTokens: LayoutTokensType = {
   mapOverlayInset: 16,
   mapHeightCompact: 200,
   dayDividerHeight: 44,
+  stickyHeaderHeight: 36,
   questionOptionGap: 8,
   questionProgressDot: 6,
   activityDotSize: 8,

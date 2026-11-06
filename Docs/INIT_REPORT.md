@@ -8901,3 +8901,46 @@ opacity gate、系统栏、两档对比度、21 把静态尺、HEAD 上的 251 �
 **这条对 `ExpensePage:901` 收据行同样成立的可能很高**（同一套 ListItem.swipeAction），
 但仍没在收据上实测过，保持"待有样本"。
 本轮零 LLM、未动用户数据（只滑动，没点任何按钮；行程数仍是 2 条）。
+
+## 2026-11-06 续 235：吸顶组头还缺第二件事——带高原来靠 padding 凑，现钉成一条 36
+
+设备这一轮不可达（Mac 换网到 en7 10.107.8.5，`192.168.2.3:46077` 与 `10.110.160.50:46077` 都关着、
+USB 无设备、无模拟器在跑），所以没去碰那些「要手指/要眼睛」的格子，改做**不需要设备也能判**的那一半。
+
+**发现**：第 29 行上次只补了底板，就把整格挂成「滚动实拍待做」。重读有据
+`PublishTagPanel.ets:83-86`，那个头是
+`Row{Text}.height(segmentedHeight).alignItems(VerticalAlign.Center).backgroundColor(elevated)`
+——除了底板还钉了**带高**。有径五处组头全部用 `padding({top,bottom})` 凑高度，凑出两种值：
+
+| 处 | 原 padding 合计 | 现在 |
+|---|---|---|
+| `SpotPickPage.groupHeader` | 8+4 | `height(stickyHeaderHeight)`＝36，内容居中 |
+| `OnTripPage.groupHeader` | 8+4 | 同上 |
+| `AreaMorePage.groupHeader` | 12+4 | 同上 |
+| `BadgePage.cityHeader` | 12+4（复合头：标题行＋可选进度条＋可选「已集齐」） | `constraintSize({minHeight: 36})`，只钉下限，内容多时照长 |
+| `ItineraryPage.dayHeader` | 已钉 `minHeight(dayDividerHeight)`＝44 | 不动（契约写的就是这一档，DESIGN.md:468-475） |
+
+**为什么不复用 `segmentedControlHeight`**（它也等于 36）：契约里 36 是**分段控件**那一档
+（DESIGN.md:232 `segmented-control-height: "36px"`、:356 组件引用），单行组头契约无档，数值只能按有据同位取。
+但两个 36 一旦绑到同一个名字，日后改分段控件会静默改到吸顶带；更要紧的是尺分不清
+「组头钉了带高」和「组头里恰好塞了一条分段控件」，后者会假绿。所以新立
+`LayoutTokens.stickyHeaderHeight = 36`，出处和这个理由写进注释。
+
+**尺**：`tools/audit_sticky_header.py` 加第 5 条判据——`sticky(StickyStyle.Header)` 配到的 builder
+正文里，底板与带高 token 缺一不可。自测从 2 阳性/4 阴性升到 **3 阳性/5 阴性**，新增的阳性样本
+正是上面那个假绿洞（正文只有 `height(segmentedControlHeight)` → 必须判偏差）。
+真代码反证：把 `git show HEAD:` 的改前五处喂进去——**四处命中、`ItineraryPage` 不命中**（它本来就钉了）；
+改后 `--pairs` 五处全部 底板=Y 条高=Y、偏差 0。这把尺第一版往 `.sticky()` **后面**找配对时
+5 处全报「未配对」、于是假报 0 命中，教训写在文件头。
+
+**闸门**：21 把尺全跑，除 `audit_contrast`（无 dump＋帧参数时按用法退 2）外全部 0；
+`assembleHap` rc＝0，`modules.abc` 与 `.hap` 均为本轮新写（不是 UP-TO-DATE 复用旧产物）。
+
+**边界（这格没关）**：带高从 padding 凑改成 36，四处组头各增高 5～9vp——这是几何确定值，
+不用设备也算得出；但「行滚过组头时被切的位置好不好看」必须复拍，**且本轮没装机**（设备不可达）。
+复拍清单从 1 屏扩到 4 屏：SpotPick 选点、AreaMore 区域更多、OnTrip 今日进度、Badge 城市套章。
+底板那一半依旧只有滚动中才看得见，仍待手指。
+
+**自我更正**：上轮我把第 29 行整格写成「待真人」，其中一半（带高有没有单源）当场就能判、
+也确实判出了问题。挂起一格要先按「这一格里哪几问不需要设备」拆开，否则可判的部分会被
+「观感」这个名字顺走。本轮零 LLM、未动用户数据。

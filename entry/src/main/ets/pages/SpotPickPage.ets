@@ -236,18 +236,21 @@ export struct SpotPickPage {
 
   @Builder
   groupHeader(group: SpotGroup) {
-    Text(group.spots.length < group.total
-      ? `${group.label} · ${group.spots.length}/${group.total}`
-      : `${group.label} · ${group.total}`)
-      .fontSize(TypeTokens.overline.size)
-      .fontWeight(600)
-      .fontColor(ColorTokens.muted)
-      .width('100%')
-      .backgroundColor(ColorTokens.canvas)
-      .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xxs })
-      // 吸顶组头必须有**不透明底板**：sticky(StickyStyle.Header) 的组头压在滚动内容上，裸 Text 没底板
-      // 时行文字会从组头底下透出来叠成两行。有据同位钉了定高 + 实底板（PublishTagPanel.ets:83-86），
-      // 有径另外三处组头（OnTripPage/BadgePage/ItineraryPage）用的都是 canvas 底板，这里跟本仓一致。
+    // 吸顶组头必须有**不透明底板**：sticky(StickyStyle.Header) 的组头压在滚动内容上，裸 Text 没底板
+    // 时行文字会从组头底下透出来叠成两行。带高不靠 padding 凑，照有据钉成一条
+    // （PublishTagPanel.ets:83-86 `height(segmentedHeight)` + alignItems Center），本仓同值 36。
+    Row() {
+      Text(group.spots.length < group.total
+        ? `${group.label} · ${group.spots.length}/${group.total}`
+        : `${group.label} · ${group.total}`)
+        .fontSize(TypeTokens.overline.size)
+        .fontWeight(600)
+        .fontColor(ColorTokens.muted)
+    }
+    .width('100%')
+    .height(LayoutTokens.stickyHeaderHeight)
+    .alignItems(VerticalAlign.Center)
+    .backgroundColor(ColorTokens.canvas)
   }
 
   @Builder

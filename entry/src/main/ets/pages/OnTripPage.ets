@@ -1045,16 +1045,20 @@ export struct OnTripPage {
   groupHeader() {
     // 材质豁免：这条吸顶行住在卡片内（父 List 已 canvas 实色 + 圆角 clip），不是契约 §1024
     // 指的那条满宽"日分隔"玻璃栏；给它上材质等于在卡片里开玻璃，违 §1149。
-    // 但它确实会压在滚动行上（sticky 无底板=文字叠文字），所以补一张与卡片同色的实底板。
+    // 但它确实会压在滚动行上（sticky 无底板=文字叠文字），所以自带一张与卡片同色的实底板，
+    // 带高照有据钉成一条、不靠 padding 凑（PublishTagPanel.ets:83-86 height + alignItems Center）。
     // 标题按真值走：底稿帧那句「今日已打卡」的前提是这一节里确有打卡行；
     // 一行都没打卡时整节只剩「进行中」，标题再说「已打卡」就是空口白话（2026-11-04 真机实拍）。
-    Text(this.hasCheckedIn() ? '今日已打卡' : '今日进度')
-      .fontSize(TypeTokens.overline.size)
-      .fontWeight(600)
-      .fontColor(ColorTokens.muted)
-      .width('100%')
-      .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xxs })
-      .backgroundColor(ColorTokens.canvas)
+    Row() {
+      Text(this.hasCheckedIn() ? '今日已打卡' : '今日进度')
+        .fontSize(TypeTokens.overline.size)
+        .fontWeight(600)
+        .fontColor(ColorTokens.muted)
+    }
+    .width('100%')
+    .height(LayoutTokens.stickyHeaderHeight)
+    .alignItems(VerticalAlign.Center)
+    .backgroundColor(ColorTokens.canvas)
   }
 
   @Builder

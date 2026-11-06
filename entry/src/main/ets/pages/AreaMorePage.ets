@@ -92,14 +92,18 @@ export struct AreaMorePage {
 
   @Builder
   groupHeader(label: string) {
-    Text(label)
-      .fontSize(TypeTokens.overline.size)
-      .fontWeight(600)
-      .fontColor(ColorTokens.muted)
-      .width('100%')
-      .backgroundColor(ColorTokens.canvas)
-      .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.xxs })
-      // 同上：吸顶组头没有底板就会与滚过来的行字压字（SpotPickPage 同族）。
+    // 吸顶组头没有底板就会与滚过来的行字压字（SpotPickPage 同族）；带高照有据钉成一条，
+    // 不靠 padding 凑（PublishTagPanel.ets:83-86 `height(segmentedHeight)` + alignItems Center）。
+    Row() {
+      Text(label)
+        .fontSize(TypeTokens.overline.size)
+        .fontWeight(600)
+        .fontColor(ColorTokens.muted)
+    }
+    .width('100%')
+    .height(LayoutTokens.stickyHeaderHeight)
+    .alignItems(VerticalAlign.Center)
+    .backgroundColor(ColorTokens.canvas)
   }
 
   @Builder

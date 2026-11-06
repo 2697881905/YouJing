@@ -183,7 +183,10 @@ export struct BadgePage {
       }
     }
     .width('100%')
-    // 吸顶层要自带实底：sticky 头没有底板时，滚动行会从字下穿过去
+    // 吸顶层要自带实底：sticky 头没有底板时，滚动行会从字下穿过去。
+    // 这一处是复合头（标题行 + 可选进度条 + 可选「已集齐」），不能定高，只钉下限，
+    // 带高与其余三处单行组头同档（有据 PublishTagPanel.ets:83-86 的 36）。
+    .constraintSize({ minHeight: LayoutTokens.stickyHeaderHeight })
     .backgroundColor(ColorTokens.canvas)
     .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.xxs })
   }
