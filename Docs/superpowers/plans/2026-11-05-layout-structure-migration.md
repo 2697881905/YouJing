@@ -1145,7 +1145,7 @@ git commit -m "docs(布局): 迁移收口——十九把尺读数、hypium 新�
 | 回弹常开 13 处 | `audit_scroll_actions` 扩 `SPRING_BARE` 规则，先红 13 后绿 |
 | 吸顶组头底板 2 处 | SpotPick/AreaMore 补 `canvas` 底板（另三处本来就有） |
 | 两档对比度 | 浅色 7 屏（19–35 节点）+ 深色 5 格（21–37 节点）**全部 0 违规** |
-| 回归 | 手机 hypium **251/251**、Failure 0（**HEAD 上补跑过一次**，删死码之后）；**23 把**静态尺全 0（`audit_card_inset`/`audit_sticky_header` 为本轮新增；`audit_contrast` 需 dump+截图参数） |
+| 回归 | **当前 HEAD 产物 254/254、Failure 0**（续 246 在本地模拟器 Mate 90 Pro Max 上跑完整 `aa test`；254＝旧 251＋续 237 新增 3 例，数字对得上才证明跑的是新包）；上一轮真机读数 251/251 未被推翻，只是不再代表当前代码；**23 把**静态尺全 0（`audit_card_inset`/`audit_sticky_header` 为本轮新增；`audit_contrast` 需 dump+截图参数） |
 | 离线回归（续 241 新增能力） | `node tools/offline_hypium/run.mjs` → **28 套件 / 192 例全过**（跑的就是 `ohosTest` 那批用例源码，一条断言不复制）；10 套件因闭包含 `@kit.*`（TestKit/AbilityKit/ArkData/AccountKit 等需设备上下文）只能真机；`--selftest` 证明这条管线会红。离线过了不等于真机过了，`aa test` 仍是权威 |
 
 ### 二·补　续 235–240（设备不可达那段时间做完的四面，全有静态证据）

@@ -9283,3 +9283,33 @@ dumpLayout 量那四处容器的 bounds 高度——那是确定性的几何读�
 或者每次点击后比对文本集合变化再决定下一步。
 
 收尾：`aa force-stop` + kill 本次起的模拟器实例，临时脚本删除。本轮零 .ets 改动、零 LLM、未动用户数据。
+
+## 2026-11-06 续 246：当前 HEAD 产物在模拟器上把 hypium 全量跑完——254 例 0 失败
+
+续 244/245 之后模拟器这条路已经打通，就把最值钱的一件事做了：**在含本轮全部改动的产物上跑完整回归**，
+不再用"上次真机 251/251"那份旧读数。
+
+```
+hvigor assembleHap（entry@default + entry@ohosTest）→ 双 HAP install -r 成功
+aa test -b com.youjing.app -m entry_test -s unittest OpenHarmonyTestRunner
+→ OHOS_REPORT_RESULT: Tests run: 254, Failure: 0, Error: 0, Pass: 254, Ignore: 0
+→ TestFinished-ResultCode: 0 / your test finished!!!
+```
+
+**254 = 旧 251 + 续 237 新加的 3 例 `NavInset`**，数字对得上才说明跑的是新包（不是 UP-TO-DATE 复用旧产物）。
+
+**离线跑不了的那 11 个套件这次全跑到了**（离线侧它们卡在 `@kit.TestKit/AbilityKit/ArkData/AccountKit` 等，
+需要真实测试上下文）。有 4 个套件的 `describe` 标签与文件名不同，按类名匹配时差点被我误判成"没跑"，
+逐个回查文件后对上：
+`StyleConfig→CategoryStyle`、`YanglingSeed→杨凌种子`（非 ASCII，被我的 `class=[A-Za-z]+` 过滤掉了）、
+`Account→AccountState`、`EntitlementGate→EntitlementGenerate`。
+本次共 43 个 ASCII 类名 + 上述中文标签类，合计覆盖全部 39 个用例文件。
+
+**这替代不了什么（边界照旧）**：
+- 模拟器不是用户那台 Pocket 2：地图底图、折叠屏宽档（md/lg）、真机三键/手势档的 avoidArea 都在样本之外，
+  所以第 11 行 md 档动画、第 30 行的两档 rect 真值、第 37 项仍要真机；
+- 单元层全绿不等于界面对：第 21 行回弹手感、第 29 行剩下三屏、第 14 行胶囊观感、第 4 行补发是否赢下竞速
+  都是像素与手指的事，`aa test` 一条都不覆盖；
+- 上一轮真机 251/251 的读数没有被"推翻"，只是这次是在**更新后的代码**上重新取得。
+
+收尾：`aa force-stop` + kill 本次起的模拟器实例。本轮零 .ets 改动、零 LLM、未动用户数据。
