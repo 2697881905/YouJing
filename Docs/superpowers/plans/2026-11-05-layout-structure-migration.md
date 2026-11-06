@@ -1122,7 +1122,7 @@ git commit -m "docs(布局): 迁移收口——十九把尺读数、hypium 新�
 
 这份计划原本只有四层（L1 几何单源 → L2 壳层形态 → L3 顶栏接口 → L4 顶栏行为）。
 执行到 L4 后目标被扩宽成「按有据的**界面结构和布局体系**来」，于是又跑了三轮扫描
-（配置面 → token 数值 → 组件选档语义）。**判据只有一个：spec §10 覆盖对表（29 行）**，
+（配置面 → token 数值 → 组件选档语义）。**判据只有一个：spec §10 覆盖对表（32 行）**，
 本计划不再另立口径。
 
 ### 一、四层的结果
@@ -1145,9 +1145,18 @@ git commit -m "docs(布局): 迁移收口——十九把尺读数、hypium 新�
 | 回弹常开 13 处 | `audit_scroll_actions` 扩 `SPRING_BARE` 规则，先红 13 后绿 |
 | 吸顶组头底板 2 处 | SpotPick/AreaMore 补 `canvas` 底板（另三处本来就有） |
 | 两档对比度 | 浅色 7 屏（19–35 节点）+ 深色 5 格（21–37 节点）**全部 0 违规** |
-| 回归 | 手机 hypium **251/251**、Failure 0（**HEAD 上补跑过一次**，删死码之后）；**21 把**静态尺全 0（`audit_card_inset`/`audit_sticky_header` 为本轮新增；`audit_contrast` 需 dump+截图参数） |
+| 回归 | 手机 hypium **251/251**、Failure 0（**HEAD 上补跑过一次**，删死码之后）；**22 把**静态尺全 0（`audit_card_inset`/`audit_sticky_header` 为本轮新增；`audit_contrast` 需 dump+截图参数） |
 
-### 三、仍开着的六格（都写在 spec 对表里，编号对应）
+### 二·补　续 235–240（设备不可达那段时间做完的四面，全有静态证据）
+| 项 | 落点与证据 |
+| --- | --- |
+| 吸顶组头**带高单源**（第 29 行另一半） | 四处钉 `LayoutTokens.stickyHeaderHeight`=36（有据 `PublishTagPanel.ets:83-86`，契约对单行组头无档），`dayHeader` 留契约 44；尺 `audit_sticky_header` 加第 5 条，HEAD 反证抓 4 处、现 0 偏差 5 配对 |
+| 补设通道**宿主接线 1/16 → 16/16**（第 4 行） | 15 页 `syncBarScroll()` 回顶时调 `requestSystemBarRefresh()`；第 22 把尺 `audit_systembar_refresh`（R1 接线+条件+import、R2 注册器、R3 连发 ≥3 发末发 ≥2500ms），HEAD 反证抓 15 处 |
+| 兜底链路**第二条 avoid rect**（第 30 行） | `publishNavAvoid` 补读 `TYPE_SYSTEM`；数学抽进 `navInset`，离线 `node --experimental-strip-types` 6 组断言全过、`NavInset.test` 5→8 例、双 HAP 构建过。**写法有意偏离有据的 max**，判掉它需要两档真值（任务 #37） |
+| 滚动宿主 `edgeEffect` **13 处挂满 26/26**（第 21 行） | 逐宿主括号配对判"字段整个没写"，倒序插入 + 每处重解析确认链上恰好一条，numstat 每处 +1/−0；尺第三条已进硬闸，真代码反证 rc=1/0 |
+| 配置面**全表普查**（第 32 行） | SDK 声明列 94 个面：dock 28+10、Navigation 25+23、顶栏 6+2。差异只剩 4 个一边为 0 的名字，全部归到既有格；`overlayBackGuard` 判为不适用（有径 bindSheet 19 / 自绘层 0） |
+
+### 三、仍开着的格（都写在 spec 对表里，编号对应；续 240 后为九条）
 **要手指（三格）**
 1. 第 4 行 HDS 回顶回写：屏2 长表单滚到底再回顶，看状态栏图标有没有闪/跳。
    （注入 `swipe`/`fling`/`dircFling` 在本机对这几页滚不动——不是注入失效，是那些页内容不满一屏；
@@ -1160,7 +1169,14 @@ git commit -m "docs(布局): 迁移收口——十九把尺读数、hypium 新�
 5. 第 15 行一镜到底转场：属转场体系不是布局骨架，要不要做是产品取舍。
 6. 第 19/20 行 穿底 + 栏级材质：**同一个改动**。真机取证已证明栏体下面从来没有内容
    （地图格 y100–260 全 255、底图从 300 开始），没穿底材质就是白压白；配方在任务 #31。
-7. **push**（分支 46 个提交）与 **合并 main**。
+7. **push**（分支 63 个提交，本地 `main..HEAD`）与 **合并 main**。
+8. **第 31 行 材质入口三处零消费**（任务 #38）：`GlassBlurStyle`/`TopButtonMaterialModifier`/
+   `FloatingTopButtonMaterialModifier` 在有径只有声明、0 个 import 方。删（零行为变化）或
+   给顶栏钮接材质（可见变化，必须真机 A/B）——两句之一即可，默认建议删，
+   因为顶栏钮外观已由 `HdsNavigation` 栏级材质负责。
+9. **第 30 行有意偏离**（任务 #37）：有据对两条 avoid rect 取 `max`，本仓落的是保守形
+   （指示条有读数就用、为 0 才回退）。要判掉只需在真机两档各读一次两条 rect 的 height/width；
+   读出来若三键档下 `TYPE_SYSTEM` 确实更高且满宽，就换回有据写法并删那条偏离用例。
 
 ### 四、两条观察（不是缺陷，留档）
 - 规划页「结构化路线承诺」静止态被 dock 盖掉半句：dump 证明**不是裁剪**（文本底 2447 < 卡片 clip 底 2534），
