@@ -581,6 +581,14 @@
 
 ### Changed
 
+- 2026-11-06（§5ci 续 229）：**"吸顶组头要有底板"钉成第 21 把尺 `tools/audit_sticky_header.py`**。
+  续 218 修了两处裸组头，但"改完靠人记得"不算收口。判据：`.sticky(StickyStyle.Header)` → 往回找最近的
+  `ListItemGroup({header: this.X})` → 到 `@Builder X(...)` 正文里找 `backgroundColor(`。
+  **第一版是假绿**：窗口开在 sticky 之后，5 处全部"未配对"、`scan()` 不产生 hit 于是报偏差 0；
+  用临时探针打出配对结果才发现（正是"检测器报 0 先反证"）。修正方向后：真码 5 处全部配对
+  （AreaMore/Badge/Itinerary/OnTrip/SpotPick），**真码阳性对照**——临时摘掉 AreaMore 底板报 L255、exit 1，
+  恢复即 0。自测阳性 1 / 阴性 4。静态尺至此共 21 把（`audit_contrast` 需参数不计）。零 LLM、未动用户数据。
+
 - 2026-11-06（§5ci 续 228）：**浅色档走查补上最后一屏——记一笔面板 29 节点 0 违规，目视无异常**。
   `audit_contrast` 29 个文本节点低于阈值 0 处（16 个框因被面板压在底下按判据不计）；
   目视：标题+✕、两输入框、六个分类胶囊（门票选中 = tint 底 + 1px primary 描边，正是 C6 裁决保留的那套）、

@@ -8788,3 +8788,25 @@ Tabs 抢手势不会触发删除键；② 等有任何一条记账后补测：�
 到这里浅色档可走到的屏都覆盖了：五格 + 行程详情 + 付费页 + 记一笔面板 + 我的页，
 对比度全部 0 违规；深色档五格同样 0。
 本轮零 LLM、未动用户数据（只开关面板与截图；费用页停在「实际」分段，属视图状态）。
+
+## 2026-11-06 续 229：把"吸顶组头要有底板"钉成第 21 把尺（含真码阳性对照）
+
+续 218 修了 `SpotPickPage` / `AreaMorePage` 两处裸组头，但那是"改完靠人记得"——
+下次谁再加一个吸顶组头又回到原点。所以立 `tools/audit_sticky_header.py`（第 21 把）：
+
+判据：`.sticky(StickyStyle.Header)` → 往回找最近的 `ListItemGroup({header: this.X})`
+→ 到 `@Builder X(...)` 的正文里找 `backgroundColor(`，没有就判偏差。
+
+**第一版是假绿，值得记**：我把窗口开在 sticky **之后**，5 处全部"未配对"，
+于是 `scan()` 一个 hit 都不产生、报"偏差 0"。这正是「检测器报 0 先反证」那条——
+我用一个临时探针把配对结果打出来才看见全是【未配对】。修正方向后：
+
+| 检查 | 结果 |
+| --- | --- |
+| 自测（合成样本） | 阳性 1 / 阴性 4（裸组头必抓、有底板不报、注释不算、非吸顶不判、只有 sticky 无分组不判） |
+| 真码配对 | 5 处全部配上：AreaMore(groupHeader) / Badge(cityHeader) / Itinerary(dayHeader) / OnTrip(groupHeader) / SpotPick(groupHeader) |
+| 真码阳性对照 | 临时摘掉 AreaMore 的底板 → **报 L255、exit 1**；恢复 → 0 |
+| 当前全仓 | **偏差 0** |
+
+至此静态尺共 **21 把**（`audit_contrast` 要 dump+截图参数，不计入）。
+本轮零 LLM、未动任何用户数据。
