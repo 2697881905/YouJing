@@ -17,7 +17,8 @@ dumpLayout 读真树，检查三件确定性的事——页面起得来、顶栏
 读的是 bounds 像素，vp 换算用屏宽实测密度（不硬编 3.0/3.125）。
 
 **这把尺证明什么、不证明什么（做过对照实验才敢这样写）**：
- · 证明：每个 `--ps route` 落点都真起了一棵树、带 56vp 的 MINI 顶栏带、底部有 250–340vp 的悬浮板。
+ · 证明：每个 `--ps route` 落点都真起了一棵树、带 56vp 的 MINI 顶栏带、底部有悬浮板
+   （板宽按屏宽派生：sm 档 250–340vp 对应 300vp，md/lg 档 460–620vp 对应 560vp）。
    "某页白屏 / 壳没挂上 / dock 掉了"这类会被抓到。
  · 不证明：**页面身份**。传不存在的路由时它确实 FAIL（落回没有 MINI 顶栏的宿主页），
    但那是副作用不是校验。要断言"落点就是费用页"得比文案，本尺故意不做——
@@ -36,7 +37,12 @@ ROUTES = ['TripInput', 'PreferenceQA', 'SpotPick', 'StayPick', 'Generating', 'It
           'GenerateFailed', 'EditItinerary', 'Expense', 'Trips', 'OnTrip', 'Share',
           'AreaMore', 'Map', 'Badges', 'Review', 'Pricing']
 TITLE_BAR_VP = 56.0          # HdsNavDestinationTitleMode.MINI 的档高（SDK 注释）
-DOCK_MIN_VP, DOCK_MAX_VP = 250.0, 340.0   # 手机档 300vp，留裕度
+def dock_range_vp(screen_vp):
+    """dock 板宽的**按档**预期：手机档 300vp，md/lg 档 LayoutTokens 给的是 560vp。
+    写死 250–340 会在宽屏上误报 FAIL（这一版我自己刚踩到，改成按屏宽派生）。"""
+    if screen_vp >= 600.0:
+        return 460.0, 620.0
+    return 250.0, 340.0
 NEAR_BOTTOM_PX = 460          # dock 板下沿离物理底不远
 
 
@@ -83,12 +89,13 @@ def check(items):
     H = max(it[4] for it in items)
     W = max(it[3] for it in items)
     density = W / 391.0 if abs(W - 1320) < 40 else W / 363.5   # sm 档两种常见实测宽
+    dmin, dmax = dock_range_vp(W / density)
     band = [it for it in items
             if abs(h(it) - TITLE_BAR_VP * density) <= 5 * density
             and w(it) > 0.7 * W and it[2] < 0.12 * H]
     dock = [it for it in items
             if it[2] > H - NEAR_BOTTOM_PX
-            and DOCK_MIN_VP * density < w(it) < DOCK_MAX_VP * density
+            and dmin * density < w(it) < dmax * density
             and h(it) > 40 * density]
     problems = []
     if not band:
@@ -102,12 +109,33 @@ def check(items):
     return ok, detail
 
 
+def selfcheck():
+    """不连设备也能验的部分：按档预期区间与判定阈值。"""
+    cases = [(391.0, 250.0, 340.0), (363.5, 250.0, 340.0), (707.2, 460.0, 620.0),
+             (839.0, 460.0, 620.0)]
+    bad = 0
+    for vp, lo, hi in cases:
+        got = dock_range_vp(vp)
+        if got != (lo, hi):
+            print('  SELFCHECK FAIL %.1fvp -> %s 应为 (%.0f, %.0f)' % (vp, got, lo, hi))
+            bad += 1
+    if bad:
+        print('自检 %d 条不过：按档区间没立住时，17 屏全绿不算证据' % bad)
+        return 1
+    print('自检通过：dock 板宽按档区间 4 例（sm 两档 + md/lg 两档）')
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--target', default='127.0.0.1:5555')
     ap.add_argument('--only', default='')
     ap.add_argument('--settle', type=float, default=5.0)
+    ap.add_argument('--selfcheck', action='store_true',
+                    help='不连设备，只验按档区间')
     args = ap.parse_args()
+    if args.selfcheck:
+        return selfcheck()
     routes = [r.strip() for r in args.only.split(',') if r.strip()] or ROUTES
 
     alive = subprocess.run(['hdc', '-t', args.target, 'shell', 'echo', 'ok'],
