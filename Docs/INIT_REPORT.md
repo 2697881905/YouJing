@@ -9133,3 +9133,48 @@ dock 在用户 Pocket 2 上的实际边距本轮未重装（上一版产物仍�
    圈子/帖子/结构化发文的功能件，不属于结构与布局体系。
 
 本轮**零 .ets 改动**（只写文档），闸门与产物仍是续 239 那批。零 LLM、未动用户数据。
+
+## 2026-11-06 续 241：设备不在，把 183 条纯逻辑用例真的跑起来了——`tools/offline_hypium/`
+
+此前几轮我一直把"没装机"写成边界，把 hypium 写成"只是编过了"。今天反过来做：
+39 个 `*.test.ets` 里，直接 import 的只有 `@ohos/hypium` 一家（`List.test.ets` 是聚合器，
+所以可数的套件是 38 个）；设备缺的其实只是**运行器与几个 ArkUI 全局**。
+所以做了个离线执行器，跑的是**同一批用例源码**，不复制一条断言。
+现在的分工：**27 套件 / 183 例离线真跑**，11 套件因闭包里出现 `@kit.*` 只能等真机。
+
+```
+node tools/offline_hypium/run.mjs              # 全量：27 套件 183 例
+node tools/offline_hypium/run.mjs --selftest   # 反证：注入 2 条必失败 → 抓到 2 条
+```
+
+做法（`run.mjs`）：把 `entry/src/main/ets` 与 `ohosTest/ets/test` **按原相对深度**拷进临时目录
+（`.ets`→`.ts`，用例里的 `../../../main/ets/...` 才连得上），只改写 import 指向：
+`@ohos/hypium` → 本地替身，`./X` → `./X.ts`；跑完删临时目录。
+
+替身分两层，都是"做不到就说做不到"：
+- `shim.mjs`：只实现本仓真用到的 6 个 API + 7 个断言方法（`assertEqual/True/False/Null/Undefined/Close/Larger`，
+  实测 763/237/86/10/4/1/1 次）。**未实现的断言名一律抛错**，不然 `expect(x).assertContain()` 变成
+  `undefined()` 抛 TypeError 之前，可能被当成"跑了但什么都没断"。
+- `stubs.mjs`：缺的运行时全局给最小替身——`AppStorage`（内存 Map + link/prop）、`$r`（返回可比较的假资源）、
+  `NavPathStack`（栈语义）。这三样只做"存在且行为可预期"，不做语义仿真。
+
+**踩了四道，每道都是读数会骗人的那种**：
+1. 属性名/路径改写用 `JSON.stringify` 拼进字符串模板，把引号带进 specifier →
+   `Cannot find package '"file:'`；改成裸串拼接。
+2. 拷贝时把 main 放到临时目录根，用例的 `../../../main/...` 就冲到目录外面去 → 保持 `entry/src` 骨架。
+3. `node --experimental-strip-types` **不支持 enum**（本仓好几个枚举就在被测面上），
+   得 `--experimental-transform-types`；runner 现在自己检查 `execArgv` 缺旗标就带旗标重跑。
+4. ArkTS 的 `interface` 在 ESM 里不是运行时导出，`import { CategoryBudget }` 直接载入失败；
+   加了按目标文件导出形态拆分的一步（`export class|enum|const|function` 算运行时、
+   `export interface|type` 走 `import type`）。这一步把可跑用例从 35 条推到 168 条，再叠上运行时
+   全局替身到 **183 条**。
+
+**读数**：`Tests run: 183, Pass: 183, Failure: 0`，退出码 0；11 个套件因为闭包里出现
+`@kit.*`（TestKit/AbilityKit/ArkData/AccountKit/NetworkKit/FormKit/CalendarKit/ArkTS/ArkUI）
+标成 SKIP 并列明是哪些 kit，**这些仍只能真机 `aa test`**。真机总数 251，离线覆盖 183；
+差的那 68 条就是 11 个 SKIP 套件里的。`NavInset.test.ets` 新加的 8 例（含第 30 行有意偏离那条）
+**已经在离线里真跑过**，不再是"只编过"。
+
+**边界照旧要说清**：离线过了 ≠ 真机过了——UI、装饰器、资源、DB/preferences 全在替身能力之外，
+`aa test` 仍是权威；`--selftest` 只证明"这条管线会红"，不证明"业务全对"。
+本轮零 .ets 改动，只新增 `tools/offline_hypium/` 三个文件与文档。零 LLM、未动用户数据。
