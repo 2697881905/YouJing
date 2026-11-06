@@ -1145,7 +1145,7 @@ git commit -m "docs(布局): 迁移收口——十九把尺读数、hypium 新�
 | 回弹常开 13 处 | `audit_scroll_actions` 扩 `SPRING_BARE` 规则，先红 13 后绿 |
 | 吸顶组头底板 2 处 | SpotPick/AreaMore 补 `canvas` 底板（另三处本来就有） |
 | 两档对比度 | 浅色 7 屏（19–35 节点）+ 深色 5 格（21–37 节点）**全部 0 违规** |
-| 回归 | 手机 hypium **251/251**、Failure 0；**21 把**静态尺全 0（`audit_card_inset`/`audit_sticky_header` 为本轮新增；`audit_contrast` 需 dump+截图参数） |
+| 回归 | 手机 hypium **251/251**、Failure 0（**HEAD 上补跑过一次**，删死码之后）；**21 把**静态尺全 0（`audit_card_inset`/`audit_sticky_header` 为本轮新增；`audit_contrast` 需 dump+截图参数） |
 
 ### 三、仍开着的六格（都写在 spec 对表里，编号对应）
 **要手指（三格）**
