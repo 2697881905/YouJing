@@ -1184,6 +1184,29 @@ git commit -m "docs(布局): 迁移收口——十九把尺读数、hypium 新�
   页面能滚出约 194px；要不要让预览卡在 dock 之上收尾是设计取舍。
 - 本机有两趟几乎相同的「北京」行程（同日期同人数同 ¥1,540，景点 8 vs 9）——是**数据**，删不删由用户定。
 
+### 四·补　真机一轮跑完的顺序（续 250 收尾时定稿，一次会话可全部量完）
+
+```bash
+hdc list targets                      # ① 先取真实 URI——模拟器每实例端口不同（5555/5557），真机也别说死
+T=<上一步的 URI>
+tools/build_install.sh                # ② 构建成功才装机（装机成功不证明产物含改动）
+python3 tools/verify_route_sweep.py --target $T          # ③ 真机 sm 档 17 屏结构巡检
+python3 tools/verify_route_sweep.py --target $T --only SpotPick,Trips   # ④ 带高 36vp / 卡内缩 16.0vp 读数
+hdc -t $T shell aa test -b com.youjing.app -m entry_test -s unittest OpenHarmonyTestRunner   # ⑤ 254 例
+# ⑥ 手指四格（脚本替代不了，见对表第 4/14/21/29 行）：
+#    短内容页拉一下看橡皮筋与回位 · 切几次页签看胶囊鼓包与按压缩放 ·
+#    长表单滚到底再回顶看状态栏图标是否闪/跳 · 滚动态看吸顶组头有无字压字
+# ⑦ 第 30 行的偏离判定：系统设置切「三键 / 手势」两档，各读一次
+#    TYPE_SYSTEM.bottomRect 与 TYPE_NAVIGATION_INDICATOR.bottomRect 的 h/w（÷3.125）
+```
+
+等一句裁决的五项（每项都已在对表写明代价，不重复展开）：
+**#26** L4 跟手收起（前提是穿底，可能请回第 8 行证伪过的顶边硬台阶）·
+**#15** 一镜到底转场（转场体系，不是布局骨架）·
+**#31** 穿底 + 栏级材质（同一个改动，配方与 A/B 判据都在任务里）·
+**#38** 材质入口三处零消费（删=零行为变化；接=可见变化需真机 A/B）·
+**push／合并 main**（分支领先本地 `main` 的提交数按 `git rev-list --count main..HEAD` 现算）。
+
 ### 五、施工纪律（这一整轮反复用到的）
 - 装机/点击前必须断言前台与当前屏；真人正在用手机时立刻停手（本轮有 90 分钟设备被占用，全部改走模拟器/源码取证，没抢过一次屏）。
 - 不锁屏绕过、不删用户数据、不为了过闸改 `~/Pictures/…/DESIGN.md`。
