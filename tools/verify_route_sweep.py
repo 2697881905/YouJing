@@ -75,7 +75,23 @@ def layout(target):
     return items
 
 
-def check(items):
+# 已知设备档：屏宽 px → 密度。用实测过的读数，不做二次猜测。
+# 1320/3.376＝Mate 90 Pro Max 模拟器（sm）；2210/3.125＝Mate X7 模拟器（md，本次实测：
+# 节点最大 x2＝2210px，÷ 既有窗口宽 707.2vp ＝ 3.125，与 dock 板 1750px＝560vp 同密度）；
+# 1260/3.125＝Pocket 2 真机竖屏。
+PROFILES = ((1320, 3.376), (2210, 3.125), (1260, 3.125))
+
+
+def pick_density(width_px, override):
+    if override > 0:
+        return override
+    for px, d in PROFILES:
+        if abs(width_px - px) <= 8:
+            return d
+    return 0.0
+
+
+def check(items, density_override=0.0):
     """返回 (是否通过, 读数说明)。元组是 (type, x1, y1, x2, y2)，索引别搞混。"""
     if len(items) < 40:
         return False, '节点只有 %d 个——页面没起来' % len(items)
@@ -88,7 +104,11 @@ def check(items):
 
     H = max(it[4] for it in items)
     W = max(it[3] for it in items)
-    density = W / 391.0 if abs(W - 1320) < 40 else W / 363.5   # sm 档两种常见实测宽
+    density = pick_density(W, density_override)
+    if density <= 0:
+        return False, ('屏宽 %dpx 不在已知档表 %s 内——请带 --density <值>，'
+                       '不要靠猜（上一版这里用 W/363.5 兜底，等于把未知设备硬塞进 sm 档）'
+                       % (W, ', '.join(str(px) for px, _d in PROFILES)))
     dmin, dmax = dock_range_vp(W / density)
     band = [it for it in items
             if abs(h(it) - TITLE_BAR_VP * density) <= 5 * density
@@ -119,10 +139,20 @@ def selfcheck():
         if got != (lo, hi):
             print('  SELFCHECK FAIL %.1fvp -> %s 应为 (%.0f, %.0f)' % (vp, got, lo, hi))
             bad += 1
+    for px, d in ((1320, 3.376), (2210, 3.125), (1260, 3.125), (1920, 0.0)):
+        got = pick_density(px, 0.0)
+        want = d
+        if abs(got - want) > 1e-6:
+            print('  SELFCHECK FAIL 屏宽 %dpx -> 密度 %.3f（应 %.3f；0 表示应要求 --density）'
+                  % (px, got, want))
+            bad += 1
+    if pick_density(1920, 2.5) != 2.5:
+        print('  SELFCHECK FAIL --density 覆盖没生效')
+        bad += 1
     if bad:
-        print('自检 %d 条不过：按档区间没立住时，17 屏全绿不算证据' % bad)
+        print('自检 %d 条不过：按档区间/密度档表没立住时，17 屏全绿不算证据' % bad)
         return 1
-    print('自检通过：dock 板宽按档区间 4 例（sm 两档 + md/lg 两档）')
+    print('自检通过：dock 板宽按档 4 例 + 密度档表 4 例 + --density 覆盖 1 例')
     return 0
 
 
@@ -131,6 +161,8 @@ def main():
     ap.add_argument('--target', default='127.0.0.1:5555')
     ap.add_argument('--only', default='')
     ap.add_argument('--settle', type=float, default=5.0)
+    ap.add_argument('--density', type=float, default=0.0,
+                    help='屏宽不在已知档表内时显式给密度（px/vp）')
     ap.add_argument('--selfcheck', action='store_true',
                     help='不连设备，只验按档区间')
     args = ap.parse_args()
@@ -153,7 +185,7 @@ def main():
                           '--ps', 'route', name])
         time.sleep(args.settle)
         items = layout(args.target)
-        ok, detail = check(items)
+        ok, detail = check(items, args.density)
         print('  %-16s %s  %s' % (name, 'OK ' if ok else 'FAIL', detail))
         bad += 0 if ok else 1
     print('逐屏结构巡检：%d 屏，失败 %d 屏。' % (len(routes), bad))
