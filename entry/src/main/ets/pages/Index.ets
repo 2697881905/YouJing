@@ -477,7 +477,11 @@ struct Index {
     }
     .barPosition(BarPosition.End)
     .vertical(false)
-    .scrollable(false)
+    // 左右滑动切页：与有据一致（有据 `Index.ets:2020` 开着，它的四个 Tab 根页没有任何行级横向手势）。
+    // 有径的差异是 `ExpensePage.ets:901` 有 `.swipeAction` 收据删除、`TripsPage.ets:648` 选择模式下
+    // 也有行级 swipe——真机上「行内横滑」与「Tabs 横滑」谁吃手势要靠手指验（见 Docs §5ci 续 221）；
+    // 若行内被 Tabs 抢走，就把这里改回 false（一处开关，无连带）。
+    .scrollable(true)
     .barOverlap(true)
     .barFloatingStyle({
       // 材质走官方数值（IMMERSIVE=101 / EXQUISITE=0）：不静态 import hdsMaterial，
@@ -504,6 +508,12 @@ struct Index {
         maskColor: $r('app.color.glass_bar_gradient_mask'),
         maskHeight: LayoutTokens.barGradientMaskHeight
       }
+    })
+    // 胶囊起飞点挂在 `onAnimationStart` 而不是 `onChange`（照有据 `:2021` 的理由）：
+    // onChange 是**落定之后**才发，滑过去时玻璃会晚半拍；动画起点触发才与翻页同批。
+    // 拖拽途中的指纹跟踪做不到——HdsTabsAttribute 没留逐帧回调（有据枚举过 28 个方法）。
+    .onAnimationStart((index: number, targetIndex: number): void => {
+      this.dockPillTravel(targetIndex);
     })
     .onChange((index: number): void => {
       this.currentTab = index;
