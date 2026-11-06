@@ -40,6 +40,7 @@ import { isMapCity } from '../common/constants/Cities';
 import { isMapArea } from '../utils/MapCityMapper';
 import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
 import { listLanesForBreakpoint } from '../utils/responsive';
+import { requestSystemBarRefresh } from '../utils/systemBar';
 
 /** §3.3：App 端距离筛选后的候选片区上限 */
 const AREA_CANDIDATES: number = 12;
@@ -419,6 +420,10 @@ export struct StayPickPage {
     const on: boolean = y > 0;
     if (on !== this.barScrolled) {
       this.barScrolled = on;
+      if (!on) {
+        // 偏移回到 0：HDS 在这一帧回写系统栏内容色，补设通道连发四发压住它（utils/systemBar.ets）
+        requestSystemBarRefresh();
+      }
     }
   }
 

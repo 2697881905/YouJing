@@ -22,6 +22,7 @@ import { BuildConfig } from '../common/constants/BuildConfig';
 import { GenerationChannel } from '../utils/GenerationChannel';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
+import { requestSystemBarRefresh } from '../utils/systemBar';
 
 interface FixOption {
   title: string;
@@ -117,6 +118,10 @@ export struct GenerateFailedPage {
     const on: boolean = y > 0;
     if (on !== this.barScrolled) {
       this.barScrolled = on;
+      if (!on) {
+        // 偏移回到 0：HDS 在这一帧回写系统栏内容色，补设通道连发四发压住它（utils/systemBar.ets）
+        requestSystemBarRefresh();
+      }
     }
   }
 

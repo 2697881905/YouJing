@@ -35,6 +35,7 @@ import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { HdsChrome } from '../design/HdsChrome';
 import { common } from '@kit.AbilityKit';
 import { HdsNavigation, HdsNavigationTitleMode, HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { requestSystemBarRefresh } from '../utils/systemBar';
 
 /** 设置区一行：标题 + 落点。kind 非空 = 就地展开这份法务文书 */
 interface SettingRow {
@@ -386,6 +387,10 @@ export struct MinePage {
     const on: boolean = y > 0;
     if (on !== this.barScrolled) {
       this.barScrolled = on;
+      if (!on) {
+        // 偏移回到 0：HDS 在这一帧回写系统栏内容色，补设通道连发四发压住它（utils/systemBar.ets）
+        requestSystemBarRefresh();
+      }
     }
   }
 

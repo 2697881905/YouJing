@@ -27,6 +27,7 @@ import { common } from '@kit.AbilityKit';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
 import { TripSpan } from '../utils/TripSpan';
+import { requestSystemBarRefresh } from '../utils/systemBar';
 
 interface ShareOption {
   symbol: Resource;
@@ -195,6 +196,10 @@ export struct SharePage {
     const on: boolean = y > 0;
     if (on !== this.barScrolled) {
       this.barScrolled = on;
+      if (!on) {
+        // 偏移回到 0：HDS 在这一帧回写系统栏内容色，补设通道连发四发压住它（utils/systemBar.ets）
+        requestSystemBarRefresh();
+      }
     }
   }
 

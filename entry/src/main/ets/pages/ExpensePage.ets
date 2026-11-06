@@ -31,6 +31,7 @@ import { common } from '@kit.AbilityKit';
 import { HdsNavigation, HdsNavigationTitleMode, HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { routerMap } from './AppRouter';
 import { HdsChrome } from '../design/HdsChrome';
+import { requestSystemBarRefresh } from '../utils/systemBar';
 
 interface CategorySpend {
   name: string;
@@ -999,6 +1000,10 @@ export struct ExpensePage {
     const on: boolean = y > 0;
     if (on !== this.barScrolled) {
       this.barScrolled = on;
+      if (!on) {
+        // 偏移回到 0：HDS 在这一帧回写系统栏内容色，补设通道连发四发压住它（utils/systemBar.ets）
+        requestSystemBarRefresh();
+      }
     }
   }
 

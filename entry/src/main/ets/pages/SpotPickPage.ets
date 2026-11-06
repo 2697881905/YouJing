@@ -32,6 +32,7 @@ import type { HdsNavigationMenuItemOptions, HdsNavigationTitleBarOptions } from 
 import { HdsChrome } from '../design/HdsChrome';
 import { isMapCity, seedCityListText } from '../common/constants/Cities';
 import { DurationCn } from '../utils/DurationCn';
+import { requestSystemBarRefresh } from '../utils/systemBar';
 
 interface SpotGroup {
   label: string;
@@ -443,6 +444,10 @@ export struct SpotPickPage {
     const on: boolean = y > 0;
     if (on !== this.barScrolled) {
       this.barScrolled = on;
+      if (!on) {
+        // 偏移回到 0：HDS 在这一帧回写系统栏内容色，补设通道连发四发压住它（utils/systemBar.ets）
+        requestSystemBarRefresh();
+      }
     }
   }
 

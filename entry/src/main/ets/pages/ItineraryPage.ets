@@ -39,6 +39,7 @@ import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
 import { longFormMaxWidth } from '../utils/responsive';
 import { DayLoad, DayLoadCalc, LoadLevel } from '../utils/DayLoad';
 import { TripSpan } from '../utils/TripSpan';
+import { requestSystemBarRefresh } from '../utils/systemBar';
 
 /** 负载微条 3vp（比通用 Progress 的 4vp 细一档，它读的是趋势不是数值） */
 const LOAD_BAR_STYLE: LinearStyleOptions = { strokeWidth: 3, strokeRadius: 1.5 };
@@ -1201,6 +1202,10 @@ export struct ItineraryPage {
     const on: boolean = y > 0;
     if (on !== this.barScrolled) {
       this.barScrolled = on;
+      if (!on) {
+        // 偏移回到 0：HDS 在这一帧回写系统栏内容色，补设通道连发四发压住它（utils/systemBar.ets）
+        requestSystemBarRefresh();
+      }
     }
   }
 

@@ -8944,3 +8944,48 @@ USB 无设备、无模拟器在跑），所以没去碰那些「要手指/要眼
 **自我更正**：上轮我把第 29 行整格写成「待真人」，其中一半（带高有没有单源）当场就能判、
 也确实判出了问题。挂起一格要先按「这一格里哪几问不需要设备」拆开，否则可判的部分会被
 「观感」这个名字顺走。本轮零 LLM、未动用户数据。
+
+## 2026-11-06 续 236：第 4 行「代码落地」只对了一半——补设通道在，宿主只接了 1/16
+
+设备仍不可达，继续做不需要设备的那一半。这次拿「参照件的**调用点**也要逐个枚举」重查第 4 行，
+我之前写的是「`utils/systemBar.ets` 代码落地」——通道确实与有据同构（四连发 400/1000/1800/3000ms、
+`EntryAbility` 注册刷新器、`applySystemBarSurface()` 补设 6 个字段），但**调用它的人只有一个**：
+
+- 有据：`requestSystemBarRefresh()` 出现在 7 个滚动宿主里（`HomeTab` / `Index` / `MessagePage` /
+  `ChatView` / `PostDetailView` / `CircleDetailView` / `ReportAdminPage`）。
+- 有径（改前）：只有 `YoujingStartPage.ets:89`。其余 **15 个**同样用绝对偏移驱动顶栏磨砂的页面
+  （`ExpensePage`/`TripsPage`/`SharePage`/`StayPickPage`/`OnTripPage`/`SpotPickPage`/`TripInputPage`/
+  `TripReviewPage`/`PreferenceQAPage`/`EditItineraryPage`/`MinePage`/`GenerateFailedPage`/
+  `AreaMorePage`/`ItineraryPage`/`BadgePage`）里，`syncBarScroll()` 只是把 `barScrolled` 翻一下，
+  回顶时没人补设。
+
+**后果不是观感问题而是可见性**：HDS 在滚动特效回位那一帧把 `isStatusBarLightIcon` 回写成按**系统**
+深浅渲染（SDK 无关停人口，只有 `hideStatusBar`），系统深＋应用浅的组合态下状态栏图标渲成白色、
+浅色画布上直接看不见。这个组合态是有据 2026-10-25 真机实证过两次的，我们搬了机制没搬接线，
+等于把同一个缺陷留在 15 屏上。
+
+**改动**：15 个宿主各加 4 行（1 行 import ＋ `if (!on) { requestSystemBarRefresh(); }`），
+形状与 `YoujingStartPage` 既有的写法一致，而不是照有据写成"每帧 `if (y <= 0)`"——
+后者在静止时会被反复重排的四发定时器打断，转换沿一次触发等价且更省。
+批量替换由脚本做（`SYNC` 正则要求整段函数体逐字符匹配才动手，匹配不上就跳过而不是硬改），
+用完即删；`git diff --numstat` 复核每文件 5+/0−，抽查 `TripsPage` 全文只有那 5 行新增。
+
+**第 22 把尺** `tools/audit_systembar_refresh.py`：
+R1 宿主（`syncBarScroll` 且读 `currentOffset().yOffset`）必须调用补设、且调用被回顶条件包住、
+且 import 恰好一条（注释里的调用先剥注释再判，不算接线）；
+R2 `entryability` 必须注册刷新器——没注册时四连发是空响；
+R3 `utils/systemBar.ets` 连发必须 ≥3 发且末发 ≥2500ms——单发 400ms 与 HDS 回写构成竞速、已被证伪。
+自测 7 条（阳性 4／阴性 3）＋ 连发解析样本 3 条；
+真代码反证：`git show HEAD` 的改前形状**抓到 15 处、`YoujingStartPage` 不抓**，
+改后 `--hosts` 16 处全 OK、偏差 0。
+
+**闸门**：22 把尺除 `audit_contrast`（缺 dump＋帧参数按用法退 2）外全 0；`assembleHap` rc＝0、
+`modules.abc` 与 `.hap` 新写。
+
+**边界**：「四连发有没有赢下竞速」还是只能真人滚一次——注入 fling 触发不了 HDS 滚动特效，
+脚本复拍是假绿（续 225 的教训）。判据已写进第 4 行：系统深＋应用浅组合态下滚回顶部，
+状态栏图标仍深色可见。装机与 hypium 回归等设备回来（本轮只改端侧调用接线，未动逻辑模块）。
+
+**自我更正**：第 4 行的"代码落地"当初只核到"机制文件存在"，没核到"每个宿主都调了它"。
+参照件的对表单位应该是**调用点**而不是文件——这正是「从参照 App 迁移结构要逐字段枚举它的配置面」
+在跨文件层面的同一件事，已把这条并进尺里。本轮零 LLM、未动用户数据。
