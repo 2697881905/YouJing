@@ -8998,11 +8998,16 @@ R3 `utils/systemBar.ets` 连发必须 ≥3 发且末发 ≥2500ms——单发 40
 
 **有 import 方、有径零消费的只有 6 个名字**，逐个读完后的结论分三类：
 
-1. `navMode.reportBottomAvoid` / `refreshBottomNavInset`：**不是缺口，是架构差**——有径把这两个
-   收在 `publishNavAvoid()` 内部调用，有据让页面直接调。名字对不上不等于没实现，
-   这类必须读到实现点才算判过（"否定判断要读消费方"）。
+1. `navMode.reportBottomAvoid` / `refreshBottomNavInset`：**不是缺口，是架构差**——有据让页面
+   直接调（`Index.ets:648`、`PostDetailView.ets:507` 各在窗口挂上后补算一轮），有径把它们收进
+   胶水层内部：`publishNavAvoid()` 调 `reportBottomAvoid()`，后者再调 `refreshBottomNavInset()`。
+   名字对不上不等于没实现，这类必须读到实现点才算判过（"否定判断要读消费方"）。
 2. `breakpointCenter.KEY_IS_WIDE_PANE`：有径写 AppStorage 三处、**读方零处**（有据 1 处读）。
-   有径宽屏走 `bp` 键 + `listLanesForBreakpoint`，这个布尔是半成品，登记为待清理。
+   有径宽屏走 `bp` 键 + `listLanesForBreakpoint`，这个布尔没有 UI 消费方。
+   **但不删**（我先把它写成"待清理"，读完消费面后当场更正）：它是文件头明确推荐的
+   `@StorageProp(KEY_IS_WIDE_PANE)` 入口，而配套判定 `isWideBreakpoint` 被
+   `Responsive.test.ets` 三条断言钉着；删一个已发布的便捷键换来的只是少三次写入，
+   代价是把文档指向的入口和它的测试一起抽掉。留着，状态记为"已发布、暂无消费方"。
 3. `immersiveMaterial.GlassBlurStyle` / `TopButtonMaterialModifier` /
    `FloatingTopButtonMaterialModifier`：有径只有声明、零 import；有据被 12 个**自绘玻璃件**消费
    （`GlassPanel`/`ImmersiveSurface`/`DesignButton`/`BottomTabBar`…）。有径的既定规则是官方件优先、
