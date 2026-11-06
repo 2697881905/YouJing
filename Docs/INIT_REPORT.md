@@ -9204,3 +9204,26 @@ node tools/offline_hypium/run.mjs --selftest   # 反证：注入 2 条必失败 
 还原后 rc=0（退出码一律直接取，不接管道）。23 把尺除 `audit_contrast`（缺参数按用法退 2）外全 0。
 
 本轮**零 .ets 改动**（只加尺与文档），产物仍是续 239 那批；零 LLM、未动用户数据。
+
+## 2026-11-06 续 243：再往离线覆盖里捞一个套件——`@kit.ArkTS` 的 `util.TextEncoder` 按白名单映射
+
+`IcsBuilder.test.ets` 之前被标 SKIP，但它自己就是那句注释写的"纯函数、不碰 @kit"——
+拦路的只是**测试文件**第 8 行 `import { util } from '@kit.ArkTS'`，用来断言
+RFC 5545 的行折叠 `encodeInto(l).byteLength <= 75`（3 字节中文和 ASCII 都算字节数）。
+这种用法能语义等价地映射，所以补了 `tools/offline_hypium/kit_arkts.mjs`：
+
+- **不能直接透传 node 的同名方法**：WHATWG 的 `TextEncoder.encodeInto(input, output)` 返回
+  `{read, written}`，ArkTS 的 `encodeInto(s)` 返回带 `byteLength` 的 `Uint8Array`——
+  照搬就会把 `<= 75` 比到 `undefined` 上，断言永远为假或永远不报。所以按 ArkTS 的形状显式实现。
+- **白名单制**：只允许 `util` / `buffer` 两个名字；文件里从 `@kit.ArkTS` 拿了别的名字就
+  继续 SKIP。宁缺毋滥——映射出假信心比少跑一个套件严重得多。
+- 直接验证过映射语义：`encodeInto('0123456789').byteLength = 10`、
+  `encodeInto('中文').byteLength = 6`、返回类型 `Uint8Array`。
+
+**读数变化**：可跑 27 → **28 套件**，跳过 11 → **10**，用例 183 → **192**，全过；
+`--selftest` 仍抓到注入的 2 条必失败（管线没被这次放宽弄钝）。
+剩下 10 个 SKIP 全卡在 `@kit.TestKit` / `@kit.AbilityKit` / `@kit.ArkData` /
+`@kit.AccountKit` / `@kit.FormKit` / `@kit.CalendarKit` 这类**需要设备上下文**的面上
+（测试进程只挂 ApplicationContext，RDB/preferences 直接拒），这部分不在离线能解决的范围内。
+
+本轮零 .ets 改动（只动 `tools/offline_hypium/` 与文档）；零 LLM、未动用户数据。

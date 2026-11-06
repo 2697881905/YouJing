@@ -126,6 +126,24 @@ function splitTypeImports(quotedSpec, names, target) {
   return out.join('\n');
 }
 
+function arktsAllowed(file) {
+  // 只看该文件从 @kit.ArkTS 里拿了什么名字：白名单外一律不映射
+  const t = fs.readFileSync(file, 'utf-8');
+  const re = /import\s*\{([^}]*)\}\s*from\s*'@kit\.ArkTS'/g;
+  let m;
+  let seen = false;
+  while ((m = re.exec(t)) !== null) {
+    seen = true;
+    for (const raw of m[1].split(',')) {
+      const name = raw.trim().split(/\s+as\s+/)[0];
+      if (!['util', 'buffer'].includes(name)) {
+        return false;
+      }
+    }
+  }
+  return seen;
+}
+
 function rewrite(file) {
   let text = fs.readFileSync(file, 'utf-8');
   const deps = [];
@@ -135,6 +153,9 @@ function rewrite(file) {
       return pre + 'file://' + SHIM + post;
     }
     if (/^@(kit|ohos)\./.test(spec)) {
+      if (spec === '@kit.ArkTS' && arktsAllowed(file)) {
+        return pre + 'file://' + path.join(HERE, 'kit_arkts.mjs') + post;
+      }
       bad.push(spec);
       return m;
     }
