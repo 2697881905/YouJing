@@ -9178,3 +9178,29 @@ node tools/offline_hypium/run.mjs --selftest   # 反证：注入 2 条必失败 
 **边界照旧要说清**：离线过了 ≠ 真机过了——UI、装饰器、资源、DB/preferences 全在替身能力之外，
 `aa test` 仍是权威；`--selftest` 只证明"这条管线会红"，不证明"业务全对"。
 本轮零 .ets 改动，只新增 `tools/offline_hypium/` 三个文件与文档。零 LLM、未动用户数据。
+
+## 2026-11-06 续 242：组件选档面与页面壳档位普查——第 23 把尺，壳 23 处偏差 0
+
+延续"从声明列全表"的查法，这次查**组件**：哪些官方组件只在一边用。结果 8 个只出现在有据
+（`Badge`/`Tabs`/`Radio`/`TextArea`/`Swiper`/`Video`/`Grid`/`GridItem`），逐个读消费点后都归到两类：
+功能面（未读角标、投票、发文正文、视频——有径没有这些功能），或本仓既定替代（`Grid` → `List.lanes()`，
+理由是使用场景与命中测试那条实测）。只出现在有径的是 `HdsNavDestination`(18)。
+
+**顺带查出一个结构路线差异**：有据的子页是 `NavDestination` 里嵌 `HdsNavigation().titleBar(...)`，
+有径是 `HdsNavDestination().titleBar(HdsChrome.bar({...})) + .titleMode(MINI)`。
+两边**档位一致**（都是有据枚举里那个固定 56vp 的 MINI），所以判为等价不迁：
+18 页壳整体搬迁换来的可见结果为零，新增的风险面却是全部（栏重建、异步副标题不刷、穿底撞车）。
+
+**新尺 `tools/audit_page_chrome.py`（第 23 把）**：每处页面壳必须设 titleBar 且档位 MINI。
+开发过程中它自己被我写错三次，三次都是"读数会骗人"的那类：
+1. 只认链式 `.titleMode(...)` → 4 页被误报成"没设档"，实际它们写在 `titleBar({ style: { titleMode } })` 对象里；
+2. 只匹配无参 `HdsNavigation()` → 5 个格容器（`HdsNavigation(this.stack)`）不进视野，壳数从 23 少到 18；
+3. 链收集器在"闭括号后第一个空行"终止 → 一次性误报 18 处"没设 titleBar"（属性其实写在空行下面）。
+另外注释里的组件名被当壳计数、`JSON.stringify` 把引号带进路径这些问题也在这轮处理，
+剥注释现在**保留行号**（直接删注释会让行号整体前移，报出来的位置就是假的）。
+
+**读数**：自测 3 阳性 / 7 阴性；`--list` 壳 23 处（18 子页 + 5 格）、偏差 0；
+真代码反证——撤掉 `MinePage` 的 `.titleMode(HdsNavDestinationTitleMode.MINI)` → rc=1 且指名该行，
+还原后 rc=0（退出码一律直接取，不接管道）。23 把尺除 `audit_contrast`（缺参数按用法退 2）外全 0。
+
+本轮**零 .ets 改动**（只加尺与文档），产物仍是续 239 那批；零 LLM、未动用户数据。
