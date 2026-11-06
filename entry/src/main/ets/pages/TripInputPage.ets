@@ -686,6 +686,7 @@ export struct TripInputPage {
         .alignItems(HorizontalAlign.Start)
         .width('100%')
       }
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .layoutWeight(1)
       .scrollBar(BarState.Off)
       .align(Alignment.Top)
@@ -979,6 +980,7 @@ export struct TripInputPage {
           // 输入框与滑杆的可用长度就失去意义
           .width(longFormMaxWidth(this.bp, LayoutTokens.contentMaxWidth))
         }
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .layoutWeight(1)
         .scrollBar(BarState.Off)
         .align(Alignment.Top)

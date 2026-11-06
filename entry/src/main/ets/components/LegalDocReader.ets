@@ -72,6 +72,7 @@ export struct LegalDocReader {
         .alignItems(HorizontalAlign.Start)
         .width('100%')
       }
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .layoutWeight(1)
       .scrollBar(BarState.Off)
       .align(Alignment.Top)

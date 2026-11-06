@@ -1023,6 +1023,7 @@ export struct ItineraryPage {
           }
           .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
         }
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .layoutWeight(1)
         .scrollBar(BarState.Off)
         .align(Alignment.Top)

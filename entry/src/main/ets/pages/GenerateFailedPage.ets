@@ -215,6 +215,7 @@ export struct GenerateFailedPage {
           }
           .padding({ left: this.wideInset(), right: this.wideInset() })
         }
+        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .layoutWeight(1)
         .width('100%')
         .align(Alignment.Top)

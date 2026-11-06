@@ -104,9 +104,10 @@ def scan_spring(name, text):
 # 第三条检查（2026-11-06 续 238）：**根本没表态** edgeEffect 的滚动宿主。
 # 前两条抓的都是"值写错了"（百分号定高困住主操作、裸 Spring 缺 alwaysEnabled），
 # 这一条抓"字段整个没写"——同一段思路用在第 4 行时才暴露出这类盲区（对表单位应该是调用点）。
-# 真值：有据 47 处滚动宿主里 43 处表态（≈1:1），有径 26 处里只有 14 处表态。
-# 默认只报数不拦闸：这 12 处要一处一处挂到**该宿主自己的属性链**上（挂到子级 Column 上
-# 编译照过、行为却是子级没有回弹），批量改必须逐处双向核链 + 装机复拍，见任务 #39。
+# 真值（续 239 用括号配对逐宿主重数，替代此前"文件内声明数减表态数"的粗数）：
+# 有据 48 处宿主里 42 处表态（纵向 43 里 38、横向 5 里 4），有径此前 26 处里只有 14 处。
+# 续 239 已把缺的 13 处挂满并升成硬闸：属性必须挂在**该宿主自己的属性链**上（挂到子级 Column 上
+# 编译照过、行为却是子级没有回弹），所以插入前后都要双向核链；手感复拍仍在任务 #39/#30。
 SCROLLABLE = re.compile(r'(?<![A-Za-z0-9_.])(Scroll|List|Grid|WaterFlow)\s*\(')
 
 
@@ -248,8 +249,7 @@ def main():
                     print('%s:%d  %s 没表态 edgeEffect（有据同宿主 1:1 带 Spring）'
                           % (os.path.relpath(path, ROOT), line_no, tag))
                     n += 1
-        print('未表态滚动宿主 %d 处（默认只报数不拦闸；逐处挂链 + 装机复拍后把 '
-              'total += 这行放开即成硬闸，见任务 #39）' % n)
+        print('未表态滚动宿主 %d 处（0 处为合格；本条自续 239 起已进硬闸，跑全仓时计入 total）' % n)
         return 0
     total = 0
     missing_edges = 0
@@ -271,9 +271,13 @@ def main():
                       % (rel, line_no))
                 total += 1
             missing_edges += len(scan_missing_edge(fn, text))
+    total += missing_edges
+    if missing_edges:
+        print('\n%d 处滚动宿主没表态 edgeEffect（`--edges` 出清单）：有据 48 处宿主里 42 处带'
+              '（含横向 5 里带 4），没表态就是内容不满一屏时拉不动、读起来像卡死。' % missing_edges)
     if total == 0:
-        print('scroll-action: 没有主操作困在百分比定高的滚动区里，且回弹全部常开 (pass)'
-              '；另有未表态 edgeEffect 宿主 %d 处待逐处挂链（--edges 看清单）' % missing_edges)
+        print('scroll-action: 没有主操作困在百分比定高的滚动区里，回弹全部常开，'
+              '且 26 处滚动宿主全部表态 edgeEffect (pass)')
         return 0
     print('\n%d 处。主操作困住→移出滚动区 + 确定上限（§5ci 续 15/17）；'
           '裸 Spring→补 { alwaysEnabled: true }（§5ci 续 206）。' % total)

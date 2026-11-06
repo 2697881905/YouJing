@@ -498,6 +498,7 @@ export struct EditItineraryPage {
           })          }
         }, (spot: Spot): string => `rep-${spot.id}`)
       }
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .layoutWeight(1)
       .scrollBar(BarState.Off)
       .width('100%')
@@ -694,6 +695,7 @@ export struct EditItineraryPage {
             // key 只用稳定 id：拖动会改 time，带 time 的 key 会让整项重建、丢掉拖动态
             }, (act: Activity): string => `edit-${act.id}`)
           }
+          .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
           .layoutWeight(1)
           .scrollBar(BarState.Off)
           .padding({ left: SpaceTokens.base, right: SpaceTokens.base,

@@ -517,6 +517,7 @@ export struct ExpensePage {
         .width('100%')
         .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
       }
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .width('100%')
       // 定高上限（不是 '100%'）：滚动视口整体落在键盘之上的可见区内，
       // 主键紧跟其后，于是「保存」的位置与 sheet 是否重量高无关。
@@ -597,6 +598,7 @@ export struct ExpensePage {
         .width('100%')
         .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
       }
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .width('100%')
       // 上限 200 而不是 320：真机实测键盘弹起后键盘顶在 y≈1700/2690，
       // 320 的滚动区会把「保存」推到键盘底下（第一次脚本点保存没生效就是这个原因）。

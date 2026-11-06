@@ -577,6 +577,7 @@ export struct TripReviewPage {
           .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
       }
     }
+    .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
     .width('100%')
     .onDidScroll((): void => {
       this.syncBarScroll();

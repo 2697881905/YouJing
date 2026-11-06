@@ -377,6 +377,7 @@ export struct MapPage {
               }
               .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
             }
+            .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
             .scrollable(ScrollDirection.Horizontal)
             .scrollBar(BarState.Off)
             .width('100%')
@@ -396,6 +397,7 @@ export struct MapPage {
                   }
                 }, (stop: MapStop): string => `mapstop-${stop.index}`)
               }
+              .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
               .listDirection(Axis.Horizontal)
               .alignListItem(ListItemAlign.Center)
               .scrollBar(BarState.Off)
