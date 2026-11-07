@@ -9458,3 +9458,31 @@ Expense / Trips / OnTrip / Share / AreaMore / Map / Badges / Review / Pricing`�
 这四件要手指与眼睛；#37 的两档 avoid rect 真值还差"切到三键档"这一步，
 那是用户手机的系统设置，**我不擅自改**，需要用户在设置里切一次（或明确授权我切）。
 本轮零 .ets 改动、零 LLM 花费、未删改任何用户数据（只做深链导航与 dump 读取）。
+
+## 2026-11-07 续 252：三项裁决落地首片 + 分支已推送
+
+用户裁决：**#38 删**、**13/15/19/20 做（风险自认）**、**push 授权**。
+
+- **#38 已删**（`3a678a7`）：`GlassBlurStyle` / `TopButtonMaterialModifier` /
+  `FloatingTopButtonMaterialModifier` 三个零消费入口连两份材质缓存与 getter 一起清掉，−63 行；
+  保留的 8 个导出逐个查过消费方（`isSystemMaterialActive` 1、`getSheetImmersiveMaterial` 5、
+  `getMenuImmersiveMaterial` 1、两个材质常量各 1），材质尺 0。
+- **19/20/13 首片**（`162cb7a` + `5cc4dac`）：`HdsChrome` 加迁移期开关 `bleed`，
+  「我的」页两个壳分支整条打通（穿底 + 栏级材质 + `bindToScrollable` + `clip(false)` +
+  `dynamicHideTitleBar(hideTitleArea, SCROLL_UP_TO, hideRatio 1.0)`）。真机验到：
+  栏带 33.9..89.9vp、首个 ListItem 顶边与栏底**差 0.0vp**、静止态顶边**无硬台阶**（栏底边缘列全 255）。
+  中途两次自我纠错：① 第一次 install 只回 `AppMod finish` 未确认成功字样 → 量的是旧包，
+  据此把让位公式误改成只含 56vp，真穿上后首行被盖 33.9vp 才发现；恢复「状态栏+56」后差 0.0vp。
+  ② 探针解包 7 元组当 6 → 点击没执行、量在规划页，按「锚点未校验的数字作废」重测。
+  ③ 栏级门禁一度直接写 `deviceInfo.apiAvailable` 触发材质尺「门禁外溢」，改走
+  `isSystemMaterialActive()` 后归 0（门禁只准住在 immersiveMaterial.ets）。
+- **push 已完成**：代理 7890 开着 → 走 HTTPS 显式 URL；推送前扫过文件面与内容密钥样式（均空）；
+  `feat/layout-structure-migration` 作为**新分支**推到 `2697881905/YouJing`，84 个提交。
+  **未合并 main**（授权只到 push）。
+
+**仍未完成（不标收口）**：
+1. 我的页内容不满屏、注入 swipe 滚不动 ⇒ **滚动态的材质折射与跟手收起还没证据**；
+   下一步在有溢出内容的页（行程详情/费用）接同一套并滚起来验。
+2. 其余 **17 页**尚未接穿底（`bleed` 开关仍在，接完后删开关写死 false）。
+3. **第 15 行一镜到底转场未开工**（需按 harmonyos-longtake-transition 技能移植 longTake/ 与
+   customNavContentTransition）。
