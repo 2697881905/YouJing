@@ -20,7 +20,7 @@ import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { BuildConfig } from '../common/constants/BuildConfig';
 import { GenerationChannel } from '../utils/GenerationChannel';
-import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
 import { requestSystemBarRefresh } from '../utils/systemBar';
 
@@ -57,6 +57,7 @@ export struct GenerateFailedPage {
   /** 顶栏磨砂两态：由**绝对**滚动偏移驱动（每帧增量会被松手回弹的负帧打灭，契约 §Translucency） */
   @State private barScrolled: boolean = false;
   private barScroller: Scroller = new Scroller();
+  @StorageProp('statusBarHeight') statusBarHeight: number = 0;
 
   /**
    * 标题下面那行**一律是给人读的一句原因**（按错误码映射，debug/release 同一句）。
@@ -215,6 +216,7 @@ export struct GenerateFailedPage {
           }
           .padding({ left: this.wideInset(), right: this.wideInset() })
         }
+        .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
         .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .layoutWeight(1)
         .width('100%')
@@ -286,6 +288,9 @@ export struct GenerateFailedPage {
       .height('100%')
       .backgroundColor(ColorTokens.canvas)
     }
+    .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+    .bindToScrollable([this.barScroller])
+    .clip(false)
     // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
     .backgroundColor(ColorTokens.canvas)
     .titleBar(HdsChrome.bar({ mainTitle: '生成受阻', scrolled: this.barScrolled }))

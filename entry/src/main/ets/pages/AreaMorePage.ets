@@ -286,8 +286,8 @@ export struct AreaMorePage {
     .titleBar(HdsChrome.bar({
       mainTitle: '全部区域',
       subTitle: this.areas.length > 0 ? `${this.city} · ${this.areas.length} 片` : this.city,
-      scrolled: this.barScrolled,
-      bleed: true
+      scrolled: this.barScrolled
+      
     }))
     .titleMode(HdsNavDestinationTitleMode.MINI)
     .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })

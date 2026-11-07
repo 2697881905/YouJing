@@ -61,15 +61,9 @@ export interface ChromeSpec {
   // （同一机位复拍，见 Docs/INIT_REPORT.md §5ci 续 198）。底图基色仍由壳层 + TopStrip 单点涂。
   /** 页面滚动状态：驱动 blurRadius，静止时不给模糊（有据静止态白底白图标教训） */
   scrolled?: boolean;
-  /**
-   * 穿底档（对表第 19/20 行，2026-11-07 用户裁决「做，风险我认」）：
-   * true → `enableComponentSafeArea:false`（内容区从窗口原点起算，能画到栏体底下被材质采样）
-   *        ＋ 栏级 `systemMaterialEffect`（IMMERSIVE=101 / EXQUISITE=0，API<26 门禁不过就不设）。
-   * 开了它，页面**必须**自己给内容让位：`HdsChrome.contentTopInset(this.statusBarHeight)`
-   * 加进滚动容器的 top padding（这段留白随内容滚走，才是有据「帖子穿到栏底下」的形状）。
-   * 这是迁移期开关：18 页全部接完后删掉它、把 false 写死（任务 #31）。
-   */
-  bleed?: boolean;
+  // 穿底档已于 2026-11-07 铺满全部页面（对表第 19/20 行，用户裁决「做，风险我认」），
+  // 迁移期开关 bleed 已删除：enableComponentSafeArea 恒 false，让位一律由
+  // HdsChrome.contentTopInset(statusBarHeight) 承担。静态页（生成中/解锁）同样接了让位。
   /** 本页是否存在可滚容器；false 时关滚动特效，避免静止态空糊 */
   scrollable?: boolean;
   blurEndVp?: number;
@@ -126,7 +120,7 @@ export class HdsChrome {
     // 栏级沉浸材质（对表第 19 行）：只有穿底档才给——栏体下面没有内容时材质是白压白，
     // 这也是它此前在模拟器上 A/B 无差别、被回退的原因（续 222）。数值字面量避免静态
     // import hdsMaterial（低版本设备 import 即崩，见 immersiveMaterial.ets 兼容性铁律）。
-    if (spec.bleed === true && isSystemMaterialActive()) {
+    if (isSystemMaterialActive()) {
       const material: SystemMaterialParams = {
         materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
         materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE
@@ -148,11 +142,10 @@ export class HdsChrome {
       content: content,
       style: style,
       // 栏体穿到状态栏下（带子与栏区同层）恒定 true。
-      // 内容区原点则按档切：默认 true＝内容被顶到栏体之下（穿不过去）；
-      // 穿底档 false＝内容从窗口原点起算，让位改由页面的 contentTopInset 承担（有据同位写法）。
+      // 内容区原点恒 false＝从窗口原点起算，让位由页面的 contentTopInset 承担（有据同位写法）。
       // 注意这与已删的 `fullBleed` 不是一回事：那条翻的是栏内两行顺序，这条动的是内容原点。
       avoidLayoutSafeArea: true,
-      enableComponentSafeArea: spec.bleed !== true
+      enableComponentSafeArea: false
     };
     return options;
   }

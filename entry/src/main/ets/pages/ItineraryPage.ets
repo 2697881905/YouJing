@@ -31,7 +31,7 @@ import { common } from '@kit.AbilityKit';
 import { ImmersiveSegmentBar, SegmentedItem } from '../components/ImmersiveSegmentBar';
 import { getSheetImmersiveMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
-import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
 import { DateUtils } from '../utils/DateUtils';
 import { TransitSymbol } from '../utils/TransitSymbol';
@@ -76,6 +76,7 @@ export struct ItineraryPage {
   /** 时间线滚动器：点地图落点要把对应行带回视野（切片1 A）。
    *  必须是 ListScroller——scrollToItemInGroup 只在子类上，基类 Scroller 没有这个方法 */
   private listScroller: ListScroller = new ListScroller();
+  @StorageProp('statusBarHeight') statusBarHeight: number = 0;
   /** 顶栏磨砂两态：由**绝对**滚动偏移驱动（每帧增量会被松手回弹的负帧打灭，契约 §Translucency）。
    *  偏移直接读上面那枚 listScroller，不建第二个实例 */
   @State private barScrolled: boolean = false;
@@ -1380,6 +1381,7 @@ export struct ItineraryPage {
             this.syncBarScroll();
           })
         }
+        .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
         .width('100%')
         .height('100%')
 
@@ -1404,9 +1406,12 @@ export struct ItineraryPage {
         systemMaterial: getSheetImmersiveMaterial()
       })
     }
+    .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+    .bindToScrollable([this.listScroller])
+    .clip(false)
     // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
     .backgroundColor(ColorTokens.canvas)
-    .titleBar(HdsChrome.bar({
+    .titleBar(HdsChrome.bar({ 
       mainTitle: this.titleText,
       scrolled: this.barScrolled,
       // 顺序按使用频率，不是按"导出/编辑/系统"的讲述顺序：真机实测 `menuMaxCount: 2`

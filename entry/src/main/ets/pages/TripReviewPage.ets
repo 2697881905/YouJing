@@ -21,7 +21,7 @@ import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton
 import { common } from '@kit.AbilityKit';
 import { image } from '@kit.ImageKit';
 import { fileIo as fs } from '@kit.CoreFileKit';
-import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
 import { TripDao } from '../data/TripDao';
 import { BadgeDao } from '../data/BadgeDao';
@@ -55,6 +55,7 @@ export struct TripReviewPage {
   /** 顶栏磨砂两态：必须由**绝对**滚动偏移驱动，每帧增量会被松手回弹的负帧打灭（有据根因，契约 §Translucency） */
   @State private barScrolled: boolean = false;
   private barScroller: Scroller = new Scroller();
+  @StorageProp('statusBarHeight') statusBarHeight: number = 0;
   @State private summaryText: string = '';
   @State private highlights: string[] = [];
   @State private checkedTotal: number = 0;
@@ -645,11 +646,15 @@ export struct TripReviewPage {
           this.content()
         }
       }
+      .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
       .width('100%')
       .height('100%')
       .alignItems(HorizontalAlign.Start)
       .backgroundColor(ColorTokens.canvas)
     }
+    .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+    .bindToScrollable([this.barScroller])
+    .clip(false)
     // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
     .backgroundColor(ColorTokens.canvas)
     .titleBar(HdsChrome.bar({ mainTitle: '旅行回顾', scrolled: this.barScrolled }))

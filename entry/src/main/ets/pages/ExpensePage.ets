@@ -28,7 +28,7 @@ import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
 import { Logger } from '../common/logger/Logger';
 import { PlanDraft } from '../data/PlanDraft';
 import { common } from '@kit.AbilityKit';
-import { HdsNavigation, HdsNavigationTitleMode, HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsNavigation, HdsNavigationTitleMode, HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UIDesignKit';
 import { routerMap } from './AppRouter';
 import { HdsChrome } from '../design/HdsChrome';
 import { requestSystemBarRefresh } from '../utils/systemBar';
@@ -151,6 +151,7 @@ export struct ExpensePage {
   /** 顶栏磨砂两态：由**绝对**滚动偏移驱动（每帧增量会被松手回弹的负帧打灭，契约 §Translucency） */
   @State private barScrolled: boolean = false;
   private barScroller: Scroller = new Scroller();
+  @StorageProp('statusBarHeight') statusBarHeight: number = 0;
   private segments: SegmentedItem[] = [{ label: '预算' }, { label: '实际' }];
   private trip: Trip | null = null;
   /** 已经因「上下文行程不存在」退回过一次无上下文分支；防异步自循环 */
@@ -979,6 +980,7 @@ export struct ExpensePage {
           this.syncBarScroll();
         })
       }
+      .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
       .width('100%')
       .height('100%')
       .backgroundColor(ColorTokens.canvas)
@@ -1014,6 +1016,9 @@ export struct ExpensePage {
       HdsNavigation(this.pathStack) {
         this.rootShell()
       }
+      .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+      .bindToScrollable([this.barScroller])
+      .clip(false)
       .titleMode(HdsNavigationTitleMode.MINI)
       .hideBackButton(true)
       .titleBar(HdsChrome.bar({ mainTitle: '费用', scrolled: this.barScrolled }))
@@ -1025,6 +1030,9 @@ export struct ExpensePage {
       HdsNavDestination() {
         this.rootShell()
       }
+    .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+    .bindToScrollable([this.barScroller])
+    .clip(false)
       // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
       .backgroundColor(ColorTokens.canvas)
       .titleBar(HdsChrome.bar({ mainTitle: '费用', scrolled: this.barScrolled }))

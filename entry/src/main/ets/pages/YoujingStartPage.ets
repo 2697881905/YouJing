@@ -20,7 +20,7 @@
 import { APP_NAV, enterPlanningFlow, markDraftDirty, DRAFT_DIRTY_KEY, isDraftDirty } from '../common/constants/AppNav';
 import { routerMap } from './AppRouter';
 import { HdsChrome } from '../design/HdsChrome';
-import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import { HdsNavigation, HdsNavigationTitleMode, HideMode } from '@kit.UIDesignKit';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
@@ -73,6 +73,8 @@ export struct YoujingStartPage {
   }
 
   private barScroller: Scroller = new Scroller();
+  // 穿底让位（含状态栏）：本页是纯 Scroll 根，留白放进滚动容器随内容滚走
+  @StorageProp('statusBarHeight') statusBarHeight: number = 0;
   /** 顶栏磨砂两态。必须 @State：栏体现在就挂在本页的 HdsNavigation 上，值变了要触发它重建 */
   @State private barScrolled: boolean = false;
 
@@ -271,6 +273,9 @@ export struct YoujingStartPage {
     .titleMode(HdsNavigationTitleMode.MINI)
     .hideBackButton(true)
     .titleBar(HdsChrome.bar({ mainTitle: '规划', scrolled: this.barScrolled }))
+    .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+    .bindToScrollable([this.barScroller])
+    .clip(false)
     .navDestination(routerMap)
     .mode(NavigationMode.Stack)
     .width('100%')
@@ -434,6 +439,7 @@ export struct YoujingStartPage {
     .width('100%')
     .height('100%')
     .scrollBar(BarState.Off)
+    .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
     .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
     .onDidScroll((): void => {
       this.syncBarScroll();

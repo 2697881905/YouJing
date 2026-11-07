@@ -333,8 +333,8 @@ export struct BadgePage {
     .titleBar(HdsChrome.bar({
       mainTitle: '我的勋章',
       subTitle: this.loading || this.groups.length === 0 ? '' : `共 ${this.totalCount()} 枚`,
-      scrolled: this.barScrolled,
-      bleed: true
+      scrolled: this.barScrolled
+      
     }))
     .titleMode(HdsNavDestinationTitleMode.MINI)
     // 跟手收起 + 穿底采样链（第 13/19/20 行）：滚动源交给官方，栏下才有内容可折射

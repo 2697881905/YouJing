@@ -24,7 +24,7 @@ import { DateUtils } from '../utils/DateUtils';
 import { TripWindow } from '../utils/TripWindow';
 import { AnniversaryTrip, anniversaryText, findAnniversary } from '../utils/TripReview';
 import { common } from '@kit.AbilityKit';
-import { HdsNavigation, HdsNavigationTitleMode, HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsNavigation, HdsNavigationTitleMode, HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UIDesignKit';
 import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import { routerMap } from './AppRouter';
 import { HdsChrome } from '../design/HdsChrome';
@@ -74,6 +74,7 @@ export struct TripsPage {
   /** 顶栏磨砂两态：由**绝对**滚动偏移驱动（每帧增量会被松手回弹的负帧打灭，契约 §Translucency） */
   @State private barScrolled: boolean = false;
   private barScroller: Scroller = new Scroller();
+  @StorageProp('statusBarHeight') statusBarHeight: number = 0;
   @State private trips: TripCardData[] = [];
   @State private loading: boolean = true;
   /** 周年横幅：今天月日落在某条跨年历史行程区间内才出现；无命中时两条都为空 */
@@ -335,7 +336,7 @@ export struct TripsPage {
     if (this.selecting) {
       const n: number = this.selectedIds.length;
       const allSel: boolean = this.isAllVisibleSelected();
-      return HdsChrome.bar({
+      return HdsChrome.bar({ 
         mainTitle: n > 0 ? `已选 ${n} 条` : '选择行程',
         scrolled: this.barScrolled,
         subTitle: this.trips.length > 0 ? `${this.trips.length} 条` : '',
@@ -353,7 +354,7 @@ export struct TripsPage {
         ]
       });
     }
-    return HdsChrome.bar({
+    return HdsChrome.bar({ 
       mainTitle: '行程',
       scrolled: this.barScrolled,
       subTitle: this.trips.length > 0 ? `${this.trips.length} 条` : '',
@@ -688,6 +689,7 @@ export struct TripsPage {
           })
         }
       }
+      .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
       .width('100%')
       .height('100%')
       .layoutWeight(1)
@@ -715,6 +717,9 @@ export struct TripsPage {
       HdsNavigation(this.pathStack) {
         this.rootShell()
       }
+      .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+      .bindToScrollable([this.barScroller])
+      .clip(false)
       .titleMode(HdsNavigationTitleMode.MINI)
       .hideBackButton(true)
       .titleBar(this.titleBar())
@@ -726,6 +731,9 @@ export struct TripsPage {
       HdsNavDestination() {
         this.rootShell()
       }
+    .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+    .bindToScrollable([this.barScroller])
+    .clip(false)
       // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
       .backgroundColor(ColorTokens.canvas)
       .titleBar(this.titleBar())

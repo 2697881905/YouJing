@@ -22,7 +22,7 @@ import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
-import { HdsNavigation, HdsNavigationTitleMode, HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsNavigation, HdsNavigationTitleMode, HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UIDesignKit';
 import { routerMap } from './AppRouter';
 import type { HdsNavigationMenuItemOptions, HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
@@ -83,6 +83,7 @@ export struct MapPage {
   private seq: number = 0;
   /** 站点条滚动器：点地图气泡时把对应站点卡带回视野（切片1 A） */
   private stripScroller: Scroller = new Scroller();
+  @StorageProp('statusBarHeight') statusBarHeight: number = 0;
 
   /**
    * 首帧取数必须挂在这里，不能只靠 onShown：
@@ -357,6 +358,7 @@ export struct MapPage {
             .width('100%')
             .height(DOCK_MASK_HEIGHT_VP)
             .margin({ bottom: DOCK_MASK_PLATEAU_VP - DOCK_MASK_BELOW_VP })
+            .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
             .linearGradient({
               angle: 180,
               colors: [[Color.Transparent, 0],
@@ -474,6 +476,9 @@ export struct MapPage {
       HdsNavigation(this.pathStack) {
         this.rootShell()
       }
+      .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+      .bindToScrollable([this.stripScroller])
+      .clip(false)
       .titleMode(HdsNavigationTitleMode.MINI)
       .hideBackButton(true)
       .titleBar(this.titleBarOptions())
@@ -485,6 +490,9 @@ export struct MapPage {
       HdsNavDestination() {
         this.rootShell()
       }
+    .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+    .bindToScrollable([this.stripScroller])
+    .clip(false)
       // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
       .backgroundColor(ColorTokens.canvas)
       .titleBar(this.titleBarOptions())

@@ -24,7 +24,7 @@ import { APP_NAV } from '../common/constants/AppNav';
 import { Trip } from '../model/Trip';
 import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
-import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
 import { TripSpan } from '../utils/TripSpan';
 import { requestSystemBarRefresh } from '../utils/systemBar';
@@ -59,6 +59,7 @@ export struct SharePage {
   /** 顶栏磨砂两态：由**绝对**滚动偏移驱动（每帧增量会被松手回弹的负帧打灭，契约 §Translucency） */
   @State private barScrolled: boolean = false;
   private barScroller: Scroller = new Scroller();
+  @StorageProp('statusBarHeight') statusBarHeight: number = 0;
   private trip: Trip | null = null;
   private pathStack: NavPathStack = APP_NAV;
 
@@ -360,6 +361,7 @@ export struct SharePage {
             this.syncBarScroll();
           })
         }
+        .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
         .width('100%')
         .height('100%')
 
@@ -382,6 +384,9 @@ export struct SharePage {
       .height('100%')
       .backgroundColor(ColorTokens.canvas)
     }
+    .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+    .bindToScrollable([this.barScroller])
+    .clip(false)
     // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
     .backgroundColor(ColorTokens.canvas)
     .titleBar(HdsChrome.bar({ mainTitle: '分享与导出', scrolled: this.barScrolled }))

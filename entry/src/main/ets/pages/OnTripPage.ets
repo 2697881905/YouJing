@@ -45,7 +45,7 @@ import { TransitSymbol } from '../utils/TransitSymbol';
 import { NodeOwe, OweItem } from '../utils/NodeOwe';
 import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
-import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UIDesignKit';
 import type { HdsNavigationMenuItemOptions, HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
 import { requestSystemBarRefresh } from '../utils/systemBar';
@@ -157,6 +157,7 @@ export struct OnTripPage {
   /** 顶栏磨砂两态：由**绝对**滚动偏移驱动（每帧增量会被松手回弹的负帧打灭，契约 §Translucency） */
   @State private barScrolled: boolean = false;
   private barScroller: Scroller = new Scroller();
+  @StorageProp('statusBarHeight') statusBarHeight: number = 0;
   private watcher: ArrivalWatcher = new ArrivalWatcher();
   private watcherActive: boolean = false;
   /** 权限弹窗还没回来：避免 reload 连点导致重复 start */
@@ -1109,7 +1110,7 @@ export struct OnTripPage {
       HdsChrome.item($r('sys.symbol.list_bullet'), '完整行程', (): void => {
         this.pathStack.pushPath({ name: 'Itinerary', param: this.tripId });
       })];
-    return HdsChrome.bar({
+    return HdsChrome.bar({ 
       mainTitle: this.dayLabel.length > 0 ? this.dayLabel : '旅行中',
       subTitle: this.clock,
       menu: items,
@@ -1365,7 +1366,7 @@ export struct OnTripPage {
       .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .sticky(StickyStyle.Header)
       .cachedCount(6)
-      .padding({ left: this.wideInset(), right: this.wideInset(),
+      .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight), left: this.wideInset(), right: this.wideInset(),
             bottom: LayoutTokens.floatingDockClearance })
       .width('100%')
       .height('100%')
@@ -1377,6 +1378,9 @@ export struct OnTripPage {
     .width('100%')
     .height('100%')
     }
+    .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+    .bindToScrollable([this.barScroller])
+    .clip(false)
     // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
     .backgroundColor(ColorTokens.canvas)
     .titleBar(this.titleBarOptions())

@@ -408,7 +408,7 @@ export struct MinePage {
       .titleBar(HdsChrome.bar({
         mainTitle: '我的',
         scrolled: this.barScrolled,
-        bleed: true,
+        
         menu: [HdsChrome.item($r('sys.symbol.plus'), '新建行程', (): void => {
           PlanDraft.fresh();
           enterPlanningFlow('TripInput');
@@ -431,7 +431,7 @@ export struct MinePage {
       }
       // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
       .backgroundColor(ColorTokens.canvas)
-      .titleBar(HdsChrome.bar({ mainTitle: '我的', scrolled: this.barScrolled, bleed: true }))
+      .titleBar(HdsChrome.bar({ mainTitle: '我的', scrolled: this.barScrolled }))
       .titleMode(HdsNavDestinationTitleMode.MINI)
       .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
       .bindToScrollable([this.barScroller])

@@ -30,13 +30,14 @@ import { EntitlementStore } from '../data/EntitlementStore';
 import { DeviceTokenStore } from '../data/DeviceTokenStore';
 import { GenerationChannel } from '../utils/GenerationChannel';
 import { common } from '@kit.AbilityKit';
-import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 
 @Component
 export struct GeneratingPage {
   @State private stage: number = 0;
+  @StorageProp('statusBarHeight') statusBarHeight: number = 0;
   @State private progress: number = 0.25;
   @State private done: boolean = false;
   private stages: string[] = ['筛选景点', '排布每日动线', '校验开放时间与预约', '估算步行耗时'];
@@ -283,9 +284,10 @@ export struct GeneratingPage {
       }
       .width('100%')
       .height('100%')
-      .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
+      .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight), left: SpaceTokens.base, right: SpaceTokens.base })
       .backgroundColor(ColorTokens.canvas)
     }
+    .clip(false)
     // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
     .backgroundColor(ColorTokens.canvas)
     // 本页只有骨架屏、没有纵向滚动容器 ⇒ 关滚动特效，避免静止态空糊

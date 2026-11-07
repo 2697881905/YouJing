@@ -17,7 +17,7 @@ import { FlowQuestion, QuestionOption, TravelStyle, TransitPreference, PaceOptio
 import { PlanDraft } from '../data/PlanDraft';
 import { OptionCard } from '../components/OptionCard';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
-import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
 import { BOTTOM_NAV_INSET_KEY } from '../utils/navMode';
 import { FlowSteps, FLOW_STEP_PREFERENCE_QA } from '../components/FlowSteps';
@@ -41,6 +41,7 @@ export struct PreferenceQAPage {
   /** 顶栏磨砂两态：由**绝对**滚动偏移驱动（每帧增量会被松手回弹的负帧打灭，契约 §Translucency） */
   @State private barScrolled: boolean = false;
   private barScroller: Scroller = new Scroller();
+  @StorageProp('statusBarHeight') statusBarHeight: number = 0;
 
   /**
    * 起答从草稿读，不从字面量读。
@@ -256,10 +257,14 @@ export struct PreferenceQAPage {
         .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.sm,
           bottom: LayoutTokens.floatingDockClearance })
       }
+      .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
       .width('100%')
       .height('100%')
       .backgroundColor(ColorTokens.canvas)
     }
+    .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+    .bindToScrollable([this.barScroller])
+    .clip(false)
     // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
     .backgroundColor(ColorTokens.canvas)
     // 向导其余四屏的标题栏都只写主标题，步序交给页内；这里原来还把

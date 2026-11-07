@@ -13,7 +13,7 @@ import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
-import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { Logger } from '../common/logger/Logger';
@@ -30,6 +30,7 @@ import { common } from '@kit.AbilityKit';
 @Component
 export struct PricingPage {
   @State private purchasing: boolean = false;
+  @StorageProp('statusBarHeight') statusBarHeight: number = 0;
   @State private toastMsg: string = '';
   @State private headline: string = '解锁完整行程';
   @State private subtitle: string = '生成免费，导出与无限重排需解锁';
@@ -247,9 +248,10 @@ export struct PricingPage {
       }
       .width('100%')
       .height('100%')
-      .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
+      .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight), left: SpaceTokens.base, right: SpaceTokens.base })
       .backgroundColor(ColorTokens.canvas)
     }
+    .clip(false)
     .backgroundColor(ColorTokens.canvas)
     // 整页是 Column 直排、没有 Scroll/List 可挂 scroller，磨砂等不到滚动帧 → 显式关掉滚动特效
     .titleBar(HdsChrome.bar({ mainTitle: '解锁行程', scrollable: false }))
