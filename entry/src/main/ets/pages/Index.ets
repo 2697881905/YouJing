@@ -13,6 +13,7 @@
  */
 
 import { HOST_NAV, ACTIVE_TRIP_KEY, TAB_INDEX_KEY, TAB_SWITCH_KEY, DOCK_TABS, announceTabShown, stackOfTab, TAB_PLAN, TAB_ITINERARY, TAB_MAP, TAB_EXPENSE, TAB_MINE } from '../common/constants/AppNav';
+import { setSharedUiContext } from '../utils/longTake/cardRect';
 import { TripDao, TripSummary } from '../data/TripDao';
 import { AUTH_STATE_KEY } from '../data/AccountStore';
 import { ConsentStore, CONSENT_AGREED_KEY } from '../utils/ConsentStore';
@@ -128,6 +129,8 @@ struct Index {
   }
 
   aboutToAppear(): void {
+    // 一镜到底的量测/截图 util 没有 this.getUIContext()，从这里共享（与有据同法）
+    setSharedUiContext(this.getUIContext());
     this.currentTab = this.wantTab;
     this.syncTopStrip(this.wantTab);
     const ctx: common.Context = this.getUIContext().getHostContext() as common.Context;

@@ -28,6 +28,8 @@ import { HdsNavigation, HdsNavigationTitleMode, HdsNavDestination, HdsNavDestina
 import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import { routerMap } from './AppRouter';
 import { HdsChrome } from '../design/HdsChrome';
+import { openItineraryLongTake } from '../utils/longTake/itineraryNav';
+import { longTakeTransitionHook } from '../utils/longTake/navTransitionHook';
 import { Logger } from '../common/logger/Logger';
 import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
 import { listLanesForBreakpoint } from '../utils/responsive';
@@ -502,6 +504,7 @@ export struct TripsPage {
       ? `${t.place} ${t.dateMeta}，${this.isSelected(t.id) ? '已选中' : '未选中'}，点按切换选中`
       : `${t.place} ${t.dateMeta}，${t.statusLine}，` +
       (t.reviewable ? '打开旅行回顾' : '打开行程'))
+    .id('trip-card-' + t.id)
     .onClick(() => {
       if (this.selecting) {
         this.toggleSelected(t.id);
@@ -512,7 +515,9 @@ export struct TripsPage {
       } else if (t.reviewable) {
         this.pathStack.pushPath({ name: 'Review', param: t.id });
       } else {
-        this.pathStack.pushPath({ name: 'Itinerary', param: t.id });
+        // 一镜到底：量卡片帧 + 截图后推详情；量不到帧也直推（点击绝不吞）
+        openItineraryLongTake(this.getUIContext(), this.pathStack, t.id,
+          'trip-card-' + t.id, RadiusTokens.card);
       }
     })
   }
@@ -722,6 +727,8 @@ export struct TripsPage {
       .clip(false)
       .titleMode(HdsNavigationTitleMode.MINI)
       .hideBackButton(true)
+      // 一镜到底挂钩必须挂在**持有该栈的这层**（有径每格自带 HdsNavigation）
+      .customNavContentTransition(longTakeTransitionHook)
       .titleBar(this.titleBar())
       .navDestination(routerMap)
       .mode(NavigationMode.Stack)

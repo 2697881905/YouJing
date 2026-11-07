@@ -33,6 +33,10 @@ import { getSheetImmersiveMaterial, isSystemMaterialActive } from '../utils/imme
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
+import { CustomTransition } from '../utils/longTake/customNavigationUtils';
+import { LongTakeAnimationProperties, LongTakeParams } from '../utils/longTake/longTakeAnimationProperties';
+import { longTakeOfParam } from '../utils/longTake/itineraryNav';
+import { BusinessError } from '@kit.BasicServicesKit';
 import { DateUtils } from '../utils/DateUtils';
 import { TransitSymbol } from '../utils/TransitSymbol';
 import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
@@ -42,6 +46,10 @@ import { TripSpan } from '../utils/TripSpan';
 import { requestSystemBarRefresh } from '../utils/systemBar';
 
 /** 负载微条 3vp（比通用 Progress 的 4vp 细一档，它读的是趋势不是数值） */
+// 一镜到底：页面根 id（量测「对应节点」与内容原点都用它）与转场超时
+const ITINERARY_ROOT_ID: string = 'itineraryPageRoot';
+const LONG_TAKE_TIMEOUT_MS: number = 2000;
+
 const LOAD_BAR_STYLE: LinearStyleOptions = { strokeWidth: 3, strokeRadius: 1.5 };
 
 @Component
@@ -59,6 +67,53 @@ export struct ItineraryPage {
   @StorageProp(KEY_CURRENT_BREAKPOINT) bp: string = 'sm';
   /** 玻璃点位①③是否由系统材质接管（接管处撤自绘背景与阴影）；仅浅色模式下实验 */
   private glassOn: boolean = isSystemMaterialActive();
+  // ——— 一镜到底（官方范式：目的地页自身变形）———
+  // 字段初值取「安全终态」（内容可见、截图隐藏），起始态由 doEnterAnimation 显式赋值：
+  // 转场万一没跑，页面只是少一段动画，不会停在「内容 0 透明度 + 截图铺满屏」的坏状态。
+  @State takeProps: LongTakeAnimationProperties = new LongTakeAnimationProperties();
+  private takeParams: LongTakeParams = new LongTakeParams();
+  private takePageId: string = '';
+  private takeRegistered: boolean = false;
+  private takeRootWidth_vp: number = 0;
+  private takeRootHeight_vp: number = 0;
+
+  /** 注册本页转场（key = navDestinationId）。整段 try/catch：异常就落终态，绝不卡在半场。 */
+  private tryRegisterLongTake(): void {
+    if (this.takeRegistered || this.takePageId.length === 0) {
+      return;
+    }
+    this.takeRegistered = true;
+    try {
+      // 无 hero 媒体，「对应节点」= 页面根本身（宽 = 窗宽，满足展开公式前提）
+      this.takeProps.init(this.takeParams.cardRect, ITINERARY_ROOT_ID, '', ITINERARY_ROOT_ID,
+        this.takeParams.cardId, this.takeParams.cardRadius, 0);
+      CustomTransition.getInstance().registerNavParam(this.takePageId, LONG_TAKE_TIMEOUT_MS,
+        (transitionProxy: NavigationTransitionProxy): void => {
+          // 初值必须在动画开始这一刻量：此时本页已完成布局
+          this.takeProps.doAnimation(this.getUIContext(), transitionProxy);
+        });
+    } catch (error) {
+      const err = error as BusinessError;
+      Logger.error('ItineraryLongTake', `register failed code=${err.code} msg=${err.message}`);
+      this.takeProps.setFinalStatus();
+    }
+  }
+
+  /** 窗口尺寸变化（旋转/折叠/分屏）→ 缓存初值作废，注销转场退回系统默认 */
+  private onTakeWindowSizeChanged(width_vp: number, height_vp: number): void {
+    if (this.takeRootWidth_vp === 0 && this.takeRootHeight_vp === 0) {
+      this.takeRootWidth_vp = width_vp;
+      this.takeRootHeight_vp = height_vp;
+      return;
+    }
+    if (Math.abs(width_vp - this.takeRootWidth_vp) < 1 && Math.abs(height_vp - this.takeRootHeight_vp) < 1) {
+      return;
+    }
+    this.takeRootWidth_vp = width_vp;
+    this.takeRootHeight_vp = height_vp;
+    CustomTransition.getInstance().unregisterNavParam(this.takePageId);
+  }
+
   @Prop tripId: string = '';
   @State @Watch('syncDayStops') private dayIndex: number = 0;
   @State private showDetail: boolean = false;
@@ -1213,6 +1268,10 @@ export struct ItineraryPage {
 
   build() {
     HdsNavDestination() {
+      // 飞行窗口：clip/scale/translate 把整页从行程卡帧展开到满幅。
+      // alignContent 必须 TopStart，否则截图与内容会随高度变化被重新定位（官方范式）。
+      Stack({ alignContent: Alignment.TopStart }) {
+        Column() {
       Stack({ alignContent: Alignment.Bottom }) {
         Column() {
           // Day 分段栏（官方 SegmentButton + 材质）；标题与分享/编辑已迁到官方标题栏。
@@ -1405,10 +1464,46 @@ export struct ItineraryPage {
         showClose: true,
         systemMaterial: getSheetImmersiveMaterial()
       })
-    }
+    
+        }
+        // 飞行盒宽 = 对应节点宽；内层若吃 '100%' 会跟着盒子从卡宽长到页宽，
+        // 整页在 350ms 里持续重排 —— 故按量到的页宽钉死，没量到才回退 '100%'
+        .width(this.takeProps.pageWidthVp > 0 ? this.takeProps.pageWidthVp : '100%')
+        .height('100%')
+        .opacity(this.takeProps.postPageOpacity)
+        if (this.takeParams.snapshot !== undefined) {
+          Image(this.takeParams.snapshot)
+            .width(this.takeProps.snapShotWidth)
+            .objectFit(ImageFit.Auto)
+            .syncLoad(true)
+            .borderRadius(this.takeProps.snapShotRadius)
+            .clip(true)
+            .opacity(this.takeProps.snapShotOpacity)
+            .position({
+              x: this.takeProps.snapShotPositionX,
+              y: this.takeProps.snapShotPositionY
+            })
+            .hitTestBehavior(HitTestMode.None)
+        }
+      }
+      .width(this.takeProps.clipWidth)
+      .height(this.takeProps.clipHeight)
+      .scale({ x: this.takeProps.scaleValue, y: this.takeProps.scaleValue })
+      .translate({ x: this.takeProps.translateX, y: this.takeProps.translateY })
+      .borderRadius(this.takeProps.radius)
+      .clip(true)
+      .backgroundColor(ColorTokens.canvas)
+      .id(ITINERARY_ROOT_ID)
+      .onAreaChange((_old: Area, newValue: Area): void => {
+        this.onTakeWindowSizeChanged(newValue.width as number, newValue.height as number);
+      })
+}
     .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
     .bindToScrollable([this.listScroller])
     .clip(false)
+    .onDisAppear((): void => {
+      CustomTransition.getInstance().unregisterNavParam(this.takePageId);
+    })
     // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
     .backgroundColor(ColorTokens.canvas)
     .titleBar(HdsChrome.bar({ 
@@ -1441,6 +1536,13 @@ export struct ItineraryPage {
     }))
     .onReady((ctx: NavDestinationContext): void => {
       this.pathStack = ctx.pathStack;
+      // 一镜到底：无有效卡片帧就不注册（旧深链/兜底路径），页面按终态直接呈现、功能完整
+      const take: LongTakeParams | null = longTakeOfParam(ctx.pathInfo.param as object);
+      if (take !== null) {
+        this.takeParams = take;
+        this.takePageId = ctx.navDestinationId !== undefined ? ctx.navDestinationId : '';
+        this.tryRegisterLongTake();
+      }
     })
     .titleMode(HdsNavDestinationTitleMode.MINI)
     .onShown((): void => {

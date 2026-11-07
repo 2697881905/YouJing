@@ -9,6 +9,7 @@
  */
 
 import { EditTarget, FailInfo } from '../common/constants/AppNav';
+import { tripIdOfParam } from '../utils/longTake/itineraryNav';
 import { TripInputPage } from './TripInputPage';
 import { PreferenceQAPage } from './PreferenceQAPage';
 import { SpotPickPage } from './SpotPickPage';
@@ -44,8 +45,9 @@ function asEditTarget(param: object): EditTarget {
   return (typeof param === 'object' && param !== null) ? param as EditTarget : fallback;
 }
 
+// 兼容两种参数：旧深链是纯 tripId 字符串，一镜到底入口是 ItineraryNavParams 对象
 function tripIdOf(param: object): string {
-  return typeof param === 'string' ? param as string : '';
+  return tripIdOfParam(param);
 }
 
 @Builder

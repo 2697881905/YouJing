@@ -9486,3 +9486,42 @@ Expense / Trips / OnTrip / Share / AreaMore / Map / Badges / Review / Pricing`�
 2. 其余 **17 页**尚未接穿底（`bleed` 开关仍在，接完后删开关写死 false）。
 3. **第 15 行一镜到底转场未开工**（需按 harmonyos-longtake-transition 技能移植 longTake/ 与
    customNavContentTransition）。
+
+## 2026-11-07 续 253：第 15 行一镜到底移植完成——行程卡 → 行程详情，真机验到起飞与返回
+
+按 `harmonyos-longtake-transition` 技能做（官方范式：**目的地页自身变形**，不是自建快照覆盖层飞过去，
+后者永远修不干净「飞完被真内容顶一下」的二次对位）。
+
+**移植的通用层**（自依据逐字搬，只改依赖指向）：
+`utils/longTake/customNavigationUtils.ets`（按 navDestinationId 的回调注册表）、
+`longTakeAnimationProperties.ets`（369 行，@Observed 可动画字段 + 官方公式 + 进出场时序）、
+`cardRect.ets`（从有据 navigationTransition 抽出的 CardRect / cardRectOf 含缩放补偿 / 共享 UIContext）。
+新写两个有径侧薄层：`itineraryNav.ets`（参数类 + 发起器）、`navTransitionHook.ets`（转场挂钩抽成共享函数）。
+
+**接线**：TripsPage 行程卡挂 `id('trip-card-{id}')`、点击走发起器；挂钩挂在
+**持有该栈的那层 HdsNavigation**（有径每格自带导航，不是宿主 Navigation）；
+ItineraryPage 包 `Stack(TopStart)` 飞行容器（clip/scale/translate/radius/position）+ 截图层，
+`onReady` 按 navDestinationId 自注册、`onDisAppear` 注销、窗口尺寸变化注销退系统默认；
+Index 在 aboutToAppear 共享 UIContext；AppRouter 的 tripIdOf 兼容旧字符串深链与新对象参数。
+
+**技能里三条「照抄官方会连带抄进错误前提」逐条核过**：
+① 不写 `if (!from.navDestinationId || !to.navDestinationId) return undefined`——有径行程列表是
+tab 根内容（navBar 位），PUSH 时 from 的 id 为空，照抄会让转场整条失效；只用 id 查表。
+② Properties 字段初值取**安全终态**（内容可见、截图隐藏），起始态由 doEnterAnimation 赋值，
+转场没跑也只是少一段动画，不会停在「内容 0 透明度 + 截图铺满屏」。
+③ operation 第三种取值在 doAnimation 里落终态并立刻 finishTransition（原样保留有据实现）。
+发起器三条兜底也照抄：量不到帧同步直推（点击绝不吞）、截图一次性放行 + 100ms 超时、异常照常推。
+
+**真机证据（192.168.2.3:46077）**：
+- 第一张卡是「已结束」→ 走回顾页，**没有**触发本转场（说明分流没被改坏）；
+  第二张进行中卡才走行程详情。
+- hilog：`CustomTransition: register success: 0`、
+  `LongTakeAnimation: initParams scale=0.9119718 root=(0,0) node=(0,0) cardId=trip-card-trip-1793801945399-typgps`
+  —— scale 0.9120 ＝ 卡宽 331.5vp / 页宽 363.5vp，**几何对得上**，不是空动画。
+- 详情页终态正常：文本「北京 · 3天2晚 / Day 1..3」齐全，飞行根 `itineraryPageRoot` 落在
+  (0,106)-(1136,2690) 满幅，节点 231 个，没有停在半透明坏状态。
+- 单次 Back 返回行程列表正常（列表文本回到「行程/北京/已结束」）。
+- 回归：真机 `aa test` **254/254 Failure 0**；离线 **192/192**；材质/页面壳/避让量/自递归四尺全 0。
+
+**仍待真人眼睛**：飞行过程的观感（350ms 展开是否顺、截图与真内容交接有无闪跳、返回反向是否对称）。
+自动化只能证明「注册成功 + 初值几何正确 + 终态正确 + 能返回」，证明不了好不好看。
