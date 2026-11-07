@@ -15,7 +15,6 @@
  */
 
 import { LengthMetrics } from '@kit.ArkUI';
-import deviceInfo from '@ohos.deviceInfo';
 import { ScrollEffectType } from '@kit.UIDesignKit';
 import type {
   HdsNavigationBackgroundStyle,
@@ -34,7 +33,8 @@ import type {
   TitleBarStyleOptions
 } from '@kit.UIDesignKit';
 import { ColorTokens } from './ColorTokens';
-import { HDS_MATERIAL_LEVEL_EXQUISITE, HDS_MATERIAL_TYPE_IMMERSIVE } from '../utils/immersiveMaterial';
+import { HDS_MATERIAL_LEVEL_EXQUISITE, HDS_MATERIAL_TYPE_IMMERSIVE,
+  isSystemMaterialActive } from '../utils/immersiveMaterial';
 
 /** MINI 档标题栏高（vp）：SDK `HdsNavDestinationTitleMode.MINI` 注释写明固定 56vp，
  *  穿底让位要用它而不是契约里那条 60vp 的沉浸顶栏（两者不是同一个栏）。 */
@@ -126,7 +126,7 @@ export class HdsChrome {
     // 栏级沉浸材质（对表第 19 行）：只有穿底档才给——栏体下面没有内容时材质是白压白，
     // 这也是它此前在模拟器上 A/B 无差别、被回退的原因（续 222）。数值字面量避免静态
     // import hdsMaterial（低版本设备 import 即崩，见 immersiveMaterial.ets 兼容性铁律）。
-    if (spec.bleed === true && deviceInfo.apiAvailable('26.0.0')) {
+    if (spec.bleed === true && isSystemMaterialActive()) {
       const material: SystemMaterialParams = {
         materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
         materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE
