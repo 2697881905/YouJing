@@ -50,26 +50,15 @@ export const HDS_MATERIAL_LEVEL_ADAPTIVE: number = 10;
 export const HDS_MATERIAL_LEVEL_EXQUISITE: number = 0;
 export const HDS_MATERIAL_TYPE_IMMERSIVE: number = 101;
 
-// 通用组件回退轨（材质不可用时）：backgroundBlurStyle 映射
-export class GlassBlurStyle {
-  // 悬浮栏/底部导航/弹层：通透厚玻璃
-  static readonly Floating: BlurStyle = BlurStyle.BACKGROUND_THICK;
-  // 内容卡片：中等模糊，保文字可读
-  static readonly Card: BlurStyle = BlurStyle.BACKGROUND_REGULAR;
-  // 按压态/浅色块：轻量模糊
-  static readonly Press: BlurStyle = BlurStyle.BACKGROUND_THIN;
-  // 高强调对话框
-  static readonly Dialog: BlurStyle = BlurStyle.BACKGROUND_THICK;
-}
-
 // —— 通用属性 systemMaterial（@since 26.0.0）：普通组件版沉浸光感 ——
-// 新属性必须放进 AttributeModifier.applyNormalAttribute 的 apiAvailable 分支内调用，
-// 门禁不通过就完全不触碰 uiMaterial（官方《ArkTS API 兼容性保护》示例口径）。
+// 载体只有两处：bindSheet 的 SheetOptions.systemMaterial 与 bindMenu 的 MenuOptions.systemMaterial
+// （见下方两个工厂）。曾经还有 TopButton/FloatingTopButton 两个 AttributeModifier 与
+// GlassBlurStyle 回退映射，全仓 0 个 import 方——本仓顶栏钮外观由 HdsNavigation 栏级材质负责，
+// 自绘玻璃件是「有据」那条路线，本仓既定规则是官方件优先，故按用户裁决删除（#38，2026-11-07）。
+// 新属性若要复活，必须放进 apiAvailable 门禁分支内调用（官方《ArkTS API 兼容性保护》口径）。
 //
 // 档位规范（沉浸光感设计指南·场景规范，数值同 uiMaterial.ImmersiveStyle）：
 //   顶部悬浮 → ULTRA_THIN；底部悬浮 → THIN；任意位置弹出 → THICK；半模态/弹框 → ULTRA_THICK。
-
-let topButtonMaterial: uiMaterial.Material | null = null;
 
 let systemMaterialActive: boolean | null = null;
 
@@ -83,53 +72,6 @@ export function isSystemMaterialActive(): boolean {
     }
   }
   return systemMaterialActive;
-}
-
-function getTopButtonMaterial(): uiMaterial.Material {
-  if (topButtonMaterial === null) {
-    topButtonMaterial = new uiMaterial.ImmersiveMaterial({
-      style: uiMaterial.ImmersiveStyle.ULTRA_THIN,
-      interactive: true,
-      // 投影关闭（有据真机实证）：ImmersiveMaterial 投影画在组件外圈，而挂材质的控件
-      // 多在 HdsNavigation 标题栏窄行内（bottomBuilder 行 clip=true 只比控件高 4vp），
-      // 投影被拦腰裁死成一条硬边灰带。内容区同材质实例本就不出图，关闭不影响他处。
-      applyShadow: false,
-    });
-  }
-  return topButtonMaterial;
-}
-
-/** 顶栏窄行内控件的材质修饰器（无投影版）。API < 26 门禁不过：完全不设置材质。 */
-export class TopButtonMaterialModifier implements AttributeModifier<CommonAttribute> {
-  applyNormalAttribute(instance: CommonAttribute): void {
-    if (deviceInfo.apiAvailable('26.0.0')) {
-      instance.systemMaterial(getTopButtonMaterial());
-    }
-  }
-}
-
-let floatingTopButtonMaterial: uiMaterial.Material | null = null;
-
-function getFloatingTopButtonMaterial(): uiMaterial.Material {
-  if (floatingTopButtonMaterial === null) {
-    floatingTopButtonMaterial = new uiMaterial.ImmersiveMaterial({
-      style: uiMaterial.ImmersiveStyle.ULTRA_THIN,
-      interactive: true,
-      // 保留投影：仅用于「容器给了下方留白、不会裁切投影」的悬浮件
-      // （纯白画布上无投影 ULTRA_THIN 表面与底色仅差 2 级，会失去浮起感——有据实测）。
-      applyShadow: true,
-    });
-  }
-  return floatingTopButtonMaterial;
-}
-
-/** 带留白悬浮件的材质修饰器（投影版）。HdsNavigation bottomBuilder 窄行仍用 TopButton 版。 */
-export class FloatingTopButtonMaterialModifier implements AttributeModifier<CommonAttribute> {
-  applyNormalAttribute(instance: CommonAttribute): void {
-    if (deviceInfo.apiAvailable('26.0.0')) {
-      instance.systemMaterial(getFloatingTopButtonMaterial());
-    }
-  }
 }
 
 let sheetImmersiveMaterial: uiMaterial.Material | null = null;
