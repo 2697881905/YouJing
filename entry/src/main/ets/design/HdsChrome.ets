@@ -27,6 +27,7 @@ import type {
   HdsNavigationTitleBarStyle,
   HdsNavigationTitleStyle,
   HdsTitleBarContentStyle,
+  BottomBuilderParams,
   ScrollEffectOptions,
   SystemMaterialParams,
   TitleBarContentOptions,
@@ -61,6 +62,21 @@ export interface ChromeSpec {
   // （同一机位复拍，见 Docs/INIT_REPORT.md §5ci 续 198）。底图基色仍由壳层 + TopStrip 单点涂。
   /** 页面滚动状态：驱动 blurRadius，静止时不给模糊（有据静止态白底白图标教训） */
   scrolled?: boolean;
+  /**
+   * 栏内底行（有据 HomeTab 的形状）：把页面里「钉在内容区顶部」的搜索/分段行迁进栏体。
+   * 好处有两个：① 内容区从栏底起排后仍能在滚动时穿到栏下被材质采样
+   * （钉在内容区的行会把这条路挡死，见续 257）；② 收起这类行改用 hideBottomBuilder，
+   * 标题常驻、只收这一行，比收整块标题区更克制。
+   */
+  bottomBuilder?: CustomBuilder;
+  /** 栏内底行高（vp）：要给足上下呼吸，行对内容双向裁切，投影铺不开会压出灰带 */
+  bottomRowHeight?: number;
+  /**
+   * 内容区让位由组件安全区承担（默认 false＝页面自己用 contentTopInset 让位）。
+   * 带 bottomBuilder 行的页要用 true：有据 HomeTab 原话「静止时从栏下开始、滚动时穿入栏下」，
+   * 这条决定了行收起后内容能不能补上来并穿到栏底。两种做法互斥，开了它就别再加 top 让位。
+   */
+  contentSafeArea?: boolean;
   // 穿底档已于 2026-11-07 铺满全部页面（对表第 19/20 行，用户裁决「做，风险我认」），
   // 迁移期开关 bleed 已删除：enableComponentSafeArea 恒 false，让位一律由
   // HdsChrome.contentTopInset(statusBarHeight) 承担。静态页（生成中/解锁）同样接了让位。
@@ -138,6 +154,13 @@ export class HdsChrome {
       menu = built;
     }
     const content: TitleBarContentOptions = { title: title, menu: menu };
+    if (spec.bottomBuilder !== undefined) {
+      const row: BottomBuilderParams = {
+        builder: spec.bottomBuilder,
+        height: spec.bottomRowHeight === undefined ? 48 : spec.bottomRowHeight
+      };
+      content.bottomBuilder = row;
+    }
     const options: HdsNavigationTitleBarOptions = {
       content: content,
       style: style,
@@ -145,7 +168,7 @@ export class HdsChrome {
       // 内容区原点恒 false＝从窗口原点起算，让位由页面的 contentTopInset 承担（有据同位写法）。
       // 注意这与已删的 `fullBleed` 不是一回事：那条翻的是栏内两行顺序，这条动的是内容原点。
       avoidLayoutSafeArea: true,
-      enableComponentSafeArea: false
+      enableComponentSafeArea: spec.contentSafeArea === true
     };
     return options;
   }
@@ -161,7 +184,7 @@ export class HdsChrome {
    * 而删掉状态栏项——装机必须看到 `install bundle successfully` 才算换了包。
    * statusBarHeightVp 由页面 `@StorageProp('statusBarHeight')` 传入，冷启晚到也能重排。
    */
-  static contentTopInset(statusBarHeightVp: number): number {
-    return statusBarHeightVp + MINI_TITLE_BAR_VP;
+  static contentTopInset(statusBarHeightVp: number, bottomRowVp: number = 0): number {
+    return statusBarHeightVp + MINI_TITLE_BAR_VP + bottomRowVp;
   }
 }

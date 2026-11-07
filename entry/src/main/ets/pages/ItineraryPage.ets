@@ -1283,6 +1283,29 @@ export struct ItineraryPage {
     }
   }
 
+  /** Day 分段栏（官方 SegmentButton + 材质）：迁进栏体做 bottomBuilder 行（有据 HomeTab 形状）。
+   *  单日行程不挂：官方 SegmentButton 只有一项时首帧会改内部 buttonBorderRadius，
+   *  触发「state changed during render」把整屏内容打断成空白（真机 2026-10-30）。
+   */
+  @Builder
+  daySegmentRow() {
+    if (this.days.length > 1) {
+      Row() {
+        ImmersiveSegmentBar({
+          items: this.segments,
+          selectedIndex: $dayIndex,
+          buttonVerticalPadding: 2.15,
+          overrideTrackMaterial: true,
+          a11yLabel: '行程日期切换'
+        })
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.Start)
+      .height('100%')
+      .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
+    }
+  }
+
   build() {
     HdsNavDestination() {
       // 飞行窗口：clip/scale/translate 把整页从行程卡帧展开到满幅。
@@ -1295,26 +1318,6 @@ export struct ItineraryPage {
           // 单日行程不挂：官方 SegmentButton 只有一项时首帧会改内部 buttonBorderRadius，
           // 触发「state changed during render」把整屏内容打断成空白（真机 2026-10-30：
           // 1 天行程的屏8 只剩标题栏）。一天也没有可切换的对象，日标题已带 Day 1。
-          if (this.days.length > 1) {
-            Column() {
-              Row() {
-                ImmersiveSegmentBar({
-                  items: this.segments,
-                  selectedIndex: $dayIndex,
-                  buttonVerticalPadding: 2.15,
-                  // 契约四处玻璃面之一：分段控件轨道走系统材质（handoff §5/§9）。
-                  // 本页轨道下有 surfaceElevated 实色背板而非滚动内容，lightContent 保持 false
-                  overrideTrackMaterial: true,
-                  a11yLabel: '行程日期切换'
-                })
-              }
-              .width('100%')
-              .justifyContent(FlexAlign.Start)
-              .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.xs })
-            }
-            .backgroundColor(ColorTokens.surfaceElevated)
-          }
-
           // 官方 List：地图面板一个 ListItem，节点与通勤腿各成一个 ListItem，
           // 日标题走 ListItemGroup 的 header —— 底稿写的「吸顶日标题」由 sticky 真正兑现。
           // 行距 12px（itinerary-block-gap）：不传 space 时 List 默认 0，站点行与交通腿会紧贴
@@ -1449,6 +1452,9 @@ export struct ItineraryPage {
           .sticky(StickyStyle.Header)
           .cachedCount(6)
           .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
+            // 穿底让位放进**滚动容器内部**：留白随内容滚走，内容才能穿到栏下被材质采样
+            // （放在外层 Column 上会留一条永不消失的空档，见真机对照）
+            top: HdsChrome.contentTopInset(this.statusBarHeight, 48),
             bottom: LayoutTokens.floatingDockClearance })
           // 时间轴是单列长内容，不能按断点分栏（会打断主轴竖线），
           // 所以宽屏走"收窄 + 居中"这条路
@@ -1457,7 +1463,6 @@ export struct ItineraryPage {
             this.syncBarScroll();
           })
         }
-        .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
         .width('100%')
         .height('100%')
 
@@ -1515,7 +1520,8 @@ export struct ItineraryPage {
         this.onTakeWindowSizeChanged(newValue.width as number, newValue.height as number);
       })
 }
-    .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+    // 收的是栏内底行（分段行），标题常驻——有据 HomeTab:1239 同款
+    .dynamicHideTitleBar({ hideBottomBuilder: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
     .bindToScrollable([this.listScroller])
     .clip(false)
     .onDisAppear((): void => {
@@ -1526,6 +1532,9 @@ export struct ItineraryPage {
     .titleBar(HdsChrome.bar({ 
       mainTitle: this.titleText,
       scrolled: this.barScrolled,
+      // 分段行进栏：内容区只剩 List，滚动时才穿得到栏底给材质采样（续 257 的局限）
+      bottomBuilder: (): void => { this.daySegmentRow(); },
+      bottomRowHeight: 48,
       // 顺序按使用频率，不是按"导出/编辑/系统"的讲述顺序：真机实测 `menuMaxCount: 2`
       // 只直出**第一枚**（第二枚位置被官方「更多」占掉），所以第一枚必须是最高频动作。
       // 原来第一枚是「分享行程」，于是「编辑行程」——改行程的主路径——被收进溢出菜单，
