@@ -1228,6 +1228,12 @@ hdc -t $T shell aa test -b com.youjing.app -m entry_test -s unittest OpenHarmony
 
 **B/C 任何一个先回都行；A 可以慢慢看。**
 
+> **合并预演（2026-11-07，未执行）**：`git merge-tree $(git merge-base main HEAD) main HEAD`
+> 报 **0 冲突**；本地 `main` 仍在分叉点 `203c991`（没人动过），所以这条分支并进 main 是
+> **无冲突**操作。改动面 64 个文件、+7081/−346（含 3 把新尺、离线执行器、两页 bottomBuilder 迁移、
+> 一镜到底移植）。等你一句「合并吧」即执行。
+
+
 ### 四·终　2026-11-07 三项授权落地后的终盘状态
 
 用户裁决：**#38 删 / 13·15·19·20 做（风险自认） / push 授权**。四项均已落地并推送：
