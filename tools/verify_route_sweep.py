@@ -110,8 +110,11 @@ def check(items, density_override=0.0):
                        '不要靠猜（上一版这里用 W/363.5 兜底，等于把未知设备硬塞进 sm 档）'
                        % (W, ', '.join(str(px) for px, _d in PROFILES)))
     dmin, dmax = dock_range_vp(W / density)
+    # 栏带高度不再恒 56：带 bottomBuilder 行的页（行程详情/区域页）静止态是 56+48/56vp。
+    # 判据改成「顶部有一条 50–140vp 的高栏」——MINI 掉了会变成 0 或很矮，仍会被抓住；
+    # 上界 140 是 56 + 最厚的栏内行（84vp）留的余量。
     band = [it for it in items
-            if abs(h(it) - TITLE_BAR_VP * density) <= 5 * density
+            if 50 * density <= h(it) <= 140 * density
             and w(it) > 0.7 * W and it[2] < 0.12 * H]
     dock = [it for it in items
             if it[2] > H - NEAR_BOTTOM_PX
