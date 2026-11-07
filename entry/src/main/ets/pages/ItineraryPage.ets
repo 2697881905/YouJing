@@ -74,6 +74,8 @@ export struct ItineraryPage {
   private takeParams: LongTakeParams = new LongTakeParams();
   private takePageId: string = '';
   private takeRegistered: boolean = false;
+  // 截图交接信号只发一次：真内容就绪就通知，别让卡片图撑到 1500ms 上限（技能坑4）
+  private takeHeroSignalled: boolean = false;
   private takeRootWidth_vp: number = 0;
   private takeRootHeight_vp: number = 0;
 
@@ -83,6 +85,7 @@ export struct ItineraryPage {
       return;
     }
     this.takeRegistered = true;
+    this.takeHeroSignalled = false;
     try {
       // 无 hero 媒体，「对应节点」= 页面根本身（宽 = 窗宽，满足展开公式前提）
       this.takeProps.init(this.takeParams.cardRect, ITINERARY_ROOT_ID, '', ITINERARY_ROOT_ID,
@@ -97,6 +100,15 @@ export struct ItineraryPage {
       Logger.error('ItineraryLongTake', `register failed code=${err.code} msg=${err.message}`);
       this.takeProps.setFinalStatus();
     }
+  }
+
+  /** 真内容就绪（或加载失败）→ 让卡片截图按 MIN 窗口退场，而不是撑到 MAX 兜底 */
+  private signalTakeContentReady(): void {
+    if (!this.takeRegistered || this.takeHeroSignalled) {
+      return;
+    }
+    this.takeHeroSignalled = true;
+    this.takeProps.onHeroReady(this.getUIContext());
   }
 
   /** 窗口尺寸变化（旋转/折叠/分屏）→ 缓存初值作废，注销转场退回系统默认 */
@@ -164,9 +176,14 @@ export struct ItineraryPage {
             const item: SegmentedItem = { label: `Day ${d.dayIndex}` };
             return item;
           });
+          // 真内容已就位 → 通知截图退场（否则要等 SNAPSHOT_HANDOVER_MAX_MS=1500ms 兜底，
+          // 表现为卡片图在详情页上多压一秒多，真机帧差实测过）
+          this.signalTakeContentReady();
         }
       }).catch((err: Error) => {
         Logger.error('Ui.Itinerary', `加载行程失败: ${err.message}`);
+        // 失败也要交接：宁可露出空态，也别让卡片图长期压住页面
+        this.signalTakeContentReady();
       });
       CalendarSync.loadFlags(ctx).then((f: AccessFlags): void => {
         this.syncCalendar = f.calendar;
