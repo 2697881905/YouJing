@@ -38,6 +38,7 @@ import { HdsChrome } from '../design/HdsChrome';
 import { common } from '@kit.AbilityKit';
 import { HdsNavigation, HdsNavigationTitleMode, HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UIDesignKit';
 import { requestSystemBarRefresh } from '../utils/systemBar';
+import { registerOverlayBackGuard, unregisterOverlayBackGuard, OVERLAY_GUARD_MINE_TAB } from '../utils/overlayBackGuard';
 
 /** 设置区一行：标题 + 落点。kind 非空 = 就地展开这份法务文书 */
 interface SettingRow {
@@ -87,6 +88,17 @@ export struct MinePage {
 
   aboutToAppear(): void {
     this.reload();
+    // 法务文书是就地展开的整页替换、不在 Navigation 栈里：登记守卫，
+    // 让 Index 的返回拦截先关它，而不是"回地图格"
+    registerOverlayBackGuard(OVERLAY_GUARD_MINE_TAB,
+      (): boolean => this.reading.length > 0,
+      (): void => {
+        this.reading = '';
+      });
+  }
+
+  aboutToDisappear(): void {
+    unregisterOverlayBackGuard(OVERLAY_GUARD_MINE_TAB);
   }
 
   private onEntitlementTick(): void {

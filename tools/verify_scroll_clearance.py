@@ -15,7 +15,11 @@
  定它靠的就是本尺判据 5，不是判据 3。）
 
 判据（对每一屏）：
-  1. 进屏（冷启深链或点 dock），断言前台确实是有径，不跟真人抢手机；
+  1. 进屏（冷启深链或点 dock），断言前台确实是有径，不跟真人抢手机。
+     **断言按 dump 里的 `bundleName`，不按"有没有 dock"**：设备上同时装着有据
+     （com.youju.app），它也有五格 dock、也有「我的」标签。2026-11-08 就因为只判
+     "dock 在不在"，把有据的个人页当成有径的「我的」量了一遍（末边 860.8 / dock 顶
+     776.6 → 假红 84.2vp）；
   2. 反复甩到底，直到连续两次"最末内容底边"不变 —— 这才叫到底，
      不然量到的是中途滚动位置，会把正常页读成缺陷；
   3. 取 dock 顶（本次 dump 实测，不写死像素）与最末内容底边比：
@@ -47,6 +51,8 @@ import time
 
 HDC = os.environ.get('HDC', '/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hdc')
 BUNDLE = 'com.youjing.app'
+# dumpLayout 会把桌面（状态栏/手势区）的 WindowScene 一起倒出来，判归属时要剔掉
+SHELL = 'com.ohos.sceneboard'
 DENSITY = 3.125          # 实测：真机像素 ÷ vp 一律按 3.125
 CLIP = 106               # 状态栏避让区（px），实测 33.9vp；窗口铺满物理屏后这是内容起排点
 TOL_PX = 3               # 3px 以内的压线算量测噪声（bounds 取整）
@@ -77,6 +83,20 @@ def device():
 def attrs(n):
     a = n.get('attributes')
     return a if isinstance(a, dict) else n
+
+
+def bundle_of(path):
+    """落盘 dump 的前台归属：该 dump 里出现的非桌面 bundleName（多个用逗号连）。
+
+    有据（com.youju.app）也有五格 dock、也有「我的」标签，光看"dock 在不在"
+    判不出前台是谁。bundleName 是 dump 里逐节点带的硬标识，实测可直接读。
+    """
+    try:
+        s = open(path, encoding='utf-8').read()
+    except OSError:
+        return ''
+    names = sorted({m for m in re.findall(r'"bundleName"\s*:\s*"([^"]+)"', s) if m != SHELL})
+    return ','.join(names)
 
 
 def nums(b):
@@ -154,7 +174,11 @@ def is_youjing():
         if os.path.exists(p):
             os.unlink(p)
     _, dock, _, _, _ = grab('sc-front', '/tmp')
-    return dock is not None
+    who = bundle_of('/tmp/sc-front.json')
+    if dock is None or BUNDLE not in who.split(','):
+        print(f'  前台归属读到 {who or "（空）"}，不是 {BUNDLE}', file=sys.stderr)
+        return False
+    return True
 
 
 def enter(name, how):
@@ -285,13 +309,31 @@ def main():
 
     print(f"{'屏':16s} {'可滚':4s} {'末边vp':>7s} {'dock顶vp':>8s} {'净空vp':>7s} 判定")
     fails = []
+    invalid = []
     for name, how in TARGETS:
         if only and name not in only:
             continue
-        if not enter(name, how):
-            print(f"{name:16s} 进不去（前台丢了或标签没找到）")
+        # 每屏最多两次：真机实测（2026-11-08 全量）偶有 1/17 屏在甩动途中被系统
+        # 冻到后台（hilog 是 OnAppFrozen、不是 JSCrash），下一次 enter 又好了。
+        # 这类偶发不值得整跑判失败，但也不能把它读成"通过"——重进一次仍掉就记无效。
+        bottom, dock, cont, moved, spill, who = None, None, None, False, 0, ''
+        for attempt in (1, 2):
+            if not enter(name, how):
+                break
+            bottom, dock, cont, moved, spill = fling_to_end(name, out)
+            # 几何判定前先认人：量到别的 App 的界面时，净空再漂亮也不是这一屏的结论
+            who = bundle_of(os.path.join(out, f'sc-{name}.json'))
+            if BUNDLE in who.split(','):
+                break
+            if attempt == 1:
+                print(f"{name:16s} 第 1 次掉到 {who or '空'}，重进后复测")
+        if BUNDLE not in who.split(','):
+            if bottom is None:
+                print(f"{name:16s} 进不去（前台丢了或标签没找到）")
+            else:
+                print(f"{name:16s} 无效：前台是 {who or '读不到'}，不是 {BUNDLE}——本屏不计判定")
+                invalid.append(name)
             continue
-        bottom, dock, cont, moved, spill = fling_to_end(name, out)
         spill_vp = spill / DENSITY if spill else 0.0
         if bottom is None:
             # 读不到正文节点时也要报出屏——出屏这一类缺陷与能不能滚无关
@@ -318,6 +360,12 @@ def main():
             print(f"   {n}: {why}")
         print('   注：可滚=否 的屏是"内容超出但没有滚动区"，同样算遮挡——滚不动就永远看不见。')
         return 1
+    if invalid:
+        print(f"== {len(invalid)} 屏前台不是 {BUNDLE}，这些屏没有判定 ==")
+        for n in invalid:
+            print(f"   {n}")
+        print('   注：设备被占用、App 掉前台或崩溃时会出现；先确认前台再重跑，别把它读成"通过"。')
+        return 2
     print('== 滚到底无遮挡（pass）==')
     return 0
 

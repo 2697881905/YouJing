@@ -43,6 +43,7 @@ import { HDS_MATERIAL_LEVEL_EXQUISITE, HDS_MATERIAL_TYPE_IMMERSIVE,
 import { BottomTabBar } from '../components/BottomTabBar';
 import { TopStrip, TOP_STRIP_KEY, STRIP_CANVAS, STRIP_MAP } from '../utils/TopStrip';
 import { BOTTOM_NAV_INSET_KEY } from '../utils/navMode';
+import { consumeOverlayBackFor, OVERLAY_GUARD_EXPENSE_TAB, OVERLAY_GUARD_MINE_TAB } from '../utils/overlayBackGuard';
 import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
 
 const TAG: string = 'Index';
@@ -131,6 +132,45 @@ struct Index {
     }
     this.hdsController.changeIndex(target);
     this.currentTab = target;
+  }
+
+  /**
+   * 系统返回手势 / 返回键。
+   *
+   * 2026-11-08 真机验收（§6）实测：原样交给系统时，从「我的」按一次 Back 整个 App
+   * 直接退到后台（dump 从 com.youjing.app 掉成 com.youju.app）。根页不在栈上，
+   * 系统就按"入口页"处理了——但用户的原话是「Back 不该退出 App」。
+   *
+   * 所以分四步，顺序就是优先级：
+   * ① 当前页签栈里有页（如 我的 → 我的勋章）→ 交给 Navigation 自己 pop，不抢；
+   * ② 根页的弹层/就地文书开着 → 交给页内守卫关掉（utils/overlayBackGuard）；
+   * ③ 不在「地图」格 → 切回「地图」并吃掉这次返回（这是"上一级"的本意）；
+   * ④ 已在「地图」格 → 交还系统（退后台），保留唯一一个符合平台习惯的出口。
+   */
+  onBackPress(): boolean {
+    // ① 页签栈里有页 → 交给 Navigation pop，不抢
+    if (stackOfTab(this.currentTab).size() > 0) {
+      return false;
+    }
+    // ② 根页上的弹层/就地文书不在栈里，也不由 Navigation 托管：先问它们要不要关
+    //（费用「记一笔」、我的「隐私政策」都实测过被"回地图"抢走返回）
+    const guardId: string = this.currentTab === TAB_EXPENSE ? OVERLAY_GUARD_EXPENSE_TAB
+      : (this.currentTab === TAB_MINE ? OVERLAY_GUARD_MINE_TAB : '');
+    if (guardId.length > 0 && consumeOverlayBackFor(guardId)) {
+      return true;
+    }
+    // ③ 已在「地图」格 → 交还系统（退后台），保留唯一一个符合平台习惯的出口
+    if (this.currentTab === TAB_MAP) {
+      return false;
+    }
+    // ④ 其它页签 → 回「地图」格
+    if (this.useHdsDock) {
+      this.hdsController.changeIndex(TAB_MAP);
+    } else {
+      this.legacyController.changeIndex(TAB_MAP);
+    }
+    this.currentTab = TAB_MAP;
+    return true;
   }
 
   aboutToAppear(): void {

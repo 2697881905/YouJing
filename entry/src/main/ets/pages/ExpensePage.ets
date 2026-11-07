@@ -32,6 +32,7 @@ import { HdsNavigation, HdsNavigationTitleMode, HdsNavDestination, HdsNavDestina
 import { routerMap } from './AppRouter';
 import { HdsChrome } from '../design/HdsChrome';
 import { requestSystemBarRefresh } from '../utils/systemBar';
+import { registerOverlayBackGuard, unregisterOverlayBackGuard, OVERLAY_GUARD_EXPENSE_TAB } from '../utils/overlayBackGuard';
 
 interface CategorySpend {
   name: string;
@@ -142,6 +143,11 @@ export struct ExpensePage {
   @State private totals: CategoryTotal[] = [];
   @State private showRecord: boolean = false;
   @State private showBudget: boolean = false;
+  // 弹层"还挂在场面上"的标志：只能由 onDisappear（关闭动画结束）清，不能看 showRecord/showBudget。
+  // 真机实测：按返回键时系统先把绑定状态置 false、再让事件冒泡到壳层的 onBackPress，
+  // 于是守卫若读 showRecord 会答"没开"，返回照样被"回地图格"吃掉。
+  private recordOpen: boolean = false;
+  private budgetOpen: boolean = false;
   /** 六档分类预算的编辑草稿，顺序与 CATEGORY_LABELS 一致（空串 = 不设上限） */
   @State private budgetInputs: string[] = ['', '', '', '', '', ''];
   @State private categoryBudgets: CategoryBudget[] = [];
@@ -168,6 +174,17 @@ export struct ExpensePage {
       }
     }
     this.reload();
+    // 两张半模态都不在 Navigation 栈里：登记守卫，让 Index 的返回拦截先问它们
+    registerOverlayBackGuard(OVERLAY_GUARD_EXPENSE_TAB,
+      (): boolean => this.recordOpen || this.budgetOpen,
+      (): void => {
+        this.showRecord = false;
+        this.showBudget = false;
+      });
+  }
+
+  aboutToDisappear(): void {
+    unregisterOverlayBackGuard(OVERLAY_GUARD_EXPENSE_TAB);
   }
 
   private ctx(): common.Context {
@@ -295,6 +312,7 @@ export struct ExpensePage {
     }
     this.budgetInputs = next;
     this.showBudget = true;
+    this.budgetOpen = true;
   }
 
   private budgetDraftSum(): number {
@@ -953,6 +971,7 @@ export struct ExpensePage {
             .buttonStyle(ButtonStyleMode.NORMAL)
             .onClick(() => {
               this.showRecord = true;
+              this.recordOpen = true;
             })
             // 一个节点只能挂一张 bindSheet：两张都挂在根 Column 上时后者覆盖前者，
             // 「记一笔」因此整颗按钮点了没反应（分类预算的 sheet 抢了绑定）。
@@ -964,7 +983,11 @@ export struct ExpensePage {
               // 材质载体唯一入口是 SheetOptions.systemMaterial；材质生效时自绘模糊与实色底都必须让位，
               // 否则玻璃面外再叠一层 blur/不透明底 = 双表面（配方逐字照有据 DetailPostContent:287-296）
               blurStyle: isSystemMaterialActive() ? BlurStyle.NONE : GlassBlurStyle.Floating,
-              backgroundColor: isSystemMaterialActive() ? undefined : ColorTokens.canvas
+              backgroundColor: isSystemMaterialActive() ? undefined : ColorTokens.canvas,
+              // 关闭动画结束才清「还开着」：返回键那一路要先靠它把事件吃掉
+              onDisappear: (): void => {
+                this.recordOpen = false;
+              }
             })
             }
           }
@@ -1001,7 +1024,10 @@ export struct ExpensePage {
         showClose: true,
         systemMaterial: getSheetImmersiveMaterial(),
         blurStyle: isSystemMaterialActive() ? BlurStyle.NONE : GlassBlurStyle.Floating,
-        backgroundColor: isSystemMaterialActive() ? undefined : ColorTokens.canvas
+        backgroundColor: isSystemMaterialActive() ? undefined : ColorTokens.canvas,
+        onDisappear: (): void => {
+          this.budgetOpen = false;
+        }
       })
     }
     .width('100%')

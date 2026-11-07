@@ -3,7 +3,80 @@
 > 生成日期：2026-10-15。初始化流程 P0–P7 全部完成，验收清单见第 2 节，遗留事项见第 4 节。
 
 
-## 4d. 字段落点复核（2026-10-25，脚本扫 + 人工分类）
+## 4n. 表现层全量对齐后的真机复验：一红是假红、一红是真缺陷（2026-11-08）
+
+上一轮（`9f58273`）交付后用户贴回的真机输出里有两红一缺：滚动静空「我的 **-84.2vp**」、
+§6 返回键、§0 产物 md5 缺失。逐条查完，结论是**一假一真一缺前提**。
+
+**① 「我的」-84.2vp 是假红——尺子量到了有据。**
+
+`/tmp/sc-evidence/sc-我的.json` 里 `bundleName = com.youju.app`，骨架是
+`[25..562] / [574..1111]` 双列、`origBounds` 高 62403px 的个人页——那是有据的 Profile 信息流，
+不是有径的「我的」。其余 16 份 dump 全是 `com.youjing.app`。
+
+- 有据也有五格 dock、也有「我的」标签，而 `verify_scroll_clearance.py` 的 `is_youjing()`
+  只判"有没有检测到 dock"，在这台同时装了两款 App 的机器上恒真。`verify_dock_tabs.sh`
+  的 `assert_front` 早就写过"有据的 dock 也有「我的」"并改成三词同现，这把尺没跟上。
+- 用有径自己的 dump（`1b-mine.json`）复算几何：`List` 框底 = 窗底 `2690px`、`origBounds` 无出屏；
+  `floatingDockClearance = 112vp`（350px）⇒ 滚到底末边应是 `748.8vp`，对 dock 顶 `776.6vp` 余 **27.8vp**
+  （与 Itinerary / Share 同屏同值）。页面本身没问题。
+- 修法：`is_youjing()` 与每屏收尾都改判 `bundleName`；不是 `com.youjing.app` 就记「无效」并 `rc=2`，
+  **不出几何判定**。另加一次"重进复测"——全量跑时实测有 1/17 屏会在甩动途中被系统冻到后台，
+  hilog 是 `OnAppFrozen` 而**不是 JSCrash**（偶发、非崩溃），重进一次即恢复。
+- 复测（新包，17 屏）：**17/17 pass、0 无效**；「我的」可滚=否、末边 606.4vp、净空 **170.2vp**。
+  全表最小净空 27.5vp（地图 / Itinerary），最大 476.2vp（Badges）。
+
+**② §6 返回键是真缺陷——4l 的旧结论被推翻。**
+
+`Docs/INIT_REPORT.md` 第 4l 节当时写的是「Back 在根页退到后台的有据，是根页应有的行为」；
+用户 2026-11-08 裁定这是缺陷，要求「Back 不退出 App」。本次证据：`6-goto.json` 是 `com.youjing.app`，
+`6-after-back.json` 变成 `com.youju.app`——按一次 Back，整个 App 直接退到后台。
+
+- 实现：`Index` 是 `@Entry`，用 `onBackPress(): boolean` 分四档——
+  ① 页签栈有页 → 交 Navigation pop；② 根页弹层/就地文书 → 交页内守卫关；
+  ③ 已在「地图」格 → 交还系统（退后台）；④ 其它页签 → 切回「地图」并吃掉这次返回。
+- ②那一档新增 `utils/overlayBackGuard.ets`，**与有据 `utils/overlayBackGuard.ets` 同构**
+  （id 登记 + 按页消费）。TabContent 不销毁、五个根页长期登记，所以必须按页 id 消费，
+  不能全局无差别消费。
+- 一处只有真机才暴露的细节：`bindSheet` 在返回键路径上**先**被系统关掉、绑定状态
+  （`showRecord`）已置 `false`，返回事件才冒泡到壳层。守卫若读绑定状态会答"没开"，
+  返回照样被"回地图格"吃掉。改成另存 `recordOpen/budgetOpen`、只在 `onDisappear`
+  （关闭动画结束）清，才判得准。
+- 真机复验：Back 后仍 `com.youjing.app`、标题栏「地图」（§6 **PASS**）；再按一次才退后台。
+  弹层回归三处全过：费用「记一笔」、我的「隐私政策」、TripInput「目的地」——
+  都是弹层关、页签/页面留在原地。
+
+**③ §0 产物 md5 缺失：装机包与源码的一致性此前没被验证。**
+
+工作树 `build-profile.json5` 是空 `signingConfigs`，`assembleHap` 只产出
+`entry-default-unsigned.hap`，`verify_dock_tabs.sh:145` 找 signed 包自然报
+`No such file or directory`。本次按记忆里的注入法处理：主仓 `signingConfigs` 段临时注入
+工作树同名文件 → `tools/build_install.sh` → 装机 → **立即还原**（口令不入库，`git status` 干净）。
+
+| 轮次 | signed hap md5 |
+|---|---|
+| 首轮（只改 onBackPress） | `908a519f97f3600a6584d09b16efadb4` |
+| 终轮（含弹层守卫修正） | `9273280cf7e9669472240e5b0ea6885f` |
+
+脚本侧另加 unsigned 兜底：signed 缺失时打印告警 + unsigned 的 md5，不再裸报错；
+§7 的「hypium 81 例」改成「全量用例」（实际 **254 例**）。
+
+**④ 其余闸门（终轮新包）**
+
+- `verify_route_sweep.py`：**17/17 OK**。注意两个默认值会咬人——`--target` 默认是模拟器
+  `127.0.0.1:5555`（真机必须显式传），屏宽 1136px 不在档表内、必须带 `--density 3.125`。
+  上一轮那份输出里的「目标 127.0.0.1:5555 不在线」就是这条，等于这道闸当时没跑。
+- `verify_dock_tabs.sh`：§0 md5 与装机包一致、§1/1b/2/3/4/4b/5 正文都是当前数据、§6 PASS、§7 254/254。
+- 静态：24 把尺 21 绿 + 3 把既有基线红（`audit_contrast` 缺 PIL / `audit_motion` 15 处历史裸时长 /
+  `audit_skip_worktree` 环境），**净增红尺 0**；带 `--selftest` 的 13 把 + 两把 verify 自测全 PASS；
+  `verify_mirror.sh` PASS；`entry@default` 与 `entry@ohosTest` 双 BUILD SUCCESSFUL。
+
+**⑤ 遗留**
+
+自动化甩动过程中偶发把 App 冻到后台（见①，hilog `OnAppFrozen`），尺子已能识别并重试；
+真机长跑仍建议人工守着看一眼，别把它读成"通过"。
+
+
 
 `model/*.ets` 的 12 个接口共 131 个字段，用 `\.字段名` 在 `pages/` `components/` `widget/` 里找读方，
 31 个一次都没被 UI 读过。按消费层分类（注意：`.field` 也会匹配到**写值**的 DAO/解析器，

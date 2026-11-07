@@ -142,7 +142,15 @@ $HDC list targets | grep -q "$DEV" || { echo "设备不在线：先 $HDC tconn $
 $HDC shell "bm dump -n $BUNDLE" 2>/dev/null | grep -m1 "versionName" | tee "$OUT/version.txt"
 echo "  源码 HEAD：$(git rev-parse --short HEAD) 分支 $(git rev-parse --abbrev-ref HEAD)"
 echo "  注意：验收前必须装与当前分支一致的产物（hvigor 产物 md5 见下）"
-md5 -q entry/build/default/outputs/default/entry-default-signed.hap | tee "$OUT/hap.md5"
+HAP_SIGNED="entry/build/default/outputs/default/entry-default-signed.hap"
+HAP_UNSIGNED="entry/build/default/outputs/default/entry-default-unsigned.hap"
+if [[ -f "$HAP_SIGNED" ]]; then
+  md5 -q "$HAP_SIGNED" | tee "$OUT/hap.md5"
+else
+  echo "  !! 没有签名产物：工作树 build-profile.json5 是 skip-worktree、缺 signingConfigs"
+  echo "  !! 下面这份是 unsigned 包，装不上——装机包与源码是否一致仍未验证"
+  [[ -f "$HAP_UNSIGNED" ]] && md5 -q "$HAP_UNSIGNED" | tee "$OUT/hap.md5"
+fi
 read -r -p "  确认手机空闲、产物已装机？回车继续（Ctrl-C 中止）" _
 
 say "1 五页签点切（地图 → 行程 → 规划 → 费用 → 我的，每步 dump）"
@@ -199,16 +207,42 @@ if grep -q "0 人 · 0 天" "$OUT/5-expense-again.json"; then
   echo "  !! 5 费用格落在死数据（0 人 · 0 天）：上下文行程不存在且没退回最近一条" >&2
 fi
 
-say "6 弹栈边界：tab 根页的返回钮/返回手势会弹到空占位（§4j 结构性缺口）"
+say "6 根页返回：Back 先回「地图」格，不退出 App"
 tap_text 我的 "6-goto" && sleep 1.6
 $HDC shell "uitest uiInput keyEvent Back" >/dev/null 2>&1
-sleep 1.2
+sleep 1.4
 dump 6-after-back && shot 6-after-back
-echo "  ↑ 若 6 只剩 dock、正文空，就是 §4j 记的那条：根页不该走栈"
+# 判据：Back 之后①前台仍是有径、②标题栏（y<400px）上的页名是「地图」。
+# 旧口径等的是"只剩 dock / 正文空"（§4j 那条），但 4l 把根页内联之后就没这个现象了；
+# 2026-11-08 又实测出更糟的一种：根页不在栈上，Back 被系统按"入口页"处理，
+# 整个 App 直接退到后台（dump 的 bundleName 从 com.youjing.app 掉成 com.youju.app）。
+if python3 - "$OUT/6-after-back.json" <<'PY'
+import json, re, sys
+s = open(sys.argv[1], encoding='utf-8').read()
+b = {m for m in re.findall(r'"bundleName"\s*:\s*"([^"]+)"', s) if m != 'com.ohos.sceneboard'}
+d = json.loads(s)
+title = []
+def walk(n):
+    a = n.get('attributes') if isinstance(n.get('attributes'), dict) else n
+    t = (a.get('text') or '').strip()
+    v = [int(x) for x in re.findall(r'-?\d+', a.get('bounds') or '')]
+    if t and len(v) == 4 and v[1] < 400:
+        title.append(t)
+    for c in n.get('children', []):
+        walk(c)
+walk(d)
+ok = 'com.youjing.app' in b and '地图' in title
+print('  %s：前台 %s，标题栏 %s' % (
+    'PASS' if ok else 'FAIL',
+    ','.join(sorted(b)) or '读不到',
+    title[:3] if title else '读不到'))
+sys.exit(0 if ok else 1)
+PY
+then :; else echo "  !! §6 未过：Back 后应仍在有径、且停在「地图」格" >&2; fi
 
-say "7 hypium 81 例"
+say "7 hypium 全量用例"
 $HDC shell "aa test -b $BUNDLE -m entry_test -s unittest OpenHarmonyTestRunner" 2>&1 | tee "$OUT/aa-test.txt" | tail -12
 
 say "完成"
 echo "证据目录：$OUT"
-echo "把 §4j 六项逐条对完再决定合入/回退；任何一项未验，分支不算可合入。"
+echo "六项逐条对完再决定合入/回退；任何一项未验，分支不算可合入。"
