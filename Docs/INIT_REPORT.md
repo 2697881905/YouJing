@@ -8970,7 +8970,7 @@ USB 无设备、无模拟器在跑），所以没去碰那些「要手指/要眼
 批量替换由脚本做（`SYNC` 正则要求整段函数体逐字符匹配才动手，匹配不上就跳过而不是硬改），
 用完即删；`git diff --numstat` 复核每文件 5+/0−，抽查 `TripsPage` 全文只有那 5 行新增。
 
-**第 24 把尺** `tools/audit_systembar_refresh.py`：
+**第 23 把尺** `tools/audit_systembar_refresh.py`：
 R1 宿主（`syncBarScroll` 且读 `currentOffset().yOffset`）必须调用补设、且调用被回顶条件包住、
 且 import 恰好一条（注释里的调用先剥注释再判，不算接线）；
 R2 `entryability` 必须注册刷新器——没注册时四连发是空响；
