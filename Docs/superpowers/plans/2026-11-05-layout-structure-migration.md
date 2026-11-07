@@ -1152,7 +1152,7 @@ git commit -m "docs(布局): 迁移收口——十九把尺读数、hypium 新�
 | 项 | 落点与证据 |
 | --- | --- |
 | 吸顶组头**带高单源**（第 29 行另一半） | 四处钉 `LayoutTokens.stickyHeaderHeight`=36（有据 `PublishTagPanel.ets:83-86`，契约对单行组头无档），`dayHeader` 留契约 44；尺 `audit_sticky_header` 加第 5 条，HEAD 反证抓 4 处、现 0 偏差 5 配对 |
-| 补设通道**宿主接线 1/16 → 16/16**（第 4 行） | 15 页 `syncBarScroll()` 回顶时调 `requestSystemBarRefresh()`；第 22 把尺 `audit_systembar_refresh`（R1 接线+条件+import、R2 注册器、R3 连发 ≥3 发末发 ≥2500ms），HEAD 反证抓 15 处 |
+| 补设通道**宿主接线 1/16 → 16/16**（第 4 行） | 15 页 `syncBarScroll()` 回顶时调 `requestSystemBarRefresh()`；第 24 把尺 `audit_systembar_refresh`（R1 接线+条件+import、R2 注册器、R3 连发 ≥3 发末发 ≥2500ms），HEAD 反证抓 15 处 |
 | 兜底链路**第二条 avoid rect**（第 30 行） | `publishNavAvoid` 补读 `TYPE_SYSTEM`；数学抽进 `navInset`，离线 `node --experimental-strip-types` 6 组断言全过、`NavInset.test` 5→8 例、双 HAP 构建过。**写法有意偏离有据的 max**，判掉它需要两档真值（任务 #37） |
 | 滚动宿主 `edgeEffect` **13 处挂满 26/26**（第 21 行） | 逐宿主括号配对判"字段整个没写"，倒序插入 + 每处重解析确认链上恰好一条，numstat 每处 +1/−0；尺第三条已进硬闸，真代码反证 rc=1/0 |
 | 配置面**全表普查**（第 32 行） | SDK 声明列 94 个面：dock 28+10、Navigation 25+23、顶栏 6+2。差异只剩 4 个一边为 0 的名字，全部归到既有格；`overlayBackGuard` 判为不适用（有径 bindSheet 19 / 自绘层 0） |

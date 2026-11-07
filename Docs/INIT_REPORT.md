@@ -8970,7 +8970,7 @@ USB 无设备、无模拟器在跑），所以没去碰那些「要手指/要眼
 批量替换由脚本做（`SYNC` 正则要求整段函数体逐字符匹配才动手，匹配不上就跳过而不是硬改），
 用完即删；`git diff --numstat` 复核每文件 5+/0−，抽查 `TripsPage` 全文只有那 5 行新增。
 
-**第 22 把尺** `tools/audit_systembar_refresh.py`：
+**第 24 把尺** `tools/audit_systembar_refresh.py`：
 R1 宿主（`syncBarScroll` 且读 `currentOffset().yOffset`）必须调用补设、且调用被回顶条件包住、
 且 import 恰好一条（注释里的调用先剥注释再判，不算接线）；
 R2 `entryability` 必须注册刷新器——没注册时四连发是空响；
@@ -8979,7 +8979,7 @@ R3 `utils/systemBar.ets` 连发必须 ≥3 发且末发 ≥2500ms——单发 40
 真代码反证：`git show HEAD` 的改前形状**抓到 15 处、`YoujingStartPage` 不抓**，
 改后 `--hosts` 16 处全 OK、偏差 0。
 
-**闸门**：22 把尺除 `audit_contrast`（缺 dump＋帧参数按用法退 2）外全 0；`assembleHap` rc＝0、
+**闸门**：24 把尺除 `audit_contrast`（缺 dump＋帧参数按用法退 2）外全 0；`assembleHap` rc＝0、
 `modules.abc` 与 `.hap` 新写。
 
 **边界**：「四连发有没有赢下竞速」还是只能真人滚一次——注入 fling 触发不了 HDS 滚动特效，
@@ -9033,7 +9033,7 @@ R3 `utils/systemBar.ets` 连发必须 ≥3 发且末发 ≥2500ms——单发 40
   含两条原有用例不回归）；
 - hypium `NavInset.test.ets` 由 5 例增至 8 例，`entry@ohosTest` 与 `entry@default` 双 HAP
   BUILD SUCCESSFUL（产物 14:36 新写，不是 UP-TO-DATE 复用）；
-- 22 把尺全跑：除 `audit_contrast`（缺 dump＋帧参数按用法退 2）外全部 0。
+- 24 把尺全跑：除 `audit_contrast`（缺 dump＋帧参数按用法退 2）外全部 0。
 
 **边界**：真机跑不了，8 例 hypium 只是"写好了、编过了"，不是"过了"；
 dock 在用户 Pocket 2 上的实际边距本轮未重装（上一版产物仍在设备上）。本轮零 LLM、未动用户数据。
@@ -9067,7 +9067,7 @@ dock 在用户 Pocket 2 上的实际边距本轮未重装（上一版产物仍�
 所以改动等装得起机的一轮一起做，清单进任务 #39，届时把 `total +=` 放开升成硬闸。
 
 **本轮零 .ets 改动**（只动尺与文档），`entry@default`/`entry@ohosTest` 产物仍是续 237 那批；
-22 把尺照跑，除 `audit_contrast`（缺参数按用法退 2）外全 0。本轮零 LLM、未动用户数据。
+24 把尺照跑，除 `audit_contrast`（缺参数按用法退 2）外全 0。本轮零 LLM、未动用户数据。
 
 ## 2026-11-06 续 239：13 处未表态的滚动宿主全部挂上 `edgeEffect`，第三条判据升成硬闸
 
@@ -9098,7 +9098,7 @@ dock 在用户 Pocket 2 上的实际边距本轮未重装（上一版产物仍�
 "≈1:1"那句改成实测的 42/48。第 21 行状态由"值已对齐、缺口待补"改为**两维都已落地，只剩手感复拍**。
 
 **边界**：回弹手感（松手回位的阻尼、横向 chip 条侧向 overscroll 是否合适）只能装机后用手指判，
-本轮设备仍不可达、未安装；任务 #39 的代码部分完成、复拍部分保留。22 把尺除
+本轮设备仍不可达、未安装；任务 #39 的代码部分完成、复拍部分保留。24 把尺除
 `audit_contrast`（缺 dump＋帧参数按用法退 2）外全 0。本轮零 LLM、未动用户数据。
 
 ## 2026-11-06 续 240：把「配置面普查」做成从 SDK 声明出发的全表比对——dock 与顶栏字段面已对称，差异收敛到 4 个名字
