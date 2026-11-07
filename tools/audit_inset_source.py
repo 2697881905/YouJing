@@ -24,6 +24,9 @@ R1 = re.compile(r'\.(padding|margin|height)\s*\([^)]*\b(statusBarHeight|navIndic
 R2 = re.compile(r'navIndicatorHeight')
 R3 = re.compile(r'LayoutTokens\.bottomScrollReserve')
 KEY_READ = 'dockNavInset'
+# 穿底档的顶部让位单源（第 19/20 行）：页面把 statusBarHeight 传给它、由它加 MINI 栏高，
+# 这不是"页面自算"，而是唯一 approved 出口，故 R1 放行这一种写法。
+SANCTIONED_TOP = 'HdsChrome.contentTopInset('
 
 SELFTEST = [
     ('pages/Index.ets', ".padding({ top: this.statusBarHeight })", 'R1', '壳层重复避让（今晚的真缺陷）'),
@@ -32,6 +35,10 @@ SELFTEST = [
     ('pages/Index.ets', "barBottomMargin: LayoutTokens.floatingDockBottomMargin + this.dockNavInset,", None, '派生自单源键'),
     ('utils/navMode.ets', "AppStorage.setOrCreate('navBarHeight', heightVp);", None, '发布点豁免'),
     ('pages/MapPage.ets', ".height(this.statusBarHeight)", 'R1', '任意页面自算顶部避让'),
+    ('pages/AreaMorePage.ets', ".padding({ top: HdsChrome.contentTopInset(this.statusBarHeight) })",
+     None, '穿底让位走单源助手（R1 放行这一种）'),
+    ('pages/AreaMorePage.ets', ".padding({ top: this.statusBarHeight + 56 })",
+     'R1', '反证：自己加 56 仍须被抓，放行不是开了洞'),
     ('pages/TripInputPage.ets', "bottom: LayoutTokens.bottomScrollReserve })", 'R3', '滚动预留裸 94（三键档末行藏进 dock）'),
     ('pages/PreferenceQAPage.ets', "bottom: LayoutTokens.bottomScrollReserve + this.dockNavInset })", None, '滚动预留按档派生'),
 ]
@@ -42,7 +49,7 @@ def classify(path, line):
         return None
     if line.strip().startswith('//') or line.strip().startswith('*'):
         return None
-    if R1.search(line):
+    if R1.search(line) and SANCTIONED_TOP not in line:
         return 'R1'
     if R2.search(line) and KEY_READ not in line:
         return 'R2'
