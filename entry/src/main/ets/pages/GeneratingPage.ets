@@ -30,7 +30,7 @@ import { EntitlementStore } from '../data/EntitlementStore';
 import { DeviceTokenStore } from '../data/DeviceTokenStore';
 import { GenerationChannel } from '../utils/GenerationChannel';
 import { common } from '@kit.AbilityKit';
-import { HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UIDesignKit';
+import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 
