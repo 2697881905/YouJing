@@ -18,6 +18,7 @@ import { SpaceTokens } from '../design/SpaceTokens';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
+import { Pressable } from '../components/Pressable';
 import { TripDao, TripSummary } from '../data/TripDao';
 import { PlanDraft } from '../data/PlanDraft';
 import { DateUtils } from '../utils/DateUtils';
@@ -406,9 +407,26 @@ export struct TripsPage {
 
   @Builder
   tripCard(t: TripCardData) {
-    // 整卡可点是这屏的主导航：官方 Button 承载（裸 Column 没有按压态、读屏也进不去）。
-    // 视觉仍由内层 Column 原样承担，Button 只是可点/可聚焦的壳。
-    Button({ type: ButtonType.Normal, stateEffect: true }) {
+    // 整卡可点是这屏的主导航：按压反馈交给家族唯一的 Pressable
+    // （opacity 0.92 + scale 0.97 / 140ms）；视觉仍由内层 Column 原样承担。
+    Pressable({
+      fillWidth: true,
+      action: (): void => {
+        if (this.selecting) {
+          this.toggleSelected(t.id);
+          return;
+        }
+        if (t.onTrip) {
+          this.pathStack.pushPath({ name: 'OnTrip', param: t.id });
+        } else if (t.reviewable) {
+          this.pathStack.pushPath({ name: 'Review', param: t.id });
+        } else {
+          // 一镜到底：量卡片帧 + 截图后推详情；量不到帧也直推（点击绝不吞）
+          openItineraryLongTake(this.getUIContext(), this.pathStack, t.id,
+            'trip-card-' + t.id, RadiusTokens.card);
+        }
+      }
+    }) {
     Column() {
       Row() {
         if (this.selecting) {
@@ -495,31 +513,12 @@ export struct TripsPage {
     // ⇒ 卡片在深色下完全没有边界。改回契约档。
     .backgroundColor(ColorTokens.surfaceElevated)
     .shadow(ShadowTokens.cardAmbient)
-    }
-    .buttonStyle(ButtonStyleMode.TEXTUAL)
-    .width('100%')
-    .padding(0)
-    .borderRadius(RadiusTokens.card)
     .accessibilityText(this.selecting
       ? `${t.place} ${t.dateMeta}，${this.isSelected(t.id) ? '已选中' : '未选中'}，点按切换选中`
       : `${t.place} ${t.dateMeta}，${t.statusLine}，` +
       (t.reviewable ? '打开旅行回顾' : '打开行程'))
     .id('trip-card-' + t.id)
-    .onClick(() => {
-      if (this.selecting) {
-        this.toggleSelected(t.id);
-        return;
-      }
-      if (t.onTrip) {
-        this.pathStack.pushPath({ name: 'OnTrip', param: t.id });
-      } else if (t.reviewable) {
-        this.pathStack.pushPath({ name: 'Review', param: t.id });
-      } else {
-        // 一镜到底：量卡片帧 + 截图后推详情；量不到帧也直推（点击绝不吞）
-        openItineraryLongTake(this.getUIContext(), this.pathStack, t.id,
-          'trip-card-' + t.id, RadiusTokens.card);
-      }
-    })
+    }
   }
 
   /** 根页模式：作为 tab 的内容区内联在 TabContent 里（有据路线 B），此时本页自带 HdsNavigation */
@@ -529,7 +528,12 @@ export struct TripsPage {
   @Builder
   anniversaryBanner() {
     Column() {
-      Button({ type: ButtonType.Normal, stateEffect: true }) {
+      Pressable({
+        fillWidth: true,
+        action: (): void => {
+          this.pathStack.pushPath({ name: 'Review', param: this.anniversaryId });
+        }
+      }) {
         Row({ space: SpaceTokens.sm }) {
           SymbolGlyph($r('sys.symbol.medal'))
             .fontSize(IconSizes.control)
@@ -557,15 +561,8 @@ export struct TripsPage {
         .borderRadius(RadiusTokens.card)
         .backgroundColor(ColorTokens.primaryTint)
         .alignItems(VerticalAlign.Center)
+        .accessibilityText(`${this.anniversaryLine}，打开旅行回顾`)
       }
-      .buttonStyle(ButtonStyleMode.TEXTUAL)
-      .width('100%')
-      .padding(0)
-      .borderRadius(RadiusTokens.card)
-      .accessibilityText(`${this.anniversaryLine}，打开旅行回顾`)
-      .onClick((): void => {
-        this.pathStack.pushPath({ name: 'Review', param: this.anniversaryId });
-      })
     }
     .width('100%')
     .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.xs })
@@ -611,8 +608,8 @@ export struct TripsPage {
               .fontColor([ColorTokens.muted])
               .margin({ bottom: SpaceTokens.base })
             Text('还没有行程')
-              .fontSize(TypeTokens.title.size)
-              .fontWeight(700)
+              .fontSize(TypeTokens.headline.size)
+              .fontWeight(TypeTokens.headline.weight)
               .fontFamily(TypeTokens.title.family)
               .fontColor(ColorTokens.ink)
               .textAlign(TextAlign.Center)

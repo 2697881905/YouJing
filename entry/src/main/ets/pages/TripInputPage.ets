@@ -12,6 +12,8 @@ import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
+import { Pressable } from '../components/Pressable';
+import { GlowInput } from '../components/GlowInput';
 import { PlanDraft } from '../data/PlanDraft';
 import { PlanRepository } from '../data/PlanRepository';
 import { PaceOption, SelectedSpot, TransitPreference, TravelStyle, TripBasicInput } from '../model/PlanParams';
@@ -25,7 +27,7 @@ import { common } from '@kit.AbilityKit';
 import { BudgetConfig } from '../common/constants/BudgetConfig';
 import { HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
-import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
+import { GlassBlurStyle, getSheetImmersiveMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
 import { FlowSteps, FLOW_STEP_TRIP_INPUT } from '../components/FlowSteps';
 import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
 import { longFormMaxWidth } from '../utils/responsive';
@@ -468,21 +470,23 @@ export struct TripInputPage {
 
   @Builder
   partyChip(count: number) {
-    // 选中态按契约 tint 配方（DESIGN §9）：primary-tint 底 + 1px primary 描边 + ink 字。
-    // 不用官方 EMPHASIZED 实心蓝——那会与底部主按钮形成同屏双实心蓝（禁令 1），
-    // 且选中文案压实底靠的是官方换色，不如契约配方可预期
+    // 2026-11-07 全量对齐：选中 = brandSolid 实心底 + onBrand 字（C6 裁决已推翻）；
+    // 视觉高 36（有据 segmentedHeight），命中带 44 由 responseRegion 居中兜住。
     Button(count.toString())
-      .width(LayoutTokens.minTouchTarget)
-      .height(LayoutTokens.minTouchTarget)
-      .fontSize(TypeTokens.small.size)
+      .width(LayoutTokens.segmentedHeight)
+      .height(LayoutTokens.segmentedHeight)
+      .fontSize(TypeTokens.callout.size)
       .fontWeight(this.party === count ? 600 : 450)
-      .fontColor(this.party === count ? ColorTokens.ink : ColorTokens.body)
+      .fontColor(this.party === count ? ColorTokens.onBrand : ColorTokens.body)
       .type(ButtonType.Circle)
       .buttonStyle(ButtonStyleMode.NORMAL)
-      .backgroundColor(this.party === count ? ColorTokens.primaryTint : ColorTokens.surfaceElevated)
-      .border({
-        width: this.party === count ? LayoutTokens.glassBorderWidth : 0,
-        color: ColorTokens.primary
+      .backgroundColor(this.party === count ? ColorTokens.brandSolid : ColorTokens.surfaceElevated)
+      .border({ width: 0, color: ColorTokens.primary })
+      .responseRegion({
+        x: 0,
+        y: (LayoutTokens.segmentedHeight - LayoutTokens.minTouchTarget) / 2,
+        width: '100%',
+        height: LayoutTokens.minTouchTarget
       })
       .accessibilityText(`${count}人`)
       .onClick(() => {
@@ -514,13 +518,15 @@ export struct TripInputPage {
       // 主操作固定在滚动区外：键盘压缩窗口时百分比高的 Scroll 可能不进可滚状态，
       // 放在里面的「使用」会点不到（tools/audit_scroll_actions.py 的同类缺陷）
       Row({ space: SpaceTokens.xs }) {
-        TextInput({ text: this.otherCity, placeholder: '输入城市名，如西安' })
-          .height(LayoutTokens.minTouchTarget)
-          .fontSize(TypeTokens.small.size)
-          .onChange((v: string): void => {
+        GlowInput({
+          text: $otherCity,
+          placeholder: '输入城市名，如西安',
+          fillWidth: true,
+          inputHeight: LayoutTokens.minTouchTarget,
+          onChange: (v: string): void => {
             this.otherCity = v;
-          })
-          .layoutWeight(1)
+          }
+        })
           .accessibilityText('输入其他城市')
         YoujingButton({
           variant: YoujingButtonVariant.SECONDARY,
@@ -553,17 +559,20 @@ export struct TripInputPage {
           Flex({ wrap: FlexWrap.Wrap }) {
             ForEach(POPULAR_MAP_CITIES, (c: string) => {
               Button(c)
-                .fontSize(TypeTokens.small.size)
+                .fontSize(TypeTokens.callout.size)
                 .fontWeight(this.city === c ? 600 : 450)
-                .fontColor(this.city === c ? ColorTokens.ink : ColorTokens.body)
-                .height(LayoutTokens.minTouchTarget)
+                .fontColor(this.city === c ? ColorTokens.onBrand : ColorTokens.body)
+                .height(LayoutTokens.segmentedHeight)
                 .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
                 .type(ButtonType.Capsule)
                 .buttonStyle(ButtonStyleMode.NORMAL)
-                .backgroundColor(this.city === c ? ColorTokens.primaryTint : ColorTokens.surfaceElevated)
-                .border({
-                  width: this.city === c ? LayoutTokens.glassBorderWidth : 0,
-                  color: ColorTokens.primary
+                .backgroundColor(this.city === c ? ColorTokens.brandSolid : ColorTokens.surfaceElevated)
+                .border({ width: 0, color: ColorTokens.primary })
+                .responseRegion({
+                  x: 0,
+                  y: (LayoutTokens.segmentedHeight - LayoutTokens.minTouchTarget) / 2,
+                  width: '100%',
+                  height: LayoutTokens.minTouchTarget
                 })
                 .margin({ right: SpaceTokens.xs, bottom: SpaceTokens.xs })
                 .accessibilityText(`选择热门城市 ${c}`)
@@ -585,9 +594,14 @@ export struct TripInputPage {
               bottom: SpaceTokens.xxs })
 
           ForEach(CITIES, (c: string) => {
-            // 官方 Button 承载整行：原来是裸 Row + onClick，读屏进不去也没有按压态。
-            // 外观仍由内层 Row 承载，Button 只做可点/可聚焦的壳。
-            Button({ type: ButtonType.Normal, stateEffect: true }) {
+            // 按压反馈交给家族唯一的 Pressable；外观仍由内层 Row 承载
+            Pressable({
+              fillWidth: true,
+              action: (): void => {
+                this.city = c;
+                this.showCity = false;
+              }
+            }) {
               Row() {
                 Text(c)
                   .fontSize(TypeTokens.body.size)
@@ -603,15 +617,8 @@ export struct TripInputPage {
               .width('100%')
               .height(LayoutTokens.minTouchTarget)
               .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
+              .accessibilityText(c === this.city ? `选择目的地 ${c}，当前已选` : `选择目的地 ${c}`)
             }
-            .buttonStyle(ButtonStyleMode.TEXTUAL)
-            .width('100%')
-            .padding(0)
-            .accessibilityText(c === this.city ? `选择目的地 ${c}，当前已选` : `选择目的地 ${c}`)
-            .onClick(() => {
-              this.city = c;
-              this.showCity = false;
-            })
           }, (c: string): string => `city-${c}`)
         }
         .width('100%')
@@ -765,23 +772,22 @@ export struct TripInputPage {
                 .fontSize(TypeTokens.caption.size)
                 .fontWeight(450)
                 .fontColor(ColorTokens.muted)
-              TextInput({ placeholder: '例：下周五去上海玩三天，两个人', text: this.sentence })
-                .fontSize(TypeTokens.body.size)
-                .fontColor(ColorTokens.ink)
-                .backgroundColor(ColorTokens.surfacePanel)
-                .borderRadius(RadiusTokens.reason)
-                .height(LayoutTokens.composeFieldHeight)
-                .enterKeyType(EnterKeyType.Done)
-                .accessibilityText('一句话描述行程')
-                .onChange((v: string): void => {
+              GlowInput({
+                text: $sentence,
+                placeholder: '例：下周五去上海玩三天，两个人',
+                fillWidth: true,
+                inputHeight: LayoutTokens.composeFieldHeight,
+                onChange: (v: string): void => {
                   this.sentence = v;
                   if (this.intentError.length > 0) {
                     this.intentError = '';
                   }
-                })
-                .onSubmit((): void => {
+                },
+                onEnter: (): void => {
                   this.recognize();
-                })
+                }
+              })
+                .accessibilityText('一句话描述行程')
               if (this.intentError.length > 0) {
                 Text(this.intentError)
                   .fontSize(TypeTokens.caption.size)
@@ -821,7 +827,12 @@ export struct TripInputPage {
 
             Column({ space: SpaceTokens.sm }) {
               // 目的地
-              Button({ type: ButtonType.Normal, stateEffect: true }) {
+              Pressable({
+                fillWidth: true,
+                action: (): void => {
+                  this.showCity = true;
+                }
+              }) {
                 Row() {
                   Column() {
                     this.fieldLabel('目的地')
@@ -840,19 +851,17 @@ export struct TripInputPage {
                 .padding(SpaceTokens.base)
                 .borderRadius(RadiusTokens.card)
                 .backgroundColor(ColorTokens.surfaceSubtle)
+                // 帧 7d2eafa8 这格声明的是 aria-label="选择目的地"，读屏要连当前值一起念
+                .accessibilityText(`选择目的地，当前 ${this.city}`)
               }
-              .buttonStyle(ButtonStyleMode.TEXTUAL)
-              .width('100%')
-              .padding(0)
-              .borderRadius(RadiusTokens.card)
-              // 帧 7d2eafa8 这格声明的是 aria-label="选择目的地"，读屏要连当前值一起念
-              .accessibilityText(`选择目的地，当前 ${this.city}`)
-              .onClick(() => {
-                this.showCity = true;
-              })
 
               // 出行日期
-              Button({ type: ButtonType.Normal, stateEffect: true }) {
+              Pressable({
+                fillWidth: true,
+                action: (): void => {
+                  this.pickDate();
+                }
+              }) {
                 Row() {
                   Column() {
                     this.fieldLabel('出行日期')
@@ -878,16 +887,9 @@ export struct TripInputPage {
                 .padding(SpaceTokens.base)
                 .borderRadius(RadiusTokens.card)
                 .backgroundColor(ColorTokens.surfaceSubtle)
+                // 帧声明 aria-label="选择出行日期"；一次点按串两档弹窗（出发→返程）
+                .accessibilityText(`选择出行日期，当前 ${TripSpan.text(this.dayCount())}`)
               }
-              .buttonStyle(ButtonStyleMode.TEXTUAL)
-              .width('100%')
-              .padding(0)
-              .borderRadius(RadiusTokens.card)
-              // 帧声明 aria-label="选择出行日期"；一次点按串两档弹窗（出发→返程）
-              .accessibilityText(`选择出行日期，当前 ${TripSpan.text(this.dayCount())}`)
-              .onClick(() => {
-                this.pickDate();
-              })
 
               // 同行人数
               Row() {
@@ -1016,9 +1018,11 @@ export struct TripInputPage {
         // 一张节点只能挂一张 bindSheet：城市选择在根节点，识别预览挂在这条动作条上
         .bindSheet($$this.previewOpen, this.intentSheet(), {
           height: '72%',
-          backgroundColor: ColorTokens.canvas,
           showClose: true,
-          systemMaterial: getSheetImmersiveMaterial()
+          systemMaterial: getSheetImmersiveMaterial(),
+          // 材质生效时 blur 与实色底让位，避免玻璃面外再叠一层（配方照有据 DetailPostContent:287-296）
+          blurStyle: isSystemMaterialActive() ? BlurStyle.NONE : GlassBlurStyle.Floating,
+          backgroundColor: isSystemMaterialActive() ? undefined : ColorTokens.canvas
         })
       }
       .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
@@ -1027,10 +1031,11 @@ export struct TripInputPage {
       .backgroundColor(ColorTokens.canvas)
       .bindSheet($$this.showCity, this.citySheet(), {
         height: 420,
-        backgroundColor: ColorTokens.canvas,
         showClose: true,
         // 与其他三处弹层同档：半模态走 ULTRA_THICK 系统材质（材质不可用时回退上面的实色底）
-        systemMaterial: getSheetImmersiveMaterial()
+        systemMaterial: getSheetImmersiveMaterial(),
+        blurStyle: isSystemMaterialActive() ? BlurStyle.NONE : GlassBlurStyle.Floating,
+        backgroundColor: isSystemMaterialActive() ? undefined : ColorTokens.canvas
       })
     }
     .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })

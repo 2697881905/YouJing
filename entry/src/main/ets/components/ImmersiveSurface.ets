@@ -10,10 +10,14 @@
  *
  * 用法：把原本挂在自绘面板上的玻璃/圆角/描边保持不变，外层包一层本容器即可。
  *
- * 与有据的一处**有意差异**（别照抄回去）：有据 TagNav 那层在流光生效时把表面换成
- * `backgroundBlurStyle` + 透明底（悬浮条要透背）。有径的玻璃点位由底稿锁死在四处
- * （顶栏/分段控件/浮动 dock/吸顶日标题），内容卡不在其列，所以被包层的表面**保持实色**，
- * 只让流光走边。新增点位要先改 handoff 的玻璃点位表，不要在这里就地加模糊。
+ * 2026-11-07 全量对齐：玻璃点位不再封闭为四处栏面（见
+ * `Docs/superpowers/specs/2026-11-07-表现层全量对齐-差异表.md` §6），
+ * 卡片 / 输入框 / 弹窗 / 浮层可用自绘玻璃；被包层表面**允许透明**（走 `backgroundBlurStyle`
+ * + 系统材质），本容器只负责双边流光。材质生效时自绘 border/shadow/blur 归零的避让仍生效。
+ *
+ * 保留三处真机健壮性修复（用户 2026-11-07 拍板保留，登记为平台适配差异）：
+ * ① 浅色档 LIGHT_* 四色，防止深色白光压白卡结品红；② 外层 borderRadius + clip，
+ * 防止边光越出卡片上沿；③ `@StorageProp('isDarkMode')` 主题跟随，运行中切深浅重设 scene。
  */
 
 import { HdsSceneController, HdsSceneType, HdsVisualComponent } from '@kit.UIDesignKit';

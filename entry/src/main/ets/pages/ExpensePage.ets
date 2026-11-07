@@ -24,7 +24,7 @@ import { TripDao, TripSummary } from '../data/TripDao';
 import { CategoryBudget, CategoryTotal, Expense, ExpenseCategory } from '../model/Expense';
 import { Trip } from '../model/Trip';
 import { DateUtils } from '../utils/DateUtils';
-import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
+import { GlassBlurStyle, getSheetImmersiveMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
 import { Logger } from '../common/logger/Logger';
 import { PlanDraft } from '../data/PlanDraft';
 import { common } from '@kit.AbilityKit';
@@ -418,20 +418,23 @@ export struct ExpensePage {
 
   @Builder
   categoryChip(option: CategoryOption) {
-    // 选中态按契约 tint 配方（DESIGN §9）：tint 底 + 1px primary 描边 + ink 字。
-    // 原走 EMPHASIZED 实心蓝，与本 sheet 里的「保存」主按钮形成同屏双实心（禁令 1）
+    // 2026-11-07 全量对齐：选中 = brandSolid 实心底 + onBrand 字（C6 裁决已推翻）。
+    // 视觉高 36（有据 segmentedHeight），命中带 44 由 responseRegion 居中兜住。
     Button(option.label)
-      .fontSize(TypeTokens.small.size)
+      .fontSize(TypeTokens.callout.size)
       .fontWeight(this.inputCategory === option.value ? 600 : 450)
-      .fontColor(this.inputCategory === option.value ? ColorTokens.ink : ColorTokens.body)
-      .height(LayoutTokens.minTouchTarget)
+      .fontColor(this.inputCategory === option.value ? ColorTokens.onBrand : ColorTokens.body)
+      .height(LayoutTokens.segmentedHeight)
       .type(ButtonType.Capsule)
       .buttonStyle(ButtonStyleMode.NORMAL)
       .backgroundColor(this.inputCategory === option.value
-        ? ColorTokens.primaryTint : ColorTokens.surfaceElevated)
-      .border({
-        width: this.inputCategory === option.value ? LayoutTokens.glassBorderWidth : 0,
-        color: ColorTokens.primary
+        ? ColorTokens.brandSolid : ColorTokens.surfaceElevated)
+      .border({ width: 0, color: ColorTokens.primary })
+      .responseRegion({
+        x: 0,
+        y: (LayoutTokens.segmentedHeight - LayoutTokens.minTouchTarget) / 2,
+        width: '100%',
+        height: LayoutTokens.minTouchTarget
       })
       // 六枚等宽排一行（父 Row 只有 331vp，见 recordSheet 的注释）：
       // 默认内边距会把两字标签撑到 60vp，六枚就换行了；等宽 46.7vp 刚好排满。
@@ -473,10 +476,11 @@ export struct ExpensePage {
 
       TextInput({ placeholder: '金额（元）', text: this.inputAmount })
         .type(InputType.Number)
-        .fontSize(TypeTokens.body.size)
+        .fontSize(TypeTokens.callout.size)
         .fontColor(ColorTokens.ink)
-        .backgroundColor(ColorTokens.surfacePanel)
-        .borderRadius(RadiusTokens.reason)
+        .placeholderColor(ColorTokens.muted)
+        .backgroundColor(ColorTokens.surfaceElevated)
+        .borderRadius(RadiusTokens.capsule)
         .height(LayoutTokens.composeFieldHeight)
         .onChange((v: string) => {
           this.inputAmount = v;
@@ -490,10 +494,11 @@ export struct ExpensePage {
           this.saveExpense();
         })
       TextInput({ placeholder: '名称，如 故宫门票', text: this.inputName })
-        .fontSize(TypeTokens.body.size)
+        .fontSize(TypeTokens.callout.size)
         .fontColor(ColorTokens.ink)
-        .backgroundColor(ColorTokens.surfacePanel)
-        .borderRadius(RadiusTokens.reason)
+        .placeholderColor(ColorTokens.muted)
+        .backgroundColor(ColorTokens.surfaceElevated)
+        .borderRadius(RadiusTokens.capsule)
         .height(LayoutTokens.composeFieldHeight)
         .margin({ top: SpaceTokens.xs })
         .onChange((v: string) => {
@@ -550,10 +555,11 @@ export struct ExpensePage {
         .width(44)
       TextInput({ placeholder: '不设上限', text: this.budgetInputs[idx] })
         .type(InputType.Number)
-        .fontSize(TypeTokens.body.size)
+        .fontSize(TypeTokens.callout.size)
         .fontColor(ColorTokens.ink)
-        .backgroundColor(ColorTokens.surfacePanel)
-        .borderRadius(RadiusTokens.reason)
+        .placeholderColor(ColorTokens.muted)
+        .backgroundColor(ColorTokens.surfaceElevated)
+        .borderRadius(RadiusTokens.capsule)
         .height(LayoutTokens.composeFieldHeight)
         .layoutWeight(1)
         // 最后一档给「完成」并直接落库：六档字段都要点数字键盘，键盘弹起时
@@ -953,9 +959,12 @@ export struct ExpensePage {
             // 记一笔自己的面板挂回按钮本体。
             .bindSheet($$this.showRecord, this.recordSheet(), {
               height: '85%',
-              backgroundColor: ColorTokens.canvas,
               showClose: true,
-              systemMaterial: getSheetImmersiveMaterial()
+              systemMaterial: getSheetImmersiveMaterial(),
+              // 材质载体唯一入口是 SheetOptions.systemMaterial；材质生效时自绘模糊与实色底都必须让位，
+              // 否则玻璃面外再叠一层 blur/不透明底 = 双表面（配方逐字照有据 DetailPostContent:287-296）
+              blurStyle: isSystemMaterialActive() ? BlurStyle.NONE : GlassBlurStyle.Floating,
+              backgroundColor: isSystemMaterialActive() ? undefined : ColorTokens.canvas
             })
             }
           }
@@ -989,9 +998,10 @@ export struct ExpensePage {
       // 没有证据的视觉改动不留在代码里，退回原值；那条 P0 仍未修。
       .bindSheet($$this.showBudget, this.budgetSheet(), {
         height: '55%',
-        backgroundColor: ColorTokens.canvas,
         showClose: true,
-        systemMaterial: getSheetImmersiveMaterial()
+        systemMaterial: getSheetImmersiveMaterial(),
+        blurStyle: isSystemMaterialActive() ? BlurStyle.NONE : GlassBlurStyle.Floating,
+        backgroundColor: isSystemMaterialActive() ? undefined : ColorTokens.canvas
       })
     }
     .width('100%')

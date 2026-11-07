@@ -220,7 +220,7 @@ export struct AreaMorePage {
           .layoutWeight(1)
           .justifyContent(FlexAlign.Center)
         } else if (this.areas.length === 0) {
-          // 空态（契约 empty-state 规格：48px 展示档图标 + title + callout + 一个主按钮）
+          // 空态（2026-11-07 全量对齐：44 展示档图标 + headline 18/600 serif + callout + 一个主按钮）
           Column({ space: SpaceTokens.sm }) {
             SymbolGlyph($r('sys.symbol.map'))
               .fontSize(IconSizes.display)
@@ -228,8 +228,8 @@ export struct AreaMorePage {
             Text(this.mapCity
               ? (this.loadFailed ? '地图服务没取到这座城市的住宿区' : '地图服务没有返回这座城市的住宿区')
               : '还没有这座城市的区域数据')
-              .fontSize(TypeTokens.title.size)
-              .fontWeight(700)
+              .fontSize(TypeTokens.headline.size)
+              .fontWeight(TypeTokens.headline.weight)
               .fontFamily(TypeTokens.title.family)
               .fontColor(ColorTokens.ink)
             Text(this.mapCity ? '检查网络后重试，或换一座城市'

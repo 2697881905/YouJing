@@ -30,7 +30,7 @@ import { LayoutTokens } from '../design/LayoutTokens';
 import { IconSizes } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { LegalDocReader } from '../components/LegalDocReader';
-import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
+import { GlassBlurStyle, getSheetImmersiveMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
 
 @Component
 export struct LoginView {
@@ -219,9 +219,11 @@ export struct LoginView {
     // 协议正文：静态文本，不涉及"面板内容不随父 @State 重绘"那条坑
     .bindSheet($$this.showDoc, this.docSheet(), {
       height: '78%',
-      backgroundColor: ColorTokens.canvas,
       showClose: true,
-      systemMaterial: getSheetImmersiveMaterial()
+      systemMaterial: getSheetImmersiveMaterial(),
+      // 材质生效时 blur 与实色底让位，避免玻璃面外再叠一层（配方照有据 DetailPostContent:287-296）
+      blurStyle: isSystemMaterialActive() ? BlurStyle.NONE : GlassBlurStyle.Floating,
+      backgroundColor: isSystemMaterialActive() ? undefined : ColorTokens.canvas
     })
   }
 }

@@ -1,33 +1,45 @@
 /**
- * 动效 tokens · 契约 v2 `motion:` 段逐字落值（时长单位 ms，缩放为无量纲倍率）。
+ * 动效 tokens · 2026-11-07 全量对齐「有据」源码（YU/design/tokens/motion.ets）。
  *
- * 契约锚点：`motion.press 140ms` / `control 220ms` / `container 320ms` / `shimmer 1200ms` /
- * `press-scale 0.97`；`curve-standard = cubic-bezier(0.2, 0.8, 0.2, 1)`、
- * `curve-decelerate = cubic-bezier(0, 0, 0.2, 1)`。
+ * 保留原有五档名与值（press/control/container/shimmer/pressScale）与三条曲线名，
+ * 因为 644 个调用点、StyleConfig.test.ets 的曲线指纹断言、audit_motion.py 白名单都依赖它们。
+ * 新增的只是有据源码里「有实现、有消费方」的档位别名，禁止页面各自调参。
  *
- * 本页只收「批次一已拍定的五档 + 三条曲线」。契约里的 `page`/`emphasis`/`stagger`/
- * `shared-element`/`press-opacity`/`press-slide-scale`/`success-scale`/`enter-scale` 与
- * spring/emphasized 曲线属 P3 动效层，接入时才在此登记，禁止页面各自调参。
- * spring 预留：弹性效果用 curves.springMotion(response, dampingFraction)，时长由弹簧参数决定。
- * 禁令（§8-10）：不许用 opacity 表达状态（完成/禁用/选中一律换 token 或加图标）。
- *
- * 消费方（P2 的 BaseCard/Pressable、P3 的转场工厂）写动效只准引用这里；
- * tools/audit_motion.py 拦裸时长、枚举曲线与 .animation()/.stateStyles() 顺序倒置。
+ * 状态表达允许 opacity（2026-11-07 决议）：禁用 0.45、按下 0.92；
+ * `.animation()` 必须紧贴 `.stateStyles()` **之前**，见 components/Pressable.ets。
+ * 三处栏面 blur 50 与 `scrolled ? 50 : 0` 绝对偏移门控仍由 HdsChrome 承担。
  */
 
 import { curves } from '@kit.ArkUI';
 
 export interface MotionTokensType {
-  /** 微反馈：主按钮按下、勾选（契约 motion.press） */
+  /** 微反馈：主按钮按下、勾选（契约 motion.press，= 有据 fast） */
   press: number;
-  /** 控件级过渡：分段切换、开关、折叠（契约 motion.control） */
+  /** 控件级过渡：分段切换、开关、折叠（契约 motion.control，= 有据 base） */
   control: number;
-  /** 容器级过渡：卡片展开、弹层进出（契约 motion.container） */
+  /** 容器级过渡：卡片展开、弹层进出（契约 motion.container，= 有据 slow） */
   container: number;
-  /** 骨架屏流光循环（契约 motion.shimmer） */
+  /** 骨架屏流光循环 */
   shimmer: number;
-  /** 按下缩放倍率（契约 motion.press-scale，勿改） */
+  /** 按下缩放倍率 */
   pressScale: number;
+  /** 有据 instant / none */
+  instant: number;
+  none: number;
+  /** 有据档名别名（值与上面三档同源） */
+  fast: number;
+  base: number;
+  slow: number;
+  enter: number;
+  page: number;
+  emphasis: number;
+  stagger: number;
+  staggerEmphasis: number;
+  /** 有据按下/入场/成功倍率 */
+  pressSlideScale: number;
+  pressOpacity: number;
+  successScale: number;
+  enterScale: number;
 }
 
 export const MotionTokens: MotionTokensType = {
@@ -35,16 +47,40 @@ export const MotionTokens: MotionTokensType = {
   control: 220,
   container: 320,
   shimmer: 1200,
-  pressScale: 0.97
+  pressScale: 0.97,
+  instant: 100,
+  none: 0,
+  fast: 140,
+  base: 220,
+  slow: 320,
+  enter: 360,
+  page: 420,
+  emphasis: 460,
+  stagger: 40,
+  staggerEmphasis: 56,
+  pressSlideScale: 0.94,
+  pressOpacity: 0.92,
+  successScale: 1.045,
+  enterScale: 0.975
 };
 
-/** 契约 curve-standard = cubic-bezier(0.2, 0.8, 0.2, 1)。ArkTS 的 Curve 是枚举，
- *  自定义贝塞尔必须走 curves.cubicBezierCurve 返回 ICurve（有据 motion.ets:32 已在用）。 */
+/**
+ * 曲线集合。standard / decelerate / linear / springBounce(0.4, 0.55) 四条是既有值，
+ * 其中 springBounce 的 ICurve 指纹被 StyleConfig.test.ets:120-140 逐值钉死，不许改参数；
+ * 有据 springBounce(0.4, 0.7) 另以 springBounceYu 别名登记。
+ */
 export class MotionCurves {
   static readonly standard: ICurve = curves.cubicBezierCurve(0.2, 0.8, 0.2, 1);
   static readonly decelerate: ICurve = curves.cubicBezierCurve(0, 0, 0.2, 1);
   static readonly linear: ICurve = curves.cubicBezierCurve(0, 0, 1, 1);
-  /** dock 选中胶囊落定的回弹（有据 §7.6.32 同款果冻感）。
-   *  response/damping 是动效层参数，按本文件约定只在这里登记一次，页面不许各自调。 */
   static readonly springBounce: ICurve = curves.springMotion(0.4, 0.55);
+  static readonly accelerate: ICurve = curves.cubicBezierCurve(0.4, 0, 1, 1);
+  static readonly spring: ICurve = curves.cubicBezierCurve(0.34, 1.56, 0.64, 1);
+  static readonly springSoft: ICurve = curves.cubicBezierCurve(0.22, 1.22, 0.36, 1);
+  static readonly emphasized: ICurve = curves.cubicBezierCurve(0.16, 1, 0.3, 1);
+  static readonly springInteract: ICurve = curves.springMotion(0.6, 0.85);
+  static readonly springBounceYu: ICurve = curves.springMotion(0.4, 0.7);
+  static readonly springRelease: ICurve = curves.springMotion(0.5, 0.75);
+  static readonly springSettle: ICurve = curves.springMotion(0.3, 0.62);
+  static readonly springTrack: ICurve = curves.springMotion(0.25, 0.72);
 }

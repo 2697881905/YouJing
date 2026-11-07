@@ -38,7 +38,9 @@ import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { MotionCurves, MotionTokens } from '../design/MotionTokens';
 import { HdsMiniBarButton } from '../components/HdsMiniBarButton';
-import { HDS_MATERIAL_LEVEL_EXQUISITE, HDS_MATERIAL_TYPE_IMMERSIVE } from '../utils/immersiveMaterial';
+import { HDS_MATERIAL_LEVEL_EXQUISITE, HDS_MATERIAL_TYPE_IMMERSIVE,
+  isImmersiveLightSenseSupported } from '../utils/immersiveMaterial';
+import { BottomTabBar } from '../components/BottomTabBar';
 import { TopStrip, TOP_STRIP_KEY, STRIP_CANVAS, STRIP_MAP } from '../utils/TopStrip';
 import { BOTTOM_NAV_INSET_KEY } from '../utils/navMode';
 import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
@@ -116,6 +118,9 @@ struct Index {
   private dockLayerArea: DockArea | null = null;
   private dockPillMeasureTries: number = 0;
   private hdsController: HdsTabsController = new HdsTabsController();
+  /** 低 SDK 降级分支专用：官方 HdsTabs 的 barFloatingStyle 自 API 23 起才存在 */
+  private legacyController: TabsController = new TabsController();
+  @State private useHdsDock: boolean = true;
 
   /** 解析 'index:timestamp' 并切到该页签；同页签或解析不出就什么都不做 */
   private applyTabSwitch(): void {
@@ -131,6 +136,10 @@ struct Index {
   aboutToAppear(): void {
     // 一镜到底的量测/截图 util 没有 this.getUIContext()，从这里共享（与有据同法）
     setSharedUiContext(this.getUIContext());
+    // 2026-11-07 全量对齐：按有据的 API 23+ 门禁分流 dock。
+    // 本工程 compatibleSdk 26 ⇒ 当前设备恒走官方 HdsTabs，自绘 BottomTabBar 分支不可达，
+    // 仅作为未来降 SDK 时的预留兼容分支（差异表 P-09，不宣称已真机验证）。
+    this.useHdsDock = isImmersiveLightSenseSupported();
     this.currentTab = this.wantTab;
     this.syncTopStrip(this.wantTab);
     const ctx: common.Context = this.getUIContext().getHostContext() as common.Context;
@@ -426,8 +435,14 @@ struct Index {
   @Builder
   mainTabs() {
     Stack({ alignContent: Alignment.TopStart }) {
-      this.dockTabsBody()
-      if (this.dockPillReady) {
+      // 低 SDK 降级分支：官方 HdsTabs.barFloatingStyle @since 23，API 20–22 走内置 Tabs +
+      // 自绘悬浮玻璃药丸（有据 Index.ets:2081 同形态）。当前 compatibleSdk 26 下不可达。
+      if (this.useHdsDock) {
+        this.dockTabsBody()
+      } else {
+        this.legacyTabsBody()
+      }
+      if (this.dockPillReady && this.useHdsDock) {
         this.dockSelectionPill()
       }
     }
@@ -554,6 +569,65 @@ struct Index {
     // 撤掉 padding 后栏体从窗口 0 排起，遮罩与带子是同一层，缝没有第二个来源。
     // 壳层不读任何避让区：顶部让位归栏体（HdsChrome.bar 的 avoidLayoutSafeArea），
     // 底部让位归 navMode 发布的 dockNavInset，两处各只有一个来源。
+  }
+
+  /**
+   * 低 SDK（API 20–22）降级分支：内置 Tabs 承载五格内容，底栏用自绘悬浮玻璃药丸。
+   * 与有据 `Index.ets:2081` 同形态。compatibleSdk 26 下由 useHdsDock 恒为 true 而不可达；
+   * 本分支只作预留兼容，未做真机 A/B（差异表 P-09）。
+   */
+  @Builder
+  legacyTabsBody() {
+    Stack({ alignContent: Alignment.Bottom }) {
+      Tabs({ controller: this.legacyController, index: this.wantTab }) {
+        TabContent() {
+          MapPage({ rootMode: true })
+        }
+        .tabBar('')
+
+        TabContent() {
+          TripsPage({ rootMode: true })
+        }
+        .tabBar('')
+
+        TabContent() {
+          YoujingStartPage()
+        }
+        .tabBar('')
+
+        TabContent() {
+          ExpensePage({ rootMode: true })
+        }
+        .tabBar('')
+
+        TabContent() {
+          MinePage({ rootMode: true })
+        }
+        .tabBar('')
+      }
+      .barHeight(0)
+      .scrollable(true)
+      .onChange((index: number): void => {
+        this.currentTab = index;
+        AppStorage.setOrCreate(TAB_INDEX_KEY, index);
+        this.syncTopStrip(index);
+        announceTabShown(index);
+      })
+      .width('100%')
+      .height('100%')
+
+      BottomTabBar({
+        items: [DOCK_TABS[TAB_MAP].label, DOCK_TABS[TAB_ITINERARY].label,
+          DOCK_TABS[TAB_PLAN].label, DOCK_TABS[TAB_EXPENSE].label, DOCK_TABS[TAB_MINE].label],
+        selectedIndex: this.currentTab,
+        onSelect: (index: number): void => {
+          this.legacyController.changeIndex(index);
+        }
+      })
+        .margin({ bottom: LayoutTokens.floatingDockBottomMargin + this.dockNavInset })
+    }
+    .width('100%')
+    .height('100%')
   }
 
   build() {

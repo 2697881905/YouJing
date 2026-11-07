@@ -52,6 +52,17 @@
     { "name": "star_gold", "value": "#FFD9A441" },
     { "name": "star_badge", "value": "#FF4D9FFF" },
     { "name": "star_bg_top", "value": "#FF070B16" },
-    { "name": "star_bg_bottom", "value": "#FF0E1830" }
+    { "name": "star_bg_bottom", "value": "#FF0E1830" },
+    { "name": "brand_solid", "value": "#FF0050A0" },
+    { "name": "on_brand", "value": "#FFFFFFFF" },
+    { "name": "danger_tint", "value": "#1AFF3B30" },
+    { "name": "glass_bar_surface", "value": "#59121212" },
+    { "name": "glass_bar_border", "value": "#5245454B" },
+    { "name": "glass_bar_bg", "value": "#B3121212" },
+    { "name": "glass_card_bg", "value": "#FF1E1E1E" },
+    { "name": "glass_segment_bg", "value": "#20FFFFFF" },
+    { "name": "glass_segment_border", "value": "#24FFFFFF" },
+    { "name": "glass_pill_fill", "value": "#26FFFFFF" },
+    { "name": "glass_pill_rim", "value": "#40FFFFFF" }
   ]
 }

@@ -25,6 +25,8 @@ import { membershipStatus, membershipUsage, subscriptionActive, MembershipStatus
 import { BadgeGroup, BadgeRecord, badgeCityCount, badgeTotal, buildBadgeBoard } from '../utils/BadgeBoard';
 import { ProfileStore } from '../data/ProfileStore';
 import { LegalDocReader } from '../components/LegalDocReader';
+import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
+import { Pressable } from '../components/Pressable';
 import { Logger } from '../common/logger/Logger';
 import { PlanDraft } from '../data/PlanDraft';
 import { ColorTokens } from '../design/ColorTokens';
@@ -306,18 +308,13 @@ export struct MinePage {
           // Index 的登录闸门已经拦过"没同意隐私就什么都不给看"，这里只处理已同意未登录
           if (this.authState === 'guest') {
             ListItem() {
-              Button({ type: ButtonType.Normal }) {
-                Text('登录华为账号')
-                  .fontSize(TypeTokens.small.size)
-                  .fontWeight(600)
-                  .fontColor(ColorTokens.onPrimary)
-              }
-              .width('100%')
-              .height(LayoutTokens.minTouchTarget)
-              .borderRadius(RadiusTokens.pill)
-              .backgroundColor(ColorTokens.primary)
-              .onClick((): void => {
-                this.goLogin();
+              YoujingButton({
+                variant: YoujingButtonVariant.PRIMARY,
+                label: '登录华为账号',
+                fullWidth: true,
+                onAction: (): void => {
+                  this.goLogin();
+                }
               })
             }
           }
@@ -333,19 +330,25 @@ export struct MinePage {
             }, (row: SettingRow): string => row.docKind)
           }
           ListItem() {
-            Button({ type: ButtonType.Normal }) {
+            // 有据无 danger 按钮变体（danger 只作字色），故保留「elevated 底 + danger 字」，
+            // 按下反馈交给家族唯一的 Pressable（opacity 0.92 + scale 0.97 / 140ms）
+            Pressable({
+              fillWidth: true,
+              visualHeight: LayoutTokens.minTouchTarget,
+              action: (): void => {
+                this.confirmLogout();
+              }
+            }) {
               Text('退出登录')
-                .fontSize(TypeTokens.small.size)
+                .fontSize(TypeTokens.callout.size)
                 .fontWeight(600)
                 .fontColor(ColorTokens.danger)
+                .width('100%')
+                .height(LayoutTokens.minTouchTarget)
+                .textAlign(TextAlign.Center)
+                .borderRadius(RadiusTokens.pill)
+                .backgroundColor(ColorTokens.surfaceElevated)
             }
-            .width('100%')
-            .height(LayoutTokens.minTouchTarget)
-            .borderRadius(RadiusTokens.pill)
-            .backgroundColor(ColorTokens.surfaceElevated)
-            .onClick((): void => {
-              this.confirmLogout();
-            })
           }
         }
         .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })

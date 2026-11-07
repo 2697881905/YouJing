@@ -11,6 +11,7 @@
 
 import { APP_NAV } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
+import { Pressable } from '../components/Pressable';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
@@ -196,8 +197,13 @@ export struct BadgePage {
 
   @Builder
   badgeRow(badge: Badge) {
-    // 整格可点：官方 Button 做壳（按压态/读屏焦点），视觉由内层承担
-    Button({ type: ButtonType.Normal, stateEffect: true }) {
+    // 整格可点：按压反馈交给家族唯一的 Pressable，视觉由内层承担
+    Pressable({
+      fillWidth: true,
+      action: (): void => {
+        this.openTrip(badge);
+      }
+    }) {
       Row({ space: SpaceTokens.xs }) {
         SymbolGlyph($r('sys.symbol.medal'))
           .fontSize(IconSizes.control)
@@ -228,15 +234,8 @@ export struct BadgePage {
       .alignItems(VerticalAlign.Center)
       .borderRadius(RadiusTokens.card)
       .backgroundColor(ColorTokens.surfaceElevated)
+      .accessibilityText(`${badge.spotName}，${badgeMeta(badge)}，打开行程`)
     }
-    .buttonStyle(ButtonStyleMode.TEXTUAL)
-    .width('100%')
-    .padding(0)
-    .borderRadius(RadiusTokens.card)
-    .accessibilityText(`${badge.spotName}，${badgeMeta(badge)}，打开行程`)
-    .onClick((): void => {
-      this.openTrip(badge);
-    })
   }
 
   @Builder
@@ -246,8 +245,8 @@ export struct BadgePage {
         .fontSize(IconSizes.display)
         .fontColor([ColorTokens.muted])
       Text('还没有勋章')
-        .fontSize(TypeTokens.title.size)
-        .fontWeight(700)
+        .fontSize(TypeTokens.headline.size)
+        .fontWeight(TypeTokens.headline.weight)
         .fontFamily(TypeTokens.title.family)
         .fontColor(ColorTokens.ink)
       Text('在「旅行中」给行程节点打卡，这枚章就会收进来')

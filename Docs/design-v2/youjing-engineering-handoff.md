@@ -1,3 +1,13 @@
+> **2026-11-07 全量对齐决议（覆盖声明）**
+> 唯一事实源是 `/Users/itxiaobai/HarmonyProject1` 当前源码；本文件与 IMA 知识库、旧 spec 裁决冲突时一律以源码为准。
+> 2026-11-07 用户裁决：此前 C5–C8 / spec §10 #24/25/26 的「有意偏离有据」结论全部推翻，不再保留。
+> 材质点位不再封闭为「四处玻璃面」，以 `Docs/superpowers/specs/2026-11-07-表现层全量对齐-差异表.md` §6 登记的点位为准；卡片、输入框、弹窗、浮层允许自绘玻璃（`GlassPanel` / `GlowInput` / `SpringPanel` / `ImmersiveSurface` / `GlassPillButton`）。
+> 状态表达允许 opacity：禁用 `.opacity(0.45)`、按下 `.opacity(0.92)` + `scale 0.97`（140ms）；不再禁止「opacity 表达状态」。
+> 「官方件优先、禁自绘」禁令废止；但材质生效时自绘 border/shadow/backgroundBlurStyle 归零、内容区 systemMaterial 不渲染、API 版本门禁三条避让仍然有效。
+> 交互态只做默认 / 按下 / 禁用（含聚焦 / 加载 / 空 / 错误），**不加 hover / hoverEffect**。
+> 三处栏面 blur 50 + `scrolled ? 50 : 0` 绝对偏移门控、分段控件组件内 blur 20、sheet/菜单走 options.systemMaterial 的既有规则继续有效。
+> 本文件里标注为「实测」「取证」「历史记录」「稿件缺陷」的行（尤其 `blur(24px)`、`scrollHeight=820`、`2.67:1`、`#00000000`、md5、帧哈希）逐字节不动；本决议只覆盖「规范性」表述。
+
 # 有径（Youjing）设计定稿 · 前端开工交付文档
 
 > 生成时间 2026-10-21。家族契约：`~/Documents/StitchDesign/DESIGN.md`（md5 见文末）。
@@ -603,11 +613,13 @@
 6. **字号只有八档** `10/11/12/14/16/18/21/32`；`13/15/17/19/20` 不存在。
 7. **图标只有两档** 22×22 控制档、48×48 展示档；44 是命中盒不是图形。状态栏 mock 属设备 chrome，另计。
 8. **serif 永不上控件、永不上站点名、永不上数字。** 唯一例外是金额/大计数的 32/700 展示档走 sans。
-9. **书面 blur 半径只属于三处栏面**（顶栏 / dock / 吸顶日标题），全部 `blur(50px)`；分段控件带自己的 `blur(20px)`（组件内成文例外，**不是第五块玻璃面**）。弹层与菜单是**系统材质面**：有系统材质时由材质接管，自绘兜底走 `components.sheet-modal` 那套实色（不新造 blur 值）；状态栏、底栏动作条都不是玻璃。
-10. **不许用 `opacity` 表达状态。** 完成态、禁用态、选中态一律换 token 或加图标；唯一豁免是 home indicator 与骨架屏。
+9. **材质点位不再封闭为「三处栏面 / 四处玻璃面」。** 以 `Docs/superpowers/specs/2026-11-07-表现层全量对齐-差异表.md` §6 登记的点位为准；卡片、输入框、弹窗、浮层允许自绘玻璃（`GlassPanel` / `GlowInput` / `SpringPanel` / `ImmersiveSurface` / `GlassPillButton`），按登记点位使用系统 `backgroundBlurStyle` 档位（Floating/Card/Press/Dialog），不新造书面 blur 数值。**bar** 三处栏面（顶栏 / dock / 吸顶日标题）书面 blur 仍是 50 + `scrolled ? 50 : 0` 绝对偏移门控；分段控件组件内 `blur(20px)`、sheet/菜单走 `options.systemMaterial` 的既有规则继续有效；材质生效时自绘 border/shadow/backgroundBlurStyle 归零、内容区 systemMaterial 不渲染、API 版本门禁三条避让仍然有效。
+10. **允许用 `opacity` 表达状态。** 禁用 `.opacity(0.45)`、按下 `.opacity(0.92)` + `scale 0.97`（140ms）；交互态只做默认 / 按下 / 禁用（含聚焦 / 加载 / 空 / 错误），不加 hover / hoverEffect；home indicator 与骨架屏的既有用法不变。
 11. **语义色五个封闭**，活动类型色点固定五对；第六种类型用图标或文字，不许新色相。
 12. **卡片靠留白与色阶分隔，不画分隔线**；行分隔线只允许 `0.5px rgba(60,60,67,0.20)`（深色 `rgba(84,84,88,0.30)`）且只在同类行之间。
 13. **字距全局 0**，所有数字 `tabular-nums`。
+
+2026-11-07 决议：官方件优先/禁自绘不再作为禁令，见文件头决议。
 
 ## 9. ArkUI 官方组件映射（禁自绘；有据已上线的同类实现直接复用）
 

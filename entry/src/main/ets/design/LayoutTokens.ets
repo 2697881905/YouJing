@@ -38,6 +38,8 @@ export interface LayoutTokensType {
   titleBarHeight: number;
   /** 分段控件轨道高 */
   segmentedControlHeight: number;
+  /** 有据源码同名档 `segmentedHeight`（与 segmentedControlHeight 同值，供移植件直读） */
+  segmentedHeight: number;
   /** 底部 tab 栏高 */
   tabBarHeight: number;
   /**
@@ -162,6 +164,7 @@ export const LayoutTokens: LayoutTokensType = {
   minTouchTarget: 44,
   titleBarHeight: 60,
   segmentedControlHeight: 36,
+  segmentedHeight: 36,
   tabBarHeight: 64,
   floatingDockWidth: 300,
   floatingDockMediumWidth: 420,
@@ -214,12 +217,41 @@ export const LayoutTokens: LayoutTokensType = {
 };
 
 /**
- * 图标只有两档（§8 禁令 7）：22×22 控制档、48×48 展示档；44 是命中盒不是图形。
- * 14/16px 只允许出现在状态栏 mock（设备 chrome，决议 1）。
+ * 2026-11-07 全量对齐：图标档按有据 `design/tokens/icon.ets` 落地。
+ * 控制档 22→24、展示档 48→44（有据 `IconTokens.standard=24` / `empty=44`）。
+ * 两处值一改即辐射全 App（IconSizes.control 36 处、display 20 处调用点）。
+ * 44 同时也是命中盒下限，低版本/矮控件仍靠 Pressable.responseRegion(44) 兜底。
  */
-export const IconSizes: IconSizesType = { control: 22, display: 48 };
+export const IconSizes: IconSizesType = { control: 24, display: 44 };
 
 export interface IconSizesType {
   control: number;
   display: number;
 }
+
+/** 有据 `IconTokens` 全档（值逐字对齐 YU/design/tokens/icon.ets）。 */
+export interface IconTokensType {
+  canvas: number;
+  stroke: number;
+  compact: number;
+  small: number;
+  standard: number;
+  tabBar: number;
+  avatarCompact: number;
+  avatarProfile: number;
+  empty: number;
+  shortcutTile: number;
+}
+
+export const IconTokens: IconTokensType = {
+  canvas: 24,
+  stroke: 2,
+  compact: 16,
+  small: 20,
+  standard: 24,
+  tabBar: 24,
+  avatarCompact: 24,
+  avatarProfile: 68,
+  empty: 44,
+  shortcutTile: 56
+};

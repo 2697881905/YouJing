@@ -18,6 +18,8 @@ import { KEY_WINDOW_WIDTH_VP, BP_MD_MIN_VP } from '../utils/breakpointCenter';
 import { symmetricInsetForCap } from '../utils/responsive';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
+import { Pressable } from '../components/Pressable';
+import { GlassPanel } from '../components/GlassPanel';
 import { BuildConfig } from '../common/constants/BuildConfig';
 import { GenerationChannel } from '../utils/GenerationChannel';
 import { HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UIDesignKit';
@@ -99,6 +101,8 @@ export struct GenerateFailedPage {
     }
     .width('100%')
     .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
+    // 可及名挂在行内容上：Pressable 的 builder 尾随闭包之后不能再接属性
+    .accessibilityText(`${fix.title}，${fix.desc}`)
   }
 
   /**
@@ -139,8 +143,8 @@ export struct GenerateFailedPage {
               .fontColor([ColorTokens.warning])
               .margin({ top: SpaceTokens.xxl, bottom: SpaceTokens.base })
             Text(failureHeadline(this.code))
-              .fontSize(TypeTokens.title.size)
-              .fontWeight(700)
+              .fontSize(TypeTokens.headline.size)
+              .fontWeight(TypeTokens.headline.weight)
               .fontFamily(TypeTokens.title.family)
               .fontColor(ColorTokens.ink)
             Text(this.detailText())
@@ -171,19 +175,15 @@ export struct GenerateFailedPage {
                   .fontColor(ColorTokens.muted)
                   .margin({ bottom: SpaceTokens.xxs })
                 ForEach(this.fixes, (fix: FixOption, idx: number) => {
-                  // 官方 Button 承载整行：原来是裸 Column + onClick——没有按压态、
-                  // 不是可聚焦控件，读屏与外接键盘都跳不过去
-                  Button({ type: ButtonType.Normal, stateEffect: true }) {
+                  // 整行可点：按压反馈交给家族唯一的 Pressable
+                  Pressable({
+                    fillWidth: true,
+                    action: (): void => {
+                      this.goFix(fix.route);
+                    }
+                  }) {
                     this.solutionRow(fix)
                   }
-                  .buttonStyle(ButtonStyleMode.TEXTUAL)
-                  .width('100%')
-                  .padding(0)
-                  .borderRadius(RadiusTokens.capsule)
-                  .accessibilityText(`${fix.title}，${fix.desc}`)
-                  .onClick((): void => {
-                    this.goFix(fix.route);
-                  })
                   if (idx < this.fixes.length - 1) {
                     Divider()
                       .strokeWidth(LayoutTokens.hairlineWidth)
@@ -203,15 +203,14 @@ export struct GenerateFailedPage {
             if (this.isServiceFailure()) {
               // 服务/网络出问题时，「去掉一个景点」「换一片住宿」全帮不上忙——
               // 照直说，并把两条真能走通的出口摆在页脚：再试一次 / 改用本机规则引擎。
-              Text('这次不是行程本身的问题：行程服务暂时没有响应。'
-                + '改景点、换住宿或调节奏都不会让它更快恢复——可以等一会儿再点「再试一次」，'
-                + '也可以直接用本机规则引擎出方案（离线可跑，个性化会少一些）。')
-                .fontSize(TypeTokens.small.size)
-                .fontColor(ColorTokens.body)
-                .width('100%')
-                .padding(SpaceTokens.base)
-                .borderRadius(RadiusTokens.card)
-                .backgroundColor(ColorTokens.surfaceElevated)
+              GlassPanel({ radius: RadiusTokens.card }) {
+                Text('这次不是行程本身的问题：行程服务暂时没有响应。'
+                  + '改景点、换住宿或调节奏都不会让它更快恢复——可以等一会儿再点「再试一次」，'
+                  + '也可以直接用本机规则引擎出方案（离线可跑，个性化会少一些）。')
+                  .fontSize(TypeTokens.callout.size)
+                  .fontColor(ColorTokens.body)
+                  .width('100%')
+              }
             }
           }
           .padding({ left: this.wideInset(), right: this.wideInset() })

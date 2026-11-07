@@ -13,6 +13,7 @@ import { MapStop, MapStops } from '../utils/MapStops';
 import { TripWindow } from '../utils/TripWindow';
 import { DateUtils } from '../utils/DateUtils';
 import { TripMapView } from '../components/TripMapView';
+import { Pressable } from '../components/Pressable';
 import { Logger } from '../common/logger/Logger';
 import { PlanDraft } from '../data/PlanDraft';
 import { common } from '@kit.AbilityKit';
@@ -422,21 +423,27 @@ export struct MapPage {
             .shadow(ShadowTokens.floating)
           } else if (this.loaded) {
             if (this.rootMode && this.noOnTrip) {
-              Button({ type: ButtonType.Normal, stateEffect: true }) {
-                Text('今天没有在途行程 · 去规划一趟')
-                  .fontSize(TypeTokens.caption.size)
-                  .fontWeight(600)
-                  .fontColor(ColorTokens.primary)
+              // 按下反馈交给家族唯一的 Pressable；视觉 36 高、命中带仍 44（responseRegion 居中包住）。
+              // 让位 dock 的 margin 挂在外包 Column 上——builder 尾随闭包之后不能再接属性。
+              Column() {
+                Pressable({
+                  visualHeight: 36,
+                  action: (): void => {
+                    PlanDraft.fresh();
+                    enterPlanningFlow('TripInput');
+                  }
+                }) {
+                  Text('今天没有在途行程 · 去规划一趟')
+                    .fontSize(TypeTokens.caption.size)
+                    .fontWeight(600)
+                    .fontColor(ColorTokens.primary)
+                    .height(36)
+                    .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
+                    .backgroundColor(ColorTokens.surfaceElevated)
+                    .borderRadius(RadiusTokens.pill)
+                }
               }
-              .height(36)
-              .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
-              .backgroundColor(ColorTokens.surfaceElevated)
-              .borderRadius(RadiusTokens.pill)
               .margin({ bottom: LayoutTokens.floatingDockClearance })
-              .onClick((): void => {
-                PlanDraft.fresh();
-                enterPlanningFlow('TripInput');
-              })
             } else {
               Text(this.tripId.length === 0 ? '先从「行程」页签选一条行程' : '这条行程里没有可显示的坐标')
                 .fontSize(TypeTokens.caption.size)

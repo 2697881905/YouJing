@@ -29,7 +29,7 @@ import { EntitlementStore } from '../data/EntitlementStore';
 import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
 import { ImmersiveSegmentBar, SegmentedItem } from '../components/ImmersiveSegmentBar';
-import { getSheetImmersiveMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
+import { GlassBlurStyle, getSheetImmersiveMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
@@ -1472,9 +1472,11 @@ export struct ItineraryPage {
         }
         .bindSheet($$this.showSystemAccess, this.systemAccessSheet(), {
           height: SheetSize.FIT_CONTENT,
-          backgroundColor: ColorTokens.canvas,
           showClose: true,
-          systemMaterial: getSheetImmersiveMaterial()
+          systemMaterial: getSheetImmersiveMaterial(),
+          // 材质生效时 blur 与实色底让位，避免玻璃面外再叠一层（配方照有据 DetailPostContent:287-296）
+          blurStyle: isSystemMaterialActive() ? BlurStyle.NONE : GlassBlurStyle.Floating,
+          backgroundColor: isSystemMaterialActive() ? undefined : ColorTokens.canvas
         })
       }
       .width('100%')
@@ -1482,9 +1484,10 @@ export struct ItineraryPage {
       .backgroundColor(ColorTokens.canvas)
       .bindSheet($$this.showDetail, this.detailSheet(), {
         height: '85%',
-        backgroundColor: ColorTokens.canvas,
         showClose: true,
-        systemMaterial: getSheetImmersiveMaterial()
+        systemMaterial: getSheetImmersiveMaterial(),
+        blurStyle: isSystemMaterialActive() ? BlurStyle.NONE : GlassBlurStyle.Floating,
+        backgroundColor: isSystemMaterialActive() ? undefined : ColorTokens.canvas
       })
     
         }
