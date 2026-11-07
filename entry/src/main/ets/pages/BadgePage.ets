@@ -17,7 +17,7 @@ import { SpaceTokens } from '../design/SpaceTokens';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
 import { listLanesForBreakpoint } from '../utils/responsive';
-import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
 import { common } from '@kit.AbilityKit';
 import { BadgeDao } from '../data/BadgeDao';
@@ -43,6 +43,8 @@ export struct BadgePage {
   /** 顶栏磨砂两态：由**绝对**滚动偏移驱动（每帧增量会被松手回弹的负帧打灭，契约 §Translucency） */
   @State private barScrolled: boolean = false;
   private barScroller: Scroller = new Scroller();
+  // 穿底档让位含状态栏：内容原点回到窗口 0（判据＝首个 ListItem 顶边 == 栏底）
+  @StorageProp('statusBarHeight') statusBarHeight: number = 0;
 
   aboutToAppear(): void {
     this.reload();
@@ -313,6 +315,7 @@ export struct BadgePage {
           .sticky(StickyStyle.Header)
           .cachedCount(6)
           .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
+            top: HdsChrome.contentTopInset(this.statusBarHeight),
             bottom: LayoutTokens.floatingDockClearance })
           .layoutWeight(1)
           .onDidScroll((): void => {
@@ -330,9 +333,14 @@ export struct BadgePage {
     .titleBar(HdsChrome.bar({
       mainTitle: '我的勋章',
       subTitle: this.loading || this.groups.length === 0 ? '' : `共 ${this.totalCount()} 枚`,
-      scrolled: this.barScrolled
+      scrolled: this.barScrolled,
+      bleed: true
     }))
     .titleMode(HdsNavDestinationTitleMode.MINI)
+    // 跟手收起 + 穿底采样链（第 13/19/20 行）：滚动源交给官方，栏下才有内容可折射
+    .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+    .bindToScrollable([this.barScroller])
+    .clip(false)
     .onReady((ctx: NavDestinationContext): void => {
       this.pathStack = ctx.pathStack;
     })

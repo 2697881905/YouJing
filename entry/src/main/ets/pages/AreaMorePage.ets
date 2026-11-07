@@ -22,7 +22,7 @@ import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
-import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
 import { isMapArea } from '../utils/MapCityMapper';
 import { isMapCity, seedCityListText } from '../common/constants/Cities';
@@ -45,6 +45,8 @@ export struct AreaMorePage {
   /** 顶栏磨砂两态：由**绝对**滚动偏移驱动（每帧增量会被松手回弹的负帧打灭，契约 §Translucency） */
   @State private barScrolled: boolean = false;
   private barScroller: Scroller = new Scroller();
+  // 穿底让位（含状态栏）：这一屏搜索行钉在 List 之外，所以让位加在外层 Column
+  @StorageProp('statusBarHeight') statusBarHeight: number = 0;
 
   aboutToAppear(): void {
     const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
@@ -276,6 +278,7 @@ export struct AreaMorePage {
       .width('100%')
       .height('100%')
       .alignItems(HorizontalAlign.Start)
+      .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
       .backgroundColor(ColorTokens.canvas)
     }
     // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
@@ -283,8 +286,12 @@ export struct AreaMorePage {
     .titleBar(HdsChrome.bar({
       mainTitle: '全部区域',
       subTitle: this.areas.length > 0 ? `${this.city} · ${this.areas.length} 片` : this.city,
-      scrolled: this.barScrolled
+      scrolled: this.barScrolled,
+      bleed: true
     }))
     .titleMode(HdsNavDestinationTitleMode.MINI)
+    .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+    .bindToScrollable([this.barScroller])
+    .clip(false)
   }
 }
