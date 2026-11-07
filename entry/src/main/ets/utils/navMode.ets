@@ -141,6 +141,11 @@ export function publishNavAvoid(win: window.Window): void {
     const sysW: number = density > 0 ? sysRect.width / density : 0;
     const indH: number = density > 0 ? indRect.height / density : 0;
     const indW: number = density > 0 ? indRect.width / density : 0;
+    // 两条 rect 的真值进日志：第 30 行的「保守形 vs 有据 max」要靠这两组数判，
+    // 而 hidumper 在模拟器/真机都取不到避让区（续 250 已证），只能由这里自己报。
+    Logger.info(TAG, `avoidRects sys=${sysH.toFixed(1)}x${sysW.toFixed(1)}vp ` +
+      `ind=${indH.toFixed(1)}x${indW.toFixed(1)}vp win=${(density > 0 ? d.width / density : 0).toFixed(1)}vp ` +
+      `picked=${bottomAvoidHeightVp(sysH, indH).toFixed(1)}vp`);
     reportBottomAvoid(bottomAvoidHeightVp(sysH, indH),
       bottomAvoidRectWidthVp(sysH, sysW, indH, indW),
       density > 0 ? d.width / density : 0);
