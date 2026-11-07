@@ -186,6 +186,15 @@ def main():
         time.sleep(args.settle)
         items = layout(args.target)
         ok, detail = check(items, args.density)
+        if not ok:
+            # 首次启动/慢设备上 4.5s 可能只抓到半棵树（真机实测：Mate X7 首次深链 StayPick 报
+            # 节点 102、无顶栏带，重跑同一条就正常 217/有栏）。失败时重采一次再判，
+            # 避免把加载慢当成布局回归；仍失败才算真失败。
+            time.sleep(2.5)
+            items = layout(args.target)
+            ok2, detail2 = check(items, args.density)
+            detail = detail2 + ('' if ok2 else '（重采后仍失败）')
+            ok = ok2
         print('  %-16s %s  %s' % (name, 'OK ' if ok else 'FAIL', detail))
         bad += 0 if ok else 1
     print('逐屏结构巡检：%d 屏，失败 %d 屏。' % (len(routes), bad))
