@@ -71,12 +71,6 @@ export interface ChromeSpec {
   bottomBuilder?: CustomBuilder;
   /** 栏内底行高（vp）：要给足上下呼吸，行对内容双向裁切，投影铺不开会压出灰带 */
   bottomRowHeight?: number;
-  /**
-   * 内容区让位由组件安全区承担（默认 false＝页面自己用 contentTopInset 让位）。
-   * 带 bottomBuilder 行的页要用 true：有据 HomeTab 原话「静止时从栏下开始、滚动时穿入栏下」，
-   * 这条决定了行收起后内容能不能补上来并穿到栏底。两种做法互斥，开了它就别再加 top 让位。
-   */
-  contentSafeArea?: boolean;
   // 穿底档已于 2026-11-07 铺满全部页面（对表第 19/20 行，用户裁决「做，风险我认」），
   // 迁移期开关 bleed 已删除：enableComponentSafeArea 恒 false，让位一律由
   // HdsChrome.contentTopInset(statusBarHeight) 承担。静态页（生成中/解锁）同样接了让位。
@@ -168,7 +162,10 @@ export class HdsChrome {
       // 内容区原点恒 false＝从窗口原点起算，让位由页面的 contentTopInset 承担（有据同位写法）。
       // 注意这与已删的 `fullBleed` 不是一回事：那条翻的是栏内两行顺序，这条动的是内容原点。
       avoidLayoutSafeArea: true,
-      enableComponentSafeArea: spec.contentSafeArea === true
+      // 恒 false：页面自己用 contentTopInset 让位（放进滚动容器、随内容滚走）。
+      // 曾试过 true（组件安全区让位，有据 HomeTab 的写法）：静止能对，但**滚动到不了栏下**
+      // （连滚三次 ListItem 顶边始终 ≥ 栏底），所以删掉这个开关、写死 false。
+      enableComponentSafeArea: false
     };
     return options;
   }
