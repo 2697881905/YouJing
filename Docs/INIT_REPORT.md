@@ -9414,3 +9414,47 @@ md/lg 档的板宽按 `LayoutTokens.floatingDockWideWidth` 是 560vp，将来在
 
 收尾：两台模拟器都 `aa force-stop` + kill，临时脚本与 dump 文件删除。
 本轮零 .ets 改动、零 LLM、未动用户数据（模拟器实例数据与用户真机无关）。
+
+## 2026-11-07 续 251：真机回来了——四屏带高、真机 16 屏巡检、hypium 254/254 一趟量完
+
+设备 `192.168.2.3:46077` 重新可达（1136×2690px ÷ 3.125 ＝ 363.5vp，Pocket 2 竖折展开主屏 sm 档），
+未锁屏，按收尾 runbook 的顺序一趟跑完。装机前先核产物：`entry-default-signed.hap` 15:33，
+晚于最后一次 `.ets` 改动 15:28，其后提交只动文档与工具 ⇒ 该产物等于当前 HEAD 代码。
+
+**① 真机逐屏结构巡检：16 屏全 OK、失败 0、rc=0**（#40 的真机部分）
+`TripInput / PreferenceQA / SpotPick / StayPick / Itinerary / GenerateFailed / EditItinerary /
+Expense / Trips / OnTrip / Share / AreaMore / Map / Badges / Review / Pricing`。
+**主动排除 `Generating`**：那页可能触发/轮询生成任务，会花掉 LLM 额度，用户没授权就不跑。
+每屏顶栏带 2 处（Map/Pricing 4 处）、dock 候选 2 个（Pricing 3 个），屏宽 363.5vp。
+尺在真机上**要求显式 `--density 3.125`**（1136px 不在已知档表里），这正是续 248 把兜底猜测删掉后的预期行为。
+
+**② 四屏吸顶组头带高全部量到（#36 的几何那一半收口）**
+| 页 | 带高 | 带宽 | 左内缩 | 底板 |
+| --- | --- | --- | --- | --- |
+| SpotPick | **36.16vp** | 331.5vp | 16.0vp | #FFFFFFFF |
+| OnTrip | **36.16vp** | 299.5vp | **32.0vp** | #FFFFFFFF |
+| Badges | **36.48vp** | 331.5vp | 16.0vp | #FFFFFFFF |
+| AreaMore（`--ps param 北京`） | **36.16vp** | 331.5vp | 16.0vp | #FFFFFFFF |
+
+两处要解释清楚、别被后人当缺陷改：
+- **OnTrip 左缩 32.0vp 是对的**：那条组头住在卡片里，List 已带 16vp + 卡片内缩 16vp ＝ 32vp，
+  与 SpotPick/AreaMore 的"List 一层 16vp"不是同一嵌套层级。
+- **Badges 36.48vp 也是对的**：它是复合头（标题行＋可选进度条），钉的是 `minHeight: 36`，
+  内容略高于下限就照长，不是"没钉住"。
+- AreaMore 默认路由在真机同样是空态（"还没有这座城市的区域数据"），**传 `--ps param 北京` 才有样本**
+  （192 节点、"核心地段/王府井-东城核心"），所以这一屏的读数来自带参深链。
+
+**③ 卡片内缩真机复核（#34 的运行时那一半）**：SpotPick / OnTrip / Badges / Trips 四页各命中卡片状容器，
+**左 16.0vp、右 16.0vp、宽 331.5vp ＝ 363.5 − 32**，与续 212 那批 22 处收敛一致。
+
+**④ 真机完整 hypium：`Tests run: 254, Failure: 0, Error: 0, Pass: 254, Ignore: 0`，ResultCode 0**
+（#39 的"装机跑测试"那一半收口；与续 246 模拟器读数同值，说明不是模拟器特例）。
+
+**探针自身的一处错，当场纠正**：第一版只筛 `Row`，于是 Badges 报"0 处组头"——
+它的城市组头是 `Column`。改成 `Row|Column` 后立刻量到 36.48vp。
+按"否定判断要读消费方"的同一纪律：**没命中先怀疑探针，别急着登记缺陷**。
+
+**仍未做的**：滚动态目视（组头有无字压字）、回弹手感、胶囊观感、状态栏补发是否赢下竞速——
+这四件要手指与眼睛；#37 的两档 avoid rect 真值还差"切到三键档"这一步，
+那是用户手机的系统设置，**我不擅自改**，需要用户在设置里切一次（或明确授权我切）。
+本轮零 .ets 改动、零 LLM 花费、未删改任何用户数据（只做深链导航与 dump 读取）。
