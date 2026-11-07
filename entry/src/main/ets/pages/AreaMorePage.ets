@@ -182,19 +182,30 @@ export struct AreaMorePage {
     }
   }
 
+  /** 搜索行（迁进栏体做 bottomBuilder 行）：行内自撑满高，左右 base 内距由这里给。 */
+  @Builder
+  searchRow() {
+    if (!this.loading && this.areas.length > 0) {
+      Row() {
+        Search({ value: this.keyword, placeholder: '搜索区域、站点或线路' })
+          .onChange((v: string): void => {
+            this.keyword = v;
+          })
+          .width('100%')
+      }
+      .width('100%')
+      .height('100%')
+      .alignItems(VerticalAlign.Center)
+      .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
+    }
+  }
+
   build() {
     HdsNavDestination() {
       Column() {
         // 与屏12b 同一判据：没有可搜内容时不挂搜索框。
         // 这一屏在 loading 与「还没有这座城市的区域数据」两种状态下都不该摆输入框，
         // 否则用户会以为搜索框坏了（屏12b 实拍拍到同一形态后回这里查的）
-        if (!this.loading && this.areas.length > 0) {
-          Search({ value: this.keyword, placeholder: '搜索区域、站点或线路' })
-            .onChange((v: string): void => {
-              this.keyword = v;
-            })
-            .margin({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.xs })
-        }
 
         if (this.loading) {
           Column({ space: SpaceTokens.sm }) {
@@ -268,6 +279,8 @@ export struct AreaMorePage {
           // 真机实拍（§5o）：这一屏最后一片区域整行压在浮动 dock 底下，
           // dock 是覆盖层，滚动容器不给净空就会被盖住——四个 tab 下的页面里只有这屏漏了
           .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
+            // 让位放进滚动容器：留白随内容滚走，内容才穿得到栏底
+            top: HdsChrome.contentTopInset(this.statusBarHeight, 56),
             bottom: LayoutTokens.floatingDockClearance })
           .layoutWeight(1)
           .onDidScroll((): void => {
@@ -278,19 +291,21 @@ export struct AreaMorePage {
       .width('100%')
       .height('100%')
       .alignItems(HorizontalAlign.Start)
-      .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
       .backgroundColor(ColorTokens.canvas)
     }
     // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
     .backgroundColor(ColorTokens.canvas)
     .titleBar(HdsChrome.bar({
+      bottomBuilder: (): void => { this.searchRow(); },
+      bottomRowHeight: 56,
       mainTitle: '全部区域',
       subTitle: this.areas.length > 0 ? `${this.city} · ${this.areas.length} 片` : this.city,
       scrolled: this.barScrolled
       
     }))
     .titleMode(HdsNavDestinationTitleMode.MINI)
-    .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+    // 收的是栏内搜索行，标题常驻（有据 HomeTab 同款）
+    .dynamicHideTitleBar({ hideBottomBuilder: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
     .bindToScrollable([this.barScroller])
     .clip(false)
   }
