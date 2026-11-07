@@ -15,6 +15,7 @@
  */
 
 import { LengthMetrics } from '@kit.ArkUI';
+import deviceInfo from '@ohos.deviceInfo';
 import { ScrollEffectType } from '@kit.UIDesignKit';
 import type {
   HdsNavigationBackgroundStyle,
@@ -28,10 +29,16 @@ import type {
   HdsNavigationTitleStyle,
   HdsTitleBarContentStyle,
   ScrollEffectOptions,
+  SystemMaterialParams,
   TitleBarContentOptions,
   TitleBarStyleOptions
 } from '@kit.UIDesignKit';
 import { ColorTokens } from './ColorTokens';
+import { HDS_MATERIAL_LEVEL_EXQUISITE, HDS_MATERIAL_TYPE_IMMERSIVE } from '../utils/immersiveMaterial';
+
+/** MINI 档标题栏高（vp）：SDK `HdsNavDestinationTitleMode.MINI` 注释写明固定 56vp，
+ *  穿底让位要用它而不是契约里那条 60vp 的沉浸顶栏（两者不是同一个栏）。 */
+const MINI_TITLE_BAR_VP: number = 56;
 
 /** 滚动后栏体磨砂半径（vp）：契约 layout.glass-blur = 50，三处栏面同一把尺
  *  （分段控件是 `components.segmented-control.blur: 20` 的组件内成文例外，不走这条路径） */
@@ -54,6 +61,15 @@ export interface ChromeSpec {
   // （同一机位复拍，见 Docs/INIT_REPORT.md §5ci 续 198）。底图基色仍由壳层 + TopStrip 单点涂。
   /** 页面滚动状态：驱动 blurRadius，静止时不给模糊（有据静止态白底白图标教训） */
   scrolled?: boolean;
+  /**
+   * 穿底档（对表第 19/20 行，2026-11-07 用户裁决「做，风险我认」）：
+   * true → `enableComponentSafeArea:false`（内容区从窗口原点起算，能画到栏体底下被材质采样）
+   *        ＋ 栏级 `systemMaterialEffect`（IMMERSIVE=101 / EXQUISITE=0，API<26 门禁不过就不设）。
+   * 开了它，页面**必须**自己给内容让位：`HdsChrome.contentTopInset(this.statusBarHeight)`
+   * 加进滚动容器的 top padding（这段留白随内容滚走，才是有据「帖子穿到栏底下」的形状）。
+   * 这是迁移期开关：18 页全部接完后删掉它、把 false 写死（任务 #31）。
+   */
+  bleed?: boolean;
   /** 本页是否存在可滚容器；false 时关滚动特效，避免静止态空糊 */
   scrollable?: boolean;
   blurEndVp?: number;
@@ -107,6 +123,16 @@ export class HdsChrome {
       // 「三处栏面 blur 50」靠这条切换；只写 originalStyle 等于没有终态，模糊推不出来）。
       scrollEffectStyle: { contentStyle: contentStyle }
     };
+    // 栏级沉浸材质（对表第 19 行）：只有穿底档才给——栏体下面没有内容时材质是白压白，
+    // 这也是它此前在模拟器上 A/B 无差别、被回退的原因（续 222）。数值字面量避免静态
+    // import hdsMaterial（低版本设备 import 即崩，见 immersiveMaterial.ets 兼容性铁律）。
+    if (spec.bleed === true && deviceInfo.apiAvailable('26.0.0')) {
+      const material: SystemMaterialParams = {
+        materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
+        materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE
+      };
+      style.systemMaterialEffect = material;
+    }
     const title: HdsNavigationTitle = {
       mainTitle: spec.mainTitle,
       subTitle: spec.subTitle
@@ -121,11 +147,28 @@ export class HdsChrome {
     const options: HdsNavigationTitleBarOptions = {
       content: content,
       style: style,
-      // 顶部让位只有这两条：栏体穿到状态栏下（带子与栏区同层），内容仍按安全区起排。
-      // 恒定 true 而不是留开关：唯一的候选用途（底图页满铺）实测会把栏内两行顺序翻掉。
+      // 栏体穿到状态栏下（带子与栏区同层）恒定 true。
+      // 内容区原点则按档切：默认 true＝内容被顶到栏体之下（穿不过去）；
+      // 穿底档 false＝内容从窗口原点起算，让位改由页面的 contentTopInset 承担（有据同位写法）。
+      // 注意这与已删的 `fullBleed` 不是一回事：那条翻的是栏内两行顺序，这条动的是内容原点。
       avoidLayoutSafeArea: true,
-      enableComponentSafeArea: true
+      enableComponentSafeArea: spec.bleed !== true
     };
     return options;
+  }
+
+  /**
+   * 穿底档的内容让位（vp）＝状态栏高 ＋ MINI 标题栏高（与有据 `profileListInset()` 同式）。
+   *
+   * 必须含状态栏：`enableComponentSafeArea:false` 下滚动容器的布局原点回到**窗口 0**。
+   * 真机实证（2026-11-07，装机成功字样确认后）：List 原点 y=0，只给 56vp 让位时首个
+   * ListItem 落在 175px＝56vp，而栏带占 106..281px ⇒ 首行被栏盖住 33.9vp。
+   * 补上状态栏后 ListItem 顶边应 == HdsTitleBar 底边（281px），这条就是验收判据。
+   * ⚠ 曾据一次**旧包**读数（install 只回 AppMod finish、未确认成功）误判成"原点已在状态栏之下"
+   * 而删掉状态栏项——装机必须看到 `install bundle successfully` 才算换了包。
+   * statusBarHeightVp 由页面 `@StorageProp('statusBarHeight')` 传入，冷启晚到也能重排。
+   */
+  static contentTopInset(statusBarHeightVp: number): number {
+    return statusBarHeightVp + MINI_TITLE_BAR_VP;
   }
 }

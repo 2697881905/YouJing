@@ -34,7 +34,7 @@ import { SpaceTokens } from '../design/SpaceTokens';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { HdsChrome } from '../design/HdsChrome';
 import { common } from '@kit.AbilityKit';
-import { HdsNavigation, HdsNavigationTitleMode, HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
+import { HdsNavigation, HdsNavigationTitleMode, HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UIDesignKit';
 import { requestSystemBarRefresh } from '../utils/systemBar';
 
 /** 设置区一行：标题 + 落点。kind 非空 = 就地展开这份法务文书 */
@@ -74,6 +74,8 @@ export struct MinePage {
   /** 顶栏磨砂两态：由**绝对**滚动偏移驱动（每帧增量会被松手回弹的负帧打灭，契约 §Translucency） */
   @State private barScrolled: boolean = false;
   private barScroller: Scroller = new Scroller();
+  // 穿底档让位要含状态栏：内容原点回到窗口 0（真机实证见 HdsChrome.contentTopInset）
+  @StorageProp('statusBarHeight') statusBarHeight: number = 0;
 
   private onDockShown(): void {
     if (isTabShownTick(this.dockTick, TAB_MINE)) {
@@ -353,6 +355,7 @@ export struct MinePage {
         .scrollBar(BarState.Off)
         // 末行住在悬浮 dock 底下，按实测净空让位（与 TripsPage/BadgePage 同一写法）
         .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
+          top: HdsChrome.contentTopInset(this.statusBarHeight),
           bottom: LayoutTokens.floatingDockClearance })
         .onDidScroll((): void => {
           this.syncBarScroll();
@@ -405,6 +408,7 @@ export struct MinePage {
       .titleBar(HdsChrome.bar({
         mainTitle: '我的',
         scrolled: this.barScrolled,
+        bleed: true,
         menu: [HdsChrome.item($r('sys.symbol.plus'), '新建行程', (): void => {
           PlanDraft.fresh();
           enterPlanningFlow('TripInput');
@@ -414,6 +418,11 @@ export struct MinePage {
       }))
       .navDestination(routerMap)
       .mode(NavigationMode.Stack)
+      // 跟手收起（第 13 行）：有径栏内没有 bottomBuilder，收的是标题区本身；
+      // hideRatio=1.0 才是滚 1vp 收 1vp（官方默认 2.0 是半速），滚动源由 bindToScrollable 供给
+      .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+      .bindToScrollable([this.barScroller])
+      .clip(false)
       .width('100%')
       .height('100%')
     } else {
@@ -422,8 +431,11 @@ export struct MinePage {
       }
       // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
       .backgroundColor(ColorTokens.canvas)
-      .titleBar(HdsChrome.bar({ mainTitle: '我的', scrolled: this.barScrolled }))
+      .titleBar(HdsChrome.bar({ mainTitle: '我的', scrolled: this.barScrolled, bleed: true }))
       .titleMode(HdsNavDestinationTitleMode.MINI)
+      .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+      .bindToScrollable([this.barScroller])
+      .clip(false)
     }
   }
 }
