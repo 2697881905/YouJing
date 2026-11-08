@@ -2,10 +2,11 @@
  * HDS 官方顶栏的单点配置（对齐「有据」定稿：官方标题栏 + 沉浸渐变模糊，不再自绘标题 Row）。
  *
  * 三条来自有据真机实证的坑，改任何一条都会翻车：
- * 1. `content.menu` 的图标与标题文字默认都是**白色**（HDS 约定：透明栏压在 hero 媒体上）。
- *    有径静止态栏下是页面画布（浅色 #FFF），白图标/白标题等于看不见 → 必须显式给
- *    menuStyle/backIconStyle 的 iconColor 与 titleStyle 的 mainTitleColor/subTitleColor 用 token，
- *    深色模式才跟着翻白。（浅色真机量过：整条标题栏只有返回箭头在画，标题区一片 255。）
+ * 1. `content.menu` 的图标默认**白色**（HDS 约定：透明栏压在 hero 媒体上）。
+ *    有径静止态栏下是页面画布（浅色 #FFF），白图标等于看不见 → 必须显式给
+ *    menuStyle/backIconStyle 的 iconColor 用 token，深色模式才跟着翻白。
+ *    （2026-11-09 起标题文字也脱离内置 mainTitle：改 stackBuilder 自绘衬线＋品牌蓝，
+ *    titleStyle 两个色字段随之失效，只留 menu/backIcon 链还在用。）
  * 2. `maskExtraHeight` 官方默认 32vp，即模糊区天生往栏底之下多伸 32vp，会把首屏内容顶边糊掉
  *    （用户看到的"顶栏一直糊"就是这条）→ 压到 0，磨砂正好停在栏底。
  * 3. `blurRadius` 只在 GRADIENT_BLUR / IMMERSIVE_GRADIENT_BLUR 两档下出图，COMMON_BLUR 会把
@@ -14,7 +15,7 @@
  * 类型一律 `import type`：这些接口运行时擦除，不会像 hdsMaterial 那样在低版本上"import 即崩"。
  */
 
-import { LengthMetrics } from '@kit.ArkUI';
+import { ComponentContent, LengthMetrics, UIContext } from '@kit.ArkUI';
 import { ScrollEffectType } from '@kit.UIDesignKit';
 import type {
   HdsNavigationBackgroundStyle,
@@ -22,7 +23,6 @@ import type {
   HdsNavigationIconOptions,
   HdsNavigationMenuContentOptions,
   HdsNavigationMenuItemOptions,
-  HdsNavigationTitle,
   HdsNavigationTitleBarOptions,
   HdsNavigationTitleBarStyle,
   HdsNavigationTitleStyle,
@@ -34,6 +34,9 @@ import type {
   TitleBarStyleOptions
 } from '@kit.UIDesignKit';
 import { ColorTokens } from './ColorTokens';
+import { FontFamilyNames, TypeTokens } from './TypeTokens';
+import { SpaceTokens } from './SpaceTokens';
+import { getSharedUiContext } from '../utils/longTake/cardRect';
 import { HDS_MATERIAL_LEVEL_EXQUISITE, HDS_MATERIAL_TYPE_IMMERSIVE,
   isSystemMaterialActive } from '../utils/immersiveMaterial';
 
@@ -47,10 +50,20 @@ const BAR_BLUR_RADIUS: number = 50;
 /** 模糊渐变终点：从 0 推到这段距离内完成"不糊→糊" */
 const DEFAULT_BLUR_END_VP: number = 32;
 
+/** 官方返回键的占位（vp）：40vp 圆钮实测占 16~56vp。stackBuilder 那行 width('100%')
+ *  且 z 序在返回键之上，左内缩不留开会**吃掉返回键点击**（有据 ChatView 实测、
+ *  DraftBoxPage/SearchResultPage 同值 64，防漂移 31）。 */
+const BACK_SLOT_END_VP: number = 64;
+
 export interface ChromeSpec {
   mainTitle: string;
-  /** 副标题（如「3天2晚」「2026-07-01 – 07-03」），官方 small 档 */
+  /** 副标题（如「3天2晚」「2026-07-01 – 07-03」），自绘 small/caption 档 */
   subTitle?: string;
+  /**
+   * 左上角是否有官方返回键：默认 true（子页/向导/详情都是推入页）；Tab 根页
+   * hideBackButton(true) 的显式传 false，标题才从 base 起排而不是让出返回键位。
+   */
+  backSlot?: boolean;
   /** 右侧官方圆钮菜单（替代自绘 SymbolGlyph + onClick） */
   menu?: Array<HdsNavigationMenuItemOptions>;
   /** 栏内最多直出几枚图标，其余收进官方「更多」；不给即 3 */
@@ -77,6 +90,49 @@ export interface ChromeSpec {
   /** 本页是否存在可滚容器；false 时关滚动特效，避免静止态空糊 */
   scrollable?: boolean;
   blurEndVp?: number;
+}
+
+/**
+ * 栏标题自绘行（2026-11-09 对齐「有据」）：有据**所有**栏标题都是衬线＋品牌蓝
+ * （`stackBuilder` 自绘：profileStackTitle / messageBrandRow / draftTitleRow），
+ * HDS 内置 mainTitle 是系统默认 sans＋继承色——真机对照，用户点名不一致的就是这条。
+ * 两档口径全抄有据：
+ * · 根页（backSlot:false，无返回钮）：title 档 21/700/32，左内缩 base（16vp）
+ * · 子页（默认，有返回钮）：headline 档 18/600/24 **显式衬线**（有据 headline 档本身
+ *   不带族、draftTitleRow 显式给 serif），左内缩 64 让开返回键
+ * 副标题沿官方 small 档语义：caption 12/450 muted。
+ */
+@Builder
+function chromeTitleRow(spec: ChromeSpec) {
+  Row() {
+    Column() {
+      Text(spec.mainTitle)
+        .fontSize(spec.backSlot === false ? TypeTokens.title.size : TypeTokens.headline.size)
+        .fontFamily(spec.backSlot === false ? TypeTokens.title.family : FontFamilyNames.serif)
+        .fontWeight(spec.backSlot === false ? TypeTokens.title.weight : TypeTokens.headline.weight)
+        .lineHeight(spec.backSlot === false ? TypeTokens.title.lineHeight : TypeTokens.headline.lineHeight)
+        .fontColor(ColorTokens.primary)
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+      if (spec.subTitle !== undefined && spec.subTitle.length > 0) {
+        Text(spec.subTitle)
+          .fontSize(TypeTokens.caption.size)
+          .fontWeight(TypeTokens.caption.weight)
+          .lineHeight(TypeTokens.caption.lineHeight)
+          .fontColor(ColorTokens.muted)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+    }
+    .alignItems(HorizontalAlign.Start)
+  }
+  .width('100%')
+  .height('100%')
+  .alignItems(VerticalAlign.Center)
+  .padding({
+    left: spec.backSlot === false ? SpaceTokens.base : BACK_SLOT_END_VP,
+    right: SpaceTokens.base
+  })
 }
 
 export class HdsChrome {
@@ -137,17 +193,27 @@ export class HdsChrome {
       };
       style.systemMaterialEffect = material;
     }
-    const title: HdsNavigationTitle = {
-      mainTitle: spec.mainTitle,
-      subTitle: spec.subTitle
-    };
     let menu: HdsNavigationMenuContentOptions | undefined = undefined;
     if (spec.menu !== undefined && spec.menu.length > 0) {
       const cap: number = spec.menuMaxCount === undefined ? 3 : spec.menuMaxCount;
       const built: HdsNavigationMenuContentOptions = { value: spec.menu, maxCount: cap };
       menu = built;
     }
-    const content: TitleBarContentOptions = { title: title, menu: menu };
+    // 标题自绘走两条通道（2026-11-09）：真机实证（dump：Text 直挂 HdsTitleBar = 内置管线）
+    // 「静态类 lambda 直调全局 @Builder」在 API 26 运行时被**静默忽略**——全局 builder 没有
+    // 组件实例可绑。主通道改 `stackBuilderComponent`（ComponentContent 显式绑共享 UIContext，
+    // since 6.0.1(21)），wrapBuilder 包装同一个全局 builder；老 `stackBuilder` 通道保留给
+    // API 20–24 云手机兜底（新版字段在旧运行时上无害地被忽略）。文档写明 Content 系优先。
+    const content: TitleBarContentOptions = {
+      stackBuilder: (): void => {
+        chromeTitleRow(spec);
+      },
+      menu: menu
+    };
+    const ui: UIContext | null = getSharedUiContext();
+    if (ui !== null) {
+      content.stackBuilderComponent = HdsChrome.titleContentOf(ui, spec);
+    }
     if (spec.bottomBuilder !== undefined) {
       const row: BottomBuilderParams = {
         builder: spec.bottomBuilder,
@@ -168,6 +234,22 @@ export class HdsChrome {
       enableComponentSafeArea: false
     };
     return options;
+  }
+
+  /** 已建 ComponentContent 缓存：key = 标题|副标题|档位。标题串不变就复用同一份，
+   *  免得每次 build 重建内容造成标题闪动；行程页等动态标题变文案时会拿到新 key、建新份。 */
+  private static readonly titleCache: Map<string, ComponentContent<Object>> = new Map();
+
+  private static titleContentOf(ui: UIContext, spec: ChromeSpec): ComponentContent<Object> {
+    const key: string = `${spec.mainTitle}|${spec.subTitle ?? ''}|${spec.backSlot === false ? 'root' : 'back'}`;
+    const cached: ComponentContent<Object> | undefined = HdsChrome.titleCache.get(key);
+    if (cached !== undefined) {
+      return cached;
+    }
+    const made: ComponentContent<Object> = new ComponentContent(ui, wrapBuilder(chromeTitleRow), spec);
+    // 标题串集合有界（每页一枚 + 行程名若干），不设淘汰也涨不到哪去
+    HdsChrome.titleCache.set(key, made);
+    return made;
   }
 
   /**

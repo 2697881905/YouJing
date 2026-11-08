@@ -3,6 +3,34 @@
 > 生成日期：2026-10-15。初始化流程 P0–P7 全部完成，验收清单见第 2 节，遗留事项见第 4 节。
 
 
+## 4u. 栏标题对齐有据：衬线＋品牌蓝，`stackBuilder` 在 API 26 上静默失效的绕行（2026-11-09）
+
+用户报「每个页面的左上角 Title 与『有据』的 Title 字体不一致」。真机对照（同机深色模式）：有据栏标题是**衬线 + 品牌蓝**，有径是 HDS 内置 mainTitle 的**系统 sans + 继承色**。
+
+### 有据的口径（全应用统一，源码逐处核对）
+
+- **Tab 根页**（我的/消息/首页）：`stackBuilder` 自绘，`titleSerif` 21/700/32 + `fontColor(primary)`，左内缩 `base`（16vp），`hideBackButton(true)`；
+- **带返回键的子页**（草稿箱/帖子详情）：同 stackBuilder，`headline` 档 18/600 **显式衬线**，左内缩 64vp 让开官方返回键（40vp 圆钮实测占 16~56vp）；⚠ stackBuilder 行 `width('100%')` 且 z 序在返回键之上，**左内缩不留开会吃掉返回键点击**（有据 ChatView 实测）；
+- 字体族 `Noto Serif SC`（有径已注册同款为 `NotoSerifSC`，打包件同源）。
+
+### 第一版：全局 @Builder 直调 —— 真机静默失效
+
+`HdsChrome.bar` 把内置 `content.title` 换成 `stackBuilder: () => { chromeTitleRow(spec) }`（chromeTitleRow 为全局 @Builder）。编译过、装机后标题**仍是 sans + 白**。dump 定性：标题 `Text` **直挂 `HdsTitleBar`**（内置管线），builder 的 `Row>Column` 完全不在树上 —— 静态类 lambda 直调全局 @Builder 没有组件实例可绑，运行时**静默忽略**（无报错、无崩溃，最阴险的一类失效）。
+
+### 修正：`stackBuilderComponent`（ComponentContent，显式绑上下文）
+
+- 主通道改 `stackBuilderComponent = new ComponentContent(getSharedUiContext(), wrapBuilder(chromeTitleRow), spec)`（字段 since 6.0.1(21)）；`wrapBuilder` 包装同一个全局 builder；共享 UIContext 由 Index 启动时注入（`utils/longTake/cardRect.ets`，与截图 util 同源）；
+- 按 `标题|副标题|档位` 缓存 ComponentContent（标题集合有界），避免每次 build 重建内容抖动；动态标题（地图页行程名）变文案自然换 key；
+- 老 `stackBuilder` 通道保留给 API 20–24 云手机兜底（新字段在旧运行时上无害被忽略）；
+- `ChromeSpec` 新增 `backSlot?: boolean`（默认 true＝子页；五个 Tab 根页显式传 false），标题字号/内缩随档切换。
+
+### 验收
+
+- 装机 md5 `0eaab13bc05275ae0d94eee12473a566`；dump：`HdsTitleBar > StackCustomNode > Row > Column > Text`（builder 树就位）；根页标题取色 `(0,140,255)`＝#0A84FF 品牌蓝，3 倍放大字形衬线清晰；
+- 详情页（行程中）：衬线蓝「进行中 · Day 1」+ muted 副标题「01:01」，返回钮完整可见、**点击可返回**（64vp 内缩未吃点击）；
+- scroll 17/17、route 17 屏 0 失败、dock_tabs 无 FAIL + hypium 254/254、24 把静态尺净增 0（4 项既有基线）。
+
+
 ## 4t. 规划页重构为「出发页」：示例数据退出版面（2026-11-08）
 
 用户指令：「重构规划页，将规划页作为我们的入口重点主页面来做，重构所有布局、排版、UI 设计，不能让示例数据占这一页的大面积区域」。重构前那张「Day 1 · 京都」示例时间轴占屏幕约 55%，是整页视觉重心；真正的入口（开始规划按钮）反而只是上面一条；承诺块被裁在 dock 底下。

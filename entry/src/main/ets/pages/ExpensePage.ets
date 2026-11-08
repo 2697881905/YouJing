@@ -1063,7 +1063,7 @@ export struct ExpensePage {
       .clip(false)
       .titleMode(HdsNavigationTitleMode.MINI)
       .hideBackButton(true)
-      .titleBar(HdsChrome.bar({ mainTitle: '费用', scrolled: this.barScrolled }))
+      .titleBar(HdsChrome.bar({ mainTitle: '费用', backSlot: false, scrolled: this.barScrolled }))
       .navDestination(routerMap)
       .mode(NavigationMode.Stack)
       .width('100%')

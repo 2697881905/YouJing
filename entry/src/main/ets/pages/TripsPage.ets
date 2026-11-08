@@ -339,8 +339,9 @@ export struct TripsPage {
     if (this.selecting) {
       const n: number = this.selectedIds.length;
       const allSel: boolean = this.isAllVisibleSelected();
-      return HdsChrome.bar({ 
+      return HdsChrome.bar({
         mainTitle: n > 0 ? `已选 ${n} 条` : '选择行程',
+        backSlot: false,
         scrolled: this.barScrolled,
         subTitle: this.trips.length > 0 ? `${this.trips.length} 条` : '',
         menu: [
@@ -357,8 +358,9 @@ export struct TripsPage {
         ]
       });
     }
-    return HdsChrome.bar({ 
+    return HdsChrome.bar({
       mainTitle: '行程',
+      backSlot: false,
       scrolled: this.barScrolled,
       subTitle: this.trips.length > 0 ? `${this.trips.length} 条` : '',
       menu: [

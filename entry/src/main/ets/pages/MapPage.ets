@@ -192,7 +192,7 @@ export struct MapPage {
     const sub: string = this.stops.length > 0 ? `${this.stops.length} 站` : '';
     // 地图格没有纵向滚动正文（满幅底图 + 横向 chip 轨），关特效避免静止态空糊；
     // 收窄也不适用：满幅底图按断点内缩反而是错的（见 INIT_REPORT §5ci 宽屏走查段）
-    return HdsChrome.bar({ mainTitle: this.titleText, subTitle: sub, menu: items, scrollable: false });
+    return HdsChrome.bar({ mainTitle: this.titleText, backSlot: false, subTitle: sub, menu: items, scrollable: false });
   }
 
   private reload(): void {

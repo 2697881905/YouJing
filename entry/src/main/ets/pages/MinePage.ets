@@ -427,6 +427,7 @@ export struct MinePage {
       .hideBackButton(true)
       .titleBar(HdsChrome.bar({
         mainTitle: '我的',
+        backSlot: false,
         scrolled: this.barScrolled,
         
         menu: [HdsChrome.item($r('sys.symbol.plus'), '新建行程', (): void => {

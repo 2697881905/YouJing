@@ -411,7 +411,7 @@ export struct YoujingStartPage {
     }
     .titleMode(HdsNavigationTitleMode.MINI)
     .hideBackButton(true)
-    .titleBar(HdsChrome.bar({ mainTitle: '规划', scrolled: this.barScrolled }))
+    .titleBar(HdsChrome.bar({ mainTitle: '规划', backSlot: false, scrolled: this.barScrolled }))
     // 不收标题栏（2026-11-08 对标有据）：有据根页标题栏常驻——只有 HomeTab 用
     // hideBottomBuilder 收分段那一行，ProfilePage 完全没有 dynamicHideTitleBar。
     // 整条收起后滚动时顶部没有栏体磨砂，穿底内容直接顶到状态栏下，
