@@ -135,6 +135,8 @@ export struct YoujingStartPage {
   /**
    * 最近一趟：没有草稿时用它填「上次的痕迹」那一个位置。
    * 与草稿**互斥**（草稿优先）—— 入口页只需要一个「上次」，并排放两块只会分散注意力。
+   * 选哪一趟（2026-11-09 用户裁定）：**优先「进行中」的那趟**——入口页的「上次」要接得上
+   * 现在；没有在途才退最近更新的。与地图格 resolveAndReload 同一口径（TripWindow.isActive）。
    */
   private loadRecent(): void {
     const ctx: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
@@ -143,13 +145,19 @@ export struct YoujingStartPage {
       if (rows.length === 0) {
         return;
       }
-      const r: TripSummary = rows[0];
-      const days: number = YoujingStartPage.daysOf(r.startDate, r.endDate);
-      const active: boolean = TripWindow.isActive(r.startDate, r.endDate);
-      this.recentId = r.id;
-      this.recentLabel = `${r.destination} · ${days}天${days > 1 ? `${days - 1}晚` : ''}`;
-      this.recentMeta = `${active ? '进行中' : '已结束'} · ${r.spotCount} 站`;
-      Logger.info('Ui.Start', `最近行程就绪 id=${r.id} label=${this.recentLabel} meta=${this.recentMeta}`);
+      let picked: TripSummary = rows[0];
+      for (const row of rows) {
+        if (TripWindow.isActive(row.startDate, row.endDate)) {
+          picked = row;
+          break;
+        }
+      }
+      const days: number = YoujingStartPage.daysOf(picked.startDate, picked.endDate);
+      const active: boolean = TripWindow.isActive(picked.startDate, picked.endDate);
+      this.recentId = picked.id;
+      this.recentLabel = `${picked.destination} · ${days}天${days > 1 ? `${days - 1}晚` : ''}`;
+      this.recentMeta = `${active ? '进行中' : '已结束'} · ${picked.spotCount} 站`;
+      Logger.info('Ui.Start', `最近行程就绪 id=${picked.id} 在途=${active} label=${this.recentLabel} meta=${this.recentMeta}`);
     }).catch((err: Error): void => {
       Logger.warn('Ui.Start', `取最近行程失败: ${err.message}`);
     });
