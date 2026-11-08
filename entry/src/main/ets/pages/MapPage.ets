@@ -150,10 +150,21 @@ export struct MapPage {
           return;
         }
       }
+      // 没有在途行程：退到**最近一条**（哪怕已结束），出图 + 站点条，而不是给一张空底图。
+      // 2026-11-08 用户报「地图页无图」：原先这里直接置空态，而地图 tab 是唯一入口
+      // （route=Map 深链也走这条 rootMode 判断），于是只要有历史行程、当前又不在旅途中，
+      // 这一格就永远是一整片白。`reload()` 本来就有「退到最近一条」的兜底，这里不该绕过它。
+      if (rows.length > 0) {
+        this.onTripShown = false;
+        this.noOnTrip = true;
+        this.tripId = rows[0].id;
+        this.reload();
+        return;
+      }
       this.onTripShown = false;
       this.noOnTrip = true;
       this.loaded = true;
-      Logger.info('Ui.MapPage', '本机没有在途行程，地图页出引导空态');
+      Logger.info('Ui.MapPage', '本机没有任何行程，地图页出引导空态');
     }).catch((err: Error): void => {
       if (mySeq !== this.resolveSeq) {
         return;
@@ -384,6 +395,10 @@ export struct MapPage {
             .scrollable(ScrollDirection.Horizontal)
             .scrollBar(BarState.Off)
             .width('100%')
+            // 让开标题栏（2026-11-08）：内容区从窗口 0 起（enableComponentSafeArea:false），
+            // 这一行原本直接落在 106..281 的栏带里，与状态栏时钟、标题叠在一起。
+            // 地图页此前一直是无图空态、这行不渲染，所以从没暴露过。
+            .margin({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
           }
 
           Blank()

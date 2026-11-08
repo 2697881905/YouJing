@@ -3,6 +3,62 @@
 > 生成日期：2026-10-15。初始化流程 P0–P7 全部完成，验收清单见第 2 节，遗留事项见第 4 节。
 
 
+## 4s. 地图页无图：不是鉴权，是「只认在途行程」（2026-11-08）
+
+用户报「地图页无图」。页面整片白，只有标题「地图」和底部一句「今天没有在途行程 · 去规划一趟」。
+
+### 先排除鉴权
+
+`hilog` 里 `com.huawei.hms.mapservice` 的 `APPAUTH` 是 success，`BundleInfo clientId:020105ce…
+ResCode:200` —— 鉴权通、地图服务进程在跑。`TripMapView` 里也写了「鉴权失败时底图只是空白、不报错」，
+所以第一反应是这条，但日志否掉了。
+
+### 真因：`resolveAndReload` 绕过了「退到最近一条」
+
+`rootShell` 里是 `if (this.stops.length > 0) { TripMapView(...) }` —— `stops` 空就不挂地图。
+而 `stops` 由 `resolveAndReload()` 决定：
+
+```ts
+for (const r of rows) {
+  if (TripWindow.isActiveOn(r.startDate, r.endDate, today)) { ... this.reload(); return; }
+}
+this.onTripShown = false;
+this.noOnTrip = true;
+this.loaded = true;        // ← 没有在途行程就直接空态，不再往下走
+```
+
+地图 tab 是**唯一入口**（`route=Map` 深链也走这条 rootMode 分支——实测日志每次都打
+「本机没有在途行程」），所以只要手上有历史行程、当前又不在旅途中，这一格就永远是一整片白。
+`reload()` 里本来就有「退到本机最近一条行程，而不是给一张空底图」的兜底，只是这条路根本没走到它。
+
+### 改了两处
+
+1. `resolveAndReload`：没有在途行程时**退到最近一条**（`rows[0]`）并 `reload()`，同时保留
+   `noOnTrip = true` 供其它地方判断；只有本机一条行程都没有时才出引导空态。
+2. `chips` 行让开标题栏：`全程 / Day N` 那一行原本从 y=106 起，正好落在 106..281 的栏带里，
+   与状态栏时钟、标题叠在一起。地图页此前一直是无图空态、这一行不渲染，所以从没暴露过；
+   出图后立刻顶到脸上。加 `.margin({ top: contentTopInset(statusBarHeight) })` 后落到栏底。
+
+### 真机效果（装机 md5 `eefbc32a97df005bf57dd27baf2a1b29`）
+
+- 标题「北京 · 3天2晚」/ 副标题「8 站」；
+- 底图正常出图（绿地、水系、道路），两枚带序号的蓝色地图钉（2、7）落在正确位置；
+- `全程`（蓝底选中）+ `Day 1 / 2 / 3` 落在标题之下，不再压状态栏；
+- 底部站点条（`1 故宫博物院` `2 八达岭长城` `3 颐和园…`）浮在 dock 之上，没有被遮。
+
+### 两点说明
+
+- 现在显示的是**最近一条**行程，哪怕它已经结束（数据里是 11-04~06 的北京 3 天）。标题没有
+  「已结束」标记，可能让人误以为在途 —— 要不要加，等用户定，本轮没自作主张加。
+- `chips` 的 Button 声明了 `height(minTouchTarget)`（44vp），dump 里量到 32px 高；这是既有的
+  渲染差，与本次改动无关，未动。
+
+### 回归
+
+- `verify_scroll_clearance.py`：17/17 ok（地图屏末边 749.1→736.6、净空 40.0，站点条位置变化所致，仍合规）；
+- `verify_route_sweep.py --density 3.125`：17/17 OK；
+- 24 把静态尺：`elevation` 2 / `geometry` 3 / `layout_patterns` 1 / `motion` 15 全为既有基线，净增 0。
+
 ## 4r. 详情页同样中招：让位写进 padding，内容滚到栏底就被切（2026-11-08）
 
 用户澄清「是顶部栏，不是顶部蓝」，并指出**滚动时下方内容会被顶部栏白底截断**。
