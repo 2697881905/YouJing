@@ -18,6 +18,26 @@ export interface LlmRequest {
   jsonSchemaStrict: boolean;
 }
 
+/** P1 AI 精选：端侧发来的候选（字段刻意精简，省 token 也压缩幻觉面） */
+export interface PickCandidate {
+  id: string;
+  name: string;
+  tag: string;
+  brief: string;
+  district: string;
+  popularity: number;
+  suggestedDuration: number;
+  requiresBooking: boolean;
+}
+
+export interface PickPromptInput {
+  city: string;
+  days: number;
+  pace: string;
+  interests: string;
+  candidates: PickCandidate[];
+}
+
 export class PromptBuilder {
   static buildRequest(params: PlanParams, spots: Spot[], area: Area): LlmRequest {
     const req: LlmRequest = {
@@ -134,5 +154,34 @@ export class PromptBuilder {
         `${sel.userNote !== undefined ? `｜用户备注:${sel.userNote}` : ''}`);
     }
     return lines.join('\n');
+  }
+
+  /**
+   * P1 AI 精选（景点/住宿片区的排序 + 一句理由）。
+   * 与生成提示词同源：本文件是 SOT，BFF 通过 sync-prompt-contract.mjs 取生成物，
+   * 云函数不另写第二份规则。
+   */
+  static pickSystemPrompt(): string {
+    const lines: string[] = [];
+    lines.push('你是旅行选点助手。用户已给出候选池，你只能在候选内排序与取舍。');
+    lines.push('必须遵守：');
+    lines.push('1. ranked 必须恰好包含每个候选 id 一次，不得新增候选、遗漏或重复；');
+    lines.push('2. 每个 reason 不超过 40 个汉字，只能引用候选自带的 brief/tag/预约信息，' +
+      '禁止编造候选里没有的事实（营业时间、门票、距离、活动）；');
+    lines.push('3. 排序依据：用户兴趣与标签匹配、天数与节奏是否装得下、同类景点去重；');
+    lines.push('4. note 不超过 100 字，给用户一句总体建议；');
+    lines.push('5. 只输出 JSON，不要 Markdown 围栏或解释。');
+    lines.push('输出格式：{"ranked":[{"id":"...","reason":"..."}],"note":"..."}');
+    return lines.join('\n');
+  }
+
+  static pickUserPrompt(input: PickPromptInput): string {
+    return JSON.stringify({
+      city: input.city,
+      days: input.days,
+      pace: input.pace,
+      interests: input.interests,
+      candidates: input.candidates
+    });
   }
 }

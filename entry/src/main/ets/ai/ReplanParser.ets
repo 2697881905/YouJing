@@ -7,8 +7,9 @@ import { TripParser } from './TripParser';
 import { AppError } from '../common/error/AppError';
 import { ErrorCode } from '../common/error/ErrorCode';
 import {
-  FreeBlock, KeepStop, ReplanDecision, REPLAN_MAX_DWELL, REPLAN_MAX_FREE_BLOCKS, REPLAN_MAX_FREE_MIN,
-  REPLAN_MAX_KEEP, REPLAN_MAX_NOTE, REPLAN_MIN_DWELL, REPLAN_MIN_FREE_MIN, REPLAN_SCHEMA_VERSION
+  FreeBlock, KeepStop, ReplanAction, ReplanDecision, REPLAN_MAX_DWELL, REPLAN_MAX_FREE_BLOCKS,
+  REPLAN_MAX_FREE_MIN, REPLAN_MAX_KEEP, REPLAN_MAX_NOTE, REPLAN_MIN_DWELL, REPLAN_MIN_FREE_MIN,
+  REPLAN_SCHEMA_VERSION
 } from '../model/Replan';
 
 type Obj = Record<string, Object>;
@@ -86,7 +87,40 @@ export class ReplanParser {
       freeBlocks: freeBlocks,
       note: note
     };
+    // P3 对话式可选字段：只有云函数按意图返回时才出现
+    const actionRaw: Object | undefined = root['action'];
+    if (actionRaw !== undefined && actionRaw !== null) {
+      if (typeof actionRaw !== 'string' || !ReplanParser.isAction(actionRaw as string)) {
+        throw new AppError(ErrorCode.TYPE_GUARD_FAILED, `action=${String(actionRaw)} 不受支持`);
+      }
+      decision.action = actionRaw as ReplanAction;
+    }
+    const targetId: string | undefined = ReplanParser.optStr(root['targetId'], 'targetId');
+    if (targetId !== undefined) {
+      decision.targetId = targetId;
+    }
+    const newStopId: string | undefined = ReplanParser.optStr(root['newStopId'], 'newStopId');
+    if (newStopId !== undefined) {
+      decision.newStopId = newStopId;
+    }
+    const shiftMinutes: number | undefined = ReplanParser.optInt(root['shiftMinutes'], 'shiftMinutes');
+    if (shiftMinutes !== undefined) {
+      if (shiftMinutes < REPLAN_MIN_DWELL || shiftMinutes > REPLAN_MAX_DWELL) {
+        throw new AppError(ErrorCode.SCHEMA_VALIDATION_FAILED,
+          `shiftMinutes=${shiftMinutes} 越界 [${REPLAN_MIN_DWELL},${REPLAN_MAX_DWELL}]`);
+      }
+      decision.shiftMinutes = shiftMinutes;
+    }
+    const skipRemaining: boolean | undefined = ReplanParser.optBool(root['skipRemaining'], 'skipRemaining');
+    if (skipRemaining !== undefined) {
+      decision.skipRemaining = skipRemaining;
+    }
     return decision;
+  }
+
+  private static isAction(value: string): boolean {
+    return value === ReplanAction.SKIP || value === ReplanAction.SHIFT ||
+      value === ReplanAction.ADD || value === ReplanAction.REPLACE;
   }
 
   // ---- 收口原语（与 TripParser 同口径） ----
@@ -148,5 +182,25 @@ export class ReplanParser {
       throw new AppError(ErrorCode.TYPE_GUARD_FAILED, `${p}: 期望整数`);
     }
     return n;
+  }
+
+  private static optInt(v: Object | undefined, p: string): number | undefined {
+    if (v === undefined || v === null) {
+      return undefined;
+    }
+    if (typeof v !== 'number' || !Number.isInteger(v as number)) {
+      throw new AppError(ErrorCode.TYPE_GUARD_FAILED, `${p}: 期望整数`);
+    }
+    return v as number;
+  }
+
+  private static optBool(v: Object | undefined, p: string): boolean | undefined {
+    if (v === undefined || v === null) {
+      return undefined;
+    }
+    if (typeof v !== 'boolean') {
+      throw new AppError(ErrorCode.TYPE_GUARD_FAILED, `${p}: 期望 boolean`);
+    }
+    return v as boolean;
   }
 }

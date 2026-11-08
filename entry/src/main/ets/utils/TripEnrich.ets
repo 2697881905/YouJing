@@ -78,6 +78,31 @@ export function backfillActivityPlaces(trip: Trip, spots: Spot[]): number {
 }
 
 /**
+ * 把景点库的「需提前几天预约」写进对应活动，供系统提醒按各自提前量逐条排。
+ * 只处理 sight 类且库里确实有 advanceDays 的节点；库里没有就保持 undefined（提醒按 1 天兜底），
+ * 不拿"1 天"去冒充库里的真值。返回被写入的活动条数。
+ */
+export function backfillBooking(trip: Trip, spots: Spot[]): number {
+  let filled: number = 0;
+  for (const day of trip.days) {
+    for (const act of day.activities) {
+      if (act.category !== ActivityCategory.SIGHT) {
+        continue;
+      }
+      const spot: Spot | undefined = matchSpot(act, spots);
+      if (spot === undefined || spot.booking.advanceDays === undefined) {
+        continue;
+      }
+      if (act.advanceDays !== spot.booking.advanceDays) {
+        act.advanceDays = spot.booking.advanceDays;
+        filled += 1;
+      }
+    }
+  }
+  return filled;
+}
+
+/**
  * 把 MapKit 景点的「每日一致开放时段」写进对应 sight 活动的 note。
  * 只处理 category=sight；餐次/交通/酒店不写。note 已有同一时段时不重复追加。
  * 返回被写入的活动条数。

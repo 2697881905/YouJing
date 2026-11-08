@@ -1,4 +1,10 @@
-import { AbilityConstant, Configuration, ConfigurationConstant, skillManager, UIAbility, Want } from '@kit.AbilityKit';
+import {
+  AbilityConstant, abilityAccessCtrl, Configuration, ConfigurationConstant, Permissions, skillManager, UIAbility, Want,
+  wantAgent, WantAgent
+} from '@kit.AbilityKit';
+import { geoLocationManager } from '@kit.LocationKit';
+import { liveViewManager } from '@kit.LiveViewKit';
+import { BusinessError } from '@kit.BasicServicesKit';
 import { display, window } from '@kit.ArkUI';
 import { resourceManager } from '@kit.LocalizationKit';
 import { initBreakpointCenter } from '../utils/breakpointCenter';
@@ -16,6 +22,7 @@ import { WidgetSync } from '../widget/TodayCard';
 import { TopStrip } from '../utils/TopStrip';
 import { initNavModeWatcher, refreshNavMode, publishNavAvoid } from '../utils/navMode';
 import { setSystemBarRefresher } from '../utils/systemBar';
+import { TripReminder } from '../data/TripReminder';
 
 export default class EntryAbility extends UIAbility {
   private pendingRoute: string = '';
@@ -39,6 +46,164 @@ export default class EntryAbility extends UIAbility {
     this.applyColorProbe(want);
     this.seedDarkMode();
     this.applyWant(want);
+    this.maybeReminderProbe(want);
+    this.maybeGeofenceProbe(want);
+    this.maybeLiveProbe(want);
+  }
+
+  /** P5 实况窗探针：`--ps liveprobe 1` 只查「围栏触发式实况窗」开关，不创建实况窗 */
+  private maybeLiveProbe(want: Want): void {
+    if (!BuildConfig.IS_DEBUG) {
+      return;
+    }
+    const params: Record<string, Object> | undefined = want.parameters;
+    if (params === undefined || EntryAbility.wantString(params, 'liveprobe') !== '1') {
+      return;
+    }
+    this.runLiveProbe();
+  }
+
+  private async runLiveProbe(): Promise<void> {
+    const tag: string = 'Probe.LiveView';
+    try {
+      const enabled: boolean = await liveViewManager.isGeofenceTriggerEnabled();
+      Logger.info(tag, `isGeofenceTriggerEnabled=${enabled}`);
+    } catch (err) {
+      const be: BusinessError = err as BusinessError;
+      Logger.error(tag, `查询失败 code=${be.code} msg=${be.message}`);
+      return;
+    }
+    let clickAction: WantAgent;
+    try {
+      const info: wantAgent.WantAgentInfo = {
+        wants: [{ bundleName: 'com.youjing.app', abilityName: 'EntryAbility' }],
+        actionType: wantAgent.OperationType.START_ABILITY,
+        requestCode: 1,
+        actionFlags: [wantAgent.WantAgentFlags.UPDATE_PRESENT_FLAG]
+      };
+      clickAction = await wantAgent.getWantAgent(info);
+    } catch (err) {
+      const be: BusinessError = err as BusinessError;
+      Logger.error(tag, `clickAction 创建失败 code=${be.code} msg=${be.message}`);
+      return;
+    }
+    const layout: liveViewManager.PickupLayout = {
+      layoutType: liveViewManager.LayoutType.LAYOUT_TYPE_PICKUP,
+      title: '下一站',
+      content: '博览园 · 可以打卡了',
+      descPic: 'liveview_pickup.png'
+    };
+    const live: liveViewManager.LiveView = {
+      id: 20261109,
+      event: 'CHECK_IN',
+      liveViewData: {
+        primary: {
+          title: '有径 · 到站提醒',
+          content: [{ text: '已到博览园，可以打卡了' }],
+          clickAction: clickAction,
+          layoutData: layout
+        }
+      }
+    };
+    const trigger: liveViewManager.Trigger = {
+      type: liveViewManager.TriggerType.TRIGGER_TYPE_GEOFENCE,
+      condition: {
+        coordinateSystemType: liveViewManager.CoordinateSystemType.COORDINATE_TYPE_GCJ02,
+        longitude: 108.0700,
+        latitude: 34.2680,
+        radius: 200,
+        monitorEvent: liveViewManager.MonitorEvent.MONITOR_TYPE_ENTRY,
+        delayTime: 0
+      },
+      displayTime: 900
+    };
+    try {
+      const result: liveViewManager.LiveViewResult =
+        await liveViewManager.startLiveViewByTrigger(live, trigger);
+      Logger.info(tag, `startLiveViewByTrigger 成功 ${JSON.stringify(result)}`);
+    } catch (err) {
+      const be: BusinessError = err as BusinessError;
+      Logger.error(tag, `startLiveViewByTrigger 失败 code=${be.code} msg=${be.message}`);
+    }
+  }
+
+  /**
+   * P5 围栏探针：`aa start ... --ps geoprobe 1` 用杨凌博览园坐标注册一个 100m 围栏。
+   * 注册成功/失败码就是「AGC 围栏服务是否开通」的运行时证据；只在 debug 版生效。
+   */
+  private maybeGeofenceProbe(want: Want): void {
+    if (!BuildConfig.IS_DEBUG) {
+      return;
+    }
+    const params: Record<string, Object> | undefined = want.parameters;
+    if (params === undefined || EntryAbility.wantString(params, 'geoprobe') !== '1') {
+      return;
+    }
+    this.runGeofenceProbe();
+  }
+
+  private async runGeofenceProbe(): Promise<void> {
+    const tag: string = 'Probe.Geofence';
+    try {
+      const atManager: abilityAccessCtrl.AtManager = abilityAccessCtrl.createAtManager();
+      const perms: Permissions[] = ['ohos.permission.LOCATION', 'ohos.permission.APPROXIMATELY_LOCATION'];
+      const grant = await atManager.requestPermissionsFromUser(this.context, perms);
+      Logger.info(tag, `授权 authResults=${JSON.stringify(grant.authResults)}`);
+    } catch (err) {
+      const be: BusinessError = err as BusinessError;
+      Logger.error(tag, `授权异常 code=${be.code} ${be.message}`);
+      return;
+    }
+    const fence: geoLocationManager.Geofence = {
+      latitude: 34.2680, longitude: 108.0700, radius: 100, expiration: 600
+    };
+    const request: geoLocationManager.GnssGeofenceRequest = {
+      geofence: fence,
+      monitorTransitionEvents: [
+        geoLocationManager.GeofenceTransitionEvent.GEOFENCE_TRANSITION_EVENT_ENTER,
+        geoLocationManager.GeofenceTransitionEvent.GEOFENCE_TRANSITION_EVENT_DWELL
+      ],
+      loiterTimeMs: 10000,
+      geofenceTransitionCallback: (err: BusinessError, transition: geoLocationManager.GeofenceTransition): void => {
+        Logger.info(tag, `围栏事件 err=${err === null || err === undefined ? 0 : err.code} ` +
+          `payload=${JSON.stringify(transition)}`);
+      }
+    };
+    try {
+      const id: number = await geoLocationManager.addGnssGeofence(request);
+      Logger.info(tag, `围栏注册成功 id=${id}`);
+    } catch (err) {
+      const be: BusinessError = err as BusinessError;
+      Logger.error(tag, `围栏注册失败 code=${be.code} msg=${be.message}`);
+    }
+  }
+
+  /**
+   * 提醒探针：`aa start -a EntryAbility -b com.youjing.app --ps remindprobe 45`
+   * 发一条 45 秒后的系统提醒，用于真机验收 P4「退后台/锁屏后提醒真的响」。
+   * 只在 debug 版生效；不带参数时零行为。
+   */
+  private maybeReminderProbe(want: Want): void {
+    if (!BuildConfig.IS_DEBUG) {
+      return;
+    }
+    const params: Record<string, Object> | undefined = want.parameters;
+    if (params === undefined) {
+      return;
+    }
+    const raw: Object | undefined = params['remindprobe'];
+    let seconds: number = 0;
+    if (typeof raw === 'number') {
+      seconds = raw as number;
+    } else if (typeof raw === 'string') {
+      seconds = Number(raw as string);
+    }
+    if (!(seconds > 0)) {
+      return;
+    }
+    TripReminder.publishProbe(this.context, seconds).catch((err: Error) => {
+      Logger.error('EntryAbility', `提醒探针失败: ${err.message}`);
+    });
   }
 
   /**

@@ -25,6 +25,7 @@ import { TimeText } from '../utils/TimeText';
 import { TimelineNode } from '../components/TimelineNode';
 import { TripMapView } from '../components/TripMapView';
 import { AccessFlags, CalendarSync, SyncResult } from '../data/CalendarSync';
+import { ReminderSyncResult, TripReminder } from '../data/TripReminder';
 import { EntitlementStore } from '../data/EntitlementStore';
 import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
@@ -134,6 +135,8 @@ export struct ItineraryPage {
   @State private syncCalendar: boolean = false;
   @State private syncCard: boolean = true;
   @State private syncRemind: boolean = false;
+  /** 写入中：按钮置灰并改文案，避免重复提交（本地确认 → 处理中 → 真实确认） */
+  @State private writingSystem: boolean = false;
   @State private days: TripDay[] = [];
   /** 地图面板的当天落点（坐标不可用的站点已在 MapStops 里滤掉） */
   @State private dayStops: MapStop[] = [];
@@ -351,26 +354,14 @@ export struct ItineraryPage {
     return `备注 ${desc}`;
   }
 
-  /** 同意并写入：先申请权限，未授权不写任何数据；开关状态落 preferences */
+  /**
+   * 同意并写入。提醒与日历是两条独立通路：
+   * - 提醒（reminderAgentManager）不经过 canExport：主动提醒是基础体验，不该被导出墙拦；
+   * - 日历写入仍受既有导出权益约束。
+   * 状态口径：提交即本地确认（toast），写入中按钮置灰（处理中），系统回执后才报真实结果。
+   */
   private writeToSystem(): void {
-    const ctx: common.UIAbilityContext = this.ctx();
-    const flags: AccessFlags = {
-      calendar: this.syncCalendar, card: this.syncCard,
-      // 提醒的载体是日历事件，没开日历同步就不落 remind
-      remind: this.syncCalendar ? this.syncRemind : false
-    };
-    if (this.syncRemind && !this.syncCalendar) {
-      this.toast('提醒要落在日历事件上，本次未开日历同步，未写入提醒');
-    }
-    CalendarSync.saveFlags(ctx, flags).then((): Promise<void> => {
-      // 卡片开关要当场见效：关掉后立刻把桌面卡片打回空态，开启则马上回灌
-      return WidgetSync.refreshAll(ctx);
-    }).catch((err: Error) => {
-      Logger.warn('Ui.Itinerary', `触达开关保存失败: ${err.message}`);
-    });
-    if (!flags.calendar) {
-      this.toast('行程仅保存在本机');
-      this.showSystemAccess = false;
+    if (this.writingSystem) {
       return;
     }
     const trip: Trip | null = this.trip;
@@ -378,22 +369,75 @@ export struct ItineraryPage {
       this.toast('行程数据未就绪，稍后再试');
       return;
     }
-    CalendarSync.requestPermission(ctx).then((granted: boolean): Promise<SyncResult> => {
-      if (!granted) {
-        throw new Error('未授予日历权限');
-      }
-      if (!EntitlementStore.canExport(trip.id)) {
-        throw new Error('导出需解锁通行证或订阅');
-      }
-      return CalendarSync.syncTrip(ctx, trip, flags);
-    }).then((r: SyncResult): void => {
-      this.toast(`已写入 ${r.bookingEvents} 个预约节点 + ${r.dayEvents} 天行程`);
-    }).catch((err: Error) => {
-      Logger.warn('Ui.Itinerary', `日历写入失败: ${err.message}`);
-      this.toast(`日历写入失败：${err.message}`);
+    this.writingSystem = true;
+    this.toast('已提交，正在写入系统…');
+    this.commitSystemAccess(trip).catch((err: Error) => {
+      Logger.warn('Ui.Itinerary', `写入系统失败: ${err.message}`);
+      this.toast(`写入失败：${err.message}`);
     }).finally((): void => {
+      this.writingSystem = false;
       this.showSystemAccess = false;
     });
+  }
+
+  private async commitSystemAccess(trip: Trip): Promise<void> {
+    const ctx: common.UIAbilityContext = this.ctx();
+    const flags: AccessFlags = {
+      calendar: this.syncCalendar, card: this.syncCard, remind: this.syncRemind
+    };
+    try {
+      await CalendarSync.saveFlags(ctx, flags);
+      // 卡片开关要当场见效：关掉后立刻把桌面卡片打回空态，开启则马上回灌
+      await WidgetSync.refreshAll(ctx);
+    } catch (err) {
+      Logger.warn('Ui.Itinerary', `触达开关保存失败: ${(err as Error).message}`);
+    }
+    if (!flags.calendar && !flags.remind) {
+      await TripReminder.cancelTrip(ctx, trip.id).catch((err: Error) => {
+        Logger.warn('Ui.Itinerary', `撤销提醒失败: ${err.message}`);
+      });
+      this.toast('行程仅保存在本机');
+      return;
+    }
+    const parts: string[] = [];
+    if (flags.remind) {
+      const r: ReminderSyncResult = await TripReminder.syncTrip(ctx, trip);
+      if (!r.notificationsEnabled) {
+        this.toast('系统通知未开启，提醒可能不响；请到系统设置里允许有径通知');
+      } else if (r.blockedByCapability && r.scheduled === 0) {
+        this.toast('系统代理提醒未开通，锁屏提醒暂不可用');
+      }
+      if (r.scheduled > 0) {
+        parts.push(r.failed > 0 ? `${r.scheduled} 条提醒（${r.failed} 条失败）` : `${r.scheduled} 条提醒`);
+      } else if (r.blockedByCapability) {
+        parts.push('代理提醒未开通');
+      } else if (r.failed > 0) {
+        parts.push('提醒发布失败');
+      } else {
+        parts.push('没有未来提醒可设');
+      }
+    } else {
+      await TripReminder.cancelTrip(ctx, trip.id).catch((err: Error) => {
+        Logger.warn('Ui.Itinerary', `撤销提醒失败: ${err.message}`);
+      });
+    }
+    if (flags.calendar) {
+      const granted: boolean = await CalendarSync.requestPermission(ctx);
+      if (!granted) {
+        parts.push('日历未授权');
+      } else if (!EntitlementStore.canExport(trip.id)) {
+        parts.push('日历需解锁通行证');
+      } else {
+        try {
+          const r: SyncResult = await CalendarSync.syncTrip(ctx, trip, flags);
+          parts.push(`${r.bookingEvents} 个预约节点 + ${r.dayEvents} 天行程`);
+        } catch (err) {
+          Logger.warn('Ui.Itinerary', `日历写入失败: ${(err as Error).message}`);
+          parts.push('日历写入失败');
+        }
+      }
+    }
+    this.toast(`已写入 ${parts.join('，')}`);
   }
 
   private ctx(): common.UIAbilityContext {
@@ -464,7 +508,8 @@ export struct ItineraryPage {
       const copy: Activity = {
         id: a.id, time: times[i], endTime: ends[i], title: a.title, location: a.location,
         address: a.address, longitude: a.longitude, latitude: a.latitude, status: a.status,
-        category: a.category, note: a.note, reason: a.reason, transport: a.transport
+        category: a.category, advanceDays: a.advanceDays, note: a.note, reason: a.reason,
+        transport: a.transport
       };
       return copy;
     });
@@ -1188,10 +1233,9 @@ export struct ItineraryPage {
             this.syncCard = v;
           })
         Divider().strokeWidth(LayoutTokens.hairlineWidth).color(ColorTokens.separator)
-        // 提醒的载体是日历事件（reminderTime 提前 1440 分钟），所以文案把依赖写死在句子里：
-        // @Builder 参数是值快照、bindSheet 内容又不随父 @State 重绘，面板内做不出"实时置灰"，
-        // 未开日历同步时由 writeToSystem 落 remind=false 并 toast 说明。
-        this.accessRow('提醒', '需预约节点提前 1 天提醒（随日历同步写入）', this.syncRemind,
+        // 提醒走系统提醒代理，不依赖日历同步、也不经过导出付费墙：
+        // 出发前、预约提前（按节点 advanceDays）与每日晨间播报各一条。
+        this.accessRow('提醒', '出发前、预约提前与每日晨间，锁屏也会响', this.syncRemind,
           (v: boolean): void => {
             this.syncRemind = v;
           })
@@ -1239,6 +1283,12 @@ export struct ItineraryPage {
             // 「仅本机保存」= 一条系统通路都不走：桌面卡片也是系统面，一并关掉并立刻停供数
             this.syncCard = false;
             this.syncRemind = false;
+            const trip: Trip | null = this.trip;
+            if (trip !== null) {
+              TripReminder.cancelTrip(ctx, trip.id).catch((err: Error) => {
+                Logger.warn('Ui.Itinerary', `撤销提醒失败: ${err.message}`);
+              });
+            }
             CalendarSync.saveFlags(ctx, { calendar: false, card: false, remind: false })
               .then((): Promise<void> => {
                 return WidgetSync.refreshAll(ctx);
@@ -1252,8 +1302,9 @@ export struct ItineraryPage {
         Column() {
           YoujingButton({
             variant: YoujingButtonVariant.PRIMARY,
-            label: '同意并写入',
+            label: this.writingSystem ? '正在写入…' : '同意并写入',
             fullWidth: true,
+            disabled: this.writingSystem,
             onAction: (): void => {
               this.writeToSystem();
             }

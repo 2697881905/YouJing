@@ -117,7 +117,7 @@ export struct EditItineraryPage {
         id: act.id, time: slot.time, endTime: slot.endTime, title: act.title,
         location: act.location, address: act.address, longitude: act.longitude,
         latitude: act.latitude, status: act.status, category: act.category,
-        note: act.note, reason: act.reason, transport: act.transport
+        advanceDays: act.advanceDays, note: act.note, reason: act.reason, transport: act.transport
       };
       return kept;
     });
@@ -219,7 +219,8 @@ export struct EditItineraryPage {
       location: EditItineraryPage.placeOf(spot), address: EditItineraryPage.placeOf(spot),
       longitude: spot.longitude, latitude: spot.latitude,
       status: spot.booking.requiresBooking ? ActivityStatus.NOT_BOOKED : ActivityStatus.NO_NEED,
-      category: ActivityCategory.SIGHT, note: old.note, reason: old.reason, transport: old.transport
+      category: ActivityCategory.SIGHT, advanceDays: spot.booking.advanceDays,
+      note: old.note, reason: old.reason, transport: old.transport
     };
     const next: Activity[] = this.acts.slice();
     next[idx] = replacement;
@@ -240,7 +241,7 @@ export struct EditItineraryPage {
       location: EditItineraryPage.placeOf(spot), address: EditItineraryPage.placeOf(spot),
       longitude: spot.longitude, latitude: spot.latitude,
       status: spot.booking.requiresBooking ? ActivityStatus.NOT_BOOKED : ActivityStatus.NO_NEED,
-      category: ActivityCategory.SIGHT,
+      category: ActivityCategory.SIGHT, advanceDays: spot.booking.advanceDays,
       note: spot.booking.requiresBooking ? `预约：${spot.booking.bookingMethod ?? '官方渠道'}（以官方为准）` : undefined,
       reason: undefined,
       // 不编通勤腿：补选进来的站点没有真实距离，缺 transport 时时间线本就不画这一段
@@ -266,7 +267,8 @@ export struct EditItineraryPage {
       const copy: Activity = {
         id: a.id, time: a.time, endTime: a.endTime, title: a.title, location: a.location,
         address: a.address, longitude: a.longitude, latitude: a.latitude, status: a.status,
-        category: a.category, note: a.note, reason: a.reason, transport: a.transport
+        category: a.category, advanceDays: a.advanceDays, note: a.note, reason: a.reason,
+        transport: a.transport
       };
       return copy;
     });

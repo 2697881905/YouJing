@@ -21,7 +21,11 @@ import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { TimelineNode } from '../components/TimelineNode';
 import { Activity, ActivityCategory, ActivityStatus, MealType, Trip, TripDay } from '../model/Trip';
-import { ReplanDecision, ReplanOutcome } from '../model/Replan';
+import { ReplanAction, ReplanDecision, ReplanOutcome } from '../model/Replan';
+import { Spot } from '../model/Spot';
+import { PlanRepository } from '../data/PlanRepository';
+import { mintEditActivityId } from '../utils/ActivityIds';
+import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
 import { WeatherBrief, WeatherDay } from '../model/Weather';
 import { TripDao } from '../data/TripDao';
 import { SkipPlanner } from '../data/SkipPlanner';
@@ -39,6 +43,11 @@ import { ReplanClient } from '../ai/ReplanClient';
 import { DateUtils } from '../utils/DateUtils';
 import { Geo, GeoPoint } from '../utils/Geo';
 import { ArrivalWatcher, LocationFix } from '../common/location/ArrivalWatcher';
+import { GeofenceManager } from '../common/location/GeofenceManager';
+import { ArrivalNotice } from '../common/location/ArrivalNotice';
+import { TripLiveView } from '../common/liveview/TripLiveView';
+import { LiveViewConfig } from '../common/liveview/LiveViewConfig';
+import { FenceSpec } from '../utils/GeofencePlan';
 import { WidgetSync } from '../widget/TodayCard';
 import { TransitSymbol } from '../utils/TransitSymbol';
 import { NodeOwe, OweItem } from '../utils/NodeOwe';
@@ -146,6 +155,20 @@ export struct OnTripPage {
   /** 顶部提示：正在重排 / 重排结果 / 失败原因 */
   @State private notice: string = '';
   @State private canUndo: boolean = false;
+  /** 加一站面板（屏9 同一套候选逻辑：排除当日已在的站） */
+  @State private showAdd: boolean = false;
+  @State private addCandidates: Spot[] = [];
+  /** P3 对话式接管：输入 → 预演 → 用户确认后才落库 */
+  @State private showIntent: boolean = false;
+  @State private intentText: string = '';
+  @State private intentPreview: string = '';
+  @State private intentBusy: boolean = false;
+  /** 预演已就绪（可点「确认执行」）；false 时按钮是「理解并预演」 */
+  @State private intentReady: boolean = false;
+  private intentOutcome: ReplanOutcome | null = null;
+  private intentSnapshot: TripDay | null = null;
+  /** add 动作不在预演里改行程，确认后打开加一站面板 */
+  private intentOpenAdd: boolean = false;
   /** 「不去」只在今天提供；回看历史日不出现 */
   @State private isToday: boolean = false;
   /** 当前展示的整日；跳过/撤销都以它为输入 */
@@ -159,6 +182,11 @@ export struct OnTripPage {
   @StorageProp('statusBarHeight') statusBarHeight: number = 0;
   private watcher: ArrivalWatcher = new ArrivalWatcher();
   private watcherActive: boolean = false;
+  /** P5 到站围栏：注册成功才走系统事件，失败静默降级为前台定位 */
+  private geofence: GeofenceManager = new GeofenceManager();
+  private geofenceDayKey: string = '';
+  /** 实况窗预登记键：登记的是「即将到达」而不是「已经到达」的站 */
+  private liveViewKey: string = '';
   /** 权限弹窗还没回来：避免 reload 连点导致重复 start */
   private watcherStarting: boolean = false;
   private lastFix: LocationFix | null = null;
@@ -200,6 +228,10 @@ export struct OnTripPage {
     this.watcher.stop();
     this.watcherActive = false;
     this.watcherStarting = false;
+    this.geofence.stop();
+    this.geofenceDayKey = '';
+    this.liveViewKey = '';
+    TripLiveView.stop();
     this.closeBadgeDialog();
   }
 
@@ -400,6 +432,428 @@ export struct OnTripPage {
       return;
     }
     await this.commitDay(trip, snapshot, outcome);
+  }
+
+  /** 打开加一站面板：候选口径与屏9 补选完全一致（本城景点库 − 当日已在的站）。 */
+  private openAddSheet(): void {
+    const trip: Trip | null = this.trip;
+    const day: TripDay | null = this.day;
+    if (trip === null || day === null || !this.isToday || this.replanning) {
+      return;
+    }
+    PlanRepository.loadSpots(this.ctx(), trip.destination).then((spots: Spot[]): void => {
+      const taken: string[] = day.activities.map((a: Activity): string => a.title);
+      this.addCandidates = spots.filter((s: Spot): boolean => taken.indexOf(s.name) < 0);
+      this.showAdd = true;
+    }).catch((err: Error): void => {
+      Logger.warn('Ui.OnTrip', `景点库加载失败: ${err.message}`);
+      this.toast('景点库加载失败');
+    });
+  }
+
+  /** 选中候选后：云函数决策 → 端侧排程（含 480min 预算闸）→ 复用 commitDay 的撤销链路。 */
+  private async performAdd(spot: Spot): Promise<void> {
+    const trip: Trip | null = this.trip;
+    const day: TripDay | null = this.day;
+    if (trip === null || day === null || !this.isToday || this.replanning) {
+      return;
+    }
+    this.showAdd = false;
+    const nowMin: number = DateUtils.minutesOf(clockNow());
+    const newStop: Activity = this.candidateActivity(spot, nowMin);
+    const snapshot: TripDay = SkipPlanner.cloneDay(day);
+    this.replanning = true;
+    this.notice = '正在把新站排进今日行程…';
+    let outcome: ReplanOutcome;
+    try {
+      const decision: ReplanDecision | null =
+        await ReplanClient.requestAddDecision(day, newStop, nowMin);
+      outcome = SkipPlanner.planWithAddition(day, newStop, nowMin, decision);
+    } catch (err) {
+      this.replanning = false;
+      this.notice = '加站失败，行程未改动';
+      Logger.error('Ui.OnTrip', `加站失败: ${(err as Error).message}`);
+      return;
+    }
+    Logger.info('Ui.OnTrip', `加站 ${spot.name} changed=${outcome.changed} fallback=${outcome.usedFallback} note=${outcome.note}`);
+    if (outcome.changed !== true) {
+      this.replanning = false;
+      this.notice = '';
+      this.toast(outcome.note);
+      return;
+    }
+    await this.commitDay(trip, snapshot, outcome);
+  }
+
+  /** 候选景点 → 当日活动：先给临时槽，真实落位由 SkipPlanner 重算。 */
+  private candidateActivity(spot: Spot, nowMin: number): Activity {
+    const duration: number = Math.max(15, Math.min(240, spot.suggestedDuration));
+    const start: number = Math.max(nowMin, this.maxEndOfDay() + 15);
+    const place: string = spot.city.length > 0 && spot.district.length > 0
+      ? `${spot.city} ${spot.district}` : spot.district;
+    const act: Activity = {
+      id: mintEditActivityId('add'),
+      time: DateUtils.hhmmOf(start),
+      endTime: DateUtils.hhmmOf(start + duration),
+      title: spot.name,
+      location: place,
+      address: place,
+      longitude: spot.longitude,
+      latitude: spot.latitude,
+      status: spot.booking.requiresBooking ? ActivityStatus.NOT_BOOKED : ActivityStatus.NO_NEED,
+      category: ActivityCategory.SIGHT,
+      advanceDays: spot.booking.advanceDays,
+      note: spot.booking.requiresBooking
+        ? `预约：${spot.booking.bookingMethod ?? '官方渠道'}（以官方为准）` : undefined,
+      reason: undefined,
+      transport: undefined
+    };
+    return act;
+  }
+
+  private maxEndOfDay(): number {
+    const day: TripDay | null = this.day;
+    let maxEnd: number = DateUtils.minutesOf(clockNow());
+    if (day === null) {
+      return maxEnd;
+    }
+    for (const a of day.activities) {
+      const start: number = DateUtils.minutesOf(a.time);
+      const end: number = DateUtils.minutesOf(a.endTime);
+      if (start >= 0) {
+        maxEnd = Math.max(maxEnd, end > start ? end : start + 60);
+      }
+    }
+    return maxEnd;
+  }
+
+  // ---- P3 对话式接管 ----
+
+  private openIntent(): void {
+    if (!this.isToday || this.replanning) {
+      return;
+    }
+    this.intentText = '';
+    this.intentPreview = '';
+    this.intentBusy = false;
+    this.intentReady = false;
+    this.intentOutcome = null;
+    this.intentSnapshot = null;
+    this.intentOpenAdd = false;
+    this.showIntent = true;
+  }
+
+  private closeIntent(): void {
+    if (this.intentBusy) {
+      return;
+    }
+    this.showIntent = false;
+    this.intentReady = false;
+    this.intentOutcome = null;
+    this.intentSnapshot = null;
+    this.intentOpenAdd = false;
+  }
+
+  /** 只预演，不落库；用户点「确认执行」才 commitDay */
+  private async prepareIntent(): Promise<void> {
+    const trip: Trip | null = this.trip;
+    const day: TripDay | null = this.day;
+    if (trip === null || day === null || this.replanning || this.intentBusy) {
+      return;
+    }
+    const text: string = this.intentText.trim();
+    if (text.length === 0) {
+      this.toast('先说一句你想怎么改');
+      return;
+    }
+    this.intentBusy = true;
+    this.intentReady = false;
+    this.intentOutcome = null;
+    this.intentSnapshot = null;
+    this.intentOpenAdd = false;
+    this.intentPreview = '正在理解…';
+    try {
+      const candidates: Activity[] = await this.intentCandidates(trip, day);
+      const nowMin: number = DateUtils.minutesOf(clockNow());
+      const decision: ReplanDecision | null =
+        await ReplanClient.requestIntentDecision(day, text, candidates, nowMin);
+      if (decision === null) {
+        this.previewLocalIntent(day, text, candidates, nowMin);
+      } else {
+        this.applyIntentDecision(day, decision, candidates, nowMin);
+      }
+    } finally {
+      this.intentBusy = false;
+    }
+  }
+
+  /** 候选池：本城景点库 − 当日已在的站；最多 8 个，够换站选择即可 */
+  private async intentCandidates(trip: Trip, day: TripDay): Promise<Activity[]> {
+    const list: Activity[] = [];
+    try {
+      const spots: Spot[] = await PlanRepository.loadSpots(this.ctx(), trip.destination);
+      const taken: string[] = day.activities.map((a: Activity): string => a.title);
+      const nowMin: number = DateUtils.minutesOf(clockNow());
+      for (const s of spots) {
+        if (taken.indexOf(s.name) >= 0) {
+          continue;
+        }
+        list.push(this.candidateActivity(s, nowMin));
+        if (list.length >= 8) {
+          break;
+        }
+      }
+    } catch (err) {
+      Logger.warn('Ui.OnTrip', `意图候选加载失败: ${(err as Error).message}`);
+    }
+    return list;
+  }
+
+  private applyIntentDecision(day: TripDay, d: ReplanDecision, candidates: Activity[],
+    nowMin: number): void {
+    if (d.action === undefined || d.action === ReplanAction.SKIP) {
+      if (d.targetId === undefined) {
+        this.intentPreview = d.note.length > 0 ? d.note : '没听懂，换个说法再试';
+        return;
+      }
+      if (d.skipRemaining === true) {
+        this.previewOutcome(day, SkipPlanner.skipRemaining(day, nowMin));
+      } else {
+        this.previewOutcome(day, SkipPlanner.plan(day, d.targetId, nowMin, null));
+      }
+      return;
+    }
+    if (d.action === ReplanAction.SHIFT) {
+      const minutes: number = d.shiftMinutes === undefined ? 30 : d.shiftMinutes;
+      this.previewOutcome(day, SkipPlanner.shiftRemaining(day, nowMin, minutes));
+      return;
+    }
+    if (d.action === ReplanAction.ADD) {
+      this.intentPreview = d.note.length > 0 ? d.note : '好的，去选要加的站';
+      this.intentOpenAdd = true;
+      this.intentReady = true;
+      return;
+    }
+    if (d.action === ReplanAction.REPLACE) {
+      const newStop: Activity | undefined =
+        candidates.find((c: Activity): boolean => c.id === d.newStopId);
+      if (d.targetId === undefined || newStop === undefined) {
+        this.intentPreview = '没听懂要换哪一站，换个说法再试';
+        return;
+      }
+      this.previewOutcome(day, SkipPlanner.planWithReplacement(day, d.targetId, newStop));
+      return;
+    }
+    this.intentPreview = '这句还没接住，换个说法再试';
+  }
+
+  private previewOutcome(day: TripDay, outcome: ReplanOutcome): void {
+    const changed: boolean = outcome.changed === true;
+    this.intentOutcome = changed ? outcome : null;
+    this.intentSnapshot = changed ? SkipPlanner.cloneDay(day) : null;
+    this.intentPreview = outcome.note;
+    this.intentReady = changed;
+  }
+
+  /** 云函数未配置/失败时的本地规则：只做最确定的三种意图，不猜细节 */
+  private previewLocalIntent(day: TripDay, text: string, candidates: Activity[],
+    nowMin: number): void {
+    if (text.indexOf('累') >= 0 || text.indexOf('酒店') >= 0 || text.indexOf('不想') >= 0 ||
+      text.indexOf('结束') >= 0) {
+      this.previewOutcome(day, SkipPlanner.skipRemaining(day, nowMin));
+      return;
+    }
+    if (text.indexOf('加') >= 0 || text.indexOf('再来') >= 0) {
+      this.intentPreview = '好的，去选要加的站';
+      this.intentOpenAdd = true;
+      this.intentReady = true;
+      return;
+    }
+    if (text.indexOf('换') >= 0 || text.indexOf('室内') >= 0) {
+      const next: DayStop | null = this.next;
+      const museum: Activity | undefined = candidates.find((c: Activity): boolean =>
+        c.title.indexOf('博览园') >= 0 || c.title.indexOf('规划馆') >= 0 || c.title.indexOf('会址') >= 0);
+      if (next !== null && !next.isMeal && museum !== undefined) {
+        this.previewOutcome(day, SkipPlanner.planWithReplacement(day, next.key, museum));
+        return;
+      }
+    }
+    this.intentPreview = '这句需要联网理解；也可以直接点「加一站」或「不去下一站」';
+  }
+
+  private async confirmIntent(): Promise<void> {
+    if (this.intentBusy) {
+      return;
+    }
+    if (this.intentOpenAdd) {
+      this.showIntent = false;
+      this.intentReady = false;
+      this.intentOpenAdd = false;
+      this.openAddSheet();
+      return;
+    }
+    const trip: Trip | null = this.trip;
+    const snapshot: TripDay | null = this.intentSnapshot;
+    const outcome: ReplanOutcome | null = this.intentOutcome;
+    if (trip === null || snapshot === null || outcome === null || outcome.changed !== true) {
+      this.toast('还没有可执行的改动');
+      return;
+    }
+    this.showIntent = false;
+    this.intentReady = false;
+    await this.commitDay(trip, snapshot, outcome);
+  }
+
+  @Builder
+  intentSheet() {
+    Column({ space: SpaceTokens.sm }) {
+      Text('说一句，改行程')
+        .fontSize(TypeTokens.title.size)
+        .fontWeight(700)
+        .fontFamily(TypeTokens.title.family)
+        .fontColor(ColorTokens.ink)
+        .margin({ top: SpaceTokens.lg })
+      Text('例如：我累了想回酒店 / 换个室内的 / 加一站')
+        .fontSize(TypeTokens.caption.size)
+        .fontColor(ColorTokens.muted)
+      TextInput({ placeholder: '说说你现在想怎么改', text: this.intentText })
+        .fontSize(TypeTokens.body.size)
+        .height(48)
+        .maxLength(200)
+        .borderRadius(RadiusTokens.card)
+        .backgroundColor(ColorTokens.surfacePanel)
+        .onChange((v: string): void => {
+          this.intentText = v;
+          this.intentReady = false;
+          this.intentPreview = '';
+        })
+      if (this.intentBusy) {
+        Row({ space: SpaceTokens.xs }) {
+          LoadingProgress().width(18).height(18).color(ColorTokens.primary)
+          Text('正在理解…')
+            .fontSize(TypeTokens.caption.size)
+            .fontColor(ColorTokens.muted)
+        }
+      }
+      if (this.intentPreview.length > 0) {
+        Text(this.intentPreview)
+          .fontSize(TypeTokens.small.size)
+          .fontColor(ColorTokens.body)
+          .width('100%')
+          .padding(SpaceTokens.sm)
+          .borderRadius(RadiusTokens.reason)
+          .backgroundColor(ColorTokens.surfacePanel)
+      }
+      Row({ space: SpaceTokens.sm }) {
+        YoujingButton({
+          variant: YoujingButtonVariant.SECONDARY,
+          label: '取消',
+          buttonWidth: 120,
+          onAction: (): void => {
+            this.closeIntent();
+          }
+        })
+        Column() {
+          YoujingButton({
+            variant: YoujingButtonVariant.PRIMARY,
+            label: this.intentReady ? '确认执行' : '理解并预演',
+            fullWidth: true,
+            disabled: this.intentBusy,
+            onAction: (): void => {
+              if (this.intentReady) {
+                this.confirmIntent();
+              } else {
+                this.prepareIntent();
+              }
+            }
+          })
+        }
+        .layoutWeight(1)
+      }
+      .width('100%')
+      .margin({ top: SpaceTokens.sm })
+    }
+    .alignItems(HorizontalAlign.Start)
+    .width('100%')
+    .height('100%')
+    .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.lg })
+    .backgroundColor(ColorTokens.canvas)
+  }
+
+  @Builder
+  addSheet() {
+    Column() {
+      Text('加一站')
+        .fontSize(TypeTokens.title.size)
+        .fontWeight(700)
+        .fontFamily(TypeTokens.title.family)
+        .fontColor(ColorTokens.ink)
+        .margin({ top: SpaceTokens.lg, bottom: SpaceTokens.xxs })
+      Text('从本城景点库里补一站，接在今日末尾；活动超过 8 小时就不加')
+        .fontSize(TypeTokens.caption.size)
+        .fontColor(ColorTokens.muted)
+        .margin({ bottom: SpaceTokens.sm })
+
+      List({ space: SpaceTokens.xxs }) {
+        if (this.addCandidates.length === 0) {
+          ListItem() {
+            Column({ space: SpaceTokens.xs }) {
+              SymbolGlyph($r('sys.symbol.checkmark_circle'))
+                .fontSize(IconSizes.display)
+                .fontColor([ColorTokens.muted])
+              Text('本城景点都已在这天里了')
+                .fontSize(TypeTokens.small.size)
+                .fontColor(ColorTokens.muted)
+            }
+            .width('100%')
+            .padding({ top: SpaceTokens.lg, bottom: SpaceTokens.lg })
+            .justifyContent(FlexAlign.Center)
+          }
+        }
+        ForEach(this.addCandidates, (spot: Spot) => {
+          ListItem() {
+            Button({ type: ButtonType.Normal, stateEffect: true }) {
+              Column() {
+                Text(spot.name)
+                  .fontSize(TypeTokens.small.size)
+                  .fontWeight(600)
+                  .fontColor(ColorTokens.ink)
+                  .maxLines(1)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
+                Text(`${spot.district} · 建议 ${Math.round(spot.suggestedDuration / 60 * 10) / 10}小时` +
+                  `${spot.booking.requiresBooking ? ' · 需预约' : ''}`)
+                  .fontSize(TypeTokens.caption.size)
+                  .fontWeight(450)
+                  .fontColor(ColorTokens.muted)
+                  .fontFeature("'tnum' on")
+              }
+              .alignItems(HorizontalAlign.Start)
+              .width('100%')
+              .padding(SpaceTokens.base)
+              .borderRadius(RadiusTokens.card)
+              .backgroundColor(ColorTokens.surfacePanel)
+            }
+            .buttonStyle(ButtonStyleMode.TEXTUAL)
+            .width('100%')
+            .padding(0)
+            .borderRadius(RadiusTokens.card)
+            .accessibilityText(`加入 ${spot.name}，${spot.district}`)
+            .onClick(() => {
+              this.performAdd(spot);
+            })
+          }
+        }, (spot: Spot): string => `add-${spot.id}`)
+      }
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+      .layoutWeight(1)
+      .scrollBar(BarState.Off)
+      .width('100%')
+    }
+    .alignItems(HorizontalAlign.Start)
+    .width('100%')
+    .height('100%')
+    .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.lg })
+    .backgroundColor(ColorTokens.canvas)
   }
 
   /**
@@ -647,6 +1101,8 @@ export struct OnTripPage {
 
   /** 只有「今天 + 当前站有坐标」才订阅前台定位；其余情况一律退订并清状态 */
   private syncArrivalWatcher(): void {
+    this.syncGeofences();
+    this.syncLiveViewTrigger();
     const cur: DayStop | null = this.current;
     const need: boolean = this.isToday && cur !== null && Geo.usable(cur.lat, cur.lng);
     if (!need) {
@@ -677,6 +1133,118 @@ export struct OnTripPage {
         this.refreshSignal();
       }
     });
+  }
+
+  /** 今天才注册围栏；同一天只注册一次，注册失败下次 reload 会重试 */
+  private syncGeofences(): void {
+    const day: TripDay | null = this.day;
+    if (!this.isToday || day === null) {
+      this.geofence.stop();
+      this.geofenceDayKey = '';
+      return;
+    }
+    const key: string = day.date;
+    if (this.geofence.isActive() && this.geofenceDayKey === key) {
+      return;
+    }
+    if (this.geofence.isStarting()) {
+      return;
+    }
+    this.geofenceDayKey = key;
+    const nowMin: number = DateUtils.minutesOf(clockNow());
+    this.geofence.start(this.ctx(), day, nowMin, (spec: FenceSpec): void => {
+      this.onGeofenceEnter(spec);
+    }).then((count: number): void => {
+      if (count === 0) {
+        Logger.info('Ui.OnTrip', '到站围栏未注册（AGC 未开通或无权限），保留前台定位');
+      }
+    }).catch((err: Error): void => {
+      Logger.warn('Ui.OnTrip', `到站围栏启动失败: ${err.message}`);
+    });
+  }
+
+  /**
+   * 实况窗触发必须先登记：startLiveViewByTrigger 只记录围栏条件，
+   * 到站后再登记等不到下一次进入。这里为「即将到达的一站」预登记：
+   * 当前站尚未打卡就登记当前站，否则登记下一站；餐次无坐标，顺延到下一站。
+   */
+  private syncLiveViewTrigger(): void {
+    const day: TripDay | null = this.day;
+    if (!LiveViewConfig.ENABLED || !this.isToday || day === null) {
+      if (this.liveViewKey.length > 0) {
+        this.liveViewKey = '';
+        TripLiveView.stop();
+      }
+      return;
+    }
+    const target: DayStop | null = this.liveViewTarget();
+    if (target === null) {
+      return;
+    }
+    const key: string = `${day.date}:${target.key}`;
+    if (this.liveViewKey === key) {
+      return;
+    }
+    const stop: DayStop = target;
+    const act: Activity | undefined =
+      day.activities.find((a: Activity): boolean => a.id === stop.key);
+    if (act === undefined) {
+      return;
+    }
+    this.liveViewKey = key;
+    TripLiveView.startForStop(day, act).catch((err: Error): void => {
+      Logger.warn('Ui.OnTrip', `实况窗预登记失败: ${err.message}`);
+    });
+  }
+
+  /** 预登记目标：从当前站往后第一座「未打卡、有坐标、可游览」的站；餐次/交通/住宿/空闲不登记 */
+  private liveViewTarget(): DayStop | null {
+    let from: number = 0;
+    const cur: DayStop | null = this.current;
+    if (cur !== null) {
+      for (let i = 0; i < this.stops.length; i++) {
+        if (this.stops[i].key === cur.key) {
+          from = i;
+          break;
+        }
+      }
+    }
+    for (let i = from; i < this.stops.length; i++) {
+      const s: DayStop = this.stops[i];
+      if (s.isMeal || s.category === ActivityCategory.REST ||
+          s.category === ActivityCategory.TRANSPORT || s.category === ActivityCategory.HOTEL) {
+        continue;
+      }
+      if (this.marks[s.key] !== undefined) {
+        continue;
+      }
+      if (!Geo.usable(s.lat, s.lng)) {
+        continue;
+      }
+      return s;
+    }
+    return null;
+  }
+
+  /** 系统围栏到站：不自动打卡，只把「可以打卡了」推到 hero/提示条，用户确认后落库 */
+  private onGeofenceEnter(spec: FenceSpec): void {
+    if (this.disposed) {
+      return;
+    }
+    this.arrived = true;
+    this.arrivalText = `已进入「${spec.title}」围栏`;
+    this.notice = `已到「${spec.title}」，可以打卡了`;
+    this.toast(`已到站：${spec.title}`);
+    const day: TripDay | null = this.day;
+    if (day !== null) {
+      const act: Activity | undefined =
+        day.activities.find((a: Activity): boolean => a.id === spec.activityId);
+      if (act !== undefined) {
+        ArrivalNotice.publishForStop(day, act).catch((err: Error): void => {
+          Logger.warn('Ui.OnTrip', `到站通知失败: ${err.message}`);
+        });
+      }
+    }
   }
 
   /** 用最近一次前台定位刷新 hero 的到站状态；没有定位就不出这一行 */
@@ -1231,6 +1799,17 @@ export struct OnTripPage {
                   .fontWeight(450)
                   .fontColor(ColorTokens.muted)
                   .margin({ top: SpaceTokens.xs })
+                if (this.isToday && !this.replanning) {
+                  YoujingButton({
+                    variant: YoujingButtonVariant.TEXT,
+                    label: '说一句，改行程',
+                    fullWidth: true,
+                    onAction: (): void => {
+                      this.openIntent();
+                    }
+                  })
+                    .margin({ top: SpaceTokens.xs })
+                }
             }
             .alignItems(HorizontalAlign.Start)
             .width('100%')
@@ -1318,6 +1897,16 @@ export struct OnTripPage {
                   .fontColor(ColorTokens.muted)
                   .fontFeature("'tnum' on")
                   .layoutWeight(1)
+                if (this.isToday && !this.replanning) {
+                  YoujingButton({
+                    variant: YoujingButtonVariant.TEXT,
+                    label: '加一站',
+                    buttonWidth: 88,
+                    onAction: (): void => {
+                      this.openAddSheet();
+                    }
+                  })
+                }
                 if (this.canSkipNext()) {
                   YoujingButton({
                     variant: YoujingButtonVariant.TEXT,
@@ -1373,12 +1962,24 @@ export struct OnTripPage {
     }
     .width('100%')
     .height('100%')
+    .bindSheet($$this.showAdd, this.addSheet(), {
+      height: '70%',
+      backgroundColor: ColorTokens.canvas,
+      showClose: true,
+      systemMaterial: getSheetImmersiveMaterial()
+    })
     }
     .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
     .bindToScrollable([this.barScroller])
     .clip(false)
     // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
     .backgroundColor(ColorTokens.canvas)
+    .bindSheet($$this.showIntent, this.intentSheet(), {
+      height: '60%',
+      backgroundColor: ColorTokens.canvas,
+      showClose: true,
+      systemMaterial: getSheetImmersiveMaterial()
+    })
     .titleBar(this.titleBarOptions())
     .titleMode(HdsNavDestinationTitleMode.MINI)
     .onReady((ctx: NavDestinationContext): void => {

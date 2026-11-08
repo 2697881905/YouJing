@@ -13,6 +13,8 @@ export const REPLAN_MAX_FREE_BLOCKS: number = 3;
 export const REPLAN_MIN_FREE_MIN: number = 15;
 export const REPLAN_MAX_FREE_MIN: number = 480;
 export const REPLAN_MAX_NOTE: number = 200;
+/** 加一站的当日预算上限（分钟）：超过就不加，避免把一天排成赶场 */
+export const REPLAN_ADD_BUDGET_MIN: number = 480;
 
 /** LLM 的单项决策：保留谁、停多久。 */
 export interface KeepStop {
@@ -26,12 +28,29 @@ export interface FreeBlock {
   minutes: number;
 }
 
+/** P3 对话式接管的四种动作（云函数把自然语言映射到其中一种） */
+export enum ReplanAction {
+  SKIP = 'skip',
+  SHIFT = 'shift',
+  ADD = 'add',
+  REPLACE = 'replace'
+}
+
 /** 云函数响应（经 ReplanParser 守卫后的内存形态）。 */
 export interface ReplanDecision {
   schemaVersion: number;
   keep: KeepStop[];
   freeBlocks: FreeBlock[];
   note: string;
+  /** P3 对话式：动作与目标；旧跳过响应省略 action 时按 skip 处理 */
+  action?: ReplanAction;
+  targetId?: string;
+  /** 换一站时，端侧候选池里的新站点 id */
+  newStopId?: string;
+  /** 顺延分钟数（15–240） */
+  shiftMinutes?: number;
+  /** 跳过时是否把后续所有未开始站点一并改空闲 */
+  skipRemaining?: boolean;
 }
 
 /** 端侧排程结果：day 是改写后的深拷贝；note 给页面顶部提示。 */
@@ -71,9 +90,21 @@ export interface ReplanRequestDay {
   meals: ReplanRequestMeal[];
 }
 
+/**
+ * 三种动作三选一（云函数强校验）：
+ * - skippedId：跳过某站（原有能力）；
+ * - addStopId：新增站点的 id，该站已带临时时刻放进 day.activities；
+ * - replaceStopId：被替换的旧站点 id（换节点不换槽，端侧确定性改写，云函数不做决策）。
+ */
 export interface ReplanRequest {
   schemaVersion: number;
   now: string;
-  skippedId: string;
+  skippedId?: string;
+  addStopId?: string;
+  replaceStopId?: string;
+  /** P3 对话式：用户自然语言意愿；与三种 id 动作互斥 */
+  intentText?: string;
+  /** 换一站/加一站时端侧提供的候选（不含当日已在的站） */
+  candidates?: ReplanRequestActivity[];
   day: ReplanRequestDay;
 }

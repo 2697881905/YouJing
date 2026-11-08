@@ -20,7 +20,7 @@ import { Trip, TripDay, Activity, Meal, MealType, ActivityCategory, ActivityStat
 import { PlanParams, SelectedSpot, TripBasicInput, PaceOption, PaceRule } from '../model/PlanParams';
 import { Spot } from '../model/Spot';
 import { Area } from '../model/Area';
-import { backfillActivityPlaces, backfillOpeningHours } from '../utils/TripEnrich';
+import { backfillActivityPlaces, backfillBooking, backfillOpeningHours } from '../utils/TripEnrich';
 import { Transit, TransitEstimate } from '../utils/Transit';
 import { GeoPoint } from '../utils/Geo';
 import { DateUtils } from '../utils/DateUtils';
@@ -124,6 +124,7 @@ export class MockLlmTransport implements LlmTransport {
           latitude: spot.latitude,
           status: spot.booking.requiresBooking ? ActivityStatus.NOT_BOOKED : ActivityStatus.NO_NEED,
           category: ActivityCategory.SIGHT,
+          advanceDays: spot.booking.advanceDays,
           note: spot.booking.requiresBooking
             ? `预约：${spot.booking.bookingMethod ?? '官方渠道'}（以官方为准）`
             : (mapCity ? '预约信息未获取，以官方为准' : undefined),
@@ -391,8 +392,9 @@ export class LlmClient {
         // 地址/坐标以景点库为准回填（提示词第 12 条要求模型留空，省输出 token 也免幻觉）
         const filled: number = backfillActivityPlaces(trip, spots);
         const hours: number = backfillOpeningHours(trip, spots);
+        const booking: number = backfillBooking(trip, spots);
         Logger.info(TAG, `生成成功 attempt=${attempt + 1} days=${trip.days.length} ` +
-          `回填地址 ${filled} 条、开放时间 ${hours} 条`);
+          `回填地址 ${filled} 条、开放时间 ${hours} 条、预约提前量 ${booking} 条`);
         return trip;
       } catch (err) {
         lastErr = err as Error;

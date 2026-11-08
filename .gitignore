@@ -33,3 +33,7 @@ bff/test/fixtures/*.srl
 __pycache__/
 # 生成测试链时的并行锁（瞬态，不入库）
 bff/test/fixtures/.gen.lock/
+
+# 运行时/工具生成产物（不入库）
+dfx-reports/
+.merkle-snapshot.json

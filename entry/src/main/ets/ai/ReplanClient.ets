@@ -10,7 +10,7 @@ import { ApiConfig } from '../common/config/ApiConfig';
 import { Logger } from '../common/logger/Logger';
 import { AppError } from '../common/error/AppError';
 import { ReplanDecision, ReplanRequest } from '../model/Replan';
-import { TripDay } from '../model/Trip';
+import { Activity, TripDay } from '../model/Trip';
 import { SkipPlanner } from '../data/SkipPlanner';
 import { ReplanParser } from './ReplanParser';
 
@@ -19,11 +19,26 @@ const TAG: string = 'Ai.ReplanClient';
 export class ReplanClient {
   static async requestDecision(day: TripDay, skippedId: string,
     nowMin: number): Promise<ReplanDecision | null> {
+    return await ReplanClient.send(SkipPlanner.buildRequest(day, skippedId, nowMin));
+  }
+
+  /** 加一站：把新站带临时时刻发给云函数，由它决定 keep 顺序与停留时长。 */
+  static async requestAddDecision(day: TripDay, newStop: Activity,
+    nowMin: number): Promise<ReplanDecision | null> {
+    return await ReplanClient.send(SkipPlanner.buildAddRequest(day, newStop, nowMin));
+  }
+
+  /** P3 对话式：把自然语言意愿与候选池发给云函数，由它映射四种动作。 */
+  static async requestIntentDecision(day: TripDay, intentText: string, candidates: Activity[],
+    nowMin: number): Promise<ReplanDecision | null> {
+    return await ReplanClient.send(SkipPlanner.buildIntentRequest(day, intentText, candidates, nowMin));
+  }
+
+  private static async send(request: ReplanRequest): Promise<ReplanDecision | null> {
     if (ApiConfig.REPLAN_URL.length === 0) {
       Logger.warn(TAG, 'Replan 云函数未配置（ApiConfig.REPLAN_URL 为空），走本地兜底');
       return null;
     }
-    const request: ReplanRequest = SkipPlanner.buildRequest(day, skippedId, nowMin);
     const reqHandle = http.createHttp();
     try {
       const headers: Record<string, string> = {};
