@@ -735,7 +735,7 @@ export struct TripsPage {
       HdsNavDestination() {
         this.rootShell()
       }
-    .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+    // 不收栏（2026-11-08）：NavDestination 内容区恒预留 56vp 栏位、收栏后不回收，收起只留一条 175px 白带
     .bindToScrollable([this.barScroller])
     .clip(false)
       // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）

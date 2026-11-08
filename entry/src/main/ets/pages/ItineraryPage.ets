@@ -1524,7 +1524,7 @@ export struct ItineraryPage {
       })
 }
     // 收的是栏内底行（分段行），标题常驻——有据 HomeTab:1239 同款
-    .dynamicHideTitleBar({ hideBottomBuilder: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+    // 不收栏（2026-11-08）：NavDestination 内容区恒预留 56vp 栏位、收栏后不回收，收起只留一条 175px 白带
     .bindToScrollable([this.listScroller])
     .clip(false)
     .onDisAppear((): void => {

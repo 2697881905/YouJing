@@ -3,6 +3,89 @@
 > 生成日期：2026-10-15。初始化流程 P0–P7 全部完成，验收清单见第 2 节，遗留事项见第 4 节。
 
 
+## 4o. 滚动后顶部那条「白色遮罩」：不是遮罩，是栏位让位不回收（2026-11-08）
+
+用户提问「顶部栏是不是有一层白色的遮罩」。真机取证后定性：**没有任何遮罩图层，看到的白是
+标题栏收起后留在原地的一块 175px 空位，露的是壳层 `canvas`。**
+
+### 排除过程（三条都不成立）
+
+| 嫌疑 | 取证 | 结论 |
+|---|---|---|
+| 栏体涂了一层白 | `TitleBar` / `HdsTitleBar` 的 `backgroundColor` 实测 `#00000000` | 排除 |
+| SDK 有遮罩色字段 | `HdsNavigationBackgroundStyle`（`@hms.hds.hdsBaseComponent.d.ets:1078`）只有 `backgroundColor` / `maskExtraHeight` / `blurRadius` 三项 | 排除 |
+| `maskExtraHeight` 默认 32vp 没压掉 | `HdsChrome.ets:105` 传的是 0 | 见下方「附带发现」，不是主因 |
+
+### 实测读数（行程详情，`uitest dumpLayout`）
+
+| 节点 | 静止 | 上滚后 |
+|---|---|---|
+| `TitleBar` | `[0,106][1136,281]` | `[0,0][0,0]` |
+| `List` | `[0,281][1136,2690]` | `[0,281][1136,2690]` |
+
+栏收成 0 高，内容区起点仍钉在 281px（= 状态栏 106 + MINI 栏 175）。106–281 之间 175px
+谁都不占，而 `canvas` 是浅色，读起来就是「一层白遮罩」。
+
+根页（我的 / 行程 / 费用 / 地图 / 规划）不出这个问题：它们用 `HdsNavigation`，内容从 106 起，
+收栏后能顶到状态栏下。18 处详情页用 `HdsNavDestination`，内容从栏底 281 起，收了就留洞。
+
+### 三轮实验，前两轮全失败
+
+用户先裁决「让内容真穿底」，按这个方向试了两条路，读数一个像素没动：
+
+1. **`ignoreLayoutSafeArea([SYSTEM],[TOP])`**（HDS 给 NavDestination 的 content expand 入口）
+   → `List` 顶边 281 → 281，无效。它管系统安全区（状态栏 106），管不到 HDS 自己那 175px。
+2. **结构改造**：原生 `NavDestination` + `.hideTitleBar(true)` 作壳，内容里挂 `HdsNavigation`
+   带标题栏（照抄有据 `ChatDestination.ets:23` 套 `ChatView.hdsBranch:1283`）→ 编译装机都过
+   （md5 `294f2952…`），`List` 顶边仍是 281，视觉与改造前一模一样。
+
+**根因**：HDS 在 `HdsNavDestination` 的内容区固定预留 56vp（175px）栏位，**且不随栏收起回收**。
+页面给 `List` 的 `padding.top` 写的是 `contentTopInset(statusBarHeight, 48)` = 431px，
+实测只生效 175px —— 被 HDS 合并成 MINI 栏高。`HdsChrome.ets:166` 注释里
+`enableComponentSafeArea: false`（「页面自己让位」）在这个版本未按预期生效，实际行为
+等价于 `true`，而 `true` 那条路注释里早有结论：「滚动到不了栏下」。两条路是同一条。
+
+### 处置：不收栏（减法）
+
+16 处滚动收栏的 `HdsNavDestination` 去掉 `dynamicHideTitleBar`，标题栏常驻。
+改动是每个文件 1 行（删调用、留一行说明），不新增开关、不动 `HdsChrome`。
+
+5 处 `HdsNavigation` 的收栏（`MinePage:438` / `TripsPage:722` / `ExpensePage:1055` /
+`MapPage:486` / `YoujingStartPage:276`）**保留**——根页内容从 106 起，收栏能顶上去，没有白带。
+
+处置后复测：滚动到底 `TitleBar` 保持 `[0,106][1136,281]`，截图顶部无空白带，内容紧接栏底。
+
+代价：滚动时标题一直在，内容不穿到栏下。这一点与有据详情页一致——有据四个详情页
+（`PostDetailView` / `ChatView` / `DraftBoxPage` / `CircleDetailView`）都用 `HdsNavigation`
+且不收栏。
+
+### 附带发现（未处置，登记）
+
+`TitleBar` 内部有两个节点 `MaskBlur` / `Mask`，bounds 都是 `[0,106][1136,206]`，即 32vp 高。
+32vp 正是 `maskExtraHeight` 的默认值，而 `HdsChrome.ets:105` 传的是 0。可疑点是
+`HdsChrome.ets:128` 的 `scrollEffectStyle` 只给了 `contentStyle`、没给 `backgroundStyle`，
+滚动终态可能回落到默认的 32。这条与白带无关（白带是内容空位），且浅色画布上这层渐变
+看不出差别，未动。
+
+### 本轮验收
+
+- 装机产物 md5 `4df2f4a7a1072ef622ef10d8d8dffa23`（signed，`install bundle successfully`）
+- `verify_route_sweep.py --target 192.168.2.3:46077 --density 3.125`：**17/17 OK**
+- `verify_scroll_clearance.py`：**17/17 pass**，净空 27.5–476.2vp
+- `verify_dock_tabs.sh`：§0 md5 与装机一致；§1/1b/2/3/4/4b/5 正文为当前数据；
+  §6 **PASS**（前台 `com.youjing.app`、标题「地图」）；§7 hypium **254/254，0 失败**
+- 弹层返回回归：费用「记一笔」/ 我的「隐私政策」/ TripInput「目的地」**三处全 PASS**
+- 双构建：`entry@default` 61.8s、`entry@ohosTest` 40.5s，均 BUILD SUCCESSFUL
+- `build-profile.json5` 已还原为 `"signingConfigs": []`，无口令残留
+
+### 两个口径坑（会让人白跑）
+
+- `verify_dock_tabs.sh:154` 有一个 `read -r -p "…回车继续"`。后台跑必须在前面喂一个回车
+  （`printf '\n' | bash tools/verify_dock_tabs.sh`），否则脚本会静默卡死，且证据目录只留
+  `hap.md5` / `version.txt` 两个文件。
+- `verify_route_sweep.py` 必须显式带 `--target <真机>` 与 `--density 3.125`，默认目标
+  `127.0.0.1:5555`。
+
 ## 4n. 表现层全量对齐后的真机复验：一红是假红、一红是真缺陷（2026-11-08）
 
 上一轮（`9f58273`）交付后用户贴回的真机输出里有两红一缺：滚动静空「我的 **-84.2vp**」、
