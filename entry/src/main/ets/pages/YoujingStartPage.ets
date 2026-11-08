@@ -26,7 +26,6 @@ import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
-import { ImmersiveSurface } from '../components/ImmersiveSurface';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { AccountStore } from '../data/AccountStore';
 import { DeviceActivator } from '../data/DeviceActivator';
@@ -366,7 +365,6 @@ export struct YoujingStartPage {
           .margin({ top: SpaceTokens.lg, bottom: SpaceTokens.sm })
 
         // ⑤ 预览卡：spine 几何与屏8 同源（52 时间槽 / 24 节点 / 76 行 / 44 交通腿）
-        ImmersiveSurface({ radius: RadiusTokens.card, surfaceWidth: '100%' }) {
           Column() {
             Row() {
               Text('Day 1 · 京都 东山步道')
@@ -422,7 +420,6 @@ export struct YoujingStartPage {
           .borderRadius(RadiusTokens.card)
           .backgroundColor(ColorTokens.surfaceElevated)
           .width('100%')
-        }
       }
       .width('100%')
       .alignItems(HorizontalAlign.Start)

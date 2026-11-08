@@ -24,7 +24,7 @@ export interface MotionTokensType {
   control: number;
   /** 容器级过渡：卡片展开、弹层进出（契约 motion.container） */
   container: number;
-  /** 骨架屏流光循环（契约 motion.shimmer） */
+  /** 契约 motion.shimmer 档（1200ms）；流光动画已停用，仅保留契约数值 */
   shimmer: number;
   /** 按下缩放倍率（契约 motion.press-scale，勿改） */
   pressScale: number;

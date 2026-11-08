@@ -19,7 +19,6 @@ import { KEY_WINDOW_WIDTH_VP, BP_MD_MIN_VP } from '../utils/breakpointCenter';
 import { symmetricInsetForCap } from '../utils/responsive';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
-import { ImmersiveSurface } from '../components/ImmersiveSurface';
 import { TimelineNode } from '../components/TimelineNode';
 import { Activity, ActivityCategory, ActivityStatus, MealType, Trip, TripDay } from '../model/Trip';
 import { ReplanDecision, ReplanOutcome } from '../model/Replan';
@@ -1147,8 +1146,6 @@ export struct OnTripPage {
           }
         }
         ListItem() {
-          // hero 面板包一层官方 HDS 双边流光（HdsVisualComponent），不支持的设备自动退回实色
-          ImmersiveSurface({ radius: RadiusTokens.hero, surfaceWidth: '100%' }) {
             Column() {
               Text('当前节点')
                 .fontSize(TypeTokens.overline.size)
@@ -1240,7 +1237,6 @@ export struct OnTripPage {
             .padding(SpaceTokens.base)
             .borderRadius(RadiusTokens.hero)
             .backgroundColor(ColorTokens.surfaceElevated)
-          }
         }
 
         // 下一段：真实通勤腿 + 下一节点
