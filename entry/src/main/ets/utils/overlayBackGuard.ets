@@ -29,6 +29,8 @@ const guards: OverlayBackGuard[] = [];
 export const OVERLAY_GUARD_EXPENSE_TAB: string = 'expenseTab';
 /** 我的根页：隐私政策/用户协议/关于 就地展开的整页文书 */
 export const OVERLAY_GUARD_MINE_TAB: string = 'mineTab';
+/** 规划根页：行程示例半模态（bindSheet） */
+export const OVERLAY_GUARD_PLAN_TAB: string = 'planTab';
 
 export function registerOverlayBackGuard(id: string, isOpen: OverlayProbe, close: OverlayCloser): void {
   unregisterOverlayBackGuard(id);

@@ -216,6 +216,9 @@ dump 6-after-back && shot 6-after-back
 # 旧口径等的是"只剩 dock / 正文空"（§4j 那条），但 4l 把根页内联之后就没这个现象了；
 # 2026-11-08 又实测出更糟的一种：根页不在栈上，Back 被系统按"入口页"处理，
 # 整个 App 直接退到后台（dump 的 bundleName 从 com.youjing.app 掉成 com.youju.app）。
+# 2026-11-08b 补：eb533b9（地图无图修复）后地图根页加载最近一条行程，标题栏从「地图」
+# 变成「北京 · 3天2晚」+ 全程/Day chips——这是该修复的合法产物。行程详情页同有这套
+# chips，但多一个「全图」按钮，用它把详情页排除掉。
 if python3 - "$OUT/6-after-back.json" <<'PY'
 import json, re, sys
 s = open(sys.argv[1], encoding='utf-8').read()
@@ -231,7 +234,8 @@ def walk(n):
     for c in n.get('children', []):
         walk(c)
 walk(d)
-ok = 'com.youjing.app' in b and '地图' in title
+on_map_root = '地图' in title or ('全程' in title and '全图' not in title)
+ok = 'com.youjing.app' in b and on_map_root
 print('  %s：前台 %s，标题栏 %s' % (
     'PASS' if ok else 'FAIL',
     ','.join(sorted(b)) or '读不到',
