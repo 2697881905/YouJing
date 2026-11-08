@@ -536,12 +536,14 @@ export struct StayPickPage {
           // 滚动预留跟着钉底条抬高的一档补回来
           .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
             bottom: LayoutTokens.stickyBarScrollReserve + LayoutTokens.floatingDockClearance })
+          // 穿底让位（2026-11-08 对标有据）：让位从外层 padding 移到 contentStartOffset，
+          // 只挪首屏起点；滚动后内容才穿得到标题栏下被材质糊掉。
+          .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight))
           .onDidScroll((): void => {
             this.syncBarScroll();
           })
           }
         }
-        .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
         .width('100%')
         .height('100%')
 

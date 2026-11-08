@@ -1452,10 +1452,13 @@ export struct ItineraryPage {
           .sticky(StickyStyle.Header)
           .cachedCount(6)
           .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
-            // 穿底让位放进**滚动容器内部**：留白随内容滚走，内容才能穿到栏下被材质采样
-            // （放在外层 Column 上会留一条永不消失的空档，见真机对照）
-            top: HdsChrome.contentTopInset(this.statusBarHeight, 48),
             bottom: LayoutTokens.floatingDockClearance })
+          // 穿底让位（2026-11-08 二次修正）：原先写 `.padding({ top })`，注释说"留白随内容
+          // 滚走"——这是错的。padding 是**滚动容器自己的**属性，压的是视口，内容永远到不了
+          // 标题栏那 175px，滚动时在栏底被硬切、上面留一片白。
+          // 改 `contentStartOffset`：只挪首屏起点，滚动后内容照常穿到栏下被材质糊掉
+          //（有据 ProfilePage 同一写法；吸顶组头也跟着粘在这个偏移上）。
+          .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight, 48))
           // 时间轴是单列长内容，不能按断点分栏（会打断主轴竖线），
           // 所以宽屏走"收窄 + 居中"这条路
           .width(longFormMaxWidth(this.bp, LayoutTokens.contentMaxWidth))

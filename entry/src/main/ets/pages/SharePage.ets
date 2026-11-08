@@ -357,11 +357,13 @@ export struct SharePage {
           // 钉底动作条已撤（见下），只需让出 dock 自身净空
           .padding({ left: this.wideInset(), right: this.wideInset(),
             bottom: LayoutTokens.floatingDockClearance })
+          // 穿底让位（2026-11-08 对标有据）：让位从外层 padding 移到 contentStartOffset，
+          // 只挪首屏起点；滚动后内容才穿得到标题栏下被材质糊掉。
+          .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight))
           .onDidScroll((): void => {
             this.syncBarScroll();
           })
         }
-        .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
         .width('100%')
         .height('100%')
 

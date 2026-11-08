@@ -701,6 +701,9 @@ export struct EditItineraryPage {
           .scrollBar(BarState.Off)
           .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
             bottom: LayoutTokens.floatingDockClearance })
+          // 穿底让位（2026-11-08 对标有据）：让位从外层 padding 移到 contentStartOffset，
+          // 只挪首屏起点；滚动后内容才穿得到标题栏下被材质糊掉。
+          .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight))
           .onItemDragStart((event: ItemDragInfo, itemIndex: number): CustomBuilder => {
             // 官方 API 限制：onItemDragStart 挂在 List 级（整行长按触发），
             // 与「把手只挂把手」的视觉约定有差距——拖影由本函数自定义，
@@ -751,10 +754,10 @@ export struct EditItineraryPage {
           .layoutWeight(1)
         }
       }
-      .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
       .width('100%')
       .height('100%')
-      .backgroundColor(ColorTokens.canvas)
+      // 不涂 canvas、也不在这里让位（2026-11-08 对标有据）：这层白会把标题栏区盖死，
+      // 让位已下放到 List 的 contentStartOffset。
       .bindSheet($$this.showReplace, this.replaceSheet(), {
         height: '70%',
         showClose: true,

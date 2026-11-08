@@ -279,9 +279,10 @@ export struct AreaMorePage {
           // 真机实拍（§5o）：这一屏最后一片区域整行压在浮动 dock 底下，
           // dock 是覆盖层，滚动容器不给净空就会被盖住——四个 tab 下的页面里只有这屏漏了
           .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
-            // 让位放进滚动容器：留白随内容滚走，内容才穿得到栏底
-            top: HdsChrome.contentTopInset(this.statusBarHeight, 56),
             bottom: LayoutTokens.floatingDockClearance })
+          // 穿底让位（2026-11-08 对标有据）：让位从 padding 移到 contentStartOffset，
+          // 只挪首屏起点；滚动后内容才穿得到标题栏下被材质糊掉（padding 压的是视口）。
+          .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight, 56))
           .layoutWeight(1)
           .onDidScroll((): void => {
             this.syncBarScroll();

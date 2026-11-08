@@ -589,6 +589,10 @@ export struct TripReviewPage {
     .cachedCount(6)
     .padding({ left: this.wideInset(), right: this.wideInset(),
       bottom: LayoutTokens.floatingDockClearance })
+    // 穿底让位（2026-11-08）：原本写在外层 Column 的 padding 上，压的是视口，
+    // 内容永远上不到标题栏那 175px，滚到栏底就被硬切。改 contentStartOffset：
+    // 只挪首屏起点，滚动后内容照常穿到栏下被材质糊掉（有据 ProfilePage 同一写法）。
+    .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight))
   }
 
   @Builder
@@ -646,11 +650,11 @@ export struct TripReviewPage {
           this.content()
         }
       }
-      .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
       .width('100%')
       .height('100%')
       .alignItems(HorizontalAlign.Start)
-      .backgroundColor(ColorTokens.canvas)
+      // 不涂 canvas、也不在这里让位（2026-11-08 对标有据）：这层白会把标题栏区盖死，
+      // 让位改由 content() 里 List 的 contentStartOffset 承担 —— 首屏让开、滚动可穿底。
     }
     // 不收栏（2026-11-08）：NavDestination 内容区恒预留 56vp 栏位、收栏后不回收，收起只留一条 175px 白带
     .bindToScrollable([this.barScroller])

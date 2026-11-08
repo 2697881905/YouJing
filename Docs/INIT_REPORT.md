@@ -3,6 +3,54 @@
 > 生成日期：2026-10-15。初始化流程 P0–P7 全部完成，验收清单见第 2 节，遗留事项见第 4 节。
 
 
+## 4r. 详情页同样中招：让位写进 padding，内容滚到栏底就被切（2026-11-08）
+
+用户澄清「是顶部栏，不是顶部蓝」，并指出**滚动时下方内容会被顶部栏白底截断**。
+
+### 根因与根页是同一条，只是长在详情页上
+
+`HdsNavDestination` 的 `NavDestinationContent` 从 106 起（穿底是通的），但十几个详情页都写：
+
+```ts
+List({ scroller: this.barScroller }) { ... }
+  .padding({ top: HdsChrome.contentTopInset(...) })   // ← 压的是视口
+```
+
+padding 是滚动容器自己的属性，压下去的是**视口**而不是首屏起点 —— 内容永远到不了标题栏那
+175px，滚到栏底就被硬切，上面留一片白。上一版注释里写的「留白随内容滚走」是错的。
+
+### 改动（十个页面）
+
+- `ItineraryPage`、`TripReviewPage`、`BadgePage`、`SpotPickPage`、`AreaMorePage`、
+  `StayPickPage`、`SharePage`、`OnTripPage`、`PreferenceQAPage`、`EditItineraryPage`：
+  `padding.top` → `.contentStartOffset(...)`；
+- `TripReviewPage` / `PreferenceQAPage` / `EditItineraryPage` 同时去掉外层那层
+  `backgroundColor(ColorTokens.canvas)`（和根页 4q 同一个道理：它把栏区盖成白色）。
+
+`contentStartOffset` 只挪首屏起点，滚动后内容照常穿到栏下被栏体材质糊掉（有据 ProfilePage 同一写法；
+它的一个副作用是吸顶组头也粘在这个偏移上，与有据一致）。
+
+### 真机效果
+
+「旅行回顾」滚动后，蓝色海报穿进标题栏、被磨砂糊成一片，标题「旅行回顾」压在糊面上——
+和 4q 里规划页的表现一致。这个页面内容够长，是当前数据里唯二能验证的页面（另一个是规划页）。
+
+其余页面（勋章 1 枚、1 条记账、2 条已结束行程）**内容不满一屏、滚不动**，改法一致但看不到效果，
+不能算逐页真机验收。
+
+### 没做的两个 Scroll 页
+
+`TripInputPage` 与 `GenerateFailedPage` 的滚动容器是 `Scroll`（没有 `contentStartOffset`），
+本轮未改；按有据 HomeTab 的做法要 `enableComponentSafeArea: true` + `clip(false)`，
+而那条路有径早前试过「滚动到不了栏下」。留待下一轮单独处理。
+
+### 验收（装机 md5 `1240c49df262e4f3af8d4dda836a51d2`）
+
+- `verify_scroll_clearance.py`：17/17 ok，净空 27.5–476.2vp
+  （Review 553.0→507.8、EditItinerary 502.7→457.6，去掉外层 canvas + contentStartOffset 后的必然位移，均合规）；
+- `verify_route_sweep.py --density 3.125`：17/17 OK；
+- 24 把静态尺：`elevation` 2 / `geometry` 3 / `layout_patterns` 1 / `motion` 15 全为既有基线，净增 0。
+
 ## 4q. 顶部那层白：让位方式与收栏策略，五个根页对齐有据（2026-11-08）
 
 用户报「现在的顶部还是有白底」，要求五个主页面布局结构全量对标有据。
