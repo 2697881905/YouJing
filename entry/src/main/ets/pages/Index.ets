@@ -40,7 +40,7 @@ import { MotionCurves, MotionTokens } from '../design/MotionTokens';
 import { HdsMiniBarButton } from '../components/HdsMiniBarButton';
 import { HDS_MATERIAL_LEVEL_EXQUISITE, HDS_MATERIAL_TYPE_IMMERSIVE,
   isImmersiveLightSenseSupported } from '../utils/immersiveMaterial';
-import { BottomTabBar } from '../components/BottomTabBar';
+import { BottomTabBar, BottomTabItem } from '../components/BottomTabBar';
 import { TopStrip, TOP_STRIP_KEY, STRIP_CANVAS, STRIP_MAP } from '../utils/TopStrip';
 import { BOTTOM_NAV_INSET_KEY } from '../utils/navMode';
 import { consumeOverlayBackFor, OVERLAY_GUARD_EXPENSE_TAB, OVERLAY_GUARD_MINE_TAB } from '../utils/overlayBackGuard';
@@ -80,6 +80,35 @@ const DOCK_PILL_MINI_PAD: number = 16;
 /** 覆盖层与槽位谁先布局不固定，量不到就按帧重试这么多回 */
 const DOCK_PILL_MEASURE_RETRIES: number = 6;
 
+// —— 页签槽位（照「有据」`Index.tabBarBuilder`，2026-11-08 全量迁移）——
+// 尺寸只对**上报**有意义：系统仍按 barWidth 档把五格压成实测 55.4×48.3vp，
+// 但 `dockPillFrameOf` 读的就是 onAreaChange 上报的这块矩形。
+// 有据挂在固定 64×54 的 Stack 上 → 胶囊高 54×0.96=51.8vp；
+// 有径原先挂在自适应的 Column 上 → 只报 48.3×0.96=46.4vp，胶囊矮 5.4vp（真机实测差 17px）。
+const DOCK_TAB_SLOT_W: number = 64;
+const DOCK_TAB_SLOT_H: number = 54;
+/** 图标容器（有据 28×28 的 Stack）：给未读红点留位，同时把图标与文字的基线推到有据同位 */
+const DOCK_TAB_ICON_BOX: number = 28;
+/** 图标与文字间距（有据 `Column({ space: 3 })`；本仓 SpaceTokens.xxs 是 4） */
+const DOCK_TAB_CONTENT_GAP: number = 3;
+
+// —— 拖拽液态交互参数（有据 DockPillDragProtoPage 真机定档 2026-10-26 移植）——
+/** 速度形变上限（vp）：快甩的拉扯感 */
+const DOCK_PILL_SPEED_MAX_DEFORM: number = 22;
+/** 反方向（回拉）交叉形变系数：回拉收宽涨高 */
+const DOCK_PILL_DEFORM_CROSS: number = 0.5;
+/** 速度归一基准（vp/s）：轻甩约 400-600、快甩约 1200-1800 */
+const DOCK_PILL_SPEED_NORMALIZE_VP: number = 1200;
+/** 速度低于此值不形变（滤手抖噪声） */
+const DOCK_PILL_SPEED_MIN_VP: number = 120;
+/** 速度指数平滑因子 */
+const DOCK_PILL_SPEED_SMOOTH: number = 0.3;
+/** 停顿判定：超过 90ms 无 200vp/s 以上速度视为停顿，重置形变方向 */
+const DOCK_PILL_PAUSE_MS: number = 90;
+const DOCK_PILL_PAUSE_SPEED_VP: number = 200;
+/** 边缘阻尼：首/尾槽往界外拖的跟手衰减 */
+const DOCK_PILL_EDGE_DAMPING: number = 0.3;
+
 @Entry
 @Component
 struct Index {
@@ -94,7 +123,7 @@ struct Index {
    *  建立更新绑定，刷新全是空操作（有据 navMode 文件头写明的踩坑）。
    *  旧写法 `floatingDockBottomMargin + navIndicatorHeight` 在看不到三键栏的机型上会多垫 27.8vp。
    */
-  @StorageLink(BOTTOM_NAV_INSET_KEY) dockNavInset: number = 0;
+  @StorageLink(BOTTOM_NAV_INSET_KEY) @Watch('onDockNavInsetChange') dockNavInset: number = 0;
   /** 断点（唯一来源 utils/breakpointCenter.ets）：只用来选 dock 的 barWidth 档 */
   @StorageProp(KEY_CURRENT_BREAKPOINT) bp: string = 'sm';
   /**
@@ -118,6 +147,27 @@ struct Index {
   /** 覆盖层自己的窗口矩形：胶囊坐标换算成它的相对值 */
   private dockLayerArea: DockArea | null = null;
   private dockPillMeasureTries: number = 0;
+  /** 落定在途的定时器：手指接管或再次切页都要先打断，否则旧回弹会把新位移拽回去 */
+  private dockPillSettleTimer: number = -1;
+  // —— 玻璃珠拖拽（照「有据」原型页验证过的交互，2026-11-08 迁移）——
+  /** 拖拽实时偏移：逐帧直写跟手，travel 里随 animateTo 归零插值 */
+  @State private dockPillDragOffsetX: number = 0;
+  /**
+   * 拖拽形变的 scale 变换（1 = 无形变）。
+   * ⚠ 形变绝不能直写 dockPillW/H——那是 HdsMiniBarButton 内部真 HdsTabs 的布局尺寸，
+   * 逐帧直写 = 每帧重布局 + 材质重采样（拖动中卡顿/闪烁的根因）；scale 是 GPU 合成变换。
+   */
+  @State private dockPillDeformScaleX: number = 1;
+  @State private dockPillDeformScaleY: number = 1;
+  /** 拖拽过程量（非渲染态）：采样点 / 平滑速度 / 形变方向 / 停顿检测 */
+  private dockPillLastGestureX: number = 0;
+  private dockPillLastGestureTs: number = 0;
+  private dockPillSmoothedVp: number = 0;
+  private dockPillInitialDirection: number = 0;
+  private dockPillLastActiveTs: number = 0;
+  private dockPillPauseDetected: boolean = false;
+  /** 实测槽距缓存：拖拽松手换算「拖了几个槽」（dockPillFrameOf 成功路径顺带回填） */
+  private dockPillPitch: number = 0;
   private hdsController: HdsTabsController = new HdsTabsController();
   /** 低 SDK 降级分支专用：官方 HdsTabs 的 barFloatingStyle 自 API 23 起才存在 */
   private legacyController: TabsController = new TabsController();
@@ -263,6 +313,8 @@ struct Index {
       - LayoutTokens.floatingDockBarHeight / 2;
     // 槽距由两端中心反算（不写死）：换 dock 宽度档、换导航方式、转屏都会变
     const pitch: number = count > 1 ? (lastCx - firstCx) / (count - 1) : first.w;
+    // 拖拽松手要按它算「拖了几个槽」：成功路径顺带回填，失败不留脏值
+    this.dockPillPitch = pitch;
     const frame: DockPillFrame = {
       cx: cx,
       cy: cy,
@@ -295,27 +347,195 @@ struct Index {
   /** 切页：先鼓包 + 位移（行进），到点再 spring 收回静止尺寸——「液态」观感的 tap 分支 */
   private dockPillTravel(index: number): void {
     const frame: DockPillFrame | null = this.dockPillFrameOf(index);
-    if (frame === null || !this.dockPillReady) {
+    if (frame === null) {
+      return;
+    }
+    if (!this.dockPillReady) {
       this.dockPillSnapOrRetry(index);
       return;
     }
-    if (this.dockPillCovered === index && Math.abs(this.dockPillX - frame.cx) < 0.5) {
+    // 同一次切换会被 onTabBarClick 与 onAnimationStart 各触发一次；已经到位且无拖拽
+    // 残留就不要再发一遍动画（否则胶囊会在终点上重新鼓一次包）。
+    if (this.dockPillCovered === index && Math.abs(this.dockPillDragOffsetX) < 0.5
+      && Math.abs(this.dockPillX - frame.cx) < 0.5) {
       return;
     }
-    const ui: UIContext = this.getUIContext();
-    ui.animateTo({ duration: MotionTokens.container, curve: MotionCurves.standard }, (): void => {
+    // 「落定才接管」（有据 2026-10-26 用户拍板：图标不跟玻璃跑）：行进期间玻璃珠是纯光标，
+    // 官方份全部显示、图标留在槽位里（玻璃扫过谁、谁的图标在磨砂下短暂糊化）；settle
+    // 到点才由玻璃接管目标槽——真磨砂下选中槽不接管则图标不可读，落定接管是唯一兼顾。
+    this.dockPillCovered = -1;
+    // 行进曲线用 emphasized（无过冲）：springSoft 带 ~10% 位置过冲，拖拽松手时玻璃珠
+    // 会冲过目标槽再弹回，读作「弹一下」；吸附要的是"利落到位"，弹动感由落定的
+    // springBounce 尺寸果冻承担。
+    this.getUIContext().animateTo({ duration: MotionTokens.dockTravel, curve: MotionCurves.emphasized }, (): void => {
       this.dockPillX = frame.cx;
       this.dockPillY = frame.cy;
       this.dockPillW = frame.w + DOCK_PILL_BULGE;
       this.dockPillH = frame.h + DOCK_PILL_BULGE;
-        this.dockPillCovered = index;
+      this.dockPillDragOffsetX = 0;
     });
-    setTimeout((): void => {
-      ui.animateTo({ duration: MotionTokens.container, curve: MotionCurves.springBounce }, (): void => {
-        this.dockPillW = frame.w;
-        this.dockPillH = frame.h;
+    if (this.dockPillSettleTimer >= 0) {
+      clearTimeout(this.dockPillSettleTimer);
+    }
+    const restW: number = frame.w;
+    const restH: number = frame.h;
+    this.dockPillSettleTimer = setTimeout((): void => {
+      this.dockPillSettleTimer = -1;
+      this.getUIContext().animateTo({ duration: MotionTokens.dockSettle, curve: MotionCurves.springBounceYu }, (): void => {
+        this.dockPillW = restW;
+        this.dockPillH = restH;
       });
-    }, MotionTokens.container);
+      // 落定即接管：目标槽官方份隐掉、玻璃内清晰副本顶上（与官方份逐像素重合，无跳变）
+      this.dockPillCovered = index;
+    }, MotionTokens.dockTravel);
+  }
+
+  /**
+   * 页签状态同步（不含胶囊动画）：五格共用的「切到第 index 格」副作用都在这里。
+   * 与 `dockPillTravel` 拆开是因为外部深链（applyTabSwitch）会先把 currentTab 写好，
+   * 合并写会让那条路径的玻璃珠不飞——travel 必须无条件被调，去重交给它自己。
+   */
+  private applyTabState(index: number): void {
+    if (this.currentTab === index) {
+      return;
+    }
+    this.currentTab = index;
+    AppStorage.setOrCreate(TAB_INDEX_KEY, index);
+    this.syncTopStrip(index);
+    // 五个 tab 根页只在 aboutToAppear 取一次数：在别处新建/编辑完行程、记完费用
+    // 再切回页签，看到的还是第一次进入那份。广播一条，根页序号对上才重取
+    announceTabShown(index);
+  }
+
+  /** 切页统一入口（拖拽松手走这条；照有据 `selectTab`）：状态 + 胶囊飞行一起做 */
+  private selectTab(index: number): void {
+    this.applyTabState(index);
+    this.dockPillTravel(index);
+  }
+
+  // —— 玻璃珠拖拽三阶段（照「有据」原型页真机验证版）——
+  // 手势只挂在玻璃珠本体（覆盖层 hitTest None + 珠体 Transparent），与整页左右滑
+  // 分区共存：内容区滑动归 HdsTabs，Dock 上的横向拖拽归玻璃珠。
+  // 拖拽中玻璃珠是纯光标（官方份全显、图标原位），松手过半格吸附、边缘阻尼。
+
+  private handleDockPillDragStart(): void {
+    // 打断在途 settle：手指接管，一切以手势为准
+    if (this.dockPillSettleTimer >= 0) {
+      clearTimeout(this.dockPillSettleTimer);
+      this.dockPillSettleTimer = -1;
+    }
+    this.dockPillLastGestureX = 0;
+    this.dockPillLastGestureTs = 0;
+    this.dockPillSmoothedVp = 0;
+    this.dockPillInitialDirection = 0;
+    this.dockPillLastActiveTs = 0;
+    this.dockPillPauseDetected = false;
+    // 拖拽即纯光标：官方份全部露出，图标留在槽位里
+    this.dockPillCovered = -1;
+    // 拖拽全程基准尺寸恒定（rest+BULGE），形变由 deformScale 承担
+    this.dockPillDeformScaleX = 1;
+    this.dockPillDeformScaleY = 1;
+    // 起手鼓包：从静止尺寸"被拿起"（一记明显轻弹）
+    const frame: DockPillFrame | null = this.dockPillFrameOf(this.currentTab);
+    if (frame === null) {
+      return;
+    }
+    this.getUIContext().animateTo({ duration: MotionTokens.press, curve: MotionCurves.springBounceYu }, (): void => {
+      this.dockPillW = frame.w + DOCK_PILL_BULGE;
+      this.dockPillH = frame.h + DOCK_PILL_BULGE;
+    });
+  }
+
+  private handleDockPillDragUpdate(event: GestureEvent): void {
+    if (!this.dockPillReady || this.dockPillPitch <= 0) {
+      return;
+    }
+    const x: number = event.offsetX;
+    const now: number = Date.now();
+    // 速度按 vp/s 归一（不依赖手势回调帧率），指数平滑滤抖
+    if (this.dockPillLastGestureTs > 0) {
+      const dt: number = Math.max(now - this.dockPillLastGestureTs, 1);
+      const instVp: number = (x - this.dockPillLastGestureX) / dt * 1000;
+      this.dockPillSmoothedVp = this.dockPillSmoothedVp * (1 - DOCK_PILL_SPEED_SMOOTH)
+        + instVp * DOCK_PILL_SPEED_SMOOTH;
+    }
+    this.dockPillLastGestureX = x;
+    this.dockPillLastGestureTs = now;
+    // 停顿检测：短促停顿后视为新一轮甩动，重置形变方向
+    if (Math.abs(this.dockPillSmoothedVp) >= DOCK_PILL_PAUSE_SPEED_VP) {
+      this.dockPillLastActiveTs = now;
+    }
+    if (this.dockPillLastActiveTs > 0 && Math.abs(this.dockPillSmoothedVp) < DOCK_PILL_PAUSE_SPEED_VP
+      && now - this.dockPillLastActiveTs >= DOCK_PILL_PAUSE_MS) {
+      this.dockPillPauseDetected = true;
+      this.dockPillInitialDirection = 0;
+      this.dockPillLastActiveTs = 0;
+    }
+    // 速度 → 形变：sqrt 缓动，同向拉宽缩高、反向收宽涨高
+    const absV: number = Math.abs(this.dockPillSmoothedVp);
+    let deformW: number = 0;
+    let deformH: number = 0;
+    if (absV >= DOCK_PILL_SPEED_MIN_VP) {
+      if (this.dockPillInitialDirection === 0 || this.dockPillPauseDetected) {
+        this.dockPillInitialDirection = this.dockPillSmoothedVp > 0 ? 1 : -1;
+        this.dockPillPauseDetected = false;
+      }
+      const eased: number = Math.sqrt(Math.min(absV / DOCK_PILL_SPEED_NORMALIZE_VP, 1));
+      const deform: number = eased * DOCK_PILL_SPEED_MAX_DEFORM;
+      const sameDir: boolean = (this.dockPillSmoothedVp > 0 ? 1 : -1) === this.dockPillInitialDirection;
+      if (sameDir) {
+        deformW = deform;
+        deformH = -deform * DOCK_PILL_DEFORM_CROSS;
+      } else {
+        deformW = -deform * DOCK_PILL_DEFORM_CROSS;
+        deformH = deform;
+      }
+    }
+    const frame: DockPillFrame | null = this.dockPillFrameOf(this.currentTab);
+    if (frame === null) {
+      return;
+    }
+    const baseW: number = frame.w + DOCK_PILL_BULGE;
+    const baseH: number = frame.h + DOCK_PILL_BULGE;
+    this.dockPillDeformScaleX = (baseW + deformW) / baseW;
+    this.dockPillDeformScaleY = (baseH + deformH) / baseH;
+    // 边缘阻尼：首槽往左/尾槽往右拖时跟手衰减（rubber-band 手感）
+    const lastIndex: number = DOCK_TABS.length - 1;
+    if ((this.currentTab === 0 && x < 0) || (this.currentTab === lastIndex && x > 0)) {
+      this.dockPillDragOffsetX = x * DOCK_PILL_EDGE_DAMPING;
+    } else {
+      this.dockPillDragOffsetX = x;
+    }
+  }
+
+  private handleDockPillDragEnd(): void {
+    // 按实测槽距取整：过半格吸附
+    const slots: number = this.dockPillPitch > 0 ? Math.round(this.dockPillDragOffsetX / this.dockPillPitch) : 0;
+    const lastIndex: number = DOCK_TABS.length - 1;
+    const target: number = Math.max(0, Math.min(lastIndex, this.currentTab + slots));
+    // ⚠ 落袋为安：玻璃视觉位置 = dockPillX(position) + dragOffsetX(translate) 两个属性之和。
+    // 松手瞬间先把合成位置一次性写入 dockPillX（直写）、dragOffsetX 同帧清零（直写）——
+    // 同帧两次直写只渲染一次，视觉零跳变；之后 travel 只需动画 dockPillX 单属性。
+    // 不能依赖 travel 的 animateTo 同时插值两个属性：translate 的归零若未按预期走动画，
+    // 玻璃会先跳回锚点再滑向目标——「从原来的方向重新滑过来」（有据真机实证 2026-10-26）。
+    this.dockPillX = this.dockPillX + this.dockPillDragOffsetX;
+    this.dockPillDragOffsetX = 0;
+    // 形变随飞行同步收回（scale 与位置同一批 animateTo，emphasized 曲线）
+    this.getUIContext().animateTo({ duration: MotionTokens.dockTravel, curve: MotionCurves.emphasized }, (): void => {
+      this.dockPillDeformScaleX = 1;
+      this.dockPillDeformScaleY = 1;
+    });
+    if (target === this.currentTab) {
+      // 未过半格：回弹到当前槽（travel 从快照位插回锚点，去重条件已含拖拽偏移判断）
+      this.dockPillTravel(target);
+      return;
+    }
+    // 过半格吸附：走 selectTab 统一链路（状态 + 玻璃珠飞行 + 落定接管）
+    this.selectTab(target);
+    // ⚠ 页面切换必须显式 changeIndex：HdsTabs 非受控（无 index 绑定），点页签由官方
+    // 内部切页、整页左右滑由官方手势切页，唯独拖拽路径官方一无所知——不补 changeIndex
+    // 则页面内容停在旧页，玻璃状态与页面状态失步，后续任何切页都会让玻璃珠跳变。
+    this.hdsController.changeIndex(target);
   }
 
   /**
@@ -341,9 +561,14 @@ struct Index {
         Column()
       }
       Column() {
-        ForEach([this.dockPillCovered], (i: number) => {
-          this.tabItemContent(i)
-        }, (i: number): string => String(i))
+        // ⚠ 必须有这道守卫：行进期间 `dockPillCovered` 是 -1（玻璃珠当纯光标、官方份全显），
+        // 没有它就会拿 DOCK_TABS[-1].symbol 去渲染 —— `Cannot read property symbol of undefined`
+        // 直接把进程带崩（2026-11-08 真机实证，有据原件里本来就有这道 if，移植时漏了）。
+        if (this.dockPillCovered >= 0) {
+          ForEach([this.dockPillCovered], (i: number) => {
+            this.tabItemContent(i)
+          }, (i: number): string => String(i))
+        }
       }
       .width(this.dockPillW)
       // 与玻璃条同高、内容显式居中：官方那份被 Stack 居中，这里 Column 主轴默认从顶排，
@@ -362,14 +587,30 @@ struct Index {
         .onTouch((event: TouchEvent): void => {
           const pressed: boolean = event.type === TouchType.Down || event.type === TouchType.Move;
           if (pressed !== this.dockPillPressed) {
+            // 按压反馈的平滑：显式 animateTo（外层胶囊不挂 .animation，
+            // 否则拖拽形变会被属性动画平滑、滞后于手势）
             this.getUIContext().animateTo({
               duration: MotionTokens.press,
-              curve: MotionCurves.standard
+              curve: MotionCurves.springInteract
             }, (): void => {
               this.dockPillPressed = pressed;
             });
           }
         })
+        // 拖拽切页（照「有据」2026-10-26 真机定档）：横向拖玻璃珠跟手位移 + 速度形变，
+        // 松手过半格吸附。与整页左右滑分区共存——内容区滑动归 HdsTabs，Dock 上归这里。
+        .gesture(
+          PanGesture({ direction: PanDirection.Horizontal, fingers: 1, distance: 5 })
+            .onActionStart((): void => {
+              this.handleDockPillDragStart();
+            })
+            .onActionUpdate((event: GestureEvent): void => {
+              this.handleDockPillDragUpdate(event);
+            })
+            .onActionEnd((): void => {
+              this.handleDockPillDragEnd();
+            })
+        )
     }
     .clip(false)
     // HdsMiniBarButton 容器 size = 玻璃条 + contentPadding×4，玻璃在容器内居中，
@@ -378,10 +619,14 @@ struct Index {
       x: this.dockPillX - this.dockPillW / 2 - DOCK_PILL_MINI_PAD,
       y: this.dockPillY - this.dockPillH / 2 - DOCK_PILL_MINI_PAD
     })
+    // 按压（0.94）× 拖拽形变合成缩放；材质自带落影，自绘 shadow 不再叠加。
     .scale({
-      x: this.dockPillPressed ? MotionTokens.pressScale : 1,
-      y: this.dockPillPressed ? MotionTokens.pressScale : 1
+      x: (this.dockPillPressed ? MotionTokens.pressSlideScale : 1) * this.dockPillDeformScaleX,
+      y: (this.dockPillPressed ? MotionTokens.pressSlideScale : 1) * this.dockPillDeformScaleY
     })
+    // ⚠ 不挂 .animation：deformScale 拖拽中逐帧直写必须即时生效（挂了会被属性动画平滑、
+    // 形变滞后于手势）。拖拽跟手与 travel 归零插值都走这一个 translate。
+    .translate({ x: this.dockPillDragOffsetX })
     // ⚠ 必须是 Transparent 而不是 None：把命中收进来的同时，让玻璃区域以外的点击
     // 透给下层官方页签——改完这一档必须真点一次切页，确认没吃掉官方页签的点击
     .hitTestBehavior(HitTestMode.Transparent)
@@ -391,29 +636,45 @@ struct Index {
    * 页签格的内容本体（图标 + 标签）。**不带任何上报**——胶囊里的清晰副本也复用这一份，
    * 若把 `onAreaChange` 写在这里，副本那一次回调会把自己所在的胶囊坐标当成槽位写回去，
    * 定位就自指了（有据把这两层拆成 `tabItemContent` / `tabBar` 正是为此）。
+   *
+   * 2026-11-08 按有据全量对齐：图标外包 28×28 容器（给红点留位、把基线推到有据同位）、
+   * 间距 3（SpaceTokens.xxs 是 4）、选中不再加字重（有据只换颜色）。
+   * 图标资产是唯一没迁的：有据用 `app.media.nav_*` 的细线 SVG，有径用系统符号（用户 2026-11-08 裁定保留）。
    */
   @Builder
   tabItemContent(idx: number) {
-    Column({ space: SpaceTokens.xxs }) {
-      SymbolGlyph(DOCK_TABS[idx].symbol)
-        .fontSize(IconSizes.control)
-        .fontColor([this.currentTab === idx ? ColorTokens.primary : ColorTokens.icon])
+    Column({ space: DOCK_TAB_CONTENT_GAP }) {
+      Stack({ alignContent: Alignment.Center }) {
+        SymbolGlyph(DOCK_TABS[idx].symbol)
+          .fontSize(IconSizes.control)
+          .fontColor([this.currentTab === idx ? ColorTokens.primary : ColorTokens.icon])
+      }
+      .width(DOCK_TAB_ICON_BOX)
+      .height(DOCK_TAB_ICON_BOX)
+
       Text(DOCK_TABS[idx].label)
         .fontSize(TypeTokens.navLabel.size)
-        .fontWeight(this.currentTab === idx ? 500 : TypeTokens.navLabel.weight)
+        .fontWeight(TypeTokens.navLabel.weight)
         .fontColor(this.currentTab === idx ? ColorTokens.primary : ColorTokens.muted)
     }
-    .height(LayoutTokens.tabItemHeight)
     .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
   }
 
+  /**
+   * 官方页签格。尺寸必须有：`dockPillFrameOf` 的胶囊高度只读这里的 `onAreaChange` 上报值，
+   * 有据给的就是 64×54（系统仍会按 barWidth 档压成实测 55.4×48.3，但高度上报按 54 算，
+   * 胶囊才是有据那颗 51.8vp 而不是 46.4vp）。
+   * 被玻璃胶囊盖住的那一颗整份隐掉：胶囊是真磨砂，留着它只会在玻璃下面糊出一团同色光晕，
+   * 清晰的那份由胶囊自己带（有据 `tabBarBuilder` 同一道 gate；漏掉它就是我这份移植的缺陷）。
+   */
   @Builder
   tabLabel(idx: number) {
-    Column() {
+    Stack({ alignContent: Alignment.Center }) {
       this.tabItemContent(idx)
     }
-    // 被玻璃胶囊盖住的那一颗整份隐掉：胶囊是真磨砂，留着它只会在玻璃下面糊出一团同色光晕，
-    // 清晰的那份由胶囊自己带（有据 `tabBarBuilder` 同一道 gate；漏掉它就是我这份移植的缺陷）。
+    .width(DOCK_TAB_SLOT_W)
+    .height(DOCK_TAB_SLOT_H)
     .opacity(this.dockPillCovered === idx ? 0 : 1)
     .accessibilityText(`${DOCK_TABS[idx].label}页签`)
     .onAreaChange((_o: Area, n: Area): void => {
@@ -464,6 +725,16 @@ struct Index {
   private syncTopStrip(index: number): void {
     TopStrip.apply(this.getUIContext().getHostContext() as common.UIAbilityContext,
       index === TAB_MAP && stackOfTab(TAB_MAP).size() === 0 ? STRIP_MAP : STRIP_CANVAS);
+  }
+
+  /**
+   * 避让量变了（首帧实测回写 / 系统里切换导航方式）→ 胶囊立刻按新边距重贴。
+   * `barFloatingStyle.barBottomMargin` 由 @StorageLink 自己刷新，这一路只补命令式的那份：
+   * 胶囊的 cy 是在 `dockPillFrameOf` 里用 dockNavInset 算出来的，不重贴就会停在旧边距上
+   *（有据模拟器实测差 31.7vp，玻璃珠整体偏上）。
+   */
+  private onDockNavInsetChange(): void {
+    this.dockPillSnapOrRetry(this.currentTab);
   }
 
   /**
@@ -574,14 +845,9 @@ struct Index {
       this.dockPillTravel(targetIndex);
     })
     .onChange((index: number): void => {
-      this.currentTab = index;
-      AppStorage.setOrCreate(TAB_INDEX_KEY, index);
-      this.syncTopStrip(index);
-      // 胶囊跟着落位：行进 320ms + 落定回弹（观感收口要真人看，这里只保证几何对）
+      this.applyTabState(index);
+      // 胶囊跟着落位：行进 300ms + 落定回弹 400ms（观感收口要真人看，这里只保证几何对）
       this.dockPillTravel(index);
-      // 五个 tab 根页只在 aboutToAppear 取一次数：在别处新建/编辑完行程、记完费用
-      // 再切回页签，看到的还是第一次进入那份。广播一条，根页序号对上才重取
-      announceTabShown(index);
     })
     // 重点**当前**页签时 onChange 不触发（同值），系统惯例是"再点一次 = 回到这一页签的根"。
     // 原来这条路径上什么都不发生：从「我的」点开行程后再点「我的」，界面纹丝不动，
@@ -609,6 +875,20 @@ struct Index {
     // 撤掉 padding 后栏体从窗口 0 排起，遮罩与带子是同一层，缝没有第二个来源。
     // 壳层不读任何避让区：顶部让位归栏体（HdsChrome.bar 的 avoidLayoutSafeArea），
     // 底部让位归 navMode 发布的 dockNavInset，两处各只有一个来源。
+  }
+
+  /**
+   * 低版本分支的页签数据：`DOCK_TABS` 是 {label, symbol}，这里补 `key` 供 ForEach 复用、
+   * 并把 `label` 改名成 `title`（有据 `BottomTabBar` 的 BottomTabItem 形状）。
+   */
+  private legacyTabItems(): BottomTabItem[] {
+    return [
+      { key: 'map', title: DOCK_TABS[TAB_MAP].label, symbol: DOCK_TABS[TAB_MAP].symbol },
+      { key: 'itinerary', title: DOCK_TABS[TAB_ITINERARY].label, symbol: DOCK_TABS[TAB_ITINERARY].symbol },
+      { key: 'plan', title: DOCK_TABS[TAB_PLAN].label, symbol: DOCK_TABS[TAB_PLAN].symbol },
+      { key: 'expense', title: DOCK_TABS[TAB_EXPENSE].label, symbol: DOCK_TABS[TAB_EXPENSE].symbol },
+      { key: 'mine', title: DOCK_TABS[TAB_MINE].label, symbol: DOCK_TABS[TAB_MINE].symbol }
+    ];
   }
 
   /**
@@ -657,9 +937,8 @@ struct Index {
       .height('100%')
 
       BottomTabBar({
-        items: [DOCK_TABS[TAB_MAP].label, DOCK_TABS[TAB_ITINERARY].label,
-          DOCK_TABS[TAB_PLAN].label, DOCK_TABS[TAB_EXPENSE].label, DOCK_TABS[TAB_MINE].label],
-        selectedIndex: this.currentTab,
+        items: this.legacyTabItems(),
+        currentIndex: $currentTab,
         onSelect: (index: number): void => {
           this.legacyController.changeIndex(index);
         }

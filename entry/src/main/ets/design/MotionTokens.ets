@@ -40,6 +40,17 @@ export interface MotionTokensType {
   pressOpacity: number;
   successScale: number;
   enterScale: number;
+  /**
+   * dock 选中胶囊「行进」时长（有据 `DOCK_PILL_TRAVEL_MS` 同值 300）。
+   * 为什么不是 container(320)：胶囊与页面翻页同批起飞，300 是有据真机定档值，
+   * 多 20ms 会读成「玻璃晚半拍」。唯一消费方是 pages/Index 的 dockPillTravel。
+   */
+  dockTravel: number;
+  /**
+   * dock 选中胶囊「落定回弹」时长（有据 `DOCK_PILL_SETTLE_MS` 同值 400）。
+   * springBounce(0.4,0.7) 走完整段物理行程需要这个余量，短了果冻感会断在半路。
+   */
+  dockSettle: number;
 }
 
 export const MotionTokens: MotionTokensType = {
@@ -61,7 +72,9 @@ export const MotionTokens: MotionTokensType = {
   pressSlideScale: 0.94,
   pressOpacity: 0.92,
   successScale: 1.045,
-  enterScale: 0.975
+  enterScale: 0.975,
+  dockTravel: 300,
+  dockSettle: 400
 };
 
 /**
