@@ -16,6 +16,8 @@ import { ActivityCategory } from '../../../main/ets/model/Trip';
 import { PaceOption, TransitPreference, TravelStyle } from '../../../main/ets/model/PlanParams';
 import { MotionTokens, MotionCurves } from '../../../main/ets/design/MotionTokens';
 import { ShadowTokens } from '../../../main/ets/design/ShadowTokens';
+import { IconSizes, IconTokens } from '../../../main/ets/design/LayoutTokens';
+import { TypeTokens } from '../../../main/ets/design/TypeTokens';
 import { Pressable } from '../../../main/ets/components/Pressable';
 import { EmptyState } from '../../../main/ets/components/EmptyState';
 import { Skeleton } from '../../../main/ets/components/Skeleton';
@@ -139,6 +141,31 @@ export default function styleConfigTest(): void {
       // 放宽的是噪声窗，没把指纹判据放松到测不出换曲线。
       expect(MotionCurves.linear.interpolate(0.5)).assertClose(0.5, 0.005);
     });
+
+    it('alignment_2026_11_07_tiers', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+      // 全量对齐「有据」源码后新增的档位（旧五档与曲线指纹断言一律保留，不删）。
+      expect(MotionTokens.pressOpacity).assertEqual(0.92);
+      expect(MotionTokens.fast).assertEqual(140);
+      expect(MotionTokens.base).assertEqual(220);
+      expect(MotionTokens.slow).assertEqual(320);
+      expect(MotionTokens.enter).assertEqual(360);
+      expect(MotionTokens.stagger).assertEqual(40);
+      expect(MotionTokens.enterScale).assertEqual(0.975);
+      expect(MotionTokens.pressSlideScale).assertEqual(0.94);
+      // 图标档按有据 design/tokens/icon.ets：控制 24、空态/展示 44
+      expect(IconSizes.control).assertEqual(24);
+      expect(IconSizes.display).assertEqual(44);
+      expect(IconTokens.compact).assertEqual(16);
+      expect(IconTokens.standard).assertEqual(24);
+      expect(IconTokens.empty).assertEqual(44);
+      expect(IconTokens.avatarProfile).assertEqual(68);
+      expect(IconTokens.shortcutTile).assertEqual(56);
+      // callout 别名 = small(14)，按钮标签按有据降到 14
+      expect(TypeTokens.callout.size).assertEqual(14);
+      expect(TypeTokens.callout.size).assertEqual(TypeTokens.small.size);
+      // SoftChip 第三档 danger 已建（danger_tint 两份资源成对新增）
+      expect(SoftChipTone.DANGER).assertEqual('danger');
+    });
   });
 
   describe('ShadowTokens', () => {
@@ -218,10 +245,11 @@ export default function styleConfigTest(): void {
       expect(AvatarSizes.SM).assertEqual(24);
       expect(AvatarSizes.MD).assertEqual(40);
       expect(AvatarSizes.LG).assertEqual(56);
-      // tag-pill 两档 tone（有据的 danger 档本轮不建：色板没有 danger_tint，
-      // 简报 §0.3 把两份 color.json 收在 52/52，加第 53 件属契约改动，随 T2）
+      // tag-pill 三档 tone（2026-11-07 全量对齐：danger_tint 已在 base/dark 成对新增，
+      // 契约 Translucency ledger 同步，C4「无消费者不加」的旧裁决已推翻）
       expect(SoftChipTone.NEUTRAL).assertEqual('neutral');
       expect(SoftChipTone.BRAND).assertEqual('brand');
+      expect(SoftChipTone.DANGER).assertEqual('danger');
       // 家族件入参形状（字段名写错要到 T2 挂载那一屏才发现，太晚了）
       const chip: ChipItem = { key: 'sight', label: '景点' };
       expect(chip.key).assertEqual('sight');

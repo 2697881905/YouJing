@@ -9,7 +9,7 @@ cardContact(1,0,3) / cardAmbient(10,3,7) / floating(16,6,9) / pillFloat(8,3,15)�
 （v1 的「深色必须归零」口径作废；材质门控那条 v2 保留，它管的是系统材质接管时表面自归零）。
 selftest 共 17 条断言 = 阳性 10 类 + 阴性 6 类 + 1 条文档数字锁（三个数自锁）。
 阳性样本钉死「改 blur 必报 / 删档与缺 `Npx y` 退化必报 [契约漂移] 或失明 / pillFloat 新映射面必报」，
-阴性样本钉死「当前真实代码 + 新契约 0 偏差、解析恰等于 CONTRACT 四档、字面跑 6 处挂载不误红」。
+阴性样本钉死「当前真实代码 + 新契约 0 偏差、解析恰等于 CONTRACT 四档、字面跑 7 处挂载不误红」。
 
 为什么要有这一支：DESIGN §Elevation 把深度装置排成严格优先级
 「表面色阶 → 留白 → 阴影」，阴影是最后手段、且只有具面值的档；
@@ -265,7 +265,10 @@ def main():
 # 单变量变异：每条只动一处，报不出来就是判据失效而不是"样本没造对"。
 
 # 真实扫描的期望读数（selftest 断言锁死；漂移即 FAIL，改代码/改契约时必须两处同批动）
-RUN_RC, RUN_SHADOW = 0, 4
+# 2026-11-07 全量对齐收尾：实际生产 `.shadow(` 挂载点 = 3 个自绘玻璃件（GlassPanel /
+# DesignButton / BottomTabBar）+ 4 个页面（TripsPage / StayPickPage / MapPage /
+# EditItineraryPage）= 7。SpringPanel / BaseCard / GlassPillButton 经复核在 YJ 无载体已删除。
+RUN_RC, RUN_SHADOW = 0, 7
 
 
 def edited(old, new):

@@ -5,13 +5,13 @@
  * 两份 color.json，本文件只导出 $r 引用；深色由系统 ColorMode 自动切换，页面零分支。
  * 稿件 CSS 的 rgba() 已换算为 #AARRGGBB（alpha 在前），换算由脚本完成。
  *
- * 玻璃面规则（handoff §5 + §9）：顶栏/分段控件/浮动 dock/吸顶日标题四处玻璃
- * 不翻成色值，一律走系统材质档位（backgroundEffect / systemMaterial，
- * 要折射必须 EXQUISITE(0)）；弹层不是玻璃，用实色 surface_elevated + floating 阴影
- * + modal_scrim 遮罩。glass-* 系列 CSS 色值不入库。
- *
- * 禁令对照（§8）：不许用 opacity 表达状态；语义色五个封闭；
- * 深色下实心语义色上的标签用 on_primary（#121212 墨字，非白字，AA 决议）。
+ * 2026-11-07 全量对齐（以有据源码为准，见 Docs/superpowers/specs/2026-11-07-表现层全量对齐-差异表.md）：
+ * - 玻璃点位不再封闭为四处栏面；卡片 / 输入框 / 弹窗 / 浮层可用自绘玻璃件，
+ *   点位与档位以差异表 §6 登记为准。三处栏面仍走系统材质 50 + scrolled 门控。
+ * - 状态表达允许 opacity：禁用 0.45、按下 0.92（配方见 MotionTokens / Pressable）。
+ * - 语义色仍五个封闭；新增 brandSolid / onBrand / dangerTint 与一组玻璃栏面色，
+ *   逐件在 resources/{base,dark}/element/color.json 成对登记，契约 ledger 同步。
+ * - 「官方件优先、禁自绘」禁令已废止；材质生效时自绘 border/shadow/blur 归零的避让仍有效。
  */
 
 export interface ColorTokensType {
@@ -39,6 +39,12 @@ export interface ColorTokensType {
   /** dock 光晕外缘：alpha 0 但保留品牌蓝色相，避免渐变往灰里褪 */
   primaryGlowEdge: Resource;
   onPrimary: Resource;
+  /** 有据 ds_brand_solid：选中胶囊 / 主按钮实心底（深色 #0050A0 上白字 7.91:1） */
+  brandSolid: Resource;
+  /** 有据 ds_on_brand：实心品牌底上的字 */
+  onBrand: Resource;
+  /** 有据 dangerTint：SoftChip DANGER 档 */
+  dangerTint: Resource;
   accentMention: Resource;
   success: Resource;
   warning: Resource;
@@ -59,6 +65,15 @@ export interface ColorTokensType {
    * 栏面件与 elevation 判据反转必须同原子批（简报 §0.1/§0.3）。
    */
   barShadow: Resource;
+  /** 有据玻璃栏面族：自绘玻璃件在内容区 / 低版本设备上的表面与描边兜底 */
+  glassBarSurface: Resource;
+  glassBarBorder: Resource;
+  glassBarBg: Resource;
+  glassCardBg: Resource;
+  glassSegmentBg: Resource;
+  glassSegmentBorder: Resource;
+  glassPillFill: Resource;
+  glassPillRim: Resource;
   // 路线图（浅色 paper / 深色 night 同名双值自动切换）
   routePath: Resource;
   routePathSoft: Resource;
@@ -100,6 +115,9 @@ export const ColorTokens: ColorTokensType = {
   primaryTint: $r('app.color.primary_tint'),
   primaryGlowEdge: $r('app.color.primary_glow_edge'),
   onPrimary: $r('app.color.on_primary'),
+  brandSolid: $r('app.color.brand_solid'),
+  onBrand: $r('app.color.on_brand'),
+  dangerTint: $r('app.color.danger_tint'),
   accentMention: $r('app.color.accent_mention'),
   success: $r('app.color.success'),
   warning: $r('app.color.warning'),
@@ -112,6 +130,14 @@ export const ColorTokens: ColorTokensType = {
   separator: $r('app.color.separator'),
   modalScrim: $r('app.color.modal_scrim'),
   barShadow: $r('app.color.bar_shadow'),
+  glassBarSurface: $r('app.color.glass_bar_surface'),
+  glassBarBorder: $r('app.color.glass_bar_border'),
+  glassBarBg: $r('app.color.glass_bar_bg'),
+  glassCardBg: $r('app.color.glass_card_bg'),
+  glassSegmentBg: $r('app.color.glass_segment_bg'),
+  glassSegmentBorder: $r('app.color.glass_segment_border'),
+  glassPillFill: $r('app.color.glass_pill_fill'),
+  glassPillRim: $r('app.color.glass_pill_rim'),
   routePath: $r('app.color.route_path'),
   routePathSoft: $r('app.color.route_path_soft'),
   routeNodeFill: $r('app.color.route_node_fill'),

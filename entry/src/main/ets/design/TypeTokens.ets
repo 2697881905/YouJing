@@ -35,6 +35,12 @@ export interface TypeTokensType {
   widgetMeta: TypeRoleSpec;
   /** 行程时间 12/600 tabular */
   time: TypeRoleSpec;
+  /** 有据源码语义别名（值不变，避免 644 个调用点重命名）：callout = small */
+  callout: TypeRoleSpec;
+  /** 有据 title = 21/650/28 sans（控件上的标题字档）。
+   * 有据的 titleSerif / displaySerif 在本仓就是现有的 title / display 两档（同为 serif），
+   * 不另建别名——避免字族尺把同名新档误判为契约外 serif 槽。 */
+  titleSans: TypeRoleSpec;
 }
 
 const FAMILY_SERIF: string = 'NotoSerifSC';
@@ -63,7 +69,9 @@ export const TypeTokens: TypeTokensType = {
   overline: { family: FAMILY_SANS, size: 11, weight: 600, lineHeight: 0 },
   navLabel: { family: FAMILY_SANS, size: 10, weight: 400, lineHeight: 14 },
   widgetMeta: { family: FAMILY_SANS, size: 11, weight: 400, lineHeight: 14 },
-  time: { family: FAMILY_SANS, size: 12, weight: 600, lineHeight: 0 }
+  time: { family: FAMILY_SANS, size: 12, weight: 600, lineHeight: 0 },
+  callout: { family: FAMILY_SANS, size: 14, weight: 400, lineHeight: 20 },
+  titleSans: { family: FAMILY_SANS, size: 21, weight: 650, lineHeight: 28 }
 };
 
 /** 允许字号封闭集，audit 用 */

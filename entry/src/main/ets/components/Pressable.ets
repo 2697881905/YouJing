@@ -1,24 +1,19 @@
-// 家族件：components.option-chip-pressed ｜ 对标有据：design/motion/Pressable.ets:5-53 ｜ 状态：已落地未挂载 ｜ 契约锚点：3fcc3a62
+// 家族件：components.option-chip-pressed ｜ 对标有据：design/motion/Pressable.ets:5-53 ｜ 2026-11-07 全量对齐
 
 /**
- * Pressable —— 家族唯一的「按下反馈」封装件（scale 档）。
+ * Pressable —— 家族唯一的「按下反馈」封装件。
  *
- * 契约锚点：`components.option-chip-pressed` = `scale {motion.press-scale}` +
- * `duration {motion.press}`（DESIGN.md:443-445），曲线走 `curve-standard`。
- * 公共 props 名逐字照搬有据（`content/disabled/fillWidth/fullResponseRegion/
- * visualHeight/touchTargetHeight/action`），有 T2/P2 迁移时由各页接管，本轮零消费方。
+ * 2026-11-07 按有据源码全量对齐（YU/design/motion/Pressable.ets:32-45）：
+ * - normal = `.opacity(1)` + `.scale(1,1)`；pressed = `.opacity(0.92)` + `.scale(0.97,0.97)`。
+ *   此前「只用 scale、不许用 opacity 表达状态」的禁令已废止，pressOpacity 由 MotionTokens 单源给出。
+ * - `.animation()` **必须紧贴 `.stateStyles()` 之前**（写在它之后属性不生效，
+ *   tools/audit_motion.py 按「上一条属性」钉这条，`.stateStyles().animation()` 必红）。
+ * - 禁用态仍走 `.enabled(!disabled)`，表面的 `.opacity(0.45)` 由 DesignButton / SoftChip 等
+ *   具体控件自己承担（有据同款分工）。
+ * - `responseRegion` 负责「看着 36、点着 44」：视觉高小于命中带时把 44vp 命中带居中包住矮控件。
  *
- * 与 R21 / C4 的关系（简报 §3 明令，必须写在这里）：有径 `MotionTokens` 只收批次一拍定的
- * 五档（press/control/container/shimmer/pressScale），契约里的 `press-opacity 0.92`
- * 属 C4「无消费者不加」清单——所以 **pressed 档只用 scale**，不许为了「对标完整」把 0.92
- * 提前写成死档。真挂载（T2/P2）时 pressOpacity 与消费点同批补。这条与有据不同：
- * 有据 pressed 档另带 `.opacity(pressOpacity)`（`motion/Pressable.ets:39`）。
- * 同向的第二条理由：DESIGN §8 禁令 10「不许用 opacity 表达状态」——禁用态在这里走
- * `.enabled(false)`，不压透明度。
- *
- * 顺序是硬约束：`.animation()` 必须在 `.stateStyles()` **之前**（有据实测：写在它之后的
- * 属性不生效，等于「按下没反馈而代码看着没错」；tools/audit_motion.py 的 [顺序] 判据
- * 按「上一条属性」钉这条，`.stateStyles().animation()` 必红）。
+ * props 名逐字照搬有据：content/disabled/fillWidth/fullResponseRegion/
+ * visualHeight/touchTargetHeight/action。
  */
 
 import { LayoutTokens } from '../design/LayoutTokens';
@@ -63,9 +58,11 @@ export struct Pressable {
     .animation({ duration: MotionTokens.press, curve: MotionCurves.standard })
     .stateStyles({
       normal: {
+        .opacity(1)
         .scale({ x: 1, y: 1 })
       },
       pressed: {
+        .opacity(this.disabled ? 1 : MotionTokens.pressOpacity)
         .scale({
           x: this.disabled ? 1 : MotionTokens.pressScale,
           y: this.disabled ? 1 : MotionTokens.pressScale

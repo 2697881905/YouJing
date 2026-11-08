@@ -51,11 +51,11 @@ export const HDS_MATERIAL_LEVEL_EXQUISITE: number = 0;
 export const HDS_MATERIAL_TYPE_IMMERSIVE: number = 101;
 
 // —— 通用属性 systemMaterial（@since 26.0.0）：普通组件版沉浸光感 ——
-// 载体只有两处：bindSheet 的 SheetOptions.systemMaterial 与 bindMenu 的 MenuOptions.systemMaterial
-// （见下方两个工厂）。曾经还有 TopButton/FloatingTopButton 两个 AttributeModifier 与
-// GlassBlurStyle 回退映射，全仓 0 个 import 方——本仓顶栏钮外观由 HdsNavigation 栏级材质负责，
-// 自绘玻璃件是「有据」那条路线，本仓既定规则是官方件优先，故按用户裁决删除（#38，2026-11-07）。
-// 新属性若要复活，必须放进 apiAvailable 门禁分支内调用（官方《ArkTS API 兼容性保护》口径）。
+// 载体：bindSheet 的 SheetOptions.systemMaterial、bindMenu 的 MenuOptions.systemMaterial，
+// 以及 TopButtonMaterialModifier / FloatingTopButtonMaterialModifier（通用属性 systemMaterial）。
+// 2026-11-07 全量对齐：按用户裁决恢复 #38 删掉的 GlassBlurStyle 与两个 AttributeModifier，
+// 供 GlassPanel / GlowInput / SpringPanel / GlassPillButton / DesignButton / BottomTabBar 消费。
+// 仍守兼容性铁律：新属性只放进 apiAvailable 门禁分支内调用，低版本加载即崩的形态绝不再出现。
 //
 // 档位规范（沉浸光感设计指南·场景规范，数值同 uiMaterial.ImmersiveStyle）：
 //   顶部悬浮 → ULTRA_THIN；底部悬浮 → THIN；任意位置弹出 → THICK；半模态/弹框 → ULTRA_THICK。
@@ -135,6 +135,63 @@ export function getSegmentImmersiveMaterial(): uiMaterial.Material | undefined {
     });
   }
   return segmentImmersiveMaterial;
+}
+
+/**
+ * 系统玻璃档位（自绘件用 backgroundBlurStyle，不翻 CSS 的 blur+rgba 数值）。
+ * 逐字对齐有据 `utils/immersiveMaterial.ets:72-81`：悬浮栏/底栏/弹层 = THICK，
+ * 内容卡 = REGULAR，按压浅块 = THIN，高强调对话框 = THICK。
+ * 2026-11-07 恢复（#38 曾按「官方件优先」删掉，本次按用户裁决全量对齐有据）。
+ */
+export class GlassBlurStyle {
+  static readonly Floating: BlurStyle = BlurStyle.BACKGROUND_THICK;
+  static readonly Card: BlurStyle = BlurStyle.BACKGROUND_REGULAR;
+  static readonly Press: BlurStyle = BlurStyle.BACKGROUND_THIN;
+  static readonly Dialog: BlurStyle = BlurStyle.BACKGROUND_THICK;
+}
+
+let topButtonMaterial: uiMaterial.Material | null = null;
+
+function getTopButtonMaterial(): uiMaterial.Material {
+  if (topButtonMaterial === null) {
+    topButtonMaterial = new uiMaterial.ImmersiveMaterial({
+      style: uiMaterial.ImmersiveStyle.ULTRA_THIN,
+      interactive: true,
+      applyShadow: false
+    });
+  }
+  return topButtonMaterial;
+}
+
+/** 顶部常驻按钮的沉浸光感修饰器；HdsNavigation bottomBuilder 窄行用（关投影防硬边灰带）。 */
+export class TopButtonMaterialModifier implements AttributeModifier<CommonAttribute> {
+  applyNormalAttribute(instance: CommonAttribute): void {
+    if (deviceInfo.apiAvailable('26.0.0')) {
+      instance.systemMaterial(getTopButtonMaterial());
+    }
+  }
+}
+
+let floatingTopButtonMaterial: uiMaterial.Material | null = null;
+
+function getFloatingTopButtonMaterial(): uiMaterial.Material {
+  if (floatingTopButtonMaterial === null) {
+    floatingTopButtonMaterial = new uiMaterial.ImmersiveMaterial({
+      style: uiMaterial.ImmersiveStyle.ULTRA_THIN,
+      interactive: true,
+      applyShadow: true
+    });
+  }
+  return floatingTopButtonMaterial;
+}
+
+/** 自带下方留白、不会被栏行裁切的标题栏按钮用（保留材质自带投影）。 */
+export class FloatingTopButtonMaterialModifier implements AttributeModifier<CommonAttribute> {
+  applyNormalAttribute(instance: CommonAttribute): void {
+    if (deviceInfo.apiAvailable('26.0.0')) {
+      instance.systemMaterial(getFloatingTopButtonMaterial());
+    }
+  }
 }
 
 /**

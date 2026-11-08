@@ -22,12 +22,13 @@ import { DateUtils } from '../utils/DateUtils';
 import { TimelineNode } from '../components/TimelineNode';
 import { TimeText } from '../utils/TimeText';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
+import { Pressable } from '../components/Pressable';
 import { ActivityCategory, ActivityStatus } from '../model/Trip';
 import { Spot } from '../model/Spot';
 import { TripDao } from '../data/TripDao';
 import { WidgetSync } from '../widget/TodayCard';
 import { PlanRepository } from '../data/PlanRepository';
-import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
+import { GlassBlurStyle, getSheetImmersiveMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
 import { Logger } from '../common/logger/Logger';
 import { mintEditActivityId } from '../utils/ActivityIds';
 import { common } from '@kit.AbilityKit';
@@ -469,8 +470,13 @@ export struct EditItineraryPage {
         }
         ForEach(this.candidates, (spot: Spot) => {
           ListItem() {
-            // 候选项整块可点：官方 Button 承载（裸 Column 无按压态、读屏进不去）
-          Button({ type: ButtonType.Normal, stateEffect: true }) {
+            // 候选项整块可点：按压反馈交给家族唯一的 Pressable
+          Pressable({
+            fillWidth: true,
+            action: (): void => {
+              this.applyReplace(spot);
+            }
+          }) {
           Column() {
               Text(spot.name)
                 .fontSize(TypeTokens.small.size)
@@ -490,15 +496,9 @@ export struct EditItineraryPage {
             .padding(SpaceTokens.base)
             .borderRadius(RadiusTokens.card)
             .backgroundColor(ColorTokens.surfacePanel)
-          }
-          .buttonStyle(ButtonStyleMode.TEXTUAL)
-          .width('100%')
-          .padding(0)
-          .borderRadius(RadiusTokens.card)
           .accessibilityText(`替换为 ${spot.name}，${spot.district}`)
-          .onClick(() => {
-            this.applyReplace(spot);
-          })          }
+          }
+          }
         }, (spot: Spot): string => `rep-${spot.id}`)
       }
       .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
@@ -703,6 +703,9 @@ export struct EditItineraryPage {
           .scrollBar(BarState.Off)
           .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
             bottom: LayoutTokens.floatingDockClearance })
+          // 穿底让位（2026-11-08 对标有据）：让位从外层 padding 移到 contentStartOffset，
+          // 只挪首屏起点；滚动后内容才穿得到标题栏下被材质糊掉。
+          .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight))
           .onItemDragStart((event: ItemDragInfo, itemIndex: number): CustomBuilder => {
             // 官方 API 限制：onItemDragStart 挂在 List 级（整行长按触发），
             // 与「把手只挂把手」的视觉约定有差距——拖影由本函数自定义，
@@ -753,18 +756,20 @@ export struct EditItineraryPage {
           .layoutWeight(1)
         }
       }
-      .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
       .width('100%')
       .height('100%')
-      .backgroundColor(ColorTokens.canvas)
+      // 不涂 canvas、也不在这里让位（2026-11-08 对标有据）：这层白会把标题栏区盖死，
+      // 让位已下放到 List 的 contentStartOffset。
       .bindSheet($$this.showReplace, this.replaceSheet(), {
         height: '70%',
-        backgroundColor: ColorTokens.canvas,
         showClose: true,
-        systemMaterial: getSheetImmersiveMaterial()
+        systemMaterial: getSheetImmersiveMaterial(),
+        // 材质生效时 blur 与实色底让位，避免玻璃面外再叠一层（配方照有据 DetailPostContent:287-296）
+        blurStyle: isSystemMaterialActive() ? BlurStyle.NONE : GlassBlurStyle.Floating,
+        backgroundColor: isSystemMaterialActive() ? undefined : ColorTokens.canvas
       })
     }
-    .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+    // 不收栏（2026-11-08）：NavDestination 内容区恒预留 56vp 栏位、收栏后不回收，收起只留一条 175px 白带
     .bindToScrollable([this.barScroller])
     .clip(false)
     // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）

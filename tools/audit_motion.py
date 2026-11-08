@@ -37,10 +37,11 @@ Curve 枚举都是「页面各自调参」，正是 §0 口径要消灭的形态
        W4 优先于动效区间（全 token 的表达式塞不进毫秒），I-2 的五类真裸毫秒各有阳性样本对表。
        已知边界（不是漏判，要堵得先有新裁定）：`MotionTokens.press + extraMs` 会放行——值位没有字面
        毫秒且确有 token 引用，按判据就是合规；本轮不偷偷收紧，也不为它去加档位。
-       另注：W4 只判「是不是 token 引用」，不判档位存不存在——有径 `MotionTokens` 只有
-       press/control/container/shimmer/pressScale 五档（契约 C4 那 13 项按「无消费方不加」刻意
-       未加），照搬姊妹仓的 `MotionTokens.instant`/`stagger` 会在**编译期**红，不归这把尺管，
-       尺子也不许为此去加档位。
+       另注：W4 只判「是不是 token 引用」，不判档位存不存在。2026-11-07 全量对齐后
+       有径 `MotionTokens` 已按有据补齐 instant/fast/base/slow/enter/page/emphasis/stagger/
+       staggerEmphasis/pressSlideScale/pressOpacity/successScale/enterScale 等档（原五档名与值保留），
+       所以 `MotionTokens.stagger` 这类写法现在编译期可用；尺子仍只管「有没有引用 token」，
+       不替页面判断档位选得对不对。
     W5 长按识别阈值：`LongPressGesture(` 的配平括号区间内——这里的 `duration` 是「按住多少毫秒
        才算长按」的**手势识别阈值**（SDK `LongPressGestureAttribute.duration`），不是动效时长。
        走显式 W 条目而不是目录豁免：同族其它手势（Tap/Pan/Pinch/Rotation）没有 duration 字段，

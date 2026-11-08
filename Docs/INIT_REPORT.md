@@ -3,7 +3,466 @@
 > 生成日期：2026-10-15。初始化流程 P0–P7 全部完成，验收清单见第 2 节，遗留事项见第 4 节。
 
 
-## 4d. 字段落点复核（2026-10-25，脚本扫 + 人工分类）
+## 4u. 栏标题对齐有据：衬线＋品牌蓝，`stackBuilder` 在 API 26 上静默失效的绕行（2026-11-09）
+
+用户报「每个页面的左上角 Title 与『有据』的 Title 字体不一致」。真机对照（同机深色模式）：有据栏标题是**衬线 + 品牌蓝**，有径是 HDS 内置 mainTitle 的**系统 sans + 继承色**。
+
+### 有据的口径（全应用统一，源码逐处核对）
+
+- **Tab 根页**（我的/消息/首页）：`stackBuilder` 自绘，`titleSerif` 21/700/32 + `fontColor(primary)`，左内缩 `base`（16vp），`hideBackButton(true)`；
+- **带返回键的子页**（草稿箱/帖子详情）：同 stackBuilder，`headline` 档 18/600 **显式衬线**，左内缩 64vp 让开官方返回键（40vp 圆钮实测占 16~56vp）；⚠ stackBuilder 行 `width('100%')` 且 z 序在返回键之上，**左内缩不留开会吃掉返回键点击**（有据 ChatView 实测）；
+- 字体族 `Noto Serif SC`（有径已注册同款为 `NotoSerifSC`，打包件同源）。
+
+### 第一版：全局 @Builder 直调 —— 真机静默失效
+
+`HdsChrome.bar` 把内置 `content.title` 换成 `stackBuilder: () => { chromeTitleRow(spec) }`（chromeTitleRow 为全局 @Builder）。编译过、装机后标题**仍是 sans + 白**。dump 定性：标题 `Text` **直挂 `HdsTitleBar`**（内置管线），builder 的 `Row>Column` 完全不在树上 —— 静态类 lambda 直调全局 @Builder 没有组件实例可绑，运行时**静默忽略**（无报错、无崩溃，最阴险的一类失效）。
+
+### 修正：`stackBuilderComponent`（ComponentContent，显式绑上下文）
+
+- 主通道改 `stackBuilderComponent = new ComponentContent(getSharedUiContext(), wrapBuilder(chromeTitleRow), spec)`（字段 since 6.0.1(21)）；`wrapBuilder` 包装同一个全局 builder；共享 UIContext 由 Index 启动时注入（`utils/longTake/cardRect.ets`，与截图 util 同源）；
+- 按 `标题|副标题|档位` 缓存 ComponentContent（标题集合有界），避免每次 build 重建内容抖动；动态标题（地图页行程名）变文案自然换 key；
+- 老 `stackBuilder` 通道保留给 API 20–24 云手机兜底（新字段在旧运行时上无害被忽略）；
+- `ChromeSpec` 新增 `backSlot?: boolean`（默认 true＝子页；五个 Tab 根页显式传 false），标题字号/内缩随档切换。
+
+### 验收
+
+- 装机 md5 `0eaab13bc05275ae0d94eee12473a566`；dump：`HdsTitleBar > StackCustomNode > Row > Column > Text`（builder 树就位）；根页标题取色 `(0,140,255)`＝#0A84FF 品牌蓝，3 倍放大字形衬线清晰；
+- 详情页（行程中）：衬线蓝「进行中 · Day 1」+ muted 副标题「01:01」，返回钮完整可见、**点击可返回**（64vp 内缩未吃点击）；
+- scroll 17/17、route 17 屏 0 失败、dock_tabs 无 FAIL + hypium 254/254、24 把静态尺净增 0（4 项既有基线）。
+
+
+## 4t. 规划页重构为「出发页」：示例数据退出版面（2026-11-08）
+
+用户指令：「重构规划页，将规划页作为我们的入口重点主页面来做，重构所有布局、排版、UI 设计，不能让示例数据占这一页的大面积区域」。重构前那张「Day 1 · 京都」示例时间轴占屏幕约 55%，是整页视觉重心；真正的入口（开始规划按钮）反而只是上面一条；承诺块被裁在 dock 底下。
+
+### 重排后的信息架构（出发页定位）
+
+用户来这里只为一件事——为下一趟还没发生的旅行拿到一份能走的行程。整页围绕「下一趟」组织，其余全部退到可扫视层级：
+
+1. **页题**：display serif「下一趟，/去哪儿？」（32/44，第二行品牌蓝——整页唯一高饱和文字，把视线钉在「去哪儿」上）+ 副题「说个城市和天数，剩下的交给路线。」
+2. **主入口卡**（唯一重心）：hero 圆角卡，标题「开始一趟新行程」+ 一句话说明 + 实心主按钮。写清「点下去会发生什么」，降低「开始」的心理门槛。
+3. **「上次的痕迹」行卡**：草稿与最近一趟**二选一**（草稿优先）——入口页只需要一个「上次」，并排放两块只会分散注意力。最近一趟显示「北京 · 3天2晚 / 已结束 · 8 站」，点击直达行程详情（真机验证）。
+4. **示例入口压成一行**：「看看一份行程长什么样 · 示例 >」一行约 60px，点开 bindSheet 半模态看全貌（Day 1 时间轴 + 交通腿 + 结构化路线承诺块原样保留在模态里）。示例数据不再占版面——它是「给你看产出」的三级内容，不能与用户的行程同级同重。
+
+### 半模态与弹栈边界
+
+bindSheet 照 ExpensePage「记一笔」同款：`height 62% / showClose / systemMaterial`，sheet 内容不包 ImmersiveSurface、不涂实色底（材质唯一载体，双表面禁则）。返回守卫按既有三段式补全：
+
+- `overlayBackGuard.ets` 新增 `OVERLAY_GUARD_PLAN_TAB`；`Index.onBackPress` 的 guardId 链补 TAB_PLAN 分支；
+- 页内 `sampleOpen` 私有标志只由 `onDisappear` 清（返回路径上系统先关弹层、绑定值已置 false，守卫读绑定状态会答"没开"——ExpensePage 同一条时序坑）；
+- 真机：弹层开着按返回 → 弹层关、原地停在规划格，§6 边界不破。
+
+### 两个真机踩出来的状态管理坑
+
+1. **非状态字段挂在 if 条件上 = 分支永不重估**。「最近一趟」行的 else-if 条件读 `recentId`，首帧它是空串且**不是 @State**——异步回填后日志显示「最近行程就绪」，节点树里始终没有那一行。把三个字段都升 @State 才修好。教训：**条件分支依赖的字段必须可观察**，值变了不等于界面变了。
+2. **零行程 → 规划完新行程 → 回到规划格，行必须出现**。与其他根页同款订阅 `TAB_SHOWN_KEY`（`isTabShownTick(tick, TAB_PLAN)` → `loadRecent()`），否则 loadRecent 只在 aboutToAppear 跑一次，新建行程回来永远看不到「最近一趟」。
+
+### 验收
+
+- 装机 md5 `4eb5aee13116ea11749828ef8cbec532`（与 dock_tabs §0 读数一致）；规划页滚动净空 230.7vp、末边 545.9；
+- 最近一趟行点击直达行程详情「北京 · 3天2晚」（地图 + Day 分段正常）；示例半模态弹出（三站时间轴 + 两段交通腿 + 承诺块）；弹层开着按返回只关弹层；
+- 弹层回归 4/4 PASS（费用记一笔 / 我的隐私政策 / TripInput 目的地 / 规划示例）；
+- scroll 17/17（27.5–476.2vp）、route 17/17、dock_tabs §6 PASS + hypium 254/254、24 把静态尺净增 0（规划页 motion/geometry 零命中）。
+
+### 连带修的一把尺：dock_tabs §6 判据过期
+
+本轮首次跑 dock_tabs 发现 §6 FAIL——但这不是回归：Back 的落点 dump 显示的**正是地图根页**（行程标题 + 全程/Day chips + 站点条、dock 选中「地图」、前台 com.youjing.app），返回行为本身是对的。判据失效的原因在上一轮 eb533b9：地图根页加载最近一条行程后，标题栏从「地图」变成「北京 · 3天2晚」，尺子还在找「地图」二字。§6 判据更新为「地图」或「全程 chip 且无详情页的『全图』标记」，并在脚本里注明缘由。教训：**改了某页的合法形态，凡是靠它做题的尺子都要跟着对一遍口径**。
+
+### 追加（2026-11-09）：「上次的痕迹」优先取「进行中」的那趟
+
+用户裁定落地：`loadRecent` 遍历行程**优先取 `TripWindow.isActive` 命中的在途趟**，没有才退最近更新的（与地图格 resolveAndReload 同一口径）。回退路径真机验证：日志 `在途=false → 选北京（最近更新）`，行渲染正常；切回规划格的 `onDockShown` 二次重取也确认工作。「进行中优先」那条路径用的谓词与地图格相同（地图格已真机验证），当前设备无在途数据故未单独走查。
+
+
+## 4s. 地图页无图：不是鉴权，是「只认在途行程」（2026-11-08）
+
+用户报「地图页无图」。页面整片白，只有标题「地图」和底部一句「今天没有在途行程 · 去规划一趟」。
+
+### 先排除鉴权
+
+`hilog` 里 `com.huawei.hms.mapservice` 的 `APPAUTH` 是 success，`BundleInfo clientId:020105ce…
+ResCode:200` —— 鉴权通、地图服务进程在跑。`TripMapView` 里也写了「鉴权失败时底图只是空白、不报错」，
+所以第一反应是这条，但日志否掉了。
+
+### 真因：`resolveAndReload` 绕过了「退到最近一条」
+
+`rootShell` 里是 `if (this.stops.length > 0) { TripMapView(...) }` —— `stops` 空就不挂地图。
+而 `stops` 由 `resolveAndReload()` 决定：
+
+```ts
+for (const r of rows) {
+  if (TripWindow.isActiveOn(r.startDate, r.endDate, today)) { ... this.reload(); return; }
+}
+this.onTripShown = false;
+this.noOnTrip = true;
+this.loaded = true;        // ← 没有在途行程就直接空态，不再往下走
+```
+
+地图 tab 是**唯一入口**（`route=Map` 深链也走这条 rootMode 分支——实测日志每次都打
+「本机没有在途行程」），所以只要手上有历史行程、当前又不在旅途中，这一格就永远是一整片白。
+`reload()` 里本来就有「退到本机最近一条行程，而不是给一张空底图」的兜底，只是这条路根本没走到它。
+
+### 改了两处
+
+1. `resolveAndReload`：没有在途行程时**退到最近一条**（`rows[0]`）并 `reload()`，同时保留
+   `noOnTrip = true` 供其它地方判断；只有本机一条行程都没有时才出引导空态。
+2. `chips` 行让开标题栏：`全程 / Day N` 那一行原本从 y=106 起，正好落在 106..281 的栏带里，
+   与状态栏时钟、标题叠在一起。地图页此前一直是无图空态、这一行不渲染，所以从没暴露过；
+   出图后立刻顶到脸上。加 `.margin({ top: contentTopInset(statusBarHeight) })` 后落到栏底。
+
+### 真机效果（装机 md5 `eefbc32a97df005bf57dd27baf2a1b29`）
+
+- 标题「北京 · 3天2晚」/ 副标题「8 站」；
+- 底图正常出图（绿地、水系、道路），两枚带序号的蓝色地图钉（2、7）落在正确位置；
+- `全程`（蓝底选中）+ `Day 1 / 2 / 3` 落在标题之下，不再压状态栏；
+- 底部站点条（`1 故宫博物院` `2 八达岭长城` `3 颐和园…`）浮在 dock 之上，没有被遮。
+
+### 两点说明
+
+- 现在显示的是**最近一条**行程，哪怕它已经结束（数据里是 11-04~06 的北京 3 天）。标题没有
+  「已结束」标记，可能让人误以为在途 —— 要不要加，等用户定，本轮没自作主张加。
+- `chips` 的 Button 声明了 `height(minTouchTarget)`（44vp），dump 里量到 32px 高；这是既有的
+  渲染差，与本次改动无关，未动。
+
+### 回归
+
+- `verify_scroll_clearance.py`：17/17 ok（地图屏末边 749.1→736.6、净空 40.0，站点条位置变化所致，仍合规）；
+- `verify_route_sweep.py --density 3.125`：17/17 OK；
+- 24 把静态尺：`elevation` 2 / `geometry` 3 / `layout_patterns` 1 / `motion` 15 全为既有基线，净增 0。
+
+## 4r. 详情页同样中招：让位写进 padding，内容滚到栏底就被切（2026-11-08）
+
+用户澄清「是顶部栏，不是顶部蓝」，并指出**滚动时下方内容会被顶部栏白底截断**。
+
+### 根因与根页是同一条，只是长在详情页上
+
+`HdsNavDestination` 的 `NavDestinationContent` 从 106 起（穿底是通的），但十几个详情页都写：
+
+```ts
+List({ scroller: this.barScroller }) { ... }
+  .padding({ top: HdsChrome.contentTopInset(...) })   // ← 压的是视口
+```
+
+padding 是滚动容器自己的属性，压下去的是**视口**而不是首屏起点 —— 内容永远到不了标题栏那
+175px，滚到栏底就被硬切，上面留一片白。上一版注释里写的「留白随内容滚走」是错的。
+
+### 改动（十个页面）
+
+- `ItineraryPage`、`TripReviewPage`、`BadgePage`、`SpotPickPage`、`AreaMorePage`、
+  `StayPickPage`、`SharePage`、`OnTripPage`、`PreferenceQAPage`、`EditItineraryPage`：
+  `padding.top` → `.contentStartOffset(...)`；
+- `TripReviewPage` / `PreferenceQAPage` / `EditItineraryPage` 同时去掉外层那层
+  `backgroundColor(ColorTokens.canvas)`（和根页 4q 同一个道理：它把栏区盖成白色）。
+
+`contentStartOffset` 只挪首屏起点，滚动后内容照常穿到栏下被栏体材质糊掉（有据 ProfilePage 同一写法；
+它的一个副作用是吸顶组头也粘在这个偏移上，与有据一致）。
+
+### 真机效果
+
+「旅行回顾」滚动后，蓝色海报穿进标题栏、被磨砂糊成一片，标题「旅行回顾」压在糊面上——
+和 4q 里规划页的表现一致。这个页面内容够长，是当前数据里唯二能验证的页面（另一个是规划页）。
+
+其余页面（勋章 1 枚、1 条记账、2 条已结束行程）**内容不满一屏、滚不动**，改法一致但看不到效果，
+不能算逐页真机验收。
+
+### 没做的两个 Scroll 页
+
+`TripInputPage` 与 `GenerateFailedPage` 的滚动容器是 `Scroll`（没有 `contentStartOffset`），
+本轮未改；按有据 HomeTab 的做法要 `enableComponentSafeArea: true` + `clip(false)`，
+而那条路有径早前试过「滚动到不了栏下」。留待下一轮单独处理。
+
+### 验收（装机 md5 `1240c49df262e4f3af8d4dda836a51d2`）
+
+- `verify_scroll_clearance.py`：17/17 ok，净空 27.5–476.2vp
+  （Review 553.0→507.8、EditItinerary 502.7→457.6，去掉外层 canvas + contentStartOffset 后的必然位移，均合规）；
+- `verify_route_sweep.py --density 3.125`：17/17 OK；
+- 24 把静态尺：`elevation` 2 / `geometry` 3 / `layout_patterns` 1 / `motion` 15 全为既有基线，净增 0。
+
+## 4q. 顶部那层白：让位方式与收栏策略，五个根页对齐有据（2026-11-08）
+
+用户报「现在的顶部还是有白底」，要求五个主页面布局结构全量对标有据。
+
+### 现象：同一位置，有据灰、有径纯白
+
+「我的」页滚动后，标题栏区（y=110~260）逐点采样：
+
+| | 采样值 | 读法 |
+|---|---|---|
+| 有据 | 238~243 | 下方帖子卡片被栏体磨砂糊住（截图能看到「…种开播了」「华为Pock…」透出来） |
+| 有径（改前） | 255 / 255 / 255 | 干干净净的纯白，栏体没东西可采样 |
+
+### 三条成因，全是结构性的
+
+1. **让位挂在滚动容器自己身上**：五页都写 `.padding({ top: contentTopInset })`。padding 压的是
+   **视口**，不是首屏起点 —— 内容永远上不到标题栏那 175px 里，栏体磨砂无素材可采。
+   有据 ProfilePage 用 `.contentStartOffset(topInset)`（只挪首屏、滚动可穿），HomeTab 用
+   `enableComponentSafeArea: true` + `Scroll.clip(false)`（视口从栏底起、内容能画上去）。
+2. **body 外层又涂了一遍 `ColorTokens.canvas`**：`enableComponentSafeArea: false` 下内容区原点
+   是窗口 0（y=106），这层涂色把 106..281 整块盖成白色，正好是标题栏所在。
+   底色本来就由壳层（Index 的 Column）与 TopStrip 单点负责，页面不该再涂一次。
+3. **五页全用 `hideTitleArea: true` 整条收栏**：有据根页标题栏是常驻的 —— 只有 HomeTab 用
+   `hideBottomBuilder` 收分段那一行，ProfilePage 根本没有 `dynamicHideTitleBar`。
+   收栏之后滚动时顶部没有栏体，穿底内容直接顶到状态栏下，与有据「栏体把内容糊住」不是一回事。
+
+### 改动（五个文件）
+
+- `MinePage` / `ExpensePage`：List 的 `padding.top` → `contentStartOffset`，去掉外层 canvas 底；
+- `YoujingStartPage`：Scroll 的 `padding.top` → 内容 Column 的 `padding.top`（让位随内容滚走），
+  去掉 Scroll 上的 canvas 底；
+- `TripsPage`：周年横幅与搜索框原先是**常驻头部**（列表视口被挤在它们之下，天生无法穿底），
+  改为 List 的头两项、随列表滚走（与有据「资料卡是列表第 0 项」同一结构）；
+  水平内缩统一由 List 的 padding 提供，banner 与 Search 不再各带一份；
+- 五页统一删掉 `dynamicHideTitleBar`，保留 `bindToScrollable`（它同时驱动标题栏渐变模糊）。
+
+### 地图页：不是故障，是空态
+
+「地图」页整页空白，一度怀疑鉴权。实测 `hilog` 里 `BundleInfo clientId:020105ce… ResCode:200`、
+`mapservice APPAUTH success`，鉴权是通的。真正原因在 `MapPage.rootShell`：
+
+```ts
+if (this.stops.length > 0) { TripMapView({...}) }
+```
+
+没有在途行程时 `stops` 为空，**地图组件根本不挂载**，中间那一片就是页面画布。
+`TripMapView` 内部也只对「鉴权失败」兜了错误码文案，空态没有占位说明 —— 这一条登记为遗留，
+不在本轮布局范围内。
+
+### 验收（装机 md5 `fb387918cb16859e14fe1418fde1818f`）
+
+- 「规划」页滚动后标题常驻，栏内采样 244~249、局部 196~225（内容被磨砂糊住），
+  截图可见「开启一次有迹可循的旅程」在栏内糊成一片 —— 与有据同款；
+- 「行程」页：横幅/搜索进列表后首项位置正常、内缩与卡片对齐，无遮挡；
+- 「费用」「我的」页首项紧接栏底，无白带；
+- `verify_scroll_clearance.py`：17/17 ok，净空 27.5–476.2vp（行程页末边 477.4→489.6，
+  搜索框从常驻改为列表项所致，净空 287.0 仍合规）；
+- `verify_route_sweep.py --density 3.125`：17/17 OK；
+- 24 把静态尺：`elevation` 2 / `geometry` 3 / `layout_patterns` 1 / `motion` 15 全部为既有基线，
+  本轮**净增 0**。
+
+## 4p. 底部栏全量迁移「有据」：胶囊矮 5.4vp 的根因与拖拽落地（2026-11-08）
+
+用户指令：「把 TabBar 底部栏修一下，将『有据』中的底部栏全量迁移过来」。两条裁定：
+① 图标保留系统符号（有据用 `app.media.nav_*` 的细线 SVG，有径没有对应资源）；
+② 除图标外全部迁，含滑块、玻璃珠、样式、材质与拖拽。
+
+### 差异不是「看起来像不像」，是槽位上报点差 5.4vp
+
+两边栏体、槽位、胶囊宽度的实测坐标本来就一致，唯一差在**胶囊高度**：
+
+| 节点 | 有据 | 有径（改前） | 结论 |
+|---|---|---|---|
+| 官方 `TabBar` | `[99,2427][1037,2602]` | 同 | 相同 |
+| 槽位框 | `[122,2439][322,2608]` 200×169 | `[136,2439][309,2590]` 173×151 | 上报点不同 |
+| 玻璃条 `TabBar` | `[117,2434][328,2596]` 211×162 | `[808,2443][1019,2588]` 211×145 | **矮 17px（5.4vp）** |
+| 图标 | `[184,2462][259,2537]` | `[184,2455][260,2530]` | 高 7px（2.2vp） |
+| 文字 | `[190,2553][253,2590]` | `[191,2542][254,2579]` | 高 11px（3.5vp） |
+
+根因：`dockPillFrameOf` 的 `slot.h * 0.96` 读的是 `onAreaChange` 上报的矩形。有据把上报挂在
+**固定 64×54 的 Stack** 上（`tabBarBuilder`），有径挂在**自适应 Column** 上，系统排完只有
+48.3vp —— 48.3×0.96=46.4 对 54×0.96=51.8，正好是那 5.4vp。宽不受影响：胶囊宽度吃的是
+两端槽位中心反算的 `pitch`（55.2vp），两边同源。
+
+### 改动六项
+
+1. **槽位**：`tabLabel` 由 `Column()` 换成 `Stack().width(64).height(54)`，上报值回到有据口径；
+2. **页签内容**：`Column({ space: 3 })`（原 `SpaceTokens.xxs`=4）、图标外包 28×28 容器、
+   选中不再加 `fontWeight 500`（有据只换颜色）；
+3. **胶囊动画**：行进 300ms + `emphasized`，落定 400ms + `springBounce(0.4,0.7)`，
+   按压缩放 0.94（原 320/320、0.97）。新增 `MotionTokens.dockTravel/dockSettle` 两个档位，
+   避免裸时长（`audit_motion` 净增归零）；
+4. **落定才接管**：行进期间 `dockPillCovered = -1`（玻璃珠当纯光标、官方份全显、图标留在槽位），
+   settle 到点才由玻璃接管目标槽——原实现是图标跟着玻璃飞；
+5. **拖拽切页**：照有据迁 `PanGesture` 三阶段（跟手位移 + 速度形变 + 边缘阻尼 + 过半格吸附），
+   `handleDockPillDragEnd` 里先做「落袋为安」（`dockPillX += dragOffsetX` 与 `dragOffsetX=0`
+   同帧直写），再走 `selectTab` + 显式 `changeIndex`；
+6. **低版本底栏**：`components/BottomTabBar.ets` 由 70 行残缺移植换成有据原件全量
+   （279 行的 SharedSlide 滑动指示 + 长按 180ms 擦除 + 品牌蓝光斑 + Badge + 弹性缩放），
+   并补 `components/SharedSlide.ets`。原件的图标写死 `sys.symbol.info_circle`（五格同图），
+   这次一并改掉。
+
+顺带补一处：`dockNavInset` 加 `@Watch`，避让量首帧回写时胶囊重贴（原来要等下次切页才动）。
+
+### 一次崩溃：`DOCK_TABS[-1].symbol`
+
+第一次装机后拖拽直接退到桌面，`hilog` 拿到：
+
+```
+E C03947/com.youjing.app/AceStateMgmt: @Component 'Index'[4] has error in update func:
+Cannot read property symbol of undefined
+```
+
+带 `dockPillCovered = -1` 之后，清晰副本层的 `ForEach([this.dockPillCovered])` 会拿
+`DOCK_TABS[-1].symbol` 去渲染。**有据原件里本来就有一道 `if (this.dockPillCovered >= 0)`，
+移植时漏了**——补上即好。这条与「行进期间 covered=-1」是同一个改动的两面，缺一不可。
+
+### 验收（装机包 md5 `f257b4dfcf0f23eef2a7d4e55c1c56bf`）
+
+- 胶囊几何：容器 `[413,2384][724,2646]` 311×262、玻璃条 `[463,2434][674,2596]` 211×162，
+  与有据 `[67,2384][378,2646]` / `[117,2434][328,2596]` **逐像素同尺寸**；
+- 拖拽：地图→行程（178px）、规划→费用（173px）都切页成功且进程存活；未过半格（78px）回弹不切页；
+  点击格仍正常（手势没吃掉 click）；
+- `verify_dock_tabs.sh`：§0 md5 一致、§6 PASS、§7 hypium 254/254；
+- `verify_scroll_clearance.py`：17/17 ok，净空 27.5–476.2vp（与迁移前同值，底栏外框没动）；
+- `verify_route_sweep.py --density 3.125`：17/17 OK；
+- 24 把静态尺全 exit 0，`audit_motion` 15 处既有基线、Index 零违规，**净增 0**；
+- 副本层与官方份的残差 x 2px / y 8px，与有据同源（有据 x 1px / y 8px），不是本轮引入。
+
+
+
+用户提问「顶部栏是不是有一层白色的遮罩」。真机取证后定性：**没有任何遮罩图层，看到的白是
+标题栏收起后留在原地的一块 175px 空位，露的是壳层 `canvas`。**
+
+### 排除过程（三条都不成立）
+
+| 嫌疑 | 取证 | 结论 |
+|---|---|---|
+| 栏体涂了一层白 | `TitleBar` / `HdsTitleBar` 的 `backgroundColor` 实测 `#00000000` | 排除 |
+| SDK 有遮罩色字段 | `HdsNavigationBackgroundStyle`（`@hms.hds.hdsBaseComponent.d.ets:1078`）只有 `backgroundColor` / `maskExtraHeight` / `blurRadius` 三项 | 排除 |
+| `maskExtraHeight` 默认 32vp 没压掉 | `HdsChrome.ets:105` 传的是 0 | 见下方「附带发现」，不是主因 |
+
+### 实测读数（行程详情，`uitest dumpLayout`）
+
+| 节点 | 静止 | 上滚后 |
+|---|---|---|
+| `TitleBar` | `[0,106][1136,281]` | `[0,0][0,0]` |
+| `List` | `[0,281][1136,2690]` | `[0,281][1136,2690]` |
+
+栏收成 0 高，内容区起点仍钉在 281px（= 状态栏 106 + MINI 栏 175）。106–281 之间 175px
+谁都不占，而 `canvas` 是浅色，读起来就是「一层白遮罩」。
+
+根页（我的 / 行程 / 费用 / 地图 / 规划）不出这个问题：它们用 `HdsNavigation`，内容从 106 起，
+收栏后能顶到状态栏下。18 处详情页用 `HdsNavDestination`，内容从栏底 281 起，收了就留洞。
+
+### 三轮实验，前两轮全失败
+
+用户先裁决「让内容真穿底」，按这个方向试了两条路，读数一个像素没动：
+
+1. **`ignoreLayoutSafeArea([SYSTEM],[TOP])`**（HDS 给 NavDestination 的 content expand 入口）
+   → `List` 顶边 281 → 281，无效。它管系统安全区（状态栏 106），管不到 HDS 自己那 175px。
+2. **结构改造**：原生 `NavDestination` + `.hideTitleBar(true)` 作壳，内容里挂 `HdsNavigation`
+   带标题栏（照抄有据 `ChatDestination.ets:23` 套 `ChatView.hdsBranch:1283`）→ 编译装机都过
+   （md5 `294f2952…`），`List` 顶边仍是 281，视觉与改造前一模一样。
+
+**根因**：HDS 在 `HdsNavDestination` 的内容区固定预留 56vp（175px）栏位，**且不随栏收起回收**。
+页面给 `List` 的 `padding.top` 写的是 `contentTopInset(statusBarHeight, 48)` = 431px，
+实测只生效 175px —— 被 HDS 合并成 MINI 栏高。`HdsChrome.ets:166` 注释里
+`enableComponentSafeArea: false`（「页面自己让位」）在这个版本未按预期生效，实际行为
+等价于 `true`，而 `true` 那条路注释里早有结论：「滚动到不了栏下」。两条路是同一条。
+
+### 处置：不收栏（减法）
+
+16 处滚动收栏的 `HdsNavDestination` 去掉 `dynamicHideTitleBar`，标题栏常驻。
+改动是每个文件 1 行（删调用、留一行说明），不新增开关、不动 `HdsChrome`。
+
+5 处 `HdsNavigation` 的收栏（`MinePage:438` / `TripsPage:722` / `ExpensePage:1055` /
+`MapPage:486` / `YoujingStartPage:276`）**保留**——根页内容从 106 起，收栏能顶上去，没有白带。
+
+处置后复测：滚动到底 `TitleBar` 保持 `[0,106][1136,281]`，截图顶部无空白带，内容紧接栏底。
+
+代价：滚动时标题一直在，内容不穿到栏下。这一点与有据详情页一致——有据四个详情页
+（`PostDetailView` / `ChatView` / `DraftBoxPage` / `CircleDetailView`）都用 `HdsNavigation`
+且不收栏。
+
+### 附带发现（未处置，登记）
+
+`TitleBar` 内部有两个节点 `MaskBlur` / `Mask`，bounds 都是 `[0,106][1136,206]`，即 32vp 高。
+32vp 正是 `maskExtraHeight` 的默认值，而 `HdsChrome.ets:105` 传的是 0。可疑点是
+`HdsChrome.ets:128` 的 `scrollEffectStyle` 只给了 `contentStyle`、没给 `backgroundStyle`，
+滚动终态可能回落到默认的 32。这条与白带无关（白带是内容空位），且浅色画布上这层渐变
+看不出差别，未动。
+
+### 本轮验收
+
+- 装机产物 md5 `4df2f4a7a1072ef622ef10d8d8dffa23`（signed，`install bundle successfully`）
+- `verify_route_sweep.py --target 192.168.2.3:46077 --density 3.125`：**17/17 OK**
+- `verify_scroll_clearance.py`：**17/17 pass**，净空 27.5–476.2vp
+- `verify_dock_tabs.sh`：§0 md5 与装机一致；§1/1b/2/3/4/4b/5 正文为当前数据；
+  §6 **PASS**（前台 `com.youjing.app`、标题「地图」）；§7 hypium **254/254，0 失败**
+- 弹层返回回归：费用「记一笔」/ 我的「隐私政策」/ TripInput「目的地」**三处全 PASS**
+- 双构建：`entry@default` 61.8s、`entry@ohosTest` 40.5s，均 BUILD SUCCESSFUL
+- `build-profile.json5` 已还原为 `"signingConfigs": []`，无口令残留
+
+### 两个口径坑（会让人白跑）
+
+- `verify_dock_tabs.sh:154` 有一个 `read -r -p "…回车继续"`。后台跑必须在前面喂一个回车
+  （`printf '\n' | bash tools/verify_dock_tabs.sh`），否则脚本会静默卡死，且证据目录只留
+  `hap.md5` / `version.txt` 两个文件。
+- `verify_route_sweep.py` 必须显式带 `--target <真机>` 与 `--density 3.125`，默认目标
+  `127.0.0.1:5555`。
+
+## 4n. 表现层全量对齐后的真机复验：一红是假红、一红是真缺陷（2026-11-08）
+
+上一轮（`9f58273`）交付后用户贴回的真机输出里有两红一缺：滚动静空「我的 **-84.2vp**」、
+§6 返回键、§0 产物 md5 缺失。逐条查完，结论是**一假一真一缺前提**。
+
+**① 「我的」-84.2vp 是假红——尺子量到了有据。**
+
+`/tmp/sc-evidence/sc-我的.json` 里 `bundleName = com.youju.app`，骨架是
+`[25..562] / [574..1111]` 双列、`origBounds` 高 62403px 的个人页——那是有据的 Profile 信息流，
+不是有径的「我的」。其余 16 份 dump 全是 `com.youjing.app`。
+
+- 有据也有五格 dock、也有「我的」标签，而 `verify_scroll_clearance.py` 的 `is_youjing()`
+  只判"有没有检测到 dock"，在这台同时装了两款 App 的机器上恒真。`verify_dock_tabs.sh`
+  的 `assert_front` 早就写过"有据的 dock 也有「我的」"并改成三词同现，这把尺没跟上。
+- 用有径自己的 dump（`1b-mine.json`）复算几何：`List` 框底 = 窗底 `2690px`、`origBounds` 无出屏；
+  `floatingDockClearance = 112vp`（350px）⇒ 滚到底末边应是 `748.8vp`，对 dock 顶 `776.6vp` 余 **27.8vp**
+  （与 Itinerary / Share 同屏同值）。页面本身没问题。
+- 修法：`is_youjing()` 与每屏收尾都改判 `bundleName`；不是 `com.youjing.app` 就记「无效」并 `rc=2`，
+  **不出几何判定**。另加一次"重进复测"——全量跑时实测有 1/17 屏会在甩动途中被系统冻到后台，
+  hilog 是 `OnAppFrozen` 而**不是 JSCrash**（偶发、非崩溃），重进一次即恢复。
+- 复测（新包，17 屏）：**17/17 pass、0 无效**；「我的」可滚=否、末边 606.4vp、净空 **170.2vp**。
+  全表最小净空 27.5vp（地图 / Itinerary），最大 476.2vp（Badges）。
+
+**② §6 返回键是真缺陷——4l 的旧结论被推翻。**
+
+`Docs/INIT_REPORT.md` 第 4l 节当时写的是「Back 在根页退到后台的有据，是根页应有的行为」；
+用户 2026-11-08 裁定这是缺陷，要求「Back 不退出 App」。本次证据：`6-goto.json` 是 `com.youjing.app`，
+`6-after-back.json` 变成 `com.youju.app`——按一次 Back，整个 App 直接退到后台。
+
+- 实现：`Index` 是 `@Entry`，用 `onBackPress(): boolean` 分四档——
+  ① 页签栈有页 → 交 Navigation pop；② 根页弹层/就地文书 → 交页内守卫关；
+  ③ 已在「地图」格 → 交还系统（退后台）；④ 其它页签 → 切回「地图」并吃掉这次返回。
+- ②那一档新增 `utils/overlayBackGuard.ets`，**与有据 `utils/overlayBackGuard.ets` 同构**
+  （id 登记 + 按页消费）。TabContent 不销毁、五个根页长期登记，所以必须按页 id 消费，
+  不能全局无差别消费。
+- 一处只有真机才暴露的细节：`bindSheet` 在返回键路径上**先**被系统关掉、绑定状态
+  （`showRecord`）已置 `false`，返回事件才冒泡到壳层。守卫若读绑定状态会答"没开"，
+  返回照样被"回地图格"吃掉。改成另存 `recordOpen/budgetOpen`、只在 `onDisappear`
+  （关闭动画结束）清，才判得准。
+- 真机复验：Back 后仍 `com.youjing.app`、标题栏「地图」（§6 **PASS**）；再按一次才退后台。
+  弹层回归三处全过：费用「记一笔」、我的「隐私政策」、TripInput「目的地」——
+  都是弹层关、页签/页面留在原地。
+
+**③ §0 产物 md5 缺失：装机包与源码的一致性此前没被验证。**
+
+工作树 `build-profile.json5` 是空 `signingConfigs`，`assembleHap` 只产出
+`entry-default-unsigned.hap`，`verify_dock_tabs.sh:145` 找 signed 包自然报
+`No such file or directory`。本次按记忆里的注入法处理：主仓 `signingConfigs` 段临时注入
+工作树同名文件 → `tools/build_install.sh` → 装机 → **立即还原**（口令不入库，`git status` 干净）。
+
+| 轮次 | signed hap md5 |
+|---|---|
+| 首轮（只改 onBackPress） | `908a519f97f3600a6584d09b16efadb4` |
+| 终轮（含弹层守卫修正） | `9273280cf7e9669472240e5b0ea6885f` |
+
+脚本侧另加 unsigned 兜底：signed 缺失时打印告警 + unsigned 的 md5，不再裸报错；
+§7 的「hypium 81 例」改成「全量用例」（实际 **254 例**）。
+
+**④ 其余闸门（终轮新包）**
+
+- `verify_route_sweep.py`：**17/17 OK**。注意两个默认值会咬人——`--target` 默认是模拟器
+  `127.0.0.1:5555`（真机必须显式传），屏宽 1136px 不在档表内、必须带 `--density 3.125`。
+  上一轮那份输出里的「目标 127.0.0.1:5555 不在线」就是这条，等于这道闸当时没跑。
+- `verify_dock_tabs.sh`：§0 md5 与装机包一致、§1/1b/2/3/4/4b/5 正文都是当前数据、§6 PASS、§7 254/254。
+- 静态：24 把尺 21 绿 + 3 把既有基线红（`audit_contrast` 缺 PIL / `audit_motion` 15 处历史裸时长 /
+  `audit_skip_worktree` 环境），**净增红尺 0**；带 `--selftest` 的 13 把 + 两把 verify 自测全 PASS；
+  `verify_mirror.sh` PASS；`entry@default` 与 `entry@ohosTest` 双 BUILD SUCCESSFUL。
+
+**⑤ 遗留**
+
+自动化甩动过程中偶发把 App 冻到后台（见①，hilog `OnAppFrozen`），尺子已能识别并重试；
+真机长跑仍建议人工守着看一眼，别把它读成"通过"。
+
+
 
 `model/*.ets` 的 12 个接口共 131 个字段，用 `\.字段名` 在 `pages/` `components/` `widget/` 里找读方，
 31 个一次都没被 UI 读过。按消费层分类（注意：`.field` 也会匹配到**写值**的 DAO/解析器，

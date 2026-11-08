@@ -220,7 +220,7 @@ export struct AreaMorePage {
           .layoutWeight(1)
           .justifyContent(FlexAlign.Center)
         } else if (this.areas.length === 0) {
-          // 空态（契约 empty-state 规格：48px 展示档图标 + title + callout + 一个主按钮）
+          // 空态（2026-11-07 全量对齐：44 展示档图标 + headline 18/600 serif + callout + 一个主按钮）
           Column({ space: SpaceTokens.sm }) {
             SymbolGlyph($r('sys.symbol.map'))
               .fontSize(IconSizes.display)
@@ -228,8 +228,8 @@ export struct AreaMorePage {
             Text(this.mapCity
               ? (this.loadFailed ? '地图服务没取到这座城市的住宿区' : '地图服务没有返回这座城市的住宿区')
               : '还没有这座城市的区域数据')
-              .fontSize(TypeTokens.title.size)
-              .fontWeight(700)
+              .fontSize(TypeTokens.headline.size)
+              .fontWeight(TypeTokens.headline.weight)
               .fontFamily(TypeTokens.title.family)
               .fontColor(ColorTokens.ink)
             Text(this.mapCity ? '检查网络后重试，或换一座城市'
@@ -279,9 +279,10 @@ export struct AreaMorePage {
           // 真机实拍（§5o）：这一屏最后一片区域整行压在浮动 dock 底下，
           // dock 是覆盖层，滚动容器不给净空就会被盖住——四个 tab 下的页面里只有这屏漏了
           .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
-            // 让位放进滚动容器：留白随内容滚走，内容才穿得到栏底
-            top: HdsChrome.contentTopInset(this.statusBarHeight, 56),
             bottom: LayoutTokens.floatingDockClearance })
+          // 穿底让位（2026-11-08 对标有据）：让位从 padding 移到 contentStartOffset，
+          // 只挪首屏起点；滚动后内容才穿得到标题栏下被材质糊掉（padding 压的是视口）。
+          .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight, 56))
           .layoutWeight(1)
           .onDidScroll((): void => {
             this.syncBarScroll();
@@ -305,7 +306,7 @@ export struct AreaMorePage {
     }))
     .titleMode(HdsNavDestinationTitleMode.MINI)
     // 收的是栏内搜索行，标题常驻（有据 HomeTab 同款）
-    .dynamicHideTitleBar({ hideBottomBuilder: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+    // 不收栏（2026-11-08）：NavDestination 内容区恒预留 56vp 栏位、收栏后不回收，收起只留一条 175px 白带
     .bindToScrollable([this.barScroller])
     .clip(false)
   }

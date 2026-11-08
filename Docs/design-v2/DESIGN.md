@@ -1,3 +1,13 @@
+> **2026-11-07 全量对齐决议（覆盖声明）**
+> 唯一事实源是 `/Users/itxiaobai/HarmonyProject1` 当前源码；本文件与 IMA 知识库、旧 spec 裁决冲突时一律以源码为准。
+> 2026-11-07 用户裁决：此前 C5–C8 / spec §10 #24/25/26 的「有意偏离有据」结论全部推翻，不再保留。
+> 材质点位不再封闭为「四处玻璃面」，以 `Docs/superpowers/specs/2026-11-07-表现层全量对齐-差异表.md` §6 登记的点位为准；卡片、输入框、弹窗、浮层允许自绘玻璃（`GlassPanel` / `GlowInput` / `SpringPanel` / `ImmersiveSurface` / `GlassPillButton`）。
+> 状态表达允许 opacity：禁用 `.opacity(0.45)`、按下 `.opacity(0.92)` + `scale 0.97`（140ms）；不再禁止「opacity 表达状态」。
+> 「官方件优先、禁自绘」禁令废止；但材质生效时自绘 border/shadow/backgroundBlurStyle 归零、内容区 systemMaterial 不渲染、API 版本门禁三条避让仍然有效。
+> 交互态只做默认 / 按下 / 禁用（含聚焦 / 加载 / 空 / 错误），**不加 hover / hoverEffect**。
+> 三处栏面 blur 50 + `scrolled ? 50 : 0` 绝对偏移门控、分段控件组件内 blur 20、sheet/菜单走 options.systemMaterial 的既有规则继续有效。
+> 本文件里标注为「实测」「取证」「历史记录」「稿件缺陷」的行（尤其 `blur(24px)`、`scrollHeight=820`、`2.67:1`、`#00000000`、md5、帧哈希）逐字节不动；本决议只覆盖「规范性」表述。
+
 ---
 version: alpha
 name: youju-family-design-language
@@ -172,9 +182,9 @@ typography:
       lineHeight: "14px"
       letterSpacing: "0"
     button:
-      fontSize: "16px"
+      fontSize: "14px"
       fontWeight: 600
-      lineHeight: "24px"
+      lineHeight: "20px"
       letterSpacing: "0"
     itinerary-time:
       fontSize: "12px"
@@ -733,6 +743,14 @@ Rules:
 | `separator` | `rgba(60, 60, 67, 0.2)` | `33 3C 3C 43` |
 | `star-night-ring` | `rgba(255, 255, 255, 0.15)` | `26 FF FF FF` |
 | `star-paper-ring` | `rgba(26, 26, 26, 0.3)` | `4D 1A 1A 1A` |
+| `brand-solid` | `rgba(0, 102, 204, 1)` | `FF 00 66 CC` |
+| `dark-brand-solid` | `rgba(0, 80, 160, 1)` | `FF 00 50 A0` |
+| `on-brand` | `rgba(255, 255, 255, 1)` | `FF FF FF FF` |
+| `dark-on-brand` | `rgba(255, 255, 255, 1)` | `FF FF FF FF` |
+| `danger-tint` | `rgba(255, 59, 48, 0.1)` | `1A FF 3B 30` |
+| `dark-danger-tint` | `rgba(255, 59, 48, 0.1)` | `1A FF 3B 30` |
+| `glass-card-bg` | `rgba(247, 247, 248, 1)` | `FF F7 F7 F8` |
+| `dark-glass-card-bg` | `rgba(30, 30, 30, 1)` | `FF 1E 1E 1E` |
 
 # Colors
 
@@ -806,11 +824,11 @@ Light-mode accents are deep earth tones that hold white labels. Dark-mode accent
 | 实心主按钮 | 5.57:1 AA | 3.65:1 AA-large | 5.14:1 AA |
 | 主按钮按下态 | 6.96:1 AA | 2.86:1 FAIL | 6.54:1 AA |
 
-**Rule: in dark mode, bright fills take dark ink, not white.** Text on a bright surface is `#121212`, never `#000000` (black-on-neon looks soiled) and never `#FFFFFF`. The same rule already governs the solid primary button: `#0A84FF` with a `#121212` label measures 5.14:1 AA, while white on the same fill measures 3.65:1 AA-large — and a 16px semibold label does not qualify as WCAG "large text" (that floor is 18.66px bold / 24px regular), so 3.65:1 would be a genuine AA failure, not a rounding quirk.
+**Rule: in dark mode, bright fills take dark ink, not white.** Text on a bright surface is `#121212`, never `#000000` (black-on-neon looks soiled) and never `#FFFFFF`. This still governs the accent badges above. The solid primary button now follows the `brand-solid` / `on-brand` recipe instead: its label is `callout 14 / 600` white text, and on the deep brand fill it clears AA comfortably — dark `brandSolid #0050A0` with white measures 7.91:1, light `brandSolid #0066CC` with white measures ≥4.5:1 — so no AA-large exception is needed.
 
 In light mode the polarity is the opposite: white labels on `#0066CC`, `#A06400`, `#1C7440`, `#C0392B`, `#9A6206` — all 4.86:1 to 5.80:1.
 
-## 5. Material / glass tokens — four surfaces, and only four
+## 5. Material / glass tokens — bar-surface tokens (material points registered in 差异表 §6)
 
 These exist so the top bar, the dock, the sticky day header, and sheets read as one physical material. Their alpha is tuned against a *specific* background, which is why they must not be repurposed.
 
@@ -919,13 +937,13 @@ Letter-spacing is **0 everywhere**, at every size. Negative tracking clips CJK g
 | `title` | serif | 21 | 700 | 32 | Interview question, day label, section title |
 | `title-sans` | sans | 21 | 650 | 28 | Sheet titles, panels where serif is too editorial |
 | `headline` | sans | 18 | 600 | 24 | Stop name, summary stat number, sheet item primary |
-| `body` | sans | 16 | 400 | 24 | Option labels, descriptions, input text, buttons |
+| `body` | sans | 16 | 400 | 24 | Option labels, descriptions, input text |
 | `body-serif` | serif | 16 | 400 | 26 | Long-form route notes and tips only |
 | `callout` | sans | 14 | 400 | 20 | Reason-block prose, widget rows, secondary text |
 | `caption` | sans | 12 | 450 | 16 | Meta rows: area, dwell, badge text |
 | `overline` | sans | 11 | 600 | 14 | Eyebrow labels ("为什么排在这里"), step counters |
 | `nav-label` | sans | 10 | 400 | 14 | Dock item labels — the only sub-11px string allowed |
-| `button` | sans | 16 | 600 | 24 | All button labels |
+| `button` | sans | 14 | 600 | 20 | All button labels — `DesignButton` sets `callout` size + `headline` weight (有据 `DesignButton.ets:91-93`), which is the measured truth; this row follows the code, not the other way round |
 | `itinerary-time` | sans | 12 | 600 | 16 | Spine time gutter, tabular |
 | `itinerary-duration` | sans | 12 | 450 | 16 | "停留 2小时", "步行 18分钟 · 1.2km", tabular |
 | `day-label` | serif | 21 | 700 | 28 | "Day 3 · 6月12日 周四" |
@@ -1064,7 +1082,7 @@ Three devices, in strict order of preference: **surface color step → whitespac
 
 Shadow is black-with-alpha, which is theme-neutral: it stays in dark mode and carries no zeroing branch. Only large-area drops (`bar_shadow`) are promoted to a paired resource (light `#2E1A1A1E`, dark `#8C000000`). Note: the 有径 app's four page-level `.shadow()` sites still carry a legacy dark-zeroing branch pending the T4 migration; the gate is flipped in that batch, not here.
 
-The app's real depth device is **blur**, and the written blur radius belongs to a closed list of exactly three bar surfaces — ① the top bar (`components.top-bar-immersive`), ② the floating dock (`components.floating-dock`), ③ the sticky day divider (`components.day-header` in its sticky variant) — all three at blur 50 with a 1px `glass-bar-border` stroke and a 92px gradient mask fading content into the bar. ④ Sheets and menus are **material surfaces, not blur surfaces**: where system material is available it takes over the panel, and the self-drawn fallback is exactly the opaque `components.sheet-modal` recipe above (`surface-elevated` + `floating` elevation + scrim), which invents no blur value. The segmented control is **not a fifth glass surface**: it carries only its own in-component value (`components.segmented-control.blur: 20`), the single written exception, scoped inside one component and never readable by the bar gate. **When system material (沉浸光感) is active, the surface must zero out its own background, border, and shadow** — otherwise you get a second ring around the bar and a hard grey seam under the header. Every material feature must sit behind an explicit API-level gate with a self-drawn glass/stroke/solid fallback that looks the same. The bar surface is gated by the **absolute** scroll offset (`scrolled ? 50 : 0`), never by per-frame delta, because a spring-back negative delta turns the blur off at rest.
+The app's real depth device is **blur**, and the **bar** surfaces' written blur radius is still the three bar surfaces at 50 — ① the top bar (`components.top-bar-immersive`), ② the floating dock (`components.floating-dock`), ③ the sticky day divider (`components.day-header` in its sticky variant) — all three at blur 50 with a 1px `glass-bar-border` stroke and a 92px gradient mask fading content into the bar. In addition, the self-drawn material points registered in 差异表 §6 may use the system `backgroundBlurStyle` grades (Floating / Card / Press / Dialog); no new written blur number is invented. ④ Sheets and menus are **material surfaces, not blur surfaces**: where system material is available it takes over the panel, and the self-drawn fallback is exactly the opaque `components.sheet-modal` recipe above (`surface-elevated` + `floating` elevation + scrim), which invents no blur value. The segmented control is **not a fifth glass surface**: it carries only its own in-component value (`components.segmented-control.blur: 20`), the single written exception, scoped inside one component and never readable by the bar gate. **When system material (沉浸光感) is active, the surface must zero out its own background, border, and shadow** — otherwise you get a second ring around the bar and a hard grey seam under the header. Every material feature must sit behind an explicit API-level gate with a self-drawn glass/stroke/solid fallback that looks the same. The bar surface is gated by the **absolute** scroll offset (`scrolled ? 50 : 0`), never by per-frame delta, because a spring-back negative delta turns the blur off at rest.
 
 Depth in the route canvas is drawn, not shadowed: overlapping contour hairlines and a soft wide `path-soft` stroke under the 2px `path` line (a halo, not a drop shadow). Widgets on the launcher get no blur and no elevation — solid surface plus a 1px hairline border so they stay legible against any wallpaper.
 # Shapes
@@ -1092,12 +1110,12 @@ Shared first, then each product's own layer. A component that exists in both app
 
 ## 1. Family-wide components
 
-**Buttons.** Four variants only: `primary` (solid `#0066CC`, white text, pill, 44px) for the one main CTA per screen; `outline` (transparent, 1px `glass-bar-border`, pill) for secondary and destructive actions; `ghost` (transparent, 1px `primary` stroke, blue text) for in-panel confirmations; `glass` is legacy, don't use it in new screens. Ratio discipline: exactly one `primary` per view, everything else `outline`. Press feedback is scale 0.97 + opacity 0.92 at 140ms — no color darkening beyond `primary-press`.
+**Buttons.** Four variants: `primary` (solid `brand-solid` / `on-brand` text, pill, 44px) for the one main CTA per screen; `outlined` (transparent, 1vp `bar-border`, pill); `ghost` (transparent, no stroke); `glass` (self-drawn `GlassPillButton`). Labels are `callout 14 / 600` (replacing `body 16`). Ratio discipline: exactly one `primary` per view, everything else `outlined` / `ghost`. Press = `scale 0.97 + opacity 0.92` / 140ms; disabled = `.opacity(0.45)`.
 
 Dark mode note: a solid `primary` button in dark mode paints `#0A84FF` with a `#121212` ink label, not white — see Colors §4.
 
 
-**Cards.** `surface-elevated`, 20px radius, 16px padding, 12px internal gap, `cardAmbient` shadow. Structure: 3:4 media on 6px radius, optional `title` line (serif), `body` excerpt, meta row in `caption` / `faint`, tag pills bottom-left, action icons bottom-right. No border on cards in light mode — the fill step does the separating.
+**Cards.** `surface-elevated`, 20px radius, 16px padding, 12px internal gap, `cardAmbient` shadow. Where a material point is registered in 差异表 §6, a card may be a self-drawn `GlassPanel`: `backgroundBlurStyle(GlassBlurStyle.Card)` + 1vp `separator` stroke + `cardAmbient` shadow + `clip`. Keep 20px radius / 16px padding / 12px internal gap. Structure: 3:4 media on 6px radius, optional `title` line (serif), `body` excerpt, meta row in `caption` / `faint`, tag pills bottom-left, action icons bottom-right. No border on cards in light mode — the fill step does the separating.
 
 **Segmented control.** The signature navigator: 36px tall, pill-ish 30px radius, smoked-glass track (`glass-segment-bg` 10% + 1px border) with blur 20, and a selection pill in `glass-selection-surface` with a blue-tinted shadow. Selected item text is `ink`, unselected `muted`. Pressing squishes the track to 0.94 with a spring back. When system material is active, the self-drawn stroke and shadow must go to zero.
 
@@ -1105,13 +1123,13 @@ Dark mode note: a solid `primary` button in dark mode paints `#0A84FF` with a `#
 
 **Floating dock.** 300×64px, `rounded.floating-bar`, `glass-bar-surface` with blur 50 + `glass-bar-border`, `floating` elevation, centered icons with `nav-label` text beneath, and a blue glow spot (`glow_tint`, ~180px) that follows the pressed item. The publish/center action is the same dock item, not a separate FAB. Reserve 94px + nav inset under any scrolling list.
 
-**Sheet (half-modal).** Rounded-20 panel, 344px wide, 20px padding, 16px column spacing, `surface-elevated` (light) / `#1E1E1E` (dark), floating elevation, scrim behind. Handles: publish method picker, tag selection, filters.
+**Sheet (half-modal).** `SpringPanel` recipe: `panelWidth 344` + `panelPadding 20` (`SpaceTokens.lg`), three material grades (glass / outlined / solid), entrance `opacity` / `translate` / `scale` on `container 320` with `springSoft`; `surface-elevated` (light) / `#1E1E1E` (dark) fallback, floating elevation, scrim behind. Handles: publish method picker, tag selection, filters.
 
 **Stat row.** Number in `headline` with `tnum`, label in `caption` / `muted`, laid out 72px per stat, left-aligned, no divider.
 
 **Skeleton.** `skeleton-base` blocks on `md` radius, 160px default width with a 56px highlight line, shimmer sweep at 1200ms linear. Skeletons mirror the real card layout — same media ratio, same padding. Mirror the real layout exactly: 76px rows, 24px circles, 52px time blocks, `md` radius, 160px default width with a 56px highlight line.
 
-**Empty state.** Centered: **`muted` `#69696E` icon at 48px** (`viewBox` 24, stroke-width 2 — the 48px display glyph is the *only* glyph above the 22×22 control tier, and `faint` is barred here by §8: it measures 2.67:1 on canvas and fails the 3:1 graphic floor), `title` line, `callout` explanation in `muted`, one `primary` or `outline` button. Never a wall of text, never an illustration in a new hue. 有径 版补充：Centered `muted` 48px display glyph, `title` line, `callout` explanation in `muted`, one `primary` or `outline` button. When generation fails, say which step failed and offer retry — that is on-brand for a product whose whole premise is traceability.
+**Empty state.** Centered: **`IconTokens.empty` 44 glyph** in `muted` `#69696E` (`viewBox` 24, stroke-width 2 — `faint` is barred here by §8: it measures 2.67:1 on canvas and fails the 3:1 graphic floor), a `headline 18/600` serif line, `callout 14` explanation in `muted`, one `brand-solid` action button. Never a wall of text, never an illustration in a new hue. When generation fails, say which step failed and offer retry — that is on-brand for a product whose whole premise is traceability.
 
 
 ## 2. 有据 product layer
@@ -1125,7 +1143,7 @@ Dark mode note: a solid `primary` button in dark mode paints `#0A84FF` with a `#
 
 **Destination & date entry.** Serif `display` city name on the canvas, a 64px `surface-elevated` field row (label in `muted` caption, value in `headline`, chevron in `faint`) for dates and travelers, then one `primary` CTA. No map screenshot, no stock photo hero — the entry screen is type on white.
 
-**Interview question (`question-card`).** Full-bleed canvas, 24px/16px padding: serif `title` question, a `muted` `callout` helper line, then a stack of `option-chip` cards with 8px gaps. Each chip: `surface-elevated`, `lg` radius, min 56px tall, 16px padding, `body` label, optional `caption` sub-line, and a `primary` check mark top-right when selected. Selected state = `primary-tint` fill + 1px `primary` border. Press = scale 0.97 / 140ms. Progress is a row of 6px dots (active `primary`, inactive `surface-sunken`) plus an `overline` "第 2/5 步". Skip is `button-ghost`, never a grey text link. No chat bubbles, no AI avatar, no typing indicator.
+**Interview question (`question-card`).** Full-bleed canvas, 24px/16px padding: serif `title` question, a `muted` `callout` helper line, then a stack of `option-chip` cards with 8px gaps. Each chip: `surface-elevated`, `lg` radius, min 56px tall, 16px padding, `body` label, optional `caption` sub-line, and a `primary` check mark top-right when selected. Selected state = `brand-solid` solid fill + `on-brand` label. Press = scale 0.97 / 140ms. Progress is a row of 6px dots (active `primary`, inactive `surface-sunken`) plus an `overline` "第 2/5 步". Skip is `button-ghost`, never a grey text link. No chat bubbles, no AI avatar, no typing indicator.
 
 **AI generating state.** The only place shimmer is allowed. Serif `title` ("正在为你规划 5 天行程"), a `callout` stage list ticking through real steps (筛选景点 → 排布动线 → 校验开放时间 → 估算耗时), each revealed with a 40ms stagger; a 2px `primary` progress bar on a `surface-sunken` track; below it, skeleton `md` blocks shaped exactly like the day cards that will land, shimmering at 1200ms linear. Never a spinner alone, never fake percentage text.
 
@@ -1158,7 +1176,7 @@ Do:
 - Make the interview skippable and every AI decision editable — one `outline` "改主意" entry per day.
 
 Don't:
-- Don't apply glass, blur, or gradients to itinerary rows, option chips, reason blocks, or cards. Material belongs to the top bar, dock, sticky day header, and sheets.
+- Don't apply glass, blur, or gradients to itinerary rows, option chips, or reason blocks. Glass / blur may appear only at the material points registered in 差异表 §6; cards, inputs, dialogs and floating layers may carry self-drawn glass at those registered points.
 - Don't stack a self-drawn border/shadow on a surface that already has system material (double ring + grey seam).
 - Don't set blue label text on a blue tint fill (4.49:1 light / 3.59:1 dark, both sub-AA). Tint fills take an `ink` label plus a blue stroke.
 - Don't put white text on a dark-mode bright fill (2.02–3.65:1); bright fills take `#121212` ink.
@@ -1188,7 +1206,7 @@ Family-wide (applies to both products):
 
 | # | 议题 | 决议 | 依据 |
 |---|---|---|---|
-| 1 | 内容图标是否存在第三档（14/16px） | **不设第三档。** 内容图标只有 22×22 控制档与 48×48 展示档；14/16px 只允许出现在状态栏 mock（`.status-icons` / `.status-bar-icons`，`stroke #17171A`，深色 `#F2F2F4`），属设备 chrome | 21 帧实测：除状态栏外无一内容图标离档 |
+| 1 | 内容图标是否存在第三档（14/16px） | **按有据源码采用 `IconTokens` 全档（16/20/24/44/56/68），控制档 24、展示档 44。** | 21 帧实测：除状态栏外无一内容图标离档 |
 | 2 | 屏 8 dock 徽标数字 | **取 3**，与屏 12「我的行程」三张进行中行程卡同源。徽标数必须与内容同源，不许出现"徽标 3 / 列表 2" | 屏 12 `f037b5c4` 实渲三张 `.trip-card` |
 | 3 | `modal-scrim` | **采纳为契约件**：`rgba(23, 23, 26, 0.32)` / ArkTS `52 17 17 1A`。已有消费方，不是空 token | 屏 14 `d04983a4` 渲染出 `.modal-scrim` 类，实测距底 0、满幅覆盖 |
 | 4 | 费用 hero 卡是否带阴影 | **hero 永不带影**（`elevation` 只给卡片与浮层）。屏 11 与屏 15 实测**均已合规**，此条不再是矛盾，只作禁令保留 | 两帧的 `floating` 阴影都只落在 dock 上，`.hero-panel` 注释与规则都是零阴影 |

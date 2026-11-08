@@ -25,6 +25,8 @@ import { membershipStatus, membershipUsage, subscriptionActive, MembershipStatus
 import { BadgeGroup, BadgeRecord, badgeCityCount, badgeTotal, buildBadgeBoard } from '../utils/BadgeBoard';
 import { ProfileStore } from '../data/ProfileStore';
 import { LegalDocReader } from '../components/LegalDocReader';
+import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
+import { Pressable } from '../components/Pressable';
 import { Logger } from '../common/logger/Logger';
 import { PlanDraft } from '../data/PlanDraft';
 import { ColorTokens } from '../design/ColorTokens';
@@ -36,6 +38,7 @@ import { HdsChrome } from '../design/HdsChrome';
 import { common } from '@kit.AbilityKit';
 import { HdsNavigation, HdsNavigationTitleMode, HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UIDesignKit';
 import { requestSystemBarRefresh } from '../utils/systemBar';
+import { registerOverlayBackGuard, unregisterOverlayBackGuard, OVERLAY_GUARD_MINE_TAB } from '../utils/overlayBackGuard';
 
 /** 设置区一行：标题 + 落点。kind 非空 = 就地展开这份法务文书 */
 interface SettingRow {
@@ -85,6 +88,17 @@ export struct MinePage {
 
   aboutToAppear(): void {
     this.reload();
+    // 法务文书是就地展开的整页替换、不在 Navigation 栈里：登记守卫，
+    // 让 Index 的返回拦截先关它，而不是"回地图格"
+    registerOverlayBackGuard(OVERLAY_GUARD_MINE_TAB,
+      (): boolean => this.reading.length > 0,
+      (): void => {
+        this.reading = '';
+      });
+  }
+
+  aboutToDisappear(): void {
+    unregisterOverlayBackGuard(OVERLAY_GUARD_MINE_TAB);
   }
 
   private onEntitlementTick(): void {
@@ -306,18 +320,13 @@ export struct MinePage {
           // Index 的登录闸门已经拦过"没同意隐私就什么都不给看"，这里只处理已同意未登录
           if (this.authState === 'guest') {
             ListItem() {
-              Button({ type: ButtonType.Normal }) {
-                Text('登录华为账号')
-                  .fontSize(TypeTokens.small.size)
-                  .fontWeight(600)
-                  .fontColor(ColorTokens.onPrimary)
-              }
-              .width('100%')
-              .height(LayoutTokens.minTouchTarget)
-              .borderRadius(RadiusTokens.pill)
-              .backgroundColor(ColorTokens.primary)
-              .onClick((): void => {
-                this.goLogin();
+              YoujingButton({
+                variant: YoujingButtonVariant.PRIMARY,
+                label: '登录华为账号',
+                fullWidth: true,
+                onAction: (): void => {
+                  this.goLogin();
+                }
               })
             }
           }
@@ -333,19 +342,25 @@ export struct MinePage {
             }, (row: SettingRow): string => row.docKind)
           }
           ListItem() {
-            Button({ type: ButtonType.Normal }) {
+            // 有据无 danger 按钮变体（danger 只作字色），故保留「elevated 底 + danger 字」，
+            // 按下反馈交给家族唯一的 Pressable（opacity 0.92 + scale 0.97 / 140ms）
+            Pressable({
+              fillWidth: true,
+              visualHeight: LayoutTokens.minTouchTarget,
+              action: (): void => {
+                this.confirmLogout();
+              }
+            }) {
               Text('退出登录')
-                .fontSize(TypeTokens.small.size)
+                .fontSize(TypeTokens.callout.size)
                 .fontWeight(600)
                 .fontColor(ColorTokens.danger)
+                .width('100%')
+                .height(LayoutTokens.minTouchTarget)
+                .textAlign(TextAlign.Center)
+                .borderRadius(RadiusTokens.pill)
+                .backgroundColor(ColorTokens.surfaceElevated)
             }
-            .width('100%')
-            .height(LayoutTokens.minTouchTarget)
-            .borderRadius(RadiusTokens.pill)
-            .backgroundColor(ColorTokens.surfaceElevated)
-            .onClick((): void => {
-              this.confirmLogout();
-            })
           }
         }
         .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
@@ -355,8 +370,12 @@ export struct MinePage {
         .scrollBar(BarState.Off)
         // 末行住在悬浮 dock 底下，按实测净空让位（与 TripsPage/BadgePage 同一写法）
         .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
-          top: HdsChrome.contentTopInset(this.statusBarHeight),
           bottom: LayoutTokens.floatingDockClearance })
+        // 穿底（2026-11-08 对标有据 ProfilePage）：让位必须走 contentStartOffset，
+        // 不能挂 padding —— padding 会把**视口**整体压到栏底之下，内容永远上不到
+        // 标题栏那 175px 里，栏体磨砂采样不到任何东西，顶部就永远是一块纯白。
+        // contentStartOffset 只挪首屏起点，滚动后内容照常穿到栏下被糊掉。
+        .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight))
         .onDidScroll((): void => {
           this.syncBarScroll();
         })
@@ -364,7 +383,8 @@ export struct MinePage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(ColorTokens.canvas)
+    // 不涂 canvas：这一层涂色会把 106..281 的标题栏区整块盖成纯白，穿底素材全被挡在下面。
+    // 底色由壳层（Index 的 Column）与 TopStrip 单点负责，本页只负责内容。
   }
 
   @Builder
@@ -407,6 +427,7 @@ export struct MinePage {
       .hideBackButton(true)
       .titleBar(HdsChrome.bar({
         mainTitle: '我的',
+        backSlot: false,
         scrolled: this.barScrolled,
         
         menu: [HdsChrome.item($r('sys.symbol.plus'), '新建行程', (): void => {
@@ -420,7 +441,10 @@ export struct MinePage {
       .mode(NavigationMode.Stack)
       // 跟手收起（第 13 行）：有径栏内没有 bottomBuilder，收的是标题区本身；
       // hideRatio=1.0 才是滚 1vp 收 1vp（官方默认 2.0 是半速），滚动源由 bindToScrollable 供给
-      .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+      // 不收标题栏（2026-11-08 对标有据）：有据根页标题栏常驻——只有 HomeTab 用
+      // hideBottomBuilder 收分段那一行，ProfilePage 完全没有 dynamicHideTitleBar。
+      // 整条收起后滚动时顶部没有栏体磨砂，穿底内容直接顶到状态栏下，
+      // 与有据「栏体把内容糊住」的观感不是一回事。bindToScrollable 保留（驱动渐变模糊）。
       .bindToScrollable([this.barScroller])
       .clip(false)
       .width('100%')
@@ -433,7 +457,7 @@ export struct MinePage {
       .backgroundColor(ColorTokens.canvas)
       .titleBar(HdsChrome.bar({ mainTitle: '我的', scrolled: this.barScrolled }))
       .titleMode(HdsNavDestinationTitleMode.MINI)
-      .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+      // 不收栏（2026-11-08）：NavDestination 内容区恒预留 56vp 栏位、收栏后不回收，收起只留一条 175px 白带
       .bindToScrollable([this.barScroller])
       .clip(false)
     }

@@ -30,7 +30,7 @@ import { EntitlementStore } from '../data/EntitlementStore';
 import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
 import { ImmersiveSegmentBar, SegmentedItem } from '../components/ImmersiveSegmentBar';
-import { getSheetImmersiveMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
+import { GlassBlurStyle, getSheetImmersiveMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
@@ -1507,10 +1507,13 @@ export struct ItineraryPage {
           .sticky(StickyStyle.Header)
           .cachedCount(6)
           .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
-            // 穿底让位放进**滚动容器内部**：留白随内容滚走，内容才能穿到栏下被材质采样
-            // （放在外层 Column 上会留一条永不消失的空档，见真机对照）
-            top: HdsChrome.contentTopInset(this.statusBarHeight, 48),
             bottom: LayoutTokens.floatingDockClearance })
+          // 穿底让位（2026-11-08 二次修正）：原先写 `.padding({ top })`，注释说"留白随内容
+          // 滚走"——这是错的。padding 是**滚动容器自己的**属性，压的是视口，内容永远到不了
+          // 标题栏那 175px，滚动时在栏底被硬切、上面留一片白。
+          // 改 `contentStartOffset`：只挪首屏起点，滚动后内容照常穿到栏下被材质糊掉
+          //（有据 ProfilePage 同一写法；吸顶组头也跟着粘在这个偏移上）。
+          .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight, 48))
           // 时间轴是单列长内容，不能按断点分栏（会打断主轴竖线），
           // 所以宽屏走"收窄 + 居中"这条路
           .width(longFormMaxWidth(this.bp, LayoutTokens.contentMaxWidth))
@@ -1527,9 +1530,11 @@ export struct ItineraryPage {
         }
         .bindSheet($$this.showSystemAccess, this.systemAccessSheet(), {
           height: SheetSize.FIT_CONTENT,
-          backgroundColor: ColorTokens.canvas,
           showClose: true,
-          systemMaterial: getSheetImmersiveMaterial()
+          systemMaterial: getSheetImmersiveMaterial(),
+          // 材质生效时 blur 与实色底让位，避免玻璃面外再叠一层（配方照有据 DetailPostContent:287-296）
+          blurStyle: isSystemMaterialActive() ? BlurStyle.NONE : GlassBlurStyle.Floating,
+          backgroundColor: isSystemMaterialActive() ? undefined : ColorTokens.canvas
         })
       }
       .width('100%')
@@ -1537,9 +1542,10 @@ export struct ItineraryPage {
       .backgroundColor(ColorTokens.canvas)
       .bindSheet($$this.showDetail, this.detailSheet(), {
         height: '85%',
-        backgroundColor: ColorTokens.canvas,
         showClose: true,
-        systemMaterial: getSheetImmersiveMaterial()
+        systemMaterial: getSheetImmersiveMaterial(),
+        blurStyle: isSystemMaterialActive() ? BlurStyle.NONE : GlassBlurStyle.Floating,
+        backgroundColor: isSystemMaterialActive() ? undefined : ColorTokens.canvas
       })
     
         }
@@ -1576,7 +1582,7 @@ export struct ItineraryPage {
       })
 }
     // 收的是栏内底行（分段行），标题常驻——有据 HomeTab:1239 同款
-    .dynamicHideTitleBar({ hideBottomBuilder: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+    // 不收栏（2026-11-08）：NavDestination 内容区恒预留 56vp 栏位、收栏后不回收，收起只留一条 175px 白带
     .bindToScrollable([this.listScroller])
     .clip(false)
     .onDisAppear((): void => {

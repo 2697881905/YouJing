@@ -13,6 +13,7 @@ import { MapStop, MapStops } from '../utils/MapStops';
 import { TripWindow } from '../utils/TripWindow';
 import { DateUtils } from '../utils/DateUtils';
 import { TripMapView } from '../components/TripMapView';
+import { Pressable } from '../components/Pressable';
 import { Logger } from '../common/logger/Logger';
 import { PlanDraft } from '../data/PlanDraft';
 import { common } from '@kit.AbilityKit';
@@ -149,10 +150,21 @@ export struct MapPage {
           return;
         }
       }
+      // 没有在途行程：退到**最近一条**（哪怕已结束），出图 + 站点条，而不是给一张空底图。
+      // 2026-11-08 用户报「地图页无图」：原先这里直接置空态，而地图 tab 是唯一入口
+      // （route=Map 深链也走这条 rootMode 判断），于是只要有历史行程、当前又不在旅途中，
+      // 这一格就永远是一整片白。`reload()` 本来就有「退到最近一条」的兜底，这里不该绕过它。
+      if (rows.length > 0) {
+        this.onTripShown = false;
+        this.noOnTrip = true;
+        this.tripId = rows[0].id;
+        this.reload();
+        return;
+      }
       this.onTripShown = false;
       this.noOnTrip = true;
       this.loaded = true;
-      Logger.info('Ui.MapPage', '本机没有在途行程，地图页出引导空态');
+      Logger.info('Ui.MapPage', '本机没有任何行程，地图页出引导空态');
     }).catch((err: Error): void => {
       if (mySeq !== this.resolveSeq) {
         return;
@@ -180,7 +192,7 @@ export struct MapPage {
     const sub: string = this.stops.length > 0 ? `${this.stops.length} 站` : '';
     // 地图格没有纵向滚动正文（满幅底图 + 横向 chip 轨），关特效避免静止态空糊；
     // 收窄也不适用：满幅底图按断点内缩反而是错的（见 INIT_REPORT §5ci 宽屏走查段）
-    return HdsChrome.bar({ mainTitle: this.titleText, subTitle: sub, menu: items, scrollable: false });
+    return HdsChrome.bar({ mainTitle: this.titleText, backSlot: false, subTitle: sub, menu: items, scrollable: false });
   }
 
   private reload(): void {
@@ -383,6 +395,10 @@ export struct MapPage {
             .scrollable(ScrollDirection.Horizontal)
             .scrollBar(BarState.Off)
             .width('100%')
+            // 让开标题栏（2026-11-08）：内容区从窗口 0 起（enableComponentSafeArea:false），
+            // 这一行原本直接落在 106..281 的栏带里，与状态栏时钟、标题叠在一起。
+            // 地图页此前一直是无图空态、这行不渲染，所以从没暴露过。
+            .margin({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
           }
 
           Blank()
@@ -422,21 +438,27 @@ export struct MapPage {
             .shadow(ShadowTokens.floating)
           } else if (this.loaded) {
             if (this.rootMode && this.noOnTrip) {
-              Button({ type: ButtonType.Normal, stateEffect: true }) {
-                Text('今天没有在途行程 · 去规划一趟')
-                  .fontSize(TypeTokens.caption.size)
-                  .fontWeight(600)
-                  .fontColor(ColorTokens.primary)
+              // 按下反馈交给家族唯一的 Pressable；视觉 36 高、命中带仍 44（responseRegion 居中包住）。
+              // 让位 dock 的 margin 挂在外包 Column 上——builder 尾随闭包之后不能再接属性。
+              Column() {
+                Pressable({
+                  visualHeight: 36,
+                  action: (): void => {
+                    PlanDraft.fresh();
+                    enterPlanningFlow('TripInput');
+                  }
+                }) {
+                  Text('今天没有在途行程 · 去规划一趟')
+                    .fontSize(TypeTokens.caption.size)
+                    .fontWeight(600)
+                    .fontColor(ColorTokens.primary)
+                    .height(36)
+                    .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
+                    .backgroundColor(ColorTokens.surfaceElevated)
+                    .borderRadius(RadiusTokens.pill)
+                }
               }
-              .height(36)
-              .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
-              .backgroundColor(ColorTokens.surfaceElevated)
-              .borderRadius(RadiusTokens.pill)
               .margin({ bottom: LayoutTokens.floatingDockClearance })
-              .onClick((): void => {
-                PlanDraft.fresh();
-                enterPlanningFlow('TripInput');
-              })
             } else {
               Text(this.tripId.length === 0 ? '先从「行程」页签选一条行程' : '这条行程里没有可显示的坐标')
                 .fontSize(TypeTokens.caption.size)
@@ -476,7 +498,10 @@ export struct MapPage {
       HdsNavigation(this.pathStack) {
         this.rootShell()
       }
-      .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+      // 不收标题栏（2026-11-08 对标有据）：有据根页标题栏常驻——只有 HomeTab 用
+      // hideBottomBuilder 收分段那一行，ProfilePage 完全没有 dynamicHideTitleBar。
+      // 整条收起后滚动时顶部没有栏体磨砂，穿底内容直接顶到状态栏下，
+      // 与有据「栏体把内容糊住」的观感不是一回事。bindToScrollable 保留（驱动渐变模糊）。
       .bindToScrollable([this.stripScroller])
       .clip(false)
       .titleMode(HdsNavigationTitleMode.MINI)
@@ -490,7 +515,7 @@ export struct MapPage {
       HdsNavDestination() {
         this.rootShell()
       }
-    .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+    // 不收栏（2026-11-08）：NavDestination 内容区恒预留 56vp 栏位、收栏后不回收，收起只留一条 175px 白带
     .bindToScrollable([this.stripScroller])
     .clip(false)
       // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）

@@ -30,9 +30,10 @@ export struct ImmersiveSegmentBar {
   @Link @Watch('syncIndexes') selectedIndex: number;
   // 每槽位宽度 vp：>0 时整栏按 items.length × 该值定宽（与按钮并排场景），0 = 撑满父容器
   @Prop itemWidth: number = 0;
-  // 官方按内容自适应高（实测 ≈31.7vp），契约栏高 36 → 上下各补 (36-31.7)/2 ≈ 2.15；
-  // 有据原值 9.5 对应其 40vp 参考栏高。有径按 segmentedControlHeight=36 传参，宿主可调。
-  @Prop buttonVerticalPadding: number = 2.15;
+  // 2026-11-07 按有据源码对齐：默认 9.5（YU/ImmersiveSegmentBar.ets:45，对应 40vp 分段栏）。
+  // 有径此前按 segmentedControlHeight=36 反推成 2.15，属「有意偏离」已推翻；
+  // LayoutTokens.segmentedHeight=36 仍是 ChipRow 的视觉高，两者不再混为一谈。
+  @Prop buttonVerticalPadding: number = 9.5;
   @Prop buttonHorizontalPadding: number = 8;
   // 浅色内容态：顶栏背板转深时标签切白（与 overrideTrackMaterial 必须同值）
   @Prop @Watch('rebuildOptions') lightContent: boolean = false;

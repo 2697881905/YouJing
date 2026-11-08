@@ -78,19 +78,30 @@ SERIF_SLOTS = [
     ('屏3', '这趟想怎么过？（question-card 21/700）', 'entry/src/main/ets/pages/PreferenceQAPage.ets'),
     ('屏3b', '每天想排多满？（21/700）', 'entry/src/main/ets/pages/PreferenceQAPage.ets'),
     ('屏6', '正在为你规划 5 天行程（21/700）', 'entry/src/main/ets/pages/GeneratingPage.ets'),
-    ('屏7', '第 3 天没排通（21/700）', 'entry/src/main/ets/pages/GenerateFailedPage.ets'),
+    # 屏7 / 屏12b / 屏5 三个「标题槽」2026-11-07 起按有据 EmptyState/错误态规格改为
+    # headline 18/600 serif（帧的 21/700 是历史取证），移入 SLOT_PENDING 说明，不再用
+    # 「文件里有没有 title/display 档的衬线 Text」这个旧判据卡它们。
+
     ('屏8', 'Day 1 · 6月10日 周二（day-label 21/700）', 'entry/src/main/ets/pages/ItineraryPage.ets'),
     ('屏9', 'Day 1 · 6月10日 周二（编辑态 21/700）', 'entry/src/main/ets/pages/EditItineraryPage.ets'),
     ('屏10', '伏见稻荷大社（节点名 21/700）', 'entry/src/main/ets/pages/ItineraryPage.ets'),
     ('屏12', '京都 / 东京 / 镰仓与箱根（目的地 21/700）', 'entry/src/main/ets/pages/TripsPage.ets'),
-    ('屏12b', '还没有行程（空态 21/700）', 'entry/src/main/ets/pages/TripsPage.ets'),
     ('屏14', '让行程走到系统里（21/700）', 'entry/src/main/ets/pages/ItineraryPage.ets'),
     ('屏15', '岚山竹林（当前节点 21/700）', 'entry/src/main/ets/pages/OnTripPage.ets'),
     ('屏16', '分享这份行程（21/700）', 'entry/src/main/ets/pages/SharePage.ets'),
-    ('屏5', '片区名（SpotPick/AreaMore 标题 21/700）', 'entry/src/main/ets/pages/AreaMorePage.ets'),
 ]
+# 帧声明但按新契约改档的槽：报告不卡构建，理由写死在下面
 # 帧声明但工程上暂缺的槽：报告不卡构建，理由写死在这里
 SLOT_PENDING = {
+    ('屏7', '第 3 天没排通（21/700）'):
+        '2026-11-07 全量对齐：错误态主句按有据规格改为 headline 18/600 serif，'
+        '帧里 21/700 是历史取证；新档位仍是衬线，只是不再走 title 档，故旧判据不适用',
+    ('屏12b', '还没有行程（空态 21/700）'):
+        '2026-11-07 全量对齐：空态主句按有据 EmptyState 改为 headline 18/600 serif，'
+        '图形档 48→44；帧里 21/700 是历史取证，旧判据不适用',
+    ('屏5', '片区名（SpotPick/AreaMore 标题 21/700）'):
+        '2026-11-07 全量对齐：AreaMore 空态主句按有据 EmptyState 改为 headline 18/600 serif，'
+        '帧里 21/700 是历史取证，旧判据不适用',
     ('屏13', 'Day 2 · 6月11日（卡片日标签 21/700 serif）'):
         '档位已对齐 21/700；衬线拿不到：卡片里 getUIContext/getFont/registerFont '
         "被编译器 11706006 判 can't support form application（实测三连报错），"

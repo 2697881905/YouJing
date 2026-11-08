@@ -219,6 +219,9 @@ export struct PreferenceQAPage {
         .alignListItem(ListItemAlign.Start)
         .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
           bottom: LayoutTokens.bottomScrollReserve + this.dockNavInset })
+        // 穿底让位（2026-11-08 对标有据）：让位从外层 padding 移到 contentStartOffset，
+        // 只挪首屏起点；滚动后内容才穿得到标题栏下被材质糊掉。
+        .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight))
         .onDidScroll((): void => {
           this.syncBarScroll();
         })
@@ -257,12 +260,12 @@ export struct PreferenceQAPage {
         .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.sm,
           bottom: LayoutTokens.floatingDockClearance })
       }
-      .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
       .width('100%')
       .height('100%')
-      .backgroundColor(ColorTokens.canvas)
+      // 不涂 canvas、也不在这里让位（2026-11-08 对标有据）：这层白会把标题栏区盖死，
+      // 让位已下放到 List 的 contentStartOffset。
     }
-    .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+    // 不收栏（2026-11-08）：NavDestination 内容区恒预留 56vp 栏位、收栏后不回收，收起只留一条 175px 白带
     .bindToScrollable([this.barScroller])
     .clip(false)
     // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）

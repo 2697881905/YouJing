@@ -24,7 +24,7 @@ import { TripDao, TripSummary } from '../data/TripDao';
 import { CategoryBudget, CategoryTotal, Expense, ExpenseCategory } from '../model/Expense';
 import { Trip } from '../model/Trip';
 import { DateUtils } from '../utils/DateUtils';
-import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
+import { GlassBlurStyle, getSheetImmersiveMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
 import { Logger } from '../common/logger/Logger';
 import { PlanDraft } from '../data/PlanDraft';
 import { common } from '@kit.AbilityKit';
@@ -32,6 +32,7 @@ import { HdsNavigation, HdsNavigationTitleMode, HdsNavDestination, HdsNavDestina
 import { routerMap } from './AppRouter';
 import { HdsChrome } from '../design/HdsChrome';
 import { requestSystemBarRefresh } from '../utils/systemBar';
+import { registerOverlayBackGuard, unregisterOverlayBackGuard, OVERLAY_GUARD_EXPENSE_TAB } from '../utils/overlayBackGuard';
 
 interface CategorySpend {
   name: string;
@@ -142,6 +143,11 @@ export struct ExpensePage {
   @State private totals: CategoryTotal[] = [];
   @State private showRecord: boolean = false;
   @State private showBudget: boolean = false;
+  // 弹层"还挂在场面上"的标志：只能由 onDisappear（关闭动画结束）清，不能看 showRecord/showBudget。
+  // 真机实测：按返回键时系统先把绑定状态置 false、再让事件冒泡到壳层的 onBackPress，
+  // 于是守卫若读 showRecord 会答"没开"，返回照样被"回地图格"吃掉。
+  private recordOpen: boolean = false;
+  private budgetOpen: boolean = false;
   /** 六档分类预算的编辑草稿，顺序与 CATEGORY_LABELS 一致（空串 = 不设上限） */
   @State private budgetInputs: string[] = ['', '', '', '', '', ''];
   @State private categoryBudgets: CategoryBudget[] = [];
@@ -168,6 +174,17 @@ export struct ExpensePage {
       }
     }
     this.reload();
+    // 两张半模态都不在 Navigation 栈里：登记守卫，让 Index 的返回拦截先问它们
+    registerOverlayBackGuard(OVERLAY_GUARD_EXPENSE_TAB,
+      (): boolean => this.recordOpen || this.budgetOpen,
+      (): void => {
+        this.showRecord = false;
+        this.showBudget = false;
+      });
+  }
+
+  aboutToDisappear(): void {
+    unregisterOverlayBackGuard(OVERLAY_GUARD_EXPENSE_TAB);
   }
 
   private ctx(): common.Context {
@@ -295,6 +312,7 @@ export struct ExpensePage {
     }
     this.budgetInputs = next;
     this.showBudget = true;
+    this.budgetOpen = true;
   }
 
   private budgetDraftSum(): number {
@@ -418,20 +436,23 @@ export struct ExpensePage {
 
   @Builder
   categoryChip(option: CategoryOption) {
-    // 选中态按契约 tint 配方（DESIGN §9）：tint 底 + 1px primary 描边 + ink 字。
-    // 原走 EMPHASIZED 实心蓝，与本 sheet 里的「保存」主按钮形成同屏双实心（禁令 1）
+    // 2026-11-07 全量对齐：选中 = brandSolid 实心底 + onBrand 字（C6 裁决已推翻）。
+    // 视觉高 36（有据 segmentedHeight），命中带 44 由 responseRegion 居中兜住。
     Button(option.label)
-      .fontSize(TypeTokens.small.size)
+      .fontSize(TypeTokens.callout.size)
       .fontWeight(this.inputCategory === option.value ? 600 : 450)
-      .fontColor(this.inputCategory === option.value ? ColorTokens.ink : ColorTokens.body)
-      .height(LayoutTokens.minTouchTarget)
+      .fontColor(this.inputCategory === option.value ? ColorTokens.onBrand : ColorTokens.body)
+      .height(LayoutTokens.segmentedHeight)
       .type(ButtonType.Capsule)
       .buttonStyle(ButtonStyleMode.NORMAL)
       .backgroundColor(this.inputCategory === option.value
-        ? ColorTokens.primaryTint : ColorTokens.surfaceElevated)
-      .border({
-        width: this.inputCategory === option.value ? LayoutTokens.glassBorderWidth : 0,
-        color: ColorTokens.primary
+        ? ColorTokens.brandSolid : ColorTokens.surfaceElevated)
+      .border({ width: 0, color: ColorTokens.primary })
+      .responseRegion({
+        x: 0,
+        y: (LayoutTokens.segmentedHeight - LayoutTokens.minTouchTarget) / 2,
+        width: '100%',
+        height: LayoutTokens.minTouchTarget
       })
       // 六枚等宽排一行（父 Row 只有 331vp，见 recordSheet 的注释）：
       // 默认内边距会把两字标签撑到 60vp，六枚就换行了；等宽 46.7vp 刚好排满。
@@ -473,10 +494,11 @@ export struct ExpensePage {
 
       TextInput({ placeholder: '金额（元）', text: this.inputAmount })
         .type(InputType.Number)
-        .fontSize(TypeTokens.body.size)
+        .fontSize(TypeTokens.callout.size)
         .fontColor(ColorTokens.ink)
-        .backgroundColor(ColorTokens.surfacePanel)
-        .borderRadius(RadiusTokens.reason)
+        .placeholderColor(ColorTokens.muted)
+        .backgroundColor(ColorTokens.surfaceElevated)
+        .borderRadius(RadiusTokens.capsule)
         .height(LayoutTokens.composeFieldHeight)
         .onChange((v: string) => {
           this.inputAmount = v;
@@ -490,10 +512,11 @@ export struct ExpensePage {
           this.saveExpense();
         })
       TextInput({ placeholder: '名称，如 故宫门票', text: this.inputName })
-        .fontSize(TypeTokens.body.size)
+        .fontSize(TypeTokens.callout.size)
         .fontColor(ColorTokens.ink)
-        .backgroundColor(ColorTokens.surfacePanel)
-        .borderRadius(RadiusTokens.reason)
+        .placeholderColor(ColorTokens.muted)
+        .backgroundColor(ColorTokens.surfaceElevated)
+        .borderRadius(RadiusTokens.capsule)
         .height(LayoutTokens.composeFieldHeight)
         .margin({ top: SpaceTokens.xs })
         .onChange((v: string) => {
@@ -550,10 +573,11 @@ export struct ExpensePage {
         .width(44)
       TextInput({ placeholder: '不设上限', text: this.budgetInputs[idx] })
         .type(InputType.Number)
-        .fontSize(TypeTokens.body.size)
+        .fontSize(TypeTokens.callout.size)
         .fontColor(ColorTokens.ink)
-        .backgroundColor(ColorTokens.surfacePanel)
-        .borderRadius(RadiusTokens.reason)
+        .placeholderColor(ColorTokens.muted)
+        .backgroundColor(ColorTokens.surfaceElevated)
+        .borderRadius(RadiusTokens.capsule)
         .height(LayoutTokens.composeFieldHeight)
         .layoutWeight(1)
         // 最后一档给「完成」并直接落库：六档字段都要点数字键盘，键盘弹起时
@@ -947,15 +971,23 @@ export struct ExpensePage {
             .buttonStyle(ButtonStyleMode.NORMAL)
             .onClick(() => {
               this.showRecord = true;
+              this.recordOpen = true;
             })
             // 一个节点只能挂一张 bindSheet：两张都挂在根 Column 上时后者覆盖前者，
             // 「记一笔」因此整颗按钮点了没反应（分类预算的 sheet 抢了绑定）。
             // 记一笔自己的面板挂回按钮本体。
             .bindSheet($$this.showRecord, this.recordSheet(), {
               height: '85%',
-              backgroundColor: ColorTokens.canvas,
               showClose: true,
-              systemMaterial: getSheetImmersiveMaterial()
+              systemMaterial: getSheetImmersiveMaterial(),
+              // 材质载体唯一入口是 SheetOptions.systemMaterial；材质生效时自绘模糊与实色底都必须让位，
+              // 否则玻璃面外再叠一层 blur/不透明底 = 双表面（配方逐字照有据 DetailPostContent:287-296）
+              blurStyle: isSystemMaterialActive() ? BlurStyle.NONE : GlassBlurStyle.Floating,
+              backgroundColor: isSystemMaterialActive() ? undefined : ColorTokens.canvas,
+              // 关闭动画结束才清「还开着」：返回键那一路要先靠它把事件吃掉
+              onDisappear: (): void => {
+                this.recordOpen = false;
+              }
             })
             }
           }
@@ -976,22 +1008,29 @@ export struct ExpensePage {
         // 通用 94 比 dock 实占的 112 少 18vp，滚到底按钮下沿仍藏在 dock 底下
         .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: LayoutTokens.floatingDockClearance })
         .layoutWeight(1)
+        // 穿底（2026-11-08 对标有据）：让位从 padding 改到 contentStartOffset——
+        // padding 会把视口压到栏底之下，标题栏那 175px 永远采样不到内容。
+        .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight))
         .onDidScroll((): void => {
           this.syncBarScroll();
         })
       }
-      .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
       .width('100%')
       .height('100%')
-      .backgroundColor(ColorTokens.canvas)
+      // 不涂 canvas：这层涂色会把标题栏区盖成纯白，穿底素材全被挡在下面。
+      // 底色由壳层与 TopStrip 单点负责。
       // 试过 SheetSize.FIT_CONTENT 来救"键盘弹起后保存键不可达"（§5ci 续 14），
       // 复拍与 '85%' 毫无差别：保存键仍不在树里、三次上滑仍调不出来。
       // 没有证据的视觉改动不留在代码里，退回原值；那条 P0 仍未修。
       .bindSheet($$this.showBudget, this.budgetSheet(), {
         height: '55%',
-        backgroundColor: ColorTokens.canvas,
         showClose: true,
-        systemMaterial: getSheetImmersiveMaterial()
+        systemMaterial: getSheetImmersiveMaterial(),
+        blurStyle: isSystemMaterialActive() ? BlurStyle.NONE : GlassBlurStyle.Floating,
+        backgroundColor: isSystemMaterialActive() ? undefined : ColorTokens.canvas,
+        onDisappear: (): void => {
+          this.budgetOpen = false;
+        }
       })
     }
     .width('100%')
@@ -1016,12 +1055,15 @@ export struct ExpensePage {
       HdsNavigation(this.pathStack) {
         this.rootShell()
       }
-      .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+      // 不收标题栏（2026-11-08 对标有据）：有据根页标题栏常驻——只有 HomeTab 用
+      // hideBottomBuilder 收分段那一行，ProfilePage 完全没有 dynamicHideTitleBar。
+      // 整条收起后滚动时顶部没有栏体磨砂，穿底内容直接顶到状态栏下，
+      // 与有据「栏体把内容糊住」的观感不是一回事。bindToScrollable 保留（驱动渐变模糊）。
       .bindToScrollable([this.barScroller])
       .clip(false)
       .titleMode(HdsNavigationTitleMode.MINI)
       .hideBackButton(true)
-      .titleBar(HdsChrome.bar({ mainTitle: '费用', scrolled: this.barScrolled }))
+      .titleBar(HdsChrome.bar({ mainTitle: '费用', backSlot: false, scrolled: this.barScrolled }))
       .navDestination(routerMap)
       .mode(NavigationMode.Stack)
       .width('100%')
@@ -1030,7 +1072,7 @@ export struct ExpensePage {
       HdsNavDestination() {
         this.rootShell()
       }
-    .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+    // 不收栏（2026-11-08）：NavDestination 内容区恒预留 56vp 栏位、收栏后不回收，收起只留一条 175px 白带
     .bindToScrollable([this.barScroller])
     .clip(false)
       // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）

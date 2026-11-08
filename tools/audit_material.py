@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
-"""沉浸光感核对：书面 blur 只许在三处栏面、材质面必须挂系统材质，且材质生效时撤掉自绘层。
+"""沉浸光感核对：栏面书面 blur 仍在三处、材质面必须挂系统材质，且材质生效时撤掉自绘层。
 
 为什么要有这一支：色/字/几何/对比度四把尺量的都是"画出来对不对"，
-而 DESIGN §1062/§1156/§1157 管的是另一件事——深度装置只有 blur 一种，且书面 blur 只许出现在
-顶栏、浮动 dock、吸顶日标题这三处栏面；④sheet/菜单是**材质面**而不是 blur 面：有系统材质时由
-材质接管面板，自绘兜底就是 `components.sheet-modal` 那套实色（surface-elevated + floating 影 + scrim），
-不新造 blur 值；分段控件也不是第四块玻璃面，它只带组件内的 blur 20。材质可用时自绘背景/描边/投影
+而 DESIGN §1062/§1156/§1157 管的是另一件事——三处**栏面**（顶栏 / 浮动 dock / 吸顶日标题）
+的书面 blur 半径统一 50；④sheet/菜单是**材质面**而不是 blur 面：有系统材质时由材质接管面板，
+自绘兜底就是 `components.sheet-modal` 那套实色（surface-elevated + floating 影 + scrim），
+不新造 blur 值；分段控件也不是第五块玻璃面，它只带组件内的 blur 20。材质可用时自绘背景/描边/投影
 必须归零，否则栏外多一圈环、栏下多一条灰缝。这几条此前只靠人眼，而 ItineraryPage:807 那条
 "glassOn 时把底置透明，结果既无材质也无底色"的事故正是人眼漏掉的形态。
+
+2026-11-07 全量对齐（见 Docs/superpowers/specs/2026-11-07-表现层全量对齐-差异表.md §6）：
+卡片 / 输入框 / 弹窗 / 浮层允许按登记点位使用系统 `backgroundBlurStyle` 档位
+（GlassBlurStyle.Floating/Card/Press/Dialog），不再被「只许三处栏面」拦；本尺 R1–R5
+继续只管栏面点位、材质载体、自绘归零、卡片禁玻璃与 API 门禁这些不变式。
 
 用法：
   python3 tools/audit_material.py                  # 读默认契约（DEFAULT_DESIGN）+ 仓库源码

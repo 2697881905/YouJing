@@ -18,6 +18,7 @@ import { SpaceTokens } from '../design/SpaceTokens';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
+import { Pressable } from '../components/Pressable';
 import { TripDao, TripSummary } from '../data/TripDao';
 import { PlanDraft } from '../data/PlanDraft';
 import { DateUtils } from '../utils/DateUtils';
@@ -338,8 +339,9 @@ export struct TripsPage {
     if (this.selecting) {
       const n: number = this.selectedIds.length;
       const allSel: boolean = this.isAllVisibleSelected();
-      return HdsChrome.bar({ 
+      return HdsChrome.bar({
         mainTitle: n > 0 ? `已选 ${n} 条` : '选择行程',
+        backSlot: false,
         scrolled: this.barScrolled,
         subTitle: this.trips.length > 0 ? `${this.trips.length} 条` : '',
         menu: [
@@ -356,8 +358,9 @@ export struct TripsPage {
         ]
       });
     }
-    return HdsChrome.bar({ 
+    return HdsChrome.bar({
       mainTitle: '行程',
+      backSlot: false,
       scrolled: this.barScrolled,
       subTitle: this.trips.length > 0 ? `${this.trips.length} 条` : '',
       menu: [
@@ -406,9 +409,26 @@ export struct TripsPage {
 
   @Builder
   tripCard(t: TripCardData) {
-    // 整卡可点是这屏的主导航：官方 Button 承载（裸 Column 没有按压态、读屏也进不去）。
-    // 视觉仍由内层 Column 原样承担，Button 只是可点/可聚焦的壳。
-    Button({ type: ButtonType.Normal, stateEffect: true }) {
+    // 整卡可点是这屏的主导航：按压反馈交给家族唯一的 Pressable
+    // （opacity 0.92 + scale 0.97 / 140ms）；视觉仍由内层 Column 原样承担。
+    Pressable({
+      fillWidth: true,
+      action: (): void => {
+        if (this.selecting) {
+          this.toggleSelected(t.id);
+          return;
+        }
+        if (t.onTrip) {
+          this.pathStack.pushPath({ name: 'OnTrip', param: t.id });
+        } else if (t.reviewable) {
+          this.pathStack.pushPath({ name: 'Review', param: t.id });
+        } else {
+          // 一镜到底：量卡片帧 + 截图后推详情；量不到帧也直推（点击绝不吞）
+          openItineraryLongTake(this.getUIContext(), this.pathStack, t.id,
+            'trip-card-' + t.id, RadiusTokens.card);
+        }
+      }
+    }) {
     Column() {
       Row() {
         if (this.selecting) {
@@ -495,31 +515,12 @@ export struct TripsPage {
     // ⇒ 卡片在深色下完全没有边界。改回契约档。
     .backgroundColor(ColorTokens.surfaceElevated)
     .shadow(ShadowTokens.cardAmbient)
-    }
-    .buttonStyle(ButtonStyleMode.TEXTUAL)
-    .width('100%')
-    .padding(0)
-    .borderRadius(RadiusTokens.card)
     .accessibilityText(this.selecting
       ? `${t.place} ${t.dateMeta}，${this.isSelected(t.id) ? '已选中' : '未选中'}，点按切换选中`
       : `${t.place} ${t.dateMeta}，${t.statusLine}，` +
       (t.reviewable ? '打开旅行回顾' : '打开行程'))
     .id('trip-card-' + t.id)
-    .onClick(() => {
-      if (this.selecting) {
-        this.toggleSelected(t.id);
-        return;
-      }
-      if (t.onTrip) {
-        this.pathStack.pushPath({ name: 'OnTrip', param: t.id });
-      } else if (t.reviewable) {
-        this.pathStack.pushPath({ name: 'Review', param: t.id });
-      } else {
-        // 一镜到底：量卡片帧 + 截图后推详情；量不到帧也直推（点击绝不吞）
-        openItineraryLongTake(this.getUIContext(), this.pathStack, t.id,
-          'trip-card-' + t.id, RadiusTokens.card);
-      }
-    })
+    }
   }
 
   /** 根页模式：作为 tab 的内容区内联在 TabContent 里（有据路线 B），此时本页自带 HdsNavigation */
@@ -529,7 +530,12 @@ export struct TripsPage {
   @Builder
   anniversaryBanner() {
     Column() {
-      Button({ type: ButtonType.Normal, stateEffect: true }) {
+      Pressable({
+        fillWidth: true,
+        action: (): void => {
+          this.pathStack.pushPath({ name: 'Review', param: this.anniversaryId });
+        }
+      }) {
         Row({ space: SpaceTokens.sm }) {
           SymbolGlyph($r('sys.symbol.medal'))
             .fontSize(IconSizes.control)
@@ -557,37 +563,22 @@ export struct TripsPage {
         .borderRadius(RadiusTokens.card)
         .backgroundColor(ColorTokens.primaryTint)
         .alignItems(VerticalAlign.Center)
+        .accessibilityText(`${this.anniversaryLine}，打开旅行回顾`)
       }
-      .buttonStyle(ButtonStyleMode.TEXTUAL)
-      .width('100%')
-      .padding(0)
-      .borderRadius(RadiusTokens.card)
-      .accessibilityText(`${this.anniversaryLine}，打开旅行回顾`)
-      .onClick((): void => {
-        this.pathStack.pushPath({ name: 'Review', param: this.anniversaryId });
-      })
     }
     .width('100%')
-    .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.xs })
+    // 水平内缩已由宿主 List 的左右 padding 提供（2026-11-08 移进列表后去掉重复内缩）
+    .padding({ top: SpaceTokens.xs })
   }
 
   @Builder
   rootShell() {
       Stack({ alignContent: Alignment.Bottom }) {
       Column() {
-        if (!this.selecting && this.trips.length > 0 && this.anniversaryId.length > 0) {
-          this.anniversaryBanner()
-        }
-
-        // 官方 Search：目的地或日期关键词过滤（此前右上角放大镜是个没有动作的死控件）。
-        // 一条行程都没有时不挂搜索框——没有可搜的内容，摆一个输入框只会让人以为坏了
-        if (this.trips.length > 0) {
-          Search({ value: this.keyword, placeholder: '搜索目的地或日期' })
-            .onChange((v: string): void => {
-              this.keyword = v;
-            })
-            .margin({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.xs })
-        }
+        // ⚠ 2026-11-08 对标有据：周年横幅与搜索框原先钉在这里（常驻头部），
+        // 使列表视口被挤到它们之下、内容永远进不了标题栏那 175px。
+        // 现在两者作为 List 的头两项，随列表一起滚走 —— 与有据 ProfilePage
+        // 「资料卡是列表第 0 项」同一结构。
 
         if (this.loading) {
           Column() {
@@ -611,8 +602,8 @@ export struct TripsPage {
               .fontColor([ColorTokens.muted])
               .margin({ bottom: SpaceTokens.base })
             Text('还没有行程')
-              .fontSize(TypeTokens.title.size)
-              .fontWeight(700)
+              .fontSize(TypeTokens.headline.size)
+              .fontWeight(TypeTokens.headline.weight)
               .fontFamily(TypeTokens.title.family)
               .fontColor(ColorTokens.ink)
               .textAlign(TextAlign.Center)
@@ -647,6 +638,24 @@ export struct TripsPage {
           // 官方 Refresh + List：下拉重读 RDB，列表项走 ListItem（原来是 Scroll+Column 手排）
           Refresh({ refreshing: $$this.refreshing }) {
             List({ space: SpaceTokens.sm, scroller: this.barScroller }) {
+              // 头部两项：周年横幅 + 搜索框（原为常驻头部，见上方注释）。
+              // 水平内缩由 List 自己的左右 padding 提供，这里不再重复加。
+              if (!this.selecting && this.anniversaryId.length > 0) {
+                ListItem() {
+                  this.anniversaryBanner()
+                }
+              }
+              if (this.trips.length > 0) {
+                ListItem() {
+                  // 官方 Search：目的地或日期关键词过滤（此前右上角放大镜是个没有动作的死控件）。
+                  // 一条行程都没有时不挂搜索框——没有可搜的内容，摆一个输入框只会让人以为坏了
+                  Search({ value: this.keyword, placeholder: '搜索目的地或日期' })
+                    .onChange((v: string): void => {
+                      this.keyword = v;
+                    })
+                    .margin({ top: SpaceTokens.xs })
+                }
+              }
               ForEach(this.visibleTrips(), (t: TripCardData) => {
                 ListItem() {
                   this.tripCard(t)
@@ -677,6 +686,9 @@ export struct TripsPage {
             })
             // 这一页的最后一张卡住在浮动 dock 底下，按实测净空让位。
             .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: LayoutTokens.floatingDockClearance })
+            // 穿底（2026-11-08 对标有据）：让位走 contentStartOffset，不挂 padding ——
+            // padding 会把视口压到栏底之下，内容永远进不了标题栏那 175px。
+            .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight))
           }
           // Refresh / List 不写尺寸时按**父容器**的 100% 高解析，不是「剩下的」高。
           // 上面那条 Search 已经吃掉 48vp，所以整条列表被撑到屏幕外 150px（dump 的
@@ -694,11 +706,11 @@ export struct TripsPage {
           })
         }
       }
-      .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
       .width('100%')
       .height('100%')
       .layoutWeight(1)
-      .backgroundColor(ColorTokens.canvas)
+      // 不涂 canvas：这层涂色会把标题栏区盖成纯白，穿底素材全被挡在下面。
+      // 底色由壳层与 TopStrip 单点负责。
     }
     .width('100%')
     .height('100%')
@@ -722,7 +734,10 @@ export struct TripsPage {
       HdsNavigation(this.pathStack) {
         this.rootShell()
       }
-      .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+      // 不收标题栏（2026-11-08 对标有据）：有据根页标题栏常驻——只有 HomeTab 用
+      // hideBottomBuilder 收分段那一行，ProfilePage 完全没有 dynamicHideTitleBar。
+      // 整条收起后滚动时顶部没有栏体磨砂，穿底内容直接顶到状态栏下，
+      // 与有据「栏体把内容糊住」的观感不是一回事。bindToScrollable 保留（驱动渐变模糊）。
       .bindToScrollable([this.barScroller])
       .clip(false)
       .titleMode(HdsNavigationTitleMode.MINI)
@@ -738,7 +753,7 @@ export struct TripsPage {
       HdsNavDestination() {
         this.rootShell()
       }
-    .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+    // 不收栏（2026-11-08）：NavDestination 内容区恒预留 56vp 栏位、收栏后不回收，收起只留一条 175px 白带
     .bindToScrollable([this.barScroller])
     .clip(false)
       // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）

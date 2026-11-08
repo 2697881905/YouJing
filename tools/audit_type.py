@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """字号契约核对：Text 的字号必须走 TypeTokens，SymbolGlyph 的必须走 IconSizes。
 
-契约（DESIGN.md §2）允许的字号只有 10/11/12/14/16/18/21/32，
-图标只有 22（控制档）/48（展示档）——底稿帧里另有 12/14/20 的内容图标，
-那几档还没获设计方裁决（见任务 #28 第 ⑧ 条），所以本脚本把它们列成
-「待裁决」而不是「违规」，避免把未定的事写成已定。
+契约（DESIGN.md §2）允许的字号只有 10/11/12/14/16/18/21/32。
+图标档 2026-11-07 按有据 `design/tokens/icon.ets` 全量对齐：
+控制档 24、展示/空态档 44，另有 16/20/56/68 具名档；旧的 22/48 两档封闭集已废止
+（见 Docs/superpowers/specs/2026-11-07-表现层全量对齐-差异表.md §2.4）。
+字面量仍须走 IconTokens / IconSizes，不允许页面各自写死。
 
 用法：python3 tools/audit_type.py
 退出码 0 = 无违规；1 = 有 Text 字号绕过 token。
@@ -16,7 +17,7 @@ import re
 import sys
 
 ALLOWED_TEXT_SIZES = {10, 11, 12, 14, 16, 18, 21, 32}
-ICON_TOKEN_SIZES = {12, 14, 18, 20, 22, 48}
+ICON_TOKEN_SIZES = {12, 14, 16, 18, 20, 24, 44, 56, 68}
 # `TypeTokens.overline / .time` 的 lineHeight 是 0，含义是「这一档不设行高、走系统默认」
 #（有据同位是 11/600/**14**）。0 一旦被喂进 `.lineHeight()` 就是把"没设"变成"设成 0"，
 # 行盒会压到字高以下——同族坑见记忆「占位空串喂给差值 helper 会静默变成一个数」。
