@@ -7,6 +7,9 @@
  * - HttpLlmTransport：BFF 中转。端侧发送业务参数（destination/startDate/...），
  *   BFF 内部构建 prompt、注入 Key、扣减配额、转发 LLM，返回 { trip, quota }。
  *   端侧不再构建 prompt，不再解析 chat/completions 信封。
+ * - DirectLlmTransport：端侧直连 OpenAI 兼容 chat/completions（开发期兜底）。
+ *   只在 DirectConfig.URL/KEY 都非空时启用，与 BFF 共用 PromptBuilder SOT；
+ *   上架前必须迁云，发布包不能带 Key。
  *
  * 失败策略（§4.1-5）：解析失败重试一次，再失败抛 TRIP_GENERATE_RETRY_EXHAUSTED，
  * 由调用方进屏7降级。401（票据失效）时先重新激活设备再重试。
@@ -25,6 +28,7 @@ import { Transit, TransitEstimate } from '../utils/Transit';
 import { GeoPoint } from '../utils/Geo';
 import { DateUtils } from '../utils/DateUtils';
 import { ApiConfig } from '../common/config/ApiConfig';
+import { DirectConfig } from '../common/config/DirectConfig';
 import { isMapCity } from '../common/constants/Cities';
 import { GenerationChannel } from '../utils/GenerationChannel';
 import { bffErrorCode } from '../utils/BffErrorMap';
@@ -36,6 +40,8 @@ import { AppError } from '../common/error/AppError';
 import { ErrorCode } from '../common/error/ErrorCode';
 import { TripGeneratePayload, buildTripGeneratePayload } from './TripRequestPayload';
 import { TripLength } from '../utils/TripLength';
+import { LlmRequest, PromptBuilder } from './PromptBuilder';
+import { DirectChat, DirectChatResult } from './DirectChat';
 
 const TAG: string = 'Ai.LlmClient';
 
@@ -314,6 +320,32 @@ export class HttpLlmTransport implements LlmTransport {
   }
 }
 
+/**
+ * 端侧直连传输（P0 开发期兜底，AGC 云函数未开通时用）。
+ * 与 BFF 走同一份 PromptBuilder SOT；Key 只在 DirectConfig 本机填写，不入库。
+ * HTTP/信封解析收在 ai/DirectChat，AI 精选共用同一收口。
+ */
+export class DirectLlmTransport implements LlmTransport {
+  private params: PlanParams;
+  private spots: Spot[];
+  private area: Area;
+
+  constructor(params: PlanParams, spots: Spot[], area: Area) {
+    this.params = params;
+    this.spots = spots;
+    this.area = area;
+  }
+
+  async complete(idempotencyKey?: string): Promise<string> {
+    const prompt: LlmRequest = PromptBuilder.buildRequest(this.params, this.spots, this.area);
+    const result: DirectChatResult = await DirectChat.complete([
+      { role: 'system', content: prompt.system },
+      { role: 'user', content: prompt.user }
+    ], DirectConfig.MAX_TOKENS, ApiConfig.READ_TIMEOUT_MS);
+    return result.json;
+  }
+}
+
 export class LlmClient {
   /**
    * 全链路：transport → 守卫 → Trip；失败重试一次。
@@ -324,9 +356,15 @@ export class LlmClient {
     // 传输选择与页面门禁必须同一把尺，判据收在 utils/GenerationChannel（干净检出时
     // BFF 未配置 ⇒ 走端侧规则引擎合成；配了 BFF 才走 HTTP 代理）。
     const devLocal: boolean = GenerationChannel.isLocal();
+    const direct: boolean = DirectConfig.URL.length > 0 && DirectConfig.KEY.length > 0;
+    if (transport === undefined) {
+      Logger.info(TAG, `传输=${direct ? '端侧直连' : (devLocal ? '本地合成' : 'BFF')}` +
+        `${direct ? ` model=${DirectConfig.MODEL}` : ''}`);
+    }
     const t: LlmTransport = transport !== undefined ? transport
-      : (devLocal ? new MockLlmTransport(params, spots, area)
-        : new HttpLlmTransport(params, spots, area, passId));
+      : (direct ? new DirectLlmTransport(params, spots, area)
+        : (devLocal ? new MockLlmTransport(params, spots, area)
+          : new HttpLlmTransport(params, spots, area, passId)));
     // 天数与出发日以用户输入为准：模型多吐一天时按窗口截断，少吐则失败重试
     const expect: TripExpect = {
       days: TripLength.days(params.basic),

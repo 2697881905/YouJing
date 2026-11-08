@@ -43,6 +43,8 @@ export interface ReminderSyncResult {
   notificationsEnabled: boolean;
   /** 代理提醒能力未开通（AGC 管控）；页面据此给可行动提示，而不是泛泛的「失败」 */
   blockedByCapability: boolean;
+  /** 本 App 提醒数量确实达到系统上限（与管控伪装成 1700002 的情况区分） */
+  blockedByLimit: boolean;
 }
 
 function toLocalDateTime(ms: number): reminderAgentManager.LocalDateTime {
@@ -66,6 +68,17 @@ export class TripReminder {
     const ids: number[] = [];
     let failed: number = 0;
     let blockedByCapability: boolean = false;
+    let blockedByLimit: boolean = false;
+    // 管控设备上 VerifyCloudCapability 失败也会报 1700002（数量超限）。
+    // 发布前记下本 App 的有效提醒数：0 条却「超限」= 能力未开通，不是我们堆满的。
+    let existingCount: number = 0;
+    try {
+      const existing: reminderAgentManager.ReminderInfo[] =
+        await reminderAgentManager.getAllValidReminders();
+      existingCount = existing.length;
+    } catch (err) {
+      Logger.warn(TAG, `读取有效提醒数失败: ${(err as Error).message}`);
+    }
     for (let i = 0; i < items.length; i++) {
       try {
         const id: number = await TripReminder.publish(trip.id, i, items[i]);
@@ -78,16 +91,24 @@ export class TripReminder {
         if (be.code === 201 || message.indexOf('agentreminder') >= 0 ||
           message.indexOf('ungranted capability') >= 0) {
           blockedByCapability = true;
+        } else if (be.code === 1700002) {
+          if (existingCount === 0) {
+            blockedByCapability = true;
+          } else {
+            blockedByLimit = true;
+          }
         }
         Logger.warn(TAG, `发布失败 ${items[i].kind} ${items[i].title}: code=${be.code} ${message}`);
       }
     }
     await TripReminder.writeIds(context, trip.id, ids);
     Logger.info(TAG, `提醒写入 trip=${trip.id} 计划=${items.length} 成功=${ids.length} ` +
-      `失败=${failed} 清理=${cancelled} 通知开关=${enabled} 能力未开通=${blockedByCapability}`);
+      `失败=${failed} 清理=${cancelled} 通知开关=${enabled} 能力未开通=${blockedByCapability} ` +
+      `数量超限=${blockedByLimit} 发布前有效=${existingCount}`);
     return {
       scheduled: ids.length, cancelled: cancelled, failed: failed,
-      notificationsEnabled: enabled, blockedByCapability: blockedByCapability
+      notificationsEnabled: enabled, blockedByCapability: blockedByCapability,
+      blockedByLimit: blockedByLimit
     };
   }
 
@@ -179,6 +200,23 @@ export class TripReminder {
       const id: number = await reminderAgentManager.publishReminder(timer);
       Logger.info(TAG, `提醒探针清理后已发布 id=${id} seconds=${seconds} 通知开关=${enabled}`);
       return id;
+    }
+  }
+
+  /**
+   * 调试探针专用：清空本 App 的有效提醒并返回清理前条数。
+   * 真机反复跑探针会把 64 条配额堆满（1700002），清理后才能看到真正的能力闸门。
+   */
+  static async clearAllForProbe(): Promise<number> {
+    try {
+      const existing: reminderAgentManager.ReminderInfo[] =
+        await reminderAgentManager.getAllValidReminders();
+      await reminderAgentManager.cancelAllReminders();
+      Logger.info(TAG, `探针清理有效提醒=${existing.length}`);
+      return existing.length;
+    } catch (err) {
+      Logger.warn(TAG, `探针清理提醒失败: ${(err as Error).message}`);
+      return -1;
     }
   }
 

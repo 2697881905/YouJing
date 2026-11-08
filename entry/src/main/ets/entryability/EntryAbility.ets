@@ -13,7 +13,9 @@ import { stackOfRoute, tabOfRoute, isTabRoot, requestTab, TAB_INDEX_KEY, ACTIVE_
 import { DataSeeder } from '../data/DataSeeder';
 import { AccountStore } from '../data/AccountStore';
 import { PlanDraft } from '../data/PlanDraft';
-import { TripBasicInput } from '../model/PlanParams';
+import {
+  PaceOption, PlanParams, SelectedSpot, SpotPriority, TransitPreference, TravelStyle, TripBasicInput
+} from '../model/PlanParams';
 import { DateUtils } from '../utils/DateUtils';
 import { SkillPrefill, SkillPrefillRecord } from '../data/SkillPrefill';
 import { BuildConfig } from '../common/constants/BuildConfig';
@@ -23,6 +25,17 @@ import { TopStrip } from '../utils/TopStrip';
 import { initNavModeWatcher, refreshNavMode, publishNavAvoid } from '../utils/navMode';
 import { setSystemBarRefresher } from '../utils/systemBar';
 import { TripReminder } from '../data/TripReminder';
+import { DeviceActivator } from '../data/DeviceActivator';
+import { DeviceTokenStore } from '../data/DeviceTokenStore';
+import { ApiConfig } from '../common/config/ApiConfig';
+import { LlmClient } from '../ai/LlmClient';
+import { PickClient } from '../ai/PickClient';
+import { PickCandidate, PickResult } from '../model/Pick';
+import { PlanRepository } from '../data/PlanRepository';
+import { Spot } from '../model/Spot';
+import { Area } from '../model/Area';
+import { Activity, ActivityCategory, ActivityStatus, IntensityLevel, MealType, Trip, TripDay } from '../model/Trip';
+import { ArrivalNotice } from '../common/location/ArrivalNotice';
 
 export default class EntryAbility extends UIAbility {
   private pendingRoute: string = '';
@@ -49,6 +62,219 @@ export default class EntryAbility extends UIAbility {
     this.maybeReminderProbe(want);
     this.maybeGeofenceProbe(want);
     this.maybeLiveProbe(want);
+    this.maybeGenProbe(want);
+    this.maybeArrivalProbe(want);
+    this.maybeReminderSyncProbe(want);
+    this.maybePickProbe(want);
+  }
+
+  /**
+   * P1 精选探针：`--ps pickprobe 1`
+   * 用杨凌 10 站候选直接调 PickClient，验证 AGC/BFF/端侧直连三条通路的结构与理由。
+   */
+  private maybePickProbe(want: Want): void {
+    if (!BuildConfig.IS_DEBUG) {
+      return;
+    }
+    const params: Record<string, Object> | undefined = want.parameters;
+    if (params === undefined || EntryAbility.wantString(params, 'pickprobe') !== '1') {
+      return;
+    }
+    this.runPickProbe().catch((err: Error) => {
+      Logger.error('Probe.Pick', `精选探针失败: ${err.message}`);
+    });
+  }
+
+  private async runPickProbe(): Promise<void> {
+    const spots: Spot[] = await PlanRepository.loadSpots(this.context, '杨凌');
+    if (spots.length === 0) {
+      Logger.error('Probe.Pick', '杨凌景点库为空');
+      return;
+    }
+    const candidates: PickCandidate[] = [];
+    for (const s of spots) {
+      candidates.push({
+        id: s.id, name: s.name, tag: s.tags.join('/'), brief: s.brief,
+        district: s.district, popularity: s.popularity,
+        suggestedDuration: s.suggestedDuration, requiresBooking: s.booking.requiresBooking
+      });
+    }
+    const started: number = Date.now();
+    // 探针在 onCreate 里跑，早于 Index 的设备激活；BFF 通路需要 Bearer token，先补一次激活
+    if (ApiConfig.BFF_BASE_URL.length > 0 && !DeviceTokenStore.hasToken()) {
+      const activated: boolean = await DeviceActivator.activate(this.context);
+      Logger.info('Probe.Pick', `设备激活=${activated}`);
+    }
+    const result: PickResult | null = await PickClient.pickSpots(
+      '杨凌', 1, 'standard', '农业科技、历史人文、亲子', candidates);
+    if (result === null) {
+      Logger.warn('Probe.Pick', `精选失败，已回退确定性规则 candidates=${candidates.length} ` +
+        `ms=${Date.now() - started}`);
+      return;
+    }
+    Logger.info('Probe.Pick', `精选成功 ranked=${result.ranked.length} ms=${Date.now() - started}`);
+    for (let i = 0; i < result.ranked.length && i < 3; i++) {
+      Logger.info('Probe.Pick', `#${i + 1} ${result.ranked[i].id} ${result.ranked[i].reason}`);
+    }
+    if (result.note.length > 0) {
+      Logger.info('Probe.Pick', `note=${result.note}`);
+    }
+  }
+
+  /**
+   * P4 提醒全链路探针：`--ps remindsyncprobe 1`
+   * 用一条带 advanceDays=7 预约节点的合成行程跑 TripReminder.syncTrip，
+   * 验证受管控设备上能识别 blockedByCapability，而不是只报泛泛失败。
+   */
+  private maybeReminderSyncProbe(want: Want): void {
+    if (!BuildConfig.IS_DEBUG) {
+      return;
+    }
+    const params: Record<string, Object> | undefined = want.parameters;
+    if (params === undefined || EntryAbility.wantString(params, 'remindsyncprobe') !== '1') {
+      return;
+    }
+    this.runReminderSyncProbe().catch((err: Error) => {
+      Logger.error('Probe.RemindSync', `提醒全链路探针失败: ${err.message}`);
+    });
+  }
+
+  private async runReminderSyncProbe(): Promise<void> {
+    const d: Date = new Date(Date.now() + 10 * 86400000);
+    const iso: string = `${d.getFullYear()}-${`${d.getMonth() + 1}`.padStart(2, '0')}-` +
+      `${d.getDate()}`.padStart(2, '0');
+    const booking: Activity = {
+      id: 'probe-booking', time: '09:00', endTime: '10:30',
+      title: '农高会会址', location: '', address: '',
+      longitude: 108.0600, latitude: 34.2600,
+      status: ActivityStatus.NOT_BOOKED, category: ActivityCategory.SIGHT,
+      advanceDays: 7
+    };
+    const trip: Trip = {
+      id: `remindprobe-${Date.now()}`,
+      destination: '杨凌', startDate: iso, endDate: iso, people: 2, budget: 800,
+      style: 'leisure',
+      overview: { totalCost: 100, highlights: [], summary: '提醒探针' },
+      days: [{
+        dayIndex: 1, date: iso, theme: '提醒探针', intensity: IntensityLevel.LOW,
+        dailyCost: 100, activities: [booking],
+        meals: [
+          { type: MealType.LUNCH, time: '12:00', name: '午餐', location: '', estimatedCost: 50 },
+          { type: MealType.DINNER, time: '18:00', name: '晚餐', location: '', estimatedCost: 50 }
+        ]
+      }],
+      tips: []
+    };
+    const before: number = await TripReminder.clearAllForProbe();
+    Logger.info('Probe.RemindSync', `清理前有效提醒=${before}`);
+    const r = await TripReminder.syncTrip(this.context, trip);
+    Logger.info('Probe.RemindSync', `scheduled=${r.scheduled} failed=${r.failed} ` +
+      `notifications=${r.notificationsEnabled} blocked=${r.blockedByCapability} ` +
+      `blockedLimit=${r.blockedByLimit}`);
+  }
+
+  /** P5 到站通知探针：`--ps arrivalprobe 1` 发一条到站本地通知，用于锁屏/退后台可见性验收 */
+  private maybeArrivalProbe(want: Want): void {
+    if (!BuildConfig.IS_DEBUG) {
+      return;
+    }
+    const params: Record<string, Object> | undefined = want.parameters;
+    if (params === undefined || EntryAbility.wantString(params, 'arrivalprobe') !== '1') {
+      return;
+    }
+    this.runArrivalProbe().catch((err: Error) => {
+      Logger.error('Probe.Arrival', `到站通知探针失败: ${err.message}`);
+    });
+  }
+
+  private async runArrivalProbe(): Promise<void> {
+    const day: TripDay = {
+      dayIndex: 1, date: '2026-11-10', theme: '到站通知探针',
+      intensity: IntensityLevel.LOW, dailyCost: 0, activities: [], meals: []
+    };
+    const stop: Activity = {
+      id: 'yl-001', time: '09:00', endTime: '12:00',
+      title: '西北农林科技大学博览园', location: '', address: '',
+      longitude: 108.0700, latitude: 34.2680,
+      status: ActivityStatus.NOT_BOOKED, category: ActivityCategory.SIGHT
+    };
+    const ok: boolean = await ArrivalNotice.publishForStop(day, stop);
+    Logger.info('Probe.Arrival', `到站通知探针 ok=${ok}`);
+  }
+
+  /**
+   * P0 生成探针：`aa start -a EntryAbility -b com.youjing.app --ps genprobe 1`
+   * 用杨凌种子（10 站 / 5 片区）生成 1 天行程，验证端侧传输 + TripParser + 落库前回填。
+   * 只在 debug 版生效；不带参数时零行为。
+   */
+  private maybeGenProbe(want: Want): void {
+    if (!BuildConfig.IS_DEBUG) {
+      return;
+    }
+    const params: Record<string, Object> | undefined = want.parameters;
+    if (params === undefined || EntryAbility.wantString(params, 'genprobe') !== '1') {
+      return;
+    }
+    this.runGenProbe().catch((err: Error) => {
+      Logger.error('Probe.Gen', `杨凌生成探针失败: ${err.message}`);
+    });
+  }
+
+  private async runGenProbe(): Promise<void> {
+    const tag: string = 'Probe.Gen';
+    await DataSeeder.seedIfEmpty(this.context);
+    const spots: Spot[] = await PlanRepository.loadSpots(this.context, '杨凌');
+    const areas: Area[] = await PlanRepository.loadAreas(this.context, '杨凌');
+    if (spots.length === 0 || areas.length === 0) {
+      Logger.error(tag, `杨凌种子为空 spots=${spots.length} areas=${areas.length}`);
+      return;
+    }
+    let area: Area = areas[0];
+    for (const a of areas) {
+      if (a.name.indexOf('西农') >= 0) {
+        area = a;
+        break;
+      }
+    }
+    const selected: SelectedSpot[] = [];
+    const mustIds: string[] = ['yl-001', 'yl-002', 'yl-005'];
+    for (const id of mustIds) {
+      const s: Spot | undefined = spots.find((x: Spot): boolean => x.id === id);
+      if (s !== undefined) {
+        selected.push({ spotId: s.id, priority: SpotPriority.MUST });
+      }
+    }
+    if (selected.length === 0) {
+      for (let i = 0; i < spots.length && i < 3; i++) {
+        selected.push({ spotId: spots[i].id, priority: SpotPriority.MUST });
+      }
+    }
+    const d: Date = new Date(Date.now() + 86400000);
+    const iso: string = `${d.getFullYear()}-${`${d.getMonth() + 1}`.padStart(2, '0')}-` +
+      `${d.getDate()}`.padStart(2, '0');
+    const params: PlanParams = {
+      basic: { destination: '杨凌', startDate: iso, endDate: iso, people: 2, budget: 800 },
+      style: TravelStyle.LEISURE,
+      stayTier: 'comfort',
+      transit: TransitPreference.PUBLIC,
+      paces: [PaceOption.STANDARD],
+      selectedSpots: selected,
+      selectedArea: { areaId: area.id }
+    };
+    Logger.info(tag, `开始生成 杨凌 ${iso} 站点=${spots.length} 片区=${areas.length} ` +
+      `必去=${selected.length} 片区=${area.name}`);
+    const started: number = Date.now();
+    const trip: Trip = await LlmClient.generateTrip(
+      params, spots, area, undefined, this.context, 'genprobe');
+    let acts: number = 0;
+    for (const day of trip.days) {
+      acts += day.activities.length;
+    }
+    Logger.info(tag, `杨凌生成成功 days=${trip.days.length} activities=${acts} ` +
+      `totalCost=${trip.overview.totalCost} ms=${Date.now() - started}`);
+    for (const day of trip.days) {
+      Logger.info(tag, `D${day.dayIndex} ${day.date} 活动=${day.activities.length} 餐=${day.meals.length}`);
+    }
   }
 
   /** P5 实况窗探针：`--ps liveprobe 1` 只查「围栏触发式实况窗」开关，不创建实况窗 */

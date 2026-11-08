@@ -406,11 +406,15 @@ export struct ItineraryPage {
         this.toast('系统通知未开启，提醒可能不响；请到系统设置里允许有径通知');
       } else if (r.blockedByCapability && r.scheduled === 0) {
         this.toast('系统代理提醒未开通，锁屏提醒暂不可用');
+      } else if (r.blockedByLimit && r.scheduled === 0) {
+        this.toast('系统提醒数量已达上限，锁屏提醒暂不可用');
       }
       if (r.scheduled > 0) {
         parts.push(r.failed > 0 ? `${r.scheduled} 条提醒（${r.failed} 条失败）` : `${r.scheduled} 条提醒`);
       } else if (r.blockedByCapability) {
         parts.push('代理提醒未开通');
+      } else if (r.blockedByLimit) {
+        parts.push('提醒数量已达上限');
       } else if (r.failed > 0) {
         parts.push('提醒发布失败');
       } else {
