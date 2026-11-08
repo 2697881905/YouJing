@@ -370,8 +370,12 @@ export struct MinePage {
         .scrollBar(BarState.Off)
         // 末行住在悬浮 dock 底下，按实测净空让位（与 TripsPage/BadgePage 同一写法）
         .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
-          top: HdsChrome.contentTopInset(this.statusBarHeight),
           bottom: LayoutTokens.floatingDockClearance })
+        // 穿底（2026-11-08 对标有据 ProfilePage）：让位必须走 contentStartOffset，
+        // 不能挂 padding —— padding 会把**视口**整体压到栏底之下，内容永远上不到
+        // 标题栏那 175px 里，栏体磨砂采样不到任何东西，顶部就永远是一块纯白。
+        // contentStartOffset 只挪首屏起点，滚动后内容照常穿到栏下被糊掉。
+        .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight))
         .onDidScroll((): void => {
           this.syncBarScroll();
         })
@@ -379,7 +383,8 @@ export struct MinePage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(ColorTokens.canvas)
+    // 不涂 canvas：这一层涂色会把 106..281 的标题栏区整块盖成纯白，穿底素材全被挡在下面。
+    // 底色由壳层（Index 的 Column）与 TopStrip 单点负责，本页只负责内容。
   }
 
   @Builder
@@ -435,7 +440,10 @@ export struct MinePage {
       .mode(NavigationMode.Stack)
       // 跟手收起（第 13 行）：有径栏内没有 bottomBuilder，收的是标题区本身；
       // hideRatio=1.0 才是滚 1vp 收 1vp（官方默认 2.0 是半速），滚动源由 bindToScrollable 供给
-      .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+      // 不收标题栏（2026-11-08 对标有据）：有据根页标题栏常驻——只有 HomeTab 用
+      // hideBottomBuilder 收分段那一行，ProfilePage 完全没有 dynamicHideTitleBar。
+      // 整条收起后滚动时顶部没有栏体磨砂，穿底内容直接顶到状态栏下，
+      // 与有据「栏体把内容糊住」的观感不是一回事。bindToScrollable 保留（驱动渐变模糊）。
       .bindToScrollable([this.barScroller])
       .clip(false)
       .width('100%')

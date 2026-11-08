@@ -1008,14 +1008,17 @@ export struct ExpensePage {
         // 通用 94 比 dock 实占的 112 少 18vp，滚到底按钮下沿仍藏在 dock 底下
         .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: LayoutTokens.floatingDockClearance })
         .layoutWeight(1)
+        // 穿底（2026-11-08 对标有据）：让位从 padding 改到 contentStartOffset——
+        // padding 会把视口压到栏底之下，标题栏那 175px 永远采样不到内容。
+        .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight))
         .onDidScroll((): void => {
           this.syncBarScroll();
         })
       }
-      .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
       .width('100%')
       .height('100%')
-      .backgroundColor(ColorTokens.canvas)
+      // 不涂 canvas：这层涂色会把标题栏区盖成纯白，穿底素材全被挡在下面。
+      // 底色由壳层与 TopStrip 单点负责。
       // 试过 SheetSize.FIT_CONTENT 来救"键盘弹起后保存键不可达"（§5ci 续 14），
       // 复拍与 '85%' 毫无差别：保存键仍不在树里、三次上滑仍调不出来。
       // 没有证据的视觉改动不留在代码里，退回原值；那条 P0 仍未修。
@@ -1052,7 +1055,10 @@ export struct ExpensePage {
       HdsNavigation(this.pathStack) {
         this.rootShell()
       }
-      .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+      // 不收标题栏（2026-11-08 对标有据）：有据根页标题栏常驻——只有 HomeTab 用
+      // hideBottomBuilder 收分段那一行，ProfilePage 完全没有 dynamicHideTitleBar。
+      // 整条收起后滚动时顶部没有栏体磨砂，穿底内容直接顶到状态栏下，
+      // 与有据「栏体把内容糊住」的观感不是一回事。bindToScrollable 保留（驱动渐变模糊）。
       .bindToScrollable([this.barScroller])
       .clip(false)
       .titleMode(HdsNavigationTitleMode.MINI)

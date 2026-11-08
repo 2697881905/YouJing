@@ -3,6 +3,67 @@
 > 生成日期：2026-10-15。初始化流程 P0–P7 全部完成，验收清单见第 2 节，遗留事项见第 4 节。
 
 
+## 4q. 顶部那层白：让位方式与收栏策略，五个根页对齐有据（2026-11-08）
+
+用户报「现在的顶部还是有白底」，要求五个主页面布局结构全量对标有据。
+
+### 现象：同一位置，有据灰、有径纯白
+
+「我的」页滚动后，标题栏区（y=110~260）逐点采样：
+
+| | 采样值 | 读法 |
+|---|---|---|
+| 有据 | 238~243 | 下方帖子卡片被栏体磨砂糊住（截图能看到「…种开播了」「华为Pock…」透出来） |
+| 有径（改前） | 255 / 255 / 255 | 干干净净的纯白，栏体没东西可采样 |
+
+### 三条成因，全是结构性的
+
+1. **让位挂在滚动容器自己身上**：五页都写 `.padding({ top: contentTopInset })`。padding 压的是
+   **视口**，不是首屏起点 —— 内容永远上不到标题栏那 175px 里，栏体磨砂无素材可采。
+   有据 ProfilePage 用 `.contentStartOffset(topInset)`（只挪首屏、滚动可穿），HomeTab 用
+   `enableComponentSafeArea: true` + `Scroll.clip(false)`（视口从栏底起、内容能画上去）。
+2. **body 外层又涂了一遍 `ColorTokens.canvas`**：`enableComponentSafeArea: false` 下内容区原点
+   是窗口 0（y=106），这层涂色把 106..281 整块盖成白色，正好是标题栏所在。
+   底色本来就由壳层（Index 的 Column）与 TopStrip 单点负责，页面不该再涂一次。
+3. **五页全用 `hideTitleArea: true` 整条收栏**：有据根页标题栏是常驻的 —— 只有 HomeTab 用
+   `hideBottomBuilder` 收分段那一行，ProfilePage 根本没有 `dynamicHideTitleBar`。
+   收栏之后滚动时顶部没有栏体，穿底内容直接顶到状态栏下，与有据「栏体把内容糊住」不是一回事。
+
+### 改动（五个文件）
+
+- `MinePage` / `ExpensePage`：List 的 `padding.top` → `contentStartOffset`，去掉外层 canvas 底；
+- `YoujingStartPage`：Scroll 的 `padding.top` → 内容 Column 的 `padding.top`（让位随内容滚走），
+  去掉 Scroll 上的 canvas 底；
+- `TripsPage`：周年横幅与搜索框原先是**常驻头部**（列表视口被挤在它们之下，天生无法穿底），
+  改为 List 的头两项、随列表滚走（与有据「资料卡是列表第 0 项」同一结构）；
+  水平内缩统一由 List 的 padding 提供，banner 与 Search 不再各带一份；
+- 五页统一删掉 `dynamicHideTitleBar`，保留 `bindToScrollable`（它同时驱动标题栏渐变模糊）。
+
+### 地图页：不是故障，是空态
+
+「地图」页整页空白，一度怀疑鉴权。实测 `hilog` 里 `BundleInfo clientId:020105ce… ResCode:200`、
+`mapservice APPAUTH success`，鉴权是通的。真正原因在 `MapPage.rootShell`：
+
+```ts
+if (this.stops.length > 0) { TripMapView({...}) }
+```
+
+没有在途行程时 `stops` 为空，**地图组件根本不挂载**，中间那一片就是页面画布。
+`TripMapView` 内部也只对「鉴权失败」兜了错误码文案，空态没有占位说明 —— 这一条登记为遗留，
+不在本轮布局范围内。
+
+### 验收（装机 md5 `fb387918cb16859e14fe1418fde1818f`）
+
+- 「规划」页滚动后标题常驻，栏内采样 244~249、局部 196~225（内容被磨砂糊住），
+  截图可见「开启一次有迹可循的旅程」在栏内糊成一片 —— 与有据同款；
+- 「行程」页：横幅/搜索进列表后首项位置正常、内缩与卡片对齐，无遮挡；
+- 「费用」「我的」页首项紧接栏底，无白带；
+- `verify_scroll_clearance.py`：17/17 ok，净空 27.5–476.2vp（行程页末边 477.4→489.6，
+  搜索框从常驻改为列表项所致，净空 287.0 仍合规）；
+- `verify_route_sweep.py --density 3.125`：17/17 OK；
+- 24 把静态尺：`elevation` 2 / `geometry` 3 / `layout_patterns` 1 / `motion` 15 全部为既有基线，
+  本轮**净增 0**。
+
 ## 4p. 底部栏全量迁移「有据」：胶囊矮 5.4vp 的根因与拖拽落地（2026-11-08）
 
 用户指令：「把 TabBar 底部栏修一下，将『有据』中的底部栏全量迁移过来」。两条裁定：

@@ -273,7 +273,10 @@ export struct YoujingStartPage {
     .titleMode(HdsNavigationTitleMode.MINI)
     .hideBackButton(true)
     .titleBar(HdsChrome.bar({ mainTitle: '规划', scrolled: this.barScrolled }))
-    .dynamicHideTitleBar({ hideTitleArea: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 0, hideRatio: 1.0 })
+    // 不收标题栏（2026-11-08 对标有据）：有据根页标题栏常驻——只有 HomeTab 用
+    // hideBottomBuilder 收分段那一行，ProfilePage 完全没有 dynamicHideTitleBar。
+    // 整条收起后滚动时顶部没有栏体磨砂，穿底内容直接顶到状态栏下，
+    // 与有据「栏体把内容糊住」的观感不是一回事。bindToScrollable 保留（驱动渐变模糊）。
     .bindToScrollable([this.barScroller])
     .clip(false)
     .navDestination(routerMap)
@@ -430,6 +433,11 @@ export struct YoujingStartPage {
       // 给父 Column 加 constraintSize.maxWidth 只会左贴边、右侧空出一条（实测更坏）。
       // 折叠屏展开（窗口 707vp）时预览卡原本通铺 642vp、三行节点右侧 55% 全白。
       .padding({
+        // 穿底（2026-11-08 对标有据）：让位必须挂在**内容**上、随内容一起滚走。
+        // 挂在 Scroll 自己的 padding 上会把视口整体压到栏底之下，标题栏那 175px
+        // 永远采样不到内容 —— 滚动后顶部仍是一块纯白（有据 HomeTab 的 Scroll 是
+        // top:0 + 视口从栏底起，这里等价地让首块让位、滚动后内容穿到栏下）。
+        top: HdsChrome.contentTopInset(this.statusBarHeight),
         left: symmetricInsetForCap(this.windowWidthVp, BP_MD_MIN_VP, SpaceTokens.base),
         right: symmetricInsetForCap(this.windowWidthVp, BP_MD_MIN_VP, SpaceTokens.base),
         // 悬浮 dock 压在滚动内容上：末行（预览卡承诺块）要能滚出 dock 顶边
@@ -439,12 +447,12 @@ export struct YoujingStartPage {
     .width('100%')
     .height('100%')
     .scrollBar(BarState.Off)
-    .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
     .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
     .onDidScroll((): void => {
       this.syncBarScroll();
     })
     .align(Alignment.Top)
-    .backgroundColor(ColorTokens.canvas)
+    // 不涂 canvas：这层涂色会把标题栏区盖成纯白，穿底素材全被挡在下面。
+    // 底色由壳层与 TopStrip 单点负责。
   }
 }
