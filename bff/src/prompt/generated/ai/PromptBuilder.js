@@ -8,7 +8,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PromptBuilder = void 0;
 const TripSchema_1 = require("./TripSchema");
-const DateUtils_1 = require("../utils/DateUtils");
+const TripLength_1 = require("../utils/TripLength");
 class PromptBuilder {
     static buildRequest(params, spots, area) {
         const req = {
@@ -87,7 +87,7 @@ class PromptBuilder {
     static userPrompt(params, spots, area) {
         const lines = [];
         const b = params.basic;
-        const dayCount = DateUtils_1.DateUtils.spanDays(b.startDate, b.endDate);
+        const dayCount = TripLength_1.TripLength.days(b);
         lines.push(`目的地：${b.destination}；日期：${b.startDate} 至 ${b.endDate}；` +
             `计划天数：${dayCount} 天；人数：${b.people}；预算：${b.budget} 元/人。`);
         lines.push(`风格：${params.style}；住宿档位：${params.stayTier}；交通偏好：${params.transit}；节奏：${params.paces.join('/') || 'standard'}。`);
@@ -126,6 +126,33 @@ class PromptBuilder {
                 `${sel.userNote !== undefined ? `｜用户备注:${sel.userNote}` : ''}`);
         }
         return lines.join('\n');
+    }
+    /**
+     * P1 AI 精选（景点/住宿片区的排序 + 一句理由）。
+     * 与生成提示词同源：本文件是 SOT，BFF 通过 sync-prompt-contract.mjs 取生成物，
+     * 云函数不另写第二份规则。
+     */
+    static pickSystemPrompt() {
+        const lines = [];
+        lines.push('你是旅行选点助手。用户已给出候选池，你只能在候选内排序与取舍。');
+        lines.push('必须遵守：');
+        lines.push('1. ranked 必须恰好包含每个候选 id 一次，不得新增候选、遗漏或重复；');
+        lines.push('2. 每个 reason 不超过 40 个汉字，只能引用候选自带的 brief/tag/预约信息，' +
+            '禁止编造候选里没有的事实（营业时间、门票、距离、活动）；');
+        lines.push('3. 排序依据：用户兴趣与标签匹配、天数与节奏是否装得下、同类景点去重；');
+        lines.push('4. note 不超过 100 字，给用户一句总体建议；');
+        lines.push('5. 只输出 JSON，不要 Markdown 围栏或解释。');
+        lines.push('输出格式：{"ranked":[{"id":"...","reason":"..."}],"note":"..."}');
+        return lines.join('\n');
+    }
+    static pickUserPrompt(input) {
+        return JSON.stringify({
+            city: input.city,
+            days: input.days,
+            pace: input.pace,
+            interests: input.interests,
+            candidates: input.candidates
+        });
     }
 }
 exports.PromptBuilder = PromptBuilder;

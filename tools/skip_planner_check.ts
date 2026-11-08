@@ -4,10 +4,12 @@
  */
 
 import {
-  Activity, ActivityCategory, ActivityStatus, IntensityLevel, Meal, MealType, TransportInfo, TripDay
+  Activity, ActivityCategory, ActivityStatus, IntensityLevel, Meal, MealType, TransportInfo, Trip, TripDay
 } from '../model/Trip';
 import { FreeBlock, KeepStop, ReplanDecision } from '../model/Replan';
 import { SkipPlanner } from '../data/SkipPlanner';
+import { GeofencePlan } from '../utils/GeofencePlan';
+import { ReminderKind, ReminderPlan, ReminderPlanItem } from '../utils/ReminderPlan';
 import { DateUtils } from '../utils/DateUtils';
 
 let cases = 0;
@@ -234,5 +236,112 @@ if (clone.activities[2].transport !== undefined) {
 }
 eq(find(original, 'a3').title, '二年坂', 'cloneDay 活动标题深拷贝');
 eq(find(original, 'a3').transport?.duration ?? -1, 10, 'cloneDay 通勤深拷贝');
+
+// ---- 加一站：云函数决策重排 + 480min 预算 ----
+const addStop = act('n1', '16:00', '17:00', '教稼园');
+const addReq = SkipPlanner.buildAddRequest(mainDay(), addStop, 845);
+eq(addReq.addStopId ?? '', 'n1', '加站请求带 addStopId');
+eq(addReq.skippedId ?? '', '', '加站请求不带 skippedId');
+eq(addReq.day.activities.length, 6, '加站请求把新站放进整日');
+eq(addReq.day.activities[5].time >= '14:05', true, '新站带未来临时时刻');
+
+const addCloud = SkipPlanner.planWithAddition(mainDay(), addStop, 845,
+  decisionOf([keepOf('n1', 60), keepOf('a3', 60), keepOf('a4', 40)], [], '先看新站'));
+ok(addCloud.changed === true, '加站决策生效');
+ok(!addCloud.usedFallback, '加站决策不走兜底');
+eq(find(addCloud.day, 'n1').time, '15:00', '新站接在当前站结束之后');
+eq(find(addCloud.day, 'a3').time, '16:10', '既有站按决策顺序后移');
+eq(find(addCloud.day, 'a5').time, '19:00', '已预约锚点不动');
+
+const addLocal = SkipPlanner.planWithAddition(mainDay(), addStop, 845, null);
+ok(addLocal.changed === true, '无决策时本地追加生效');
+ok(addLocal.usedFallback, '本地追加标记为兜底');
+eq(find(addLocal.day, 'n1').time, '20:15', '本地追加到当日最后节点之后');
+
+// 已排满的一天：加站必须被 480min 预算拒绝，且不改原日
+const fullDay = dayOf([
+  act('b1', '09:00', '13:00', '长线一'),
+  act('b2', '14:00', '18:00', '长线二')
+], []);
+const fullAdd = SkipPlanner.planWithAddition(fullDay, act('n2', '18:15', '19:15', '再加一站'), 1080, null);
+ok(fullAdd.changed === false, '超 480min 预算不加站');
+ok(fullAdd.note.indexOf('超过') >= 0, '超预算提示说明原因');
+eq(fullAdd.day.activities.length, 2, '拒绝时原日不变');
+
+// ---- 换一站：保留原槽时间与通勤 ----
+const replaced = SkipPlanner.planWithReplacement(mainDay(), 'a3',
+  act('n3', '18:00', '19:00', '新景点'));
+ok(replaced.changed === true, '换站生效');
+eq(find(replaced.day, 'n3').time, '15:30', '换站保留原开始时刻');
+eq(find(replaced.day, 'n3').endTime, '16:30', '换站保留原结束时刻');
+eq(find(replaced.day, 'n3').transport?.duration ?? -1, 10, '换站保留原通勤');
+eq(find(replaced.day, 'n3').title, '新景点', '换站换掉节点内容');
+
+// 已排满的一天也能换：换节点不换槽，日负载不增加，不该被 480min 加站预算误拦
+const fullReplace = SkipPlanner.planWithReplacement(fullDay, 'b2',
+  act('n4', '14:00', '18:00', '室内替代'));
+ok(fullReplace.changed === true, '满负载日换站不被 480min 预算误拦');
+eq(find(fullReplace.day, 'n4').time, '14:00', '满负载日换站保留原槽');
+
+// ---- P5 到站围栏规划：只围未结束、有坐标、非锚点的站 ----
+const fences = GeofencePlan.of(mainDay(), 845);
+eq(fences.length, 4, '围栏只含未结束且有坐标的站（a1 已结束）');
+eq(fences[0].activityId, 'a2', '正在进行的一站也注册围栏');
+eq(fences[0].radiusM, 300, '默认到站半径 300m');
+ok(fences.every((f): boolean => f.title.length > 0), '围栏带站点标题');
+const noGeoDay = dayOf([act('x', '15:00', '16:00', '无坐标')], []);
+noGeoDay.activities[0].latitude = 0;
+noGeoDay.activities[0].longitude = 0;
+eq(GeofencePlan.of(noGeoDay, 845).length, 0, '无坐标的站不注册围栏');
+const pastDay = dayOf([act('p', '09:00', '10:00', '已结束')], []);
+eq(GeofencePlan.of(pastDay, 845).length, 0, '已结束的站不注册围栏');
+
+// ---- P4 提醒排程：出发前 / 预约提前 / 晨间播报，已过窗口不补发 ----
+function dayAt(date: string, acts: Activity[]): TripDay {
+  return {
+    dayIndex: 1, date: date, theme: '杨凌一日', intensity: IntensityLevel.LOW,
+    dailyCost: 0, activities: acts, meals: []
+  };
+}
+
+const reminderDay1 = dayAt('2026-11-20', [(() => {
+  const a = act('r1', '09:00', '10:00', '博览园', ActivityCategory.SIGHT, ActivityStatus.NOT_BOOKED);
+  a.advanceDays = 7;
+  return a;
+})()]);
+const reminderDay2 = dayAt('2026-11-21', [
+  act('r2', '09:00', '10:00', '已约', ActivityCategory.SIGHT, ActivityStatus.BOOKED),
+  act('r3', '10:00', '11:00', '无需预约', ActivityCategory.SIGHT, ActivityStatus.NO_NEED),
+  act('r4', '11:00', '12:00', '待定', ActivityCategory.SIGHT, ActivityStatus.PENDING)
+]);
+const reminderTrip: Trip = {
+  id: 't-reminder', destination: '杨凌', startDate: '2026-11-20', endDate: '2026-11-21',
+  people: 1, budget: 0, style: 'leisure',
+  overview: { totalCost: 0, highlights: [], summary: '' },
+  days: [reminderDay1, reminderDay2], tips: []
+};
+const reminderNow = new Date(2026, 10, 9, 0, 0, 0).getTime();
+const reminderItems: ReminderPlanItem[] = ReminderPlan.plan(reminderTrip, reminderNow);
+eq(reminderItems.length, 5, '三类提醒共 5 条（出发 1 + 晨间 2 + 预约 2）');
+const departureItems = reminderItems.filter((i): boolean => i.kind === ReminderKind.DEPARTURE);
+const morningItems = reminderItems.filter((i): boolean => i.kind === ReminderKind.MORNING);
+const bookingItems = reminderItems.filter((i): boolean => i.kind === ReminderKind.BOOKING);
+eq(departureItems.length, 1, '出发前提醒 1 条');
+eq(morningItems.length, 2, '两天各一条晨间播报');
+eq(bookingItems.length, 2, '只提醒未约上的节点（已约/无需预约不催）');
+eq(departureItems[0].at, new Date(2026, 10, 19, 20, 0, 0).getTime(), '出发前一天 20:00');
+eq(morningItems[0].at, new Date(2026, 10, 20, 7, 30, 0).getTime(), '首日 07:30 晨间播报');
+eq(bookingItems[0].at, new Date(2026, 10, 13, 9, 0, 0).getTime(), 'advanceDays=7 → 11-13 09:00');
+eq(bookingItems[1].at, new Date(2026, 10, 20, 9, 0, 0).getTime(), '无 advanceDays → 提前 1 天兜底');
+ok(departureItems[0].content.indexOf('博览园') >= 0, '出发前文案带首站');
+ok(bookingItems[0].content.indexOf('提前 7 天') >= 0, '预约文案带真实提前量');
+const pastTrip: Trip = {
+  id: 't-past', destination: '杨凌', startDate: '2026-11-01', endDate: '2026-11-01',
+  people: 1, budget: 0, style: 'leisure',
+  overview: { totalCost: 0, highlights: [], summary: '' },
+  days: [dayAt('2026-11-01', [act('p1', '09:00', '10:00', '过去', ActivityCategory.SIGHT, ActivityStatus.NOT_BOOKED)])],
+  tips: []
+};
+eq(ReminderPlan.plan(pastTrip, reminderNow).length, 0, '已过窗口不补发');
 
 console.log(`SKIP_PLANNER_OK cases=${cases}`);

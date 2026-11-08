@@ -42,6 +42,15 @@
         }
       },
       {
+        "name": "ohos.permission.PUBLISH_AGENT_REMINDER",
+        "usedScene": {
+          "abilities": [
+            "EntryAbility"
+          ],
+          "when": "inuse"
+        }
+      },
+      {
         "name": "ohos.permission.APPROXIMATELY_LOCATION",
         "reason": "$string:location_permission_reason",
         "usedScene": {

@@ -26,6 +26,8 @@ import { Spot } from '../model/Spot';
 import { SelectedSpot } from '../model/PlanParams';
 import { Geo, GeoPoint } from '../utils/Geo';
 import { PlanAutoPick } from '../utils/PlanAutoPick';
+import { PickClient } from '../ai/PickClient';
+import { PickCandidate, PickRankItem, PickResult } from '../model/Pick';
 import { MapStop, MapStops } from '../utils/MapStops';
 import { TripMapView } from '../components/TripMapView';
 import { PlanRepository } from '../data/PlanRepository';
@@ -66,6 +68,8 @@ export struct StayPickPage {
   private spotPoints: GeoPoint[] = [];
   /** 任意城市：住宿区按区县聚合，档位/通勤未校准 */
   private mapCity: boolean = false;
+  /** AI 精选的总体建议（空串 = 未返回/失败，卡片保留确定性理由） */
+  @State private aiNote: string = '';
 
   @State private loaded: boolean = false;
 
@@ -93,6 +97,7 @@ export struct StayPickPage {
       this.loaded = true;
       Logger.info('Ui.StayPick',
         `候选片区 ${areas.length} → 统一排序取前 ${AREA_CANDIDATES} → 展示 ${list.length}`);
+      this.requestPick(ranked);
     }).catch((err: Error) => {
       this.loaded = true;
       Logger.error('Ui.StayPick', `区域库加载失败: ${err.message}`);
@@ -177,6 +182,64 @@ export struct StayPickPage {
         `${a.metroLines.join('/')}直达，${din}`
     };
     return pick;
+  }
+
+  /** AI 精选住宿片区：不改首屏，结果回来后再替换前三与理由 */
+  private requestPick(ranked: Area[]): void {
+    if (ranked.length === 0) {
+      return;
+    }
+    const draft: PlanDraft = PlanDraft.get();
+    const candidates: PickCandidate[] = ranked.map((a: Area): PickCandidate => {
+      const item: PickCandidate = {
+        id: a.id, name: a.name, tag: a.priceTier, brief: a.description,
+        district: a.group, popularity: 0, suggestedDuration: 0, requiresBooking: false
+      };
+      return item;
+    });
+    const interests: string = `${draft.style}/${draft.paces.join('/')}`;
+    PickClient.pickSpots(draft.basic.destination, PlanDraft.days(draft.basic),
+      draft.paces.join('/'), interests, candidates).then((result: PickResult | null): void => {
+      if (result === null) {
+        return;
+      }
+      this.applyPick(result, ranked);
+    }).catch((err: Error): void => {
+      Logger.warn('Ui.StayPick', `AI 精选失败，保留距离排序: ${err.message}`);
+    });
+  }
+
+  private applyPick(result: PickResult, ranked: Area[]): void {
+    const rank: Map<string, number> = new Map();
+    const reasons: Record<string, string> = {};
+    for (let i = 0; i < result.ranked.length; i++) {
+      const item: PickRankItem = result.ranked[i];
+      rank.set(item.id, i);
+      if (item.reason.length > 0) {
+        reasons[item.id] = item.reason;
+      }
+    }
+    const ordered: Area[] = ranked.slice().sort((a: Area, b: Area): number => {
+      const ra: number | undefined = rank.get(a.id);
+      const rb: number | undefined = rank.get(b.id);
+      return (ra === undefined ? ranked.length : ra) - (rb === undefined ? ranked.length : rb);
+    });
+    const top: Area[] = ordered.slice(0, AREA_PICKS);
+    const list: AreaPick[] = [];
+    for (let i = 0; i < top.length; i++) {
+      const pick: AreaPick = this.makePick(top[i], i);
+      if (reasons[top[i].id] !== undefined) {
+        pick.reason = reasons[top[i].id];
+      }
+      list.push(pick);
+    }
+    this.picks = list;
+    this.aiNote = result.note;
+    if (list.find((p: AreaPick): boolean => p.area.id === this.selectedId) === undefined) {
+      this.selectedId = list.length > 0 ? list[0].area.id : '';
+    }
+    this.applyStops(top);
+    Logger.info('Ui.StayPick', `AI 精选已应用 rank=${rank.size} reasons=${Object.keys(reasons).length}`);
   }
 
   private applyStops(areas: Area[]): void {
@@ -456,6 +519,15 @@ export struct StayPickPage {
 
             // 官方 List：地图面板一个 ListItem，三张候选卡各成一个 ListItem（卡间距在卡片自己身上）
             List({ scroller: this.barScroller }) {
+            if (this.aiNote.length > 0) {
+              ListItem() {
+                Text(`AI 精选：${this.aiNote}`)
+                  .fontSize(TypeTokens.caption.size)
+                  .fontColor(ColorTokens.body)
+                  .width('100%')
+                  .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.sm })
+              }
+            }
             if (this.mapCity) {
               ListItem() {
                 this.mapSourceNotice()
@@ -525,7 +597,9 @@ export struct StayPickPage {
               ListItem() {
                 this.areaCard(pick)
               }
-            }, (pick: AreaPick): string => `card-${pick.area.id}`)
+              // 理由/名次变化必须换 key：ForEach 同 key 会复用旧卡片，
+              // AI 精选只更新了 state、卡片却还显示确定性理由（真机实测）。
+            }, (pick: AreaPick): string => `card-${pick.area.id}-${pick.aiRank}-${pick.reason}`)
           }
           .lanes(listLanesForBreakpoint(this.bp))
           .layoutWeight(1)

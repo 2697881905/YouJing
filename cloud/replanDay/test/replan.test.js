@@ -188,6 +188,114 @@ test('502 when upstream aborts', async () => {
   assert.equal(res.statusCode, 502);
 });
 
+test('add: remaining includes the new stop and prompt switches to add', () => {
+  const body = bodyOf();
+  delete body.skippedId;
+  body.addStopId = 'a6';
+  body.day.activities.push({
+    id: 'a6', time: '17:45', endTime: '18:45', title: 'new', category: 'sight', status: 'not_booked'
+  });
+  const request = _test.normalizeRequest(body);
+  assert.equal(request.action, 'add');
+  const remaining = _test.remainingOf(request);
+  assert.deepEqual(remaining.map((a) => a.id), ['a3', 'a4', 'a6']);
+  const prompt = _test.promptFor(request, remaining);
+  assert.ok(prompt.system.includes('新增了一站'));
+  assert.ok(prompt.user.includes('a6'));
+});
+
+test('add: happy path accepts the new id in keep', async () => {
+  const body = bodyOf();
+  delete body.skippedId;
+  body.addStopId = 'a6';
+  body.day.activities.push({
+    id: 'a6', time: '17:45', endTime: '18:45', title: 'new', category: 'sight', status: 'not_booked'
+  });
+  const decision = {
+    schemaVersion: 1,
+    keep: [{ id: 'a3', dwellMin: 60 }, { id: 'a4', dwellMin: 45 }, { id: 'a6', dwellMin: 60 }],
+    freeBlocks: [],
+    note: '加一站'
+  };
+  const res = await handler(eventOf(body), {}, { env: ENV, fetch: llmReturning(decision) });
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(JSON.parse(res.body).keep.map((k) => k.id), ['a3', 'a4', 'a6']);
+});
+
+test('422 when two action ids are sent together', async () => {
+  const body = bodyOf();
+  body.addStopId = 'a3';
+  const res = await handler(eventOf(body), {}, { env: ENV, fetch: llmReturning({}) });
+  assert.equal(res.statusCode, 422);
+});
+
+test('replace: returns an empty decision without calling the LLM', async () => {
+  const body = bodyOf();
+  delete body.skippedId;
+  body.replaceStopId = 'a3';
+  const res = await handler(eventOf(body), {}, {
+    env: ENV,
+    fetch: async () => {
+      throw new Error('should not be called');
+    }
+  });
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(JSON.parse(res.body).keep, []);
+});
+
+function intentBody() {
+  const body = bodyOf();
+  delete body.skippedId;
+  body.intentText = '我累了，想回酒店，后面的都别去了';
+  body.candidates = [
+    { id: 'c1', time: '17:00', endTime: '18:00', title: '杨凌规划馆', category: 'sight', status: 'no_need' }
+  ];
+  return body;
+}
+
+test('intent: normalizes to action=intent with candidates', () => {
+  const request = _test.normalizeRequest(intentBody());
+  assert.equal(request.action, 'intent');
+  assert.equal(request.targetId, '');
+  assert.equal(request.intentText, '我累了，想回酒店，后面的都别去了');
+  assert.deepEqual(request.candidates.map((c) => c.id), ['c1']);
+});
+
+test('intent: skip with skipRemaining is accepted', async () => {
+  const decision = {
+    action: 'skip', targetId: 'a3', skipRemaining: true, note: '提前结束'
+  };
+  const res = await handler(eventOf(intentBody()), {}, { env: ENV, fetch: llmReturning(decision) });
+  assert.equal(res.statusCode, 200);
+  const out = JSON.parse(res.body);
+  assert.equal(out.action, 'skip');
+  assert.equal(out.targetId, 'a3');
+  assert.equal(out.skipRemaining, true);
+});
+
+test('intent: replace requires newStopId from candidates', async () => {
+  const bad = { action: 'replace', targetId: 'a3', newStopId: 'zz', note: '' };
+  const res1 = await handler(eventOf(intentBody()), {}, { env: ENV, fetch: llmReturning(bad) });
+  assert.equal(res1.statusCode, 422);
+  const ok = { action: 'replace', targetId: 'a3', newStopId: 'c1', note: '换室内' };
+  const res2 = await handler(eventOf(intentBody()), {}, { env: ENV, fetch: llmReturning(ok) });
+  assert.equal(res2.statusCode, 200);
+  assert.equal(JSON.parse(res2.body).newStopId, 'c1');
+});
+
+test('intent: shiftMinutes must be 15–240', async () => {
+  const bad = { action: 'shift', shiftMinutes: 10, note: '' };
+  const res = await handler(eventOf(intentBody()), {}, { env: ENV, fetch: llmReturning(bad) });
+  assert.equal(res.statusCode, 422);
+});
+
+test('intent cannot be combined with skippedId', async () => {
+  const body = intentBody();
+  body.skippedId = 'a3';
+  const res = await handler(eventOf(body), {}, { env: ENV, fetch: llmReturning({}) });
+  assert.equal(res.statusCode, 422);
+});
+
 test('server recomputes remaining from the raw day', () => {
   const request = _test.normalizeRequest(bodyOf());
   const remaining = _test.remainingOf(request);

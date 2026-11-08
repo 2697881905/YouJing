@@ -20,6 +20,8 @@ import { PlanRepository } from '../data/PlanRepository';
 import { PlanDraft } from '../data/PlanDraft';
 import { SelectedSpot, SpotPriority, TripBasicInput } from '../model/PlanParams';
 import { PlanAutoPick } from '../utils/PlanAutoPick';
+import { PickClient } from '../ai/PickClient';
+import { PickCandidate, PickRankItem, PickResult } from '../model/Pick';
 import { DateUtils } from '../utils/DateUtils';
 import { Logger } from '../common/logger/Logger';
 import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
@@ -74,6 +76,10 @@ export struct SpotPickPage {
    * 紧凑档每天 6 站却被当成超量。口径取 `PaceRule.dailyCap`（与预选、生成器同一处）。
    */
   private capacity: number = 0;
+  /** AI 精选结果：id → 排名；请求失败时保持空，列表仍按热度确定性排序 */
+  private pickRank: Map<string, number> = new Map();
+  @State private reasons: Record<string, string> = {};
+  @State private aiNote: string = '';
 
   aboutToAppear(): void {
     this.load();
@@ -98,6 +104,7 @@ export struct SpotPickPage {
       this.priorities = kept;
       this.rebuildGroups(spots);
       this.loaded = true;
+      this.requestPick(spots);
     }).catch((err: Error) => {
       this.loaded = true;
       this.loadFailed = true;
@@ -107,7 +114,21 @@ export struct SpotPickPage {
 
   /** 每组按热度降序取前 revealCap 个（§3.3 第一层精简列表） */
   private rebuildGroups(spots: Spot[]): void {
-    const byPop: Spot[] = spots.slice().sort((a: Spot, b: Spot): number => b.popularity - a.popularity);
+    // AI 精选有排名就按排名；没有排名（请求中/失败）才退回热度——两条路都不空屏
+    const byPop: Spot[] = spots.slice().sort((a: Spot, b: Spot): number => {
+      const ra: number | undefined = this.pickRank.get(a.id);
+      const rb: number | undefined = this.pickRank.get(b.id);
+      if (ra !== undefined && rb !== undefined) {
+        return ra - rb;
+      }
+      if (ra !== undefined) {
+        return -1;
+      }
+      if (rb !== undefined) {
+        return 1;
+      }
+      return b.popularity - a.popularity;
+    });
     const out: SpotGroup[] = [];
     for (let i = 0; i < TAG_LABELS.length; i++) {
       let inTag: Spot[];
@@ -128,6 +149,56 @@ export struct SpotPickPage {
       }
     }
     this.groups = out;
+  }
+
+  /** AI 精选异步请求：不挡首屏，失败就保留热度排序 */
+  private requestPick(spots: Spot[]): void {
+    const draft: PlanDraft = PlanDraft.get();
+    const candidates: PickCandidate[] = spots.map((s: Spot): PickCandidate => {
+      const item: PickCandidate = {
+        id: s.id, name: s.name, tag: this.tagTextOf(s), brief: s.brief,
+        district: s.district, popularity: s.popularity,
+        suggestedDuration: s.suggestedDuration, requiresBooking: s.booking.requiresBooking
+      };
+      return item;
+    });
+    const interests: string = `${draft.style}/${draft.paces.join('/')}`;
+    PickClient.pickSpots(draft.basic.destination, this.days, draft.paces.join('/'), interests, candidates)
+      .then((result: PickResult | null): void => {
+        if (result === null) {
+          return;
+        }
+        this.applyPick(result, spots);
+      }).catch((err: Error): void => {
+        Logger.warn('Ui.SpotPick', `AI 精选失败，保留确定性规则: ${err.message}`);
+      });
+  }
+
+  private applyPick(result: PickResult, spots: Spot[]): void {
+    const rank: Map<string, number> = new Map();
+    const reasons: Record<string, string> = {};
+    for (let i = 0; i < result.ranked.length; i++) {
+      const item: PickRankItem = result.ranked[i];
+      rank.set(item.id, i);
+      if (item.reason.length > 0) {
+        reasons[item.id] = item.reason;
+      }
+    }
+    this.pickRank = rank;
+    this.reasons = reasons;
+    this.aiNote = result.note;
+    this.rebuildGroups(spots);
+    Logger.info('Ui.SpotPick', `AI 精选已应用 rank=${rank.size} reasons=${Object.keys(reasons).length}`);
+  }
+
+  private tagTextOf(spot: Spot): string {
+    const labels: string[] = [];
+    for (let i = 0; i < KNOWN_TAGS.length; i++) {
+      if (spot.tags.indexOf(KNOWN_TAGS[i]) >= 0) {
+        labels.push(TAG_LABELS[i]);
+      }
+    }
+    return labels.length > 0 ? labels.join('/') : '其他';
   }
 
   private hasKnownTag(sp: Spot): boolean {
@@ -285,6 +356,15 @@ export struct SpotPickPage {
           .fontColor(ColorTokens.muted)
           .fontFeature("'tnum' on")
           .margin({ top: SpaceTokens.xxs })
+        if (this.reasons[sp.id] !== undefined) {
+          Text(`推荐：${this.reasons[sp.id]}`)
+            .fontSize(TypeTokens.caption.size)
+            .fontWeight(450)
+            .fontColor(ColorTokens.primary)
+            .margin({ top: SpaceTokens.xxs })
+            .maxLines(2)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
         if (sp.openingHours !== undefined && sp.openingHours.length > 0) {
           // 只展示各天一致的时段；不一致/闭馆/没有数据时这里不出现，统一以官方为准
           Text(sp.openingHours === '全天开放' ? '全天开放 · 地图服务'
@@ -548,13 +628,26 @@ export struct SpotPickPage {
                 }
               }
 
+              if (this.aiNote.length > 0) {
+                ListItem() {
+                  Text(`AI 精选：${this.aiNote}`)
+                    .fontSize(TypeTokens.caption.size)
+                    .fontColor(ColorTokens.body)
+                    .width('100%')
+                    .padding(SpaceTokens.sm)
+                    .borderRadius(RadiusTokens.reason)
+                    .backgroundColor(ColorTokens.surfacePanel)
+                }
+              }
+
               ForEach(this.groups, (group: SpotGroup) => {
                 ListItemGroup({ header: this.groupHeader(group) }) {
                   ForEach(group.spots, (sp: Spot) => {
                     ListItem() {
                       this.spotRow(sp)
                     }
-                  }, (sp: Spot): string => `spot-${sp.id}`)
+                    // 理由变化必须换 key，否则 ForEach 复用旧行、AI 理由不落屏
+                  }, (sp: Spot): string => `spot-${sp.id}-${this.reasons[sp.id] ?? ''}`)
                 }
                 .backgroundColor(ColorTokens.canvas)
                 .borderRadius(RadiusTokens.card)

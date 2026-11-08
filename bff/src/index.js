@@ -6,6 +6,7 @@ import { rateLimitMiddleware } from './middleware/rateLimit.js';
 import deviceRouter from './routes/device.js';
 import entitlementRouter from './routes/entitlement.js';
 import tripRouter from './routes/trip.js';
+import pickRouter from './routes/pick.js';
 import iapRouter from './routes/iap.js';
 
 dotenv.config();
@@ -39,6 +40,7 @@ app.get('/health', (_req, res) => {
 app.use('/v1/device', deviceRouter);
 app.use('/v1/entitlement', authMiddleware, entitlementRouter);
 app.use('/v1/trip', authMiddleware, rateLimitMiddleware, tripRouter);
+app.use('/v1/pick', authMiddleware, rateLimitMiddleware, pickRouter);
 app.use('/v1/iap', iapRouter);
 
 app.use((err, _req, res, _next) => {

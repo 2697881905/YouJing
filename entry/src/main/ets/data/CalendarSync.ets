@@ -5,9 +5,8 @@
  * - 需预约节点 → 一条定时日程，标题带「需预约」；
  * - 每日 → 一条全天日程（Day N 主题 + 首末站），保证日历上能看到整段行程。
  *
- * 提醒提前量：固定提前 1 天（reminderTime [1440]，分钟）。Activity 模型不带
- * booking.advanceDays（那是景点库字段，未进 AI 契约），按预约提前量逐条提醒
- * 需要先把 advanceDays 带进 Activity，届时再改这一处。
+ * 提醒提前量：按 Activity.advanceDays 逐条（reminderTime = advanceDays × 1440 分钟）；
+ * 节点没带提前量时兜底 1 天，与旧行为一致。
  *
  * 幂等：每次写入前按 tripId 删除本机上次写入的事件 id（只删自己写的，绝不动用户自建日程），
  * 事件 id 清单存 preferences 分片 youjing_access。
@@ -93,6 +92,7 @@ export class CalendarSync {
             Logger.warn(TAG, `跳过非法时间 ${day.date} ${act.time} ${act.title}`);
             continue;
           }
+          const advance: number = act.advanceDays !== undefined && act.advanceDays > 0 ? act.advanceDays : 1;
           const event: calendarManager.Event = {
             type: calendarManager.EventType.NORMAL,
             title: `${act.title} · 需预约`,
@@ -100,7 +100,7 @@ export class CalendarSync {
             endTime: end > start ? end : start + 3600000,
             description: act.reason === undefined ? act.location : `${act.location}\n${act.reason}`,
             location: { location: act.address.length > 0 ? act.address : act.location },
-            reminderTime: flags.remind ? [1440] : undefined
+            reminderTime: flags.remind ? [advance * 1440] : undefined
           };
           const id: number = await calendar.addEvent(event);
           result.bookingEvents++;

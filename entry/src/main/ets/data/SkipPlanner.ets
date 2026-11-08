@@ -11,11 +11,12 @@ import {
 } from '../model/Trip';
 import {
   FreeBlock, KeepStop, ReplanDecision, ReplanOutcome, ReplanRequest, ReplanRequestActivity,
-  ReplanRequestDay, ReplanRequestMeal, ReplanTransport, REPLAN_MAX_DWELL, REPLAN_MAX_FREE_BLOCKS,
-  REPLAN_MAX_FREE_MIN, REPLAN_MAX_KEEP, REPLAN_MAX_NOTE, REPLAN_MIN_DWELL, REPLAN_MIN_FREE_MIN,
-  REPLAN_SCHEMA_VERSION
+  ReplanRequestDay, ReplanRequestMeal, ReplanTransport, REPLAN_ADD_BUDGET_MIN, REPLAN_MAX_DWELL,
+  REPLAN_MAX_FREE_BLOCKS, REPLAN_MAX_FREE_MIN, REPLAN_MAX_KEEP, REPLAN_MAX_NOTE, REPLAN_MIN_DWELL,
+  REPLAN_MIN_FREE_MIN, REPLAN_SCHEMA_VERSION
 } from '../model/Replan';
 import { DateUtils } from '../utils/DateUtils';
+import { DayLoad, DayLoadCalc } from '../utils/DayLoad';
 
 const DAY_END: number = 1439;
 const MEAL_ANCHOR_MIN: number = 60;
@@ -118,23 +119,59 @@ export class SkipPlanner {
 
   /** 请求发送「重写前」的整日；剩余列表由云函数自行重算（§3.4）。 */
   static buildRequest(day: TripDay, skippedId: string, nowMin: number): ReplanRequest {
+    const request: ReplanRequest = SkipPlanner.baseRequest(day, nowMin);
+    request.skippedId = skippedId;
+    return request;
+  }
+
+  /** 加一站：把新站带临时时刻放进请求，云函数据此把它排进 keep。 */
+  static buildAddRequest(day: TripDay, newStop: Activity, nowMin: number): ReplanRequest {
+    const work: TripDay = SkipPlanner.cloneDay(day);
+    const added: Activity = SkipPlanner.cloneActivity(newStop);
+    work.activities.push(added);
+    SkipPlanner.provisionalSlot(work, added, nowMin);
+    const request: ReplanRequest = SkipPlanner.baseRequest(work, nowMin);
+    request.addStopId = added.id;
+    return request;
+  }
+
+  /** P3 对话式：把自然语言意愿 + 候选池发给云函数，由它映射四种动作。 */
+  static buildIntentRequest(day: TripDay, intentText: string, candidates: Activity[],
+    nowMin: number): ReplanRequest {
+    const request: ReplanRequest = SkipPlanner.baseRequest(day, nowMin);
+    request.intentText = intentText;
+    const list: ReplanRequestActivity[] = [];
+    for (const a of candidates) {
+      list.push(SkipPlanner.requestActivityOf(a));
+    }
+    if (list.length > 0) {
+      request.candidates = list;
+    }
+    return request;
+  }
+
+  private static requestActivityOf(a: Activity): ReplanRequestActivity {
+    const item: ReplanRequestActivity = {
+      id: a.id,
+      time: a.time,
+      endTime: a.endTime,
+      title: a.title,
+      category: a.category,
+      status: a.status,
+      longitude: a.longitude,
+      latitude: a.latitude
+    };
+    if (a.transport !== undefined) {
+      const t: ReplanTransport = { duration: a.transport.duration };
+      item.transport = t;
+    }
+    return item;
+  }
+
+  private static baseRequest(day: TripDay, nowMin: number): ReplanRequest {
     const acts: ReplanRequestActivity[] = [];
     for (const a of day.activities) {
-      const item: ReplanRequestActivity = {
-        id: a.id,
-        time: a.time,
-        endTime: a.endTime,
-        title: a.title,
-        category: a.category,
-        status: a.status,
-        longitude: a.longitude,
-        latitude: a.latitude
-      };
-      if (a.transport !== undefined) {
-        const t: ReplanTransport = { duration: a.transport.duration };
-        item.transport = t;
-      }
-      acts.push(item);
+      acts.push(SkipPlanner.requestActivityOf(a));
     }
     const meals: ReplanRequestMeal[] = [];
     for (const m of day.meals) {
@@ -148,7 +185,6 @@ export class SkipPlanner {
     const request: ReplanRequest = {
       schemaVersion: REPLAN_SCHEMA_VERSION,
       now: DateUtils.hhmmOf(nowMin),
-      skippedId: skippedId,
       day: requestDay
     };
     return request;
@@ -200,6 +236,119 @@ export class SkipPlanner {
       day: fallback.day,
       note: fallbackNote,
       usedFallback: true
+    };
+    return outcome;
+  }
+
+  // ---- 加一站 / 换一站（P2）----
+
+  /**
+   * 加一站：云函数决策可用就按 keep 重排未来站点，否则本地追加到日末。
+   * 两条路最后都过同一道 480min 预算闸；超预算不改行程，changed=false。
+   */
+  static planWithAddition(day: TripDay, newStop: Activity, nowMin: number,
+    decision: ReplanDecision | null): ReplanOutcome {
+    if (SkipPlanner.indexOf(day, newStop.id) >= 0) {
+      return SkipPlanner.unchanged(day, '这一站已经在今天的行程里');
+    }
+    const work: TripDay = SkipPlanner.cloneDay(day);
+    const added: Activity = SkipPlanner.cloneActivity(newStop);
+    work.activities.push(added);
+    SkipPlanner.provisionalSlot(work, added, nowMin);
+    const remainIds: string[] = SkipPlanner.remainingIds(work, '', nowMin);
+    if (decision !== null && SkipPlanner.accept(work, decision, remainIds)) {
+      const scheduled: ScheduleResult = SkipPlanner.scheduleAddition(work, added.id, nowMin, decision);
+      if (!scheduled.overflow) {
+        const placedIds: string[] = decision.keep.map((k: KeepStop): string => k.id);
+        if (SkipPlanner.validAddition(work, day, added.id, nowMin, placedIds)) {
+          const over: string = SkipPlanner.budgetNote(work, added.title);
+          if (over.length === 0) {
+            const note: string = decision.note.length > 0 ? decision.note : `已加入「${added.title}」`;
+            const ok: ReplanOutcome = { day: work, note: note, usedFallback: false, changed: true };
+            return ok;
+          }
+          return SkipPlanner.unchanged(day, over);
+        }
+      }
+    }
+    const local: TripDay = SkipPlanner.cloneDay(day);
+    const localAdded: Activity = SkipPlanner.cloneActivity(newStop);
+    local.activities.push(localAdded);
+    if (!SkipPlanner.placeAtEnd(local, localAdded, nowMin)) {
+      return SkipPlanner.unchanged(day, `今天排不下了，未加入「${localAdded.title}」`);
+    }
+    const over: string = SkipPlanner.budgetNote(local, localAdded.title);
+    if (over.length > 0) {
+      return SkipPlanner.unchanged(day, over);
+    }
+    const ok: ReplanOutcome = {
+      day: local, note: `已加入「${localAdded.title}」`, usedFallback: true, changed: true
+    };
+    return ok;
+  }
+
+  /** 换一站：确定性改写，保留原槽位时间与通勤（屏9「换节点不换槽」语义）。 */
+  static planWithReplacement(day: TripDay, replaceId: string, newStop: Activity): ReplanOutcome {
+    const index: number = SkipPlanner.indexOf(day, replaceId);
+    if (index < 0) {
+      return SkipPlanner.unchanged(day, '未找到要替换的站点');
+    }
+    if (SkipPlanner.indexOf(day, newStop.id) >= 0) {
+      return SkipPlanner.unchanged(day, '这一站已经在今天的行程里');
+    }
+    const work: TripDay = SkipPlanner.cloneDay(day);
+    const old: Activity = work.activities[index];
+    const fresh: Activity = SkipPlanner.cloneActivity(newStop);
+    fresh.time = old.time;
+    fresh.endTime = old.endTime;
+    fresh.transport = old.transport;
+    // 只保留原槽时间与通勤；旧站的 note/reason 描述的是旧站内容，
+    // 继续挂在替换后的博物馆上就是错误信息（真机实测「规划馆」下面还写「傍晚沿渭河散步」）。
+    fresh.reason = undefined;
+    work.activities[index] = fresh;
+    // 换节点不换槽：时段与通勤都不变，日负载不会因为替换而增加，
+    // 480min 预算闸只属于「加一站」，这里不能再拦（真机实测会误拒原本就排满的一天）。
+    const ok: ReplanOutcome = {
+      day: work, note: `已把「${old.title}」换成「${fresh.title}」`, usedFallback: false, changed: true
+    };
+    return ok;
+  }
+
+  /**
+   * 对话式「我累了 / 想回酒店」：把今天所有未开始的可跳站改为空闲，
+   * 保留交通/住宿/已预约/餐次这些锚点；可撤销。
+   */
+  static skipRemaining(day: TripDay, nowMin: number): ReplanOutcome {
+    const work: TripDay = SkipPlanner.cloneDay(day);
+    let count: number = 0;
+    for (const a of work.activities) {
+      if (a.category === ActivityCategory.TRANSPORT || a.category === ActivityCategory.HOTEL ||
+        a.status === ActivityStatus.BOOKED) {
+        continue;
+      }
+      if (SkipPlanner.isSkippedMarker(a)) {
+        continue;
+      }
+      const start: number = DateUtils.minutesOf(a.time);
+      if (start < 0 || start < nowMin) {
+        continue;
+      }
+      const end: number = SkipPlanner.normalizedEnd(a, start);
+      const title: string = a.title;
+      SkipPlanner.rewriteSkipped(a, start, end, title);
+      count++;
+    }
+    const note: string = count > 0
+      ? `已提前结束今天剩余 ${count} 站，早点休息` : '今天没有可提前结束的站点';
+    const outcome: ReplanOutcome = {
+      day: work, note: note, usedFallback: false, changed: count > 0
+    };
+    return outcome;
+  }
+
+  private static unchanged(day: TripDay, note: string): ReplanOutcome {
+    const outcome: ReplanOutcome = {
+      day: SkipPlanner.cloneDay(day), note: note, usedFallback: false, changed: false
     };
     return outcome;
   }
@@ -746,6 +895,222 @@ export class SkipPlanner {
     return true;
   }
 
+  // ---- 加站排程小工具 ----
+
+  /** 请求里的临时时刻：保证云函数把它当成「未来剩余站点」，不参与任何真实排程。 */
+  private static provisionalSlot(work: TripDay, added: Activity, nowMin: number): void {
+    let maxEnd: number = nowMin;
+    for (const a of work.activities) {
+      if (a.id === added.id) {
+        continue;
+      }
+      const start: number = DateUtils.minutesOf(a.time);
+      if (start < 0) {
+        continue;
+      }
+      maxEnd = Math.max(maxEnd, SkipPlanner.normalizedEnd(a, start));
+    }
+    const dwell: number = SkipPlanner.dwellOf(added);
+    let start: number = Math.max(nowMin, maxEnd + 15);
+    if (start + dwell > DAY_END) {
+      start = Math.max(nowMin, DAY_END - dwell);
+    }
+    added.time = DateUtils.hhmmOf(start);
+    added.endTime = DateUtils.hhmmOf(start + dwell);
+  }
+
+  /** 本地兜底：追加到当日最后一个节点之后；越过 23:59 就拒绝，不藏到第二天。 */
+  private static placeAtEnd(work: TripDay, added: Activity, nowMin: number): boolean {
+    let maxEnd: number = nowMin;
+    for (const a of work.activities) {
+      if (a.id === added.id) {
+        continue;
+      }
+      const start: number = DateUtils.minutesOf(a.time);
+      if (start < 0) {
+        continue;
+      }
+      maxEnd = Math.max(maxEnd, SkipPlanner.normalizedEnd(a, start));
+    }
+    const dwell: number = SkipPlanner.dwellOf(added);
+    const anchors: Span[] = SkipPlanner.additionAnchors(work, added.id, nowMin);
+    const start: number = SkipPlanner.settle(Math.max(nowMin, maxEnd + 15), dwell, anchors);
+    if (start + dwell > DAY_END) {
+      return false;
+    }
+    added.time = DateUtils.hhmmOf(start);
+    added.endTime = DateUtils.hhmmOf(start + dwell);
+    return true;
+  }
+
+  private static dwellOf(a: Activity): number {
+    const start: number = DateUtils.minutesOf(a.time);
+    const end: number = DateUtils.minutesOf(a.endTime);
+    const span: number = start >= 0 && end > start ? end - start : DEFAULT_DWELL_MIN;
+    return Math.max(REPLAN_MIN_DWELL, Math.min(REPLAN_MAX_DWELL, span));
+  }
+
+  /** 加站时的锚点：预约/交通/住宿、有时刻的餐次、当前正在进行的站点剩余时段。 */
+  private static additionAnchors(work: TripDay, addedId: string, nowMin: number): Span[] {
+    const spans: Span[] = [];
+    for (const a of work.activities) {
+      if (a.id === addedId) {
+        continue;
+      }
+      const start: number = DateUtils.minutesOf(a.time);
+      if (start < 0) {
+        continue;
+      }
+      const end: number = SkipPlanner.normalizedEnd(a, start);
+      const anchored: boolean = a.category === ActivityCategory.TRANSPORT ||
+        a.category === ActivityCategory.HOTEL || a.status === ActivityStatus.BOOKED;
+      if (anchored) {
+        if (end > start) {
+          spans.push({ start: start, end: end });
+        }
+        continue;
+      }
+      if (start <= nowMin && end > nowMin) {
+        spans.push({ start: nowMin, end: end });
+      }
+    }
+    for (const m of work.meals) {
+      if (m.time === undefined) {
+        continue;
+      }
+      const start: number = DateUtils.minutesOf(m.time);
+      if (start < 0) {
+        continue;
+      }
+      const end: number = Math.min(DAY_END, start + MEAL_ANCHOR_MIN);
+      if (end > start) {
+        spans.push({ start: start, end: end });
+      }
+    }
+    return spans;
+  }
+
+  /** 按云函数 keep 重排「今天还没开始的站点 + 新增站」，时间算术仍全部在端侧。 */
+  private static scheduleAddition(work: TripDay, addedId: string, nowMin: number,
+    decision: ReplanDecision): ScheduleResult {
+    const anchors: Span[] = SkipPlanner.additionAnchors(work, addedId, nowMin);
+    const blocks: FreeState[] = [];
+    for (const b of decision.freeBlocks) {
+      blocks.push({
+        afterId: b.afterId,
+        minutes: b.minutes,
+        used: false,
+        expired: SkipPlanner.endOf(work, b.afterId) < nowMin
+      });
+    }
+    let cursor: number = nowMin;
+    for (let i = 0; i < decision.keep.length; i++) {
+      const keep: KeepStop = decision.keep[i];
+      const act: Activity | null = SkipPlanner.activityOf(work, keep.id);
+      if (act === null) {
+        continue;
+      }
+      cursor += SkipPlanner.transportMin(act);
+      let guard: number = 0;
+      while (guard < MAX_SETTLE_LOOP) {
+        guard += 1;
+        const settled: number = SkipPlanner.settle(cursor, keep.dwellMin, anchors);
+        let consumed: boolean = false;
+        for (const b of blocks) {
+          if (b.used || b.expired) {
+            continue;
+          }
+          if (settled >= SkipPlanner.endOf(work, b.afterId)) {
+            b.used = true;
+            cursor = settled + b.minutes;
+            consumed = true;
+            break;
+          }
+        }
+        if (!consumed) {
+          cursor = settled;
+          break;
+        }
+      }
+      if (cursor + keep.dwellMin > DAY_END) {
+        SkipPlanner.markCarry(work, decision.keep, i);
+        const overflow: ScheduleResult = { overflow: true, overflowFrom: i };
+        return overflow;
+      }
+      act.time = DateUtils.hhmmOf(cursor);
+      act.endTime = DateUtils.hhmmOf(cursor + keep.dwellMin);
+      cursor += keep.dwellMin;
+    }
+    const done: ScheduleResult = { overflow: false, overflowFrom: decision.keep.length };
+    return done;
+  }
+
+  private static validAddition(work: TripDay, original: TripDay, addedId: string,
+    nowMin: number, placedIds: string[]): boolean {
+    if (work.activities.length !== original.activities.length + 1 ||
+      work.meals.length !== original.meals.length) {
+      return false;
+    }
+    if (SkipPlanner.activityOf(work, addedId) === null || placedIds.indexOf(addedId) < 0) {
+      return false;
+    }
+    for (let i = 0; i < original.meals.length; i++) {
+      if (work.meals[i].type !== original.meals[i].type ||
+        work.meals[i].time !== original.meals[i].time) {
+        return false;
+      }
+    }
+    for (const a of original.activities) {
+      const now: Activity | null = SkipPlanner.activityOf(work, a.id);
+      if (now === null) {
+        return false;
+      }
+      const anchored: boolean = a.category === ActivityCategory.TRANSPORT ||
+        a.category === ActivityCategory.HOTEL || a.status === ActivityStatus.BOOKED;
+      if ((anchored || placedIds.indexOf(a.id) < 0) &&
+        (now.time !== a.time || now.endTime !== a.endTime)) {
+        return false;
+      }
+    }
+    const anchors: Span[] = SkipPlanner.additionAnchors(work, addedId, nowMin);
+    const placed: Span[] = [];
+    for (const id of placedIds) {
+      const a: Activity | null = SkipPlanner.activityOf(work, id);
+      if (a === null) {
+        return false;
+      }
+      const start: number = DateUtils.minutesOf(a.time);
+      const end: number = DateUtils.minutesOf(a.endTime);
+      if (start < nowMin || end <= start || end > DAY_END) {
+        return false;
+      }
+      for (const anchor of anchors) {
+        if (start < anchor.end && anchor.start < end) {
+          return false;
+        }
+      }
+      placed.push({ start: start, end: end });
+    }
+    for (let i = 0; i < placed.length; i++) {
+      for (let j = i + 1; j < placed.length; j++) {
+        if (placed[i].start < placed[j].end && placed[j].start < placed[i].end) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  /** 加站后的日负载闸：与 DayLoad 同一口径，但预算更紧（480min）。 */
+  private static budgetNote(work: TripDay, title: string): string {
+    const load: DayLoad = DayLoadCalc.of(work);
+    if (load.minutes <= REPLAN_ADD_BUDGET_MIN) {
+      return '';
+    }
+    return `今天活动约 ${DayLoadCalc.hours(load.minutes)}h，超过 ` +
+      `${DayLoadCalc.hours(REPLAN_ADD_BUDGET_MIN)}h 上限，未加入「${title}」`;
+  }
+
   // ---- 小工具 ----
 
   private static cloneActivity(a: Activity): Activity {
@@ -766,6 +1131,9 @@ export class SkipPlanner {
     }
     if (a.reason !== undefined) {
       copy.reason = a.reason;
+    }
+    if (a.advanceDays !== undefined) {
+      copy.advanceDays = a.advanceDays;
     }
     if (a.transport !== undefined) {
       const t: TransportInfo = {

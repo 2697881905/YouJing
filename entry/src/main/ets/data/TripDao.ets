@@ -277,6 +277,7 @@ export class TripDao {
       time: act.time, end_time: act.endTime, title: act.title, location: act.location,
       address: act.address, longitude: act.longitude, latitude: act.latitude,
       status: act.status, category: act.category,
+      advance_days: act.advanceDays === undefined ? null : act.advanceDays,
       note: act.note === undefined ? null : act.note,
       reason: act.reason === undefined ? null : act.reason,
       transport_mode: act.transport === undefined ? null : act.transport.mode,
@@ -356,6 +357,11 @@ function readActivity(rs: relationalStore.ResultSet): Activity {
   }
   const rawId: string = rs.getString(rs.getColumnIndex('id'));
   const tripPrefix: string = `${rs.getString(rs.getColumnIndex('trip_id'))}:`;
+  const advanceIdx: number = rs.getColumnIndex('advance_days');
+  let advanceDays: number | undefined = undefined;
+  if (advanceIdx >= 0 && !rs.isColumnNull(advanceIdx)) {
+    advanceDays = rs.getLong(advanceIdx);
+  }
   const act: Activity = {
     id: rawId.startsWith(tripPrefix) ? rawId.substring(tripPrefix.length) : rawId,
     time: rs.getString(rs.getColumnIndex('time')),
@@ -371,5 +377,8 @@ function readActivity(rs: relationalStore.ResultSet): Activity {
     reason: reason.length > 0 ? reason : undefined,
     transport: transport
   };
+  if (advanceDays !== undefined) {
+    act.advanceDays = advanceDays;
+  }
   return act;
 }

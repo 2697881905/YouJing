@@ -4,14 +4,16 @@
 
 ## AGC 部署
 
-1. AGC 控制台 → 云函数 → 创建函数，函数名 `replanDay`，运行时 Node 18/20，超时 10 秒。
-2. 入口文件用本目录 `index.js`（零依赖，不需要安装 node_modules）。
+1. AGC 控制台 → 云函数 → 创建函数，函数名 `replanDay`，运行时 Node 18/20，超时 8 秒
+   （与端侧 `ApiConfig.REPLAN_READ_TIMEOUT_MS` 同为 8s；函数比端侧先超时会让这次调用白跑）。
+2. 入口文件用本目录 `index.js`，入口函数填 `handler`（零依赖，不需要安装 node_modules）。
 3. 触发器选 HTTP，记下 URL，填进客户端 `ApiConfig.REPLAN_URL`（该值不提交仓库）。
 4. 环境变量：
    - `YOUJING_REPLAN_TOKEN`：客户端 `ApiConfig.REPLAN_TOKEN` 必须与它一致；未配置时函数返回 500。
-   - `LLM_CHAT_URL`：OpenAI 兼容的 `chat/completions` 地址。
-   - `LLM_API_KEY`：只存在云函数环境变量，绝不进客户端。
-   - `LLM_MODEL`：模型名。
+   - `LLM_CHAT_URL`：OpenAI 兼容的 `chat/completions` 地址。联调时 = `bff/.env` 的
+     `LLM_BASE_URL` + `/chat/completions`。
+   - `LLM_API_KEY`：只存在云函数环境变量，绝不进客户端；联调时 = `bff/.env` 的 `DEEPSEEK_API_KEY`。
+   - `LLM_MODEL`：模型名，与 `bff/.env` 的 `LLM_MODEL` 同值。
 5. 用控制台测试事件复制 `test/replan.test.js` 里的 `bodyOf()`，请求头带 `x-youjing-token`。
 
 ## 本地测试

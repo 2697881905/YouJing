@@ -7,10 +7,10 @@
  * - 版本号驱动迁移：onUpgrade 按 old→new 逐级执行，多条迁移放事务，成功才写新版本号；
  * - 过滤列建索引；单条记录 ≤2MB（行程 JSON 列远小于该值，tips/highlights 为文本）。
  *
- * 表结构（v10）：
+ * 表结构（v11）：
  *   trip        行程聚合根（overview/tips 展平为列与 JSON 文本；user_id 为账号分区键）
  *   trip_day    单日（tripId+dayIndex 索引）
- *   activity    活动节点（含 transport 三列与 reason；tripId+dayIndex 索引）
+ *   activity    活动节点（含 transport 三列、reason 与 advance_days；tripId+dayIndex 索引）
  *   meal        餐饮（tripId+dayIndex 索引）
  *   spot/area   内置资产库（city 索引；预约/溯源列展平；v5 起 spot 带 confidence）
  *   expense     手工记账（v3；trip_id+day_index 索引，同 trip 一样按 user_id 分区；
@@ -32,7 +32,7 @@ import { AppError } from '../common/error/AppError';
 import { ErrorCode } from '../common/error/ErrorCode';
 
 const STORE_NAME: string = 'youjing.db';
-const DB_VERSION: number = 10;
+const DB_VERSION: number = 11;
 const TAG: string = 'Data.DatabaseHelper';
 
 const SQL_CREATE_TRIP: string = `CREATE TABLE IF NOT EXISTS trip (
@@ -150,6 +150,10 @@ const SQL_V9_CLEAN_ORPHANS: string[] = [
 const SQL_V10_ADD_TRIP_PASS_ID: string =
   `ALTER TABLE trip ADD COLUMN pass_id TEXT NOT NULL DEFAULT ''`;
 
+/** v10 → v11：活动带预约提前量（来自景点库 booking.advanceDays），系统提醒据此逐条排 */
+const SQL_V11_ADD_ACTIVITY_ADVANCE_DAYS: string =
+  'ALTER TABLE activity ADD COLUMN advance_days INTEGER';
+
 export class DatabaseHelper {
   private static storePromise: Promise<relationalStore.RdbStore> | null = null;
   /** 单写通道：所有写事务排队串行，规避 RDB busy（§8 风险表） */
@@ -202,6 +206,23 @@ export class DatabaseHelper {
     }
   }
 
+  /** 迁移幂等判定：某表是否已有某列（用于「版本回退后再升级」的重复加列场景） */
+  private static async hasColumn(store: relationalStore.RdbStore, table: string,
+    column: string): Promise<boolean> {
+    const rs: relationalStore.ResultSet = await store.querySql(`PRAGMA table_info(${table})`);
+    try {
+      const nameIdx: number = rs.getColumnIndex('name');
+      while (rs.goToNextRow()) {
+        if (rs.getString(nameIdx) === column) {
+          return true;
+        }
+      }
+      return false;
+    } finally {
+      rs.close();
+    }
+  }
+
   private static async migrate(store: relationalStore.RdbStore): Promise<void> {
     const oldVersion: number = store.version;
     if (oldVersion === DB_VERSION) {
@@ -250,6 +271,14 @@ export class DatabaseHelper {
       }
       if (oldVersion < 10) {
         await store.executeSql(SQL_V10_ADD_TRIP_PASS_ID);
+      }
+      if (oldVersion < 11) {
+        // 幂等：旧版 App 会把 version 从 11 降回 10（真机实测 11→10），
+        // 而 advance_days 列还在——直接 ALTER 会 duplicate column，整个迁移失败、
+        // 行程列表变成「还没有行程」。加列前先看列是否已存在。
+        if (!(await DatabaseHelper.hasColumn(store, 'activity', 'advance_days'))) {
+          await store.executeSql(SQL_V11_ADD_ACTIVITY_ADVANCE_DAYS);
+        }
       }
       for (const idx of SQL_INDEXES) {
         await store.executeSql(idx);

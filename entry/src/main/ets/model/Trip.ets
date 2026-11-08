@@ -67,6 +67,8 @@ export interface Activity {
   latitude: number;
   status: ActivityStatus;
   category: ActivityCategory;
+  /** 需提前几天预约（由景点库 booking.advanceDays 带入）；未带时提醒按 1 天兜底 */
+  advanceDays?: number;
   note?: string;
   /** AI 生成的排期理由（屏8/10「为什么排在这里」理由件），可空 */
   reason?: string;

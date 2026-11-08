@@ -19,7 +19,7 @@ const require = createRequire(import.meta.url);
 const { PromptBuilder } = require('./generated/ai/PromptBuilder.js');
 const { DateUtils } = require('./generated/utils/DateUtils.js');
 
-export { TRIP_JSON_SCHEMA, TRIP_SCHEMA_OBJECT, buildResponseFormat };
+export { TRIP_JSON_SCHEMA, TRIP_SCHEMA_OBJECT, buildResponseFormat, PromptBuilder };
 
 function isPlainObject(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
