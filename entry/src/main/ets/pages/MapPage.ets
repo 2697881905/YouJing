@@ -284,27 +284,23 @@ export struct MapPage {
 
   @Builder
   chipRow(label: string, idx: number) {
-    // 裸 Button(Capsule) 压在瓦片上与瓦片同色、显式底色还被系统样式吃掉；
-    // 改成自带底的方角 chip 直接浮在底图上，不再套背景板（契约 §Shapes：
-    // option chip 20vp 方角；tint 底配 ink 字 + 蓝描边，不配蓝字）。
-    // 未选中也给 surfacePanel 底：瓦片底色不定，透明按钮会读不清。
+    // 契约 `option-chip`：surface-elevated 白面 + ink 16fp + 20vp 方角、未选中无描边。
+    // 选中改有据 `brandSolid` 实心底 + onBrand 字（深色档 #0050A0 上白字 7.91:1），
+    // 比 tint + 细描边醒目得多；两者都挂 pillFloat 托起影，浮在瓦片上才有边界。
     ListItem() {
       Row() {
         Text(label)
-          .fontSize(TypeTokens.small.size)
+          .fontSize(TypeTokens.body.size)
           .fontWeight(idx === this.daySel + 1 ? 600 : 450)
-          .fontColor(idx === this.daySel + 1 ? ColorTokens.ink : ColorTokens.muted)
+          .fontColor(idx === this.daySel + 1 ? ColorTokens.onBrand : ColorTokens.ink)
           .fontFeature("'tnum' on")
       }
       .justifyContent(FlexAlign.Center)
-      .height(LayoutTokens.minTouchTarget)
+      .height(LayoutTokens.minTouchTarget + SpaceTokens.sm)
       .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
       .borderRadius(RadiusTokens.card)
-      .backgroundColor(idx === this.daySel + 1 ? ColorTokens.primaryTint : ColorTokens.surfacePanel)
-      .border({
-        width: idx === this.daySel + 1 ? LayoutTokens.hairlineWidth * 2 : LayoutTokens.hairlineWidth,
-        color: idx === this.daySel + 1 ? ColorTokens.primary : ColorTokens.borderSubtle
-      })
+      .backgroundColor(idx === this.daySel + 1 ? ColorTokens.brandSolid : ColorTokens.surfaceElevated)
+      .shadow(ShadowTokens.pillFloat)
     }
     .onClick((): void => {
       this.applySel(idx === 0 ? ALL_DAYS : idx - 1);
@@ -351,11 +347,13 @@ export struct MapPage {
         top: SpaceTokens.xs, bottom: SpaceTokens.xs
       })
       .borderRadius(RadiusTokens.card)
-      .backgroundColor(stop.index === this.selectedStop ? ColorTokens.primaryTint : ColorTokens.surfacePanel)
+      // 白面 + cardAmbient 环境影托起；选中仍 tint + 蓝描边，卡面大不做实心底
+      .backgroundColor(stop.index === this.selectedStop ? ColorTokens.primaryTint : ColorTokens.surfaceElevated)
       .border({
         width: stop.index === this.selectedStop ? LayoutTokens.hairlineWidth * 2 : LayoutTokens.hairlineWidth,
         color: stop.index === this.selectedStop ? ColorTokens.primary : ColorTokens.borderSubtle
       })
+      .shadow(ShadowTokens.cardAmbient)
     }
     .onClick((): void => {
       this.focusStop(stop.index);
@@ -410,7 +408,7 @@ export struct MapPage {
           if (this.days.length > 0) {
             // 与站点条统一走官方 List：原 Scroll+Row 把两枚 chip 居中、右侧留一大片空白
             // （真机 dump：全程 [355,281]、Day 1 [555,281]，轨道宽 1136）。
-            // 不套背景板：chip 20vp 方角自带底，选中才有 tint 与蓝描边。
+            // 不套背景板：chip 20vp 方角自带白面/实心底，靠 pillFloat 投影浮起。
             List({ space: SpaceTokens.xxs }) {
               ForEach(this.chips(), (label: string, idx: number) => {
                 this.chipRow(label, idx)
@@ -421,7 +419,7 @@ export struct MapPage {
             .alignListItem(ListItemAlign.Center)
             .scrollBar(BarState.Off)
             .width('100%')
-            .height(LayoutTokens.minTouchTarget)
+            .height(LayoutTokens.minTouchTarget + SpaceTokens.sm)
             // 不要背景板：只留 chip 按钮浮在底图上（用户 2026-11-09 定）
             // 让开标题栏：内容区从窗口 0 起，不 margin 会落进 106..281 的栏带
             .margin({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
