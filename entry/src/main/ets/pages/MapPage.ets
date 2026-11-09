@@ -285,8 +285,9 @@ export struct MapPage {
   @Builder
   chipRow(label: string, idx: number) {
     // 裸 Button(Capsule) 压在瓦片上与瓦片同色、显式底色还被系统样式吃掉；
-    // 改成自带底的方角 chip，整条收进一张 surfaceElevated 浮起条（契约 §Shapes：
-    // option chip 20vp 方角、floating bar 30vp；tint 底配 ink 字 + 蓝描边，不配蓝字）。
+    // 改成自带底的方角 chip 直接浮在底图上，不再套背景板（契约 §Shapes：
+    // option chip 20vp 方角；tint 底配 ink 字 + 蓝描边，不配蓝字）。
+    // 未选中也给 surfacePanel 底：瓦片底色不定，透明按钮会读不清。
     ListItem() {
       Row() {
         Text(label)
@@ -299,10 +300,10 @@ export struct MapPage {
       .height(LayoutTokens.minTouchTarget)
       .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
       .borderRadius(RadiusTokens.card)
-      .backgroundColor(idx === this.daySel + 1 ? ColorTokens.primaryTint : Color.Transparent)
+      .backgroundColor(idx === this.daySel + 1 ? ColorTokens.primaryTint : ColorTokens.surfacePanel)
       .border({
-        width: idx === this.daySel + 1 ? LayoutTokens.hairlineWidth * 2 : 0,
-        color: idx === this.daySel + 1 ? ColorTokens.primary : Color.Transparent
+        width: idx === this.daySel + 1 ? LayoutTokens.hairlineWidth * 2 : LayoutTokens.hairlineWidth,
+        color: idx === this.daySel + 1 ? ColorTokens.primary : ColorTokens.borderSubtle
       })
     }
     .onClick((): void => {
@@ -409,7 +410,7 @@ export struct MapPage {
           if (this.days.length > 0) {
             // 与站点条统一走官方 List：原 Scroll+Row 把两枚 chip 居中、右侧留一大片空白
             // （真机 dump：全程 [355,281]、Day 1 [555,281]，轨道宽 1136）。
-            // 外层 30vp 浮起条给底，内部 chip 20vp 方角，选中才有 tint 与蓝描边。
+            // 不套背景板：chip 20vp 方角自带底，选中才有 tint 与蓝描边。
             List({ space: SpaceTokens.xxs }) {
               ForEach(this.chips(), (label: string, idx: number) => {
                 this.chipRow(label, idx)
@@ -420,12 +421,8 @@ export struct MapPage {
             .alignListItem(ListItemAlign.Center)
             .scrollBar(BarState.Off)
             .width('100%')
-            .height(LayoutTokens.minTouchTarget + SpaceTokens.xs)
-            .padding({ left: SpaceTokens.xxs, right: SpaceTokens.xxs })
-            .borderRadius(RadiusTokens.dock)
-            .backgroundColor(ColorTokens.surfaceElevated)
-            .border({ width: LayoutTokens.hairlineWidth, color: ColorTokens.borderSubtle })
-            .shadow(ShadowTokens.floating)
+            .height(LayoutTokens.minTouchTarget)
+            // 不要背景板：只留 chip 按钮浮在底图上（用户 2026-11-09 定）
             // 让开标题栏：内容区从窗口 0 起，不 margin 会落进 106..281 的栏带
             .margin({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
           }
@@ -449,13 +446,8 @@ export struct MapPage {
               .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
             }
             .width('100%')
-            .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
-            // 钉在底部 Stack 上、整条浮在 dock 之上；30vp 全圆角由前景 Column 统一内缩
+            // 不要背景板：只剩站点卡浮在底图上；dock 净空照旧让位
             .margin({ bottom: LayoutTokens.floatingDockClearance })
-            .borderRadius(RadiusTokens.dock)
-            .backgroundColor(ColorTokens.surfaceElevated)
-            .border({ width: LayoutTokens.hairlineWidth, color: ColorTokens.borderSubtle })
-            .shadow(ShadowTokens.floating)
           } else {
             // 加载 / 引导空态 / 无坐标三态收成同一张浮起卡：圆角、底色、dock 让位只写一次
             Column() {
