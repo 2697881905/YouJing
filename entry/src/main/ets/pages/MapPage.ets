@@ -55,9 +55,14 @@ const DOCK_MASK_BELOW_VP: number = 21;
 /** 站点卡定宽定高：横向 List 需要确定项宽，168vp 够 14fp 标题单行 */
 const STOP_CARD_WIDTH: number = 168;
 const STOP_CARD_HEIGHT: number = 72;
-/** 顶部 chip 定宽定高：玻璃珠由 HdsTabs 浮动栏渲染，宽高必须显式给档 */
-const CHIP_BEAD_WIDTH: number = 120;
-const CHIP_BEAD_HEIGHT: number = LayoutTokens.minTouchTarget + SpaceTokens.sm;
+/**
+ * 顶部 chip 定宽定高：玻璃珠由 HdsTabs 浮动栏渲染，宽高必须显式给档。
+ * 120×56 那版是照 dock 槽位（64×54）等比放大做的，真机上比标题栏圆钮（44）还高、
+ * 两枚就吃掉三分之二轨宽，整条像一排大按钮压在地图上（2026-11-09 用户判「尺寸太大」）。
+ * 收到 76×38：只比圆钮矮一点，同屏能露三枚，76 宽也是 16fp 的「Day 10」留 14vp 边后的下限。
+ */
+const CHIP_BEAD_WIDTH: number = 76;
+const CHIP_BEAD_HEIGHT: number = 38;
 const DOCK_MASK_HEIGHT_VP: number = DOCK_MASK_FADE_VP + DOCK_MASK_PLATEAU_VP + DOCK_MASK_BELOW_VP;
 /** 实心段起止 = 淡入段占比 / (淡入 + 实心) 占比 */
 const MASK_SOLID_FROM: number = DOCK_MASK_FADE_VP / DOCK_MASK_HEIGHT_VP;
@@ -347,6 +352,9 @@ export struct MapPage {
             .fontWeight(idx === this.daySel + 1 ? 600 : 450)
             .fontColor(idx === this.daySel + 1 ? ColorTokens.onBrand : ColorTokens.ink)
             .fontFeature("'tnum' on")
+            // 定高 38 的胶囊装不下换行；系统字号放大时也只准单行、超出省略
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
         }
         .justifyContent(FlexAlign.Center)
         .width(CHIP_BEAD_WIDTH)
@@ -473,7 +481,8 @@ export struct MapPage {
             .alignListItem(ListItemAlign.Center)
             .scrollBar(BarState.Off)
             .width('100%')
-            .height(LayoutTokens.minTouchTarget + SpaceTokens.sm)
+            // 轨道比 chip 高 8vp：上下各留 4vp 让 pillFloat 投影落在视野里（等高会把影切平）
+            .height(CHIP_BEAD_HEIGHT + SpaceTokens.xs)
             .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
             // 不要背景板：只留 chip 按钮浮在底图上（用户 2026-11-09 定）
             // 让开标题栏：内容区从窗口 0 起，不 margin 会落进 106..281 的栏带
