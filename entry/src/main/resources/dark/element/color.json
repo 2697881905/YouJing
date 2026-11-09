@@ -55,6 +55,7 @@
     { "name": "star_bg_bottom", "value": "#FF0E1830" },
     { "name": "brand_solid", "value": "#FF0050A0" },
     { "name": "on_brand", "value": "#FFFFFFFF" },
+    { "name": "chip_solid", "value": "#FF47474E" },
     { "name": "danger_tint", "value": "#1AFF3B30" },
     { "name": "glass_bar_surface", "value": "#59121212" },
     { "name": "glass_bar_border", "value": "#5245454B" },

@@ -43,6 +43,12 @@ export interface ColorTokensType {
   brandSolid: Resource;
   /** 有据 ds_on_brand：实心品牌底上的字 */
   onBrand: Resource;
+  /**
+   * 地图 Day chip 选中实心底：中性深灰、非品牌蓝（用户 2026-11-10 定「深色即可，不是黑色」）。
+   * 两档同值 #47474E（先试 #2B2B31/#313137，真机上贴着夜图读成近黑，提一档才是"深灰"）；
+   * 白字 9.1:1；深档比夜图玻璃珠合成底（实测约 #2B3A4F）亮且无蓝色相，实心 vs 半透一眼分清。
+   */
+  chipSolid: Resource;
   /** 有据 dangerTint：SoftChip DANGER 档 */
   dangerTint: Resource;
   accentMention: Resource;
@@ -117,6 +123,7 @@ export const ColorTokens: ColorTokensType = {
   onPrimary: $r('app.color.on_primary'),
   brandSolid: $r('app.color.brand_solid'),
   onBrand: $r('app.color.on_brand'),
+  chipSolid: $r('app.color.chip_solid'),
   dangerTint: $r('app.color.danger_tint'),
   accentMention: $r('app.color.accent_mention'),
   success: $r('app.color.success'),

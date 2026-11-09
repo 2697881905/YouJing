@@ -310,7 +310,8 @@ export struct MapPage {
     // 这是仓内唯一在内容区**覆盖层**能出真折射光感的通道：组件级 systemMaterial 在覆盖层
     // 不出图（2026-11-09 真机实证：chip 透明到只剩黑字浮在地图上）。只给顶部两枚启用，
     // 底部站点卡保持自绘磨砂，不碰刚修好的横滑。
-    // 选中态仍走 brandSolid 实心底：玻璃半透，当前档必须一眼能抓到。
+    // 选中态走 chipSolid 中性深灰实心底（用户 2026-11-10 定：不要蓝，深色即可、不是黑色）：
+    // 玻璃半透，当前档必须一眼能抓到。字用 onDark（白，两档同值），不再蹭品牌语义。
     // 文字层落在 V1 上下文的 Stack 里，不进 @ComponentV2 的内容槽——那个闭包读不到
     // 本页 @State daySel 的更新（Index.dockSelectionPill 同一条真机结论）。
     ListItem() {
@@ -331,14 +332,14 @@ export struct MapPage {
             Column()
           }
         } else {
-          // 选中态 / 低版本回退：原来的自绘面（实心蓝底或 GlassPanel 同款自绘玻璃）
+          // 选中态 / 低版本回退：原来的自绘面（实心深灰底或 GlassPanel 同款自绘玻璃）
           Row()
             .width(CHIP_BEAD_WIDTH)
             .height(CHIP_BEAD_HEIGHT)
             // HdsTabs 浮动栏固定胶囊形，选中态也走 pill，两态形状才统一
             .borderRadius(RadiusTokens.pill)
             .backgroundBlurStyle(idx === this.daySel + 1 ? BlurStyle.NONE : GlassBlurStyle.Card)
-            .backgroundColor(idx === this.daySel + 1 ? ColorTokens.brandSolid : GlassTokens.PILL_FILL)
+            .backgroundColor(idx === this.daySel + 1 ? ColorTokens.chipSolid : GlassTokens.PILL_FILL)
             .border({
               width: idx === this.daySel + 1 ? 0 : LayoutTokens.glassBorderWidth,
               color: idx === this.daySel + 1 ? Color.Transparent : GlassTokens.PILL_RIM
@@ -350,7 +351,7 @@ export struct MapPage {
           Text(label)
             .fontSize(TypeTokens.body.size)
             .fontWeight(idx === this.daySel + 1 ? 600 : 450)
-            .fontColor(idx === this.daySel + 1 ? ColorTokens.onBrand : ColorTokens.ink)
+            .fontColor(idx === this.daySel + 1 ? ColorTokens.onDark : ColorTokens.ink)
             .fontFeature("'tnum' on")
             // 定高 38 的胶囊装不下换行；系统字号放大时也只准单行、超出省略
             .maxLines(1)
