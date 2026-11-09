@@ -364,13 +364,21 @@ export struct MapPage {
       .width(CHIP_BEAD_WIDTH)
       .height(CHIP_BEAD_HEIGHT)
     }
+    // 静息内缩（首末项 16vp，与标题栏 x=50px 对齐）挂在这里而不是 List 的 padding：
+    // List 的裁切视口按「组件区域 − padding」算，padding 是来向侧一条隐形切线——
+    // 2026-11-10 真机实证：滑动中卡片在 x=1086px（=1136−50px）被硬切，出场侧却能滑到 x=0。
+    // 去掉 padding 后裁切线回到屏幕边缘，chip 左右滑动能穿到最边缘才消失。
+    .margin({
+      left: idx === 0 ? SpaceTokens.base : 0,
+      right: idx === this.days.length ? SpaceTokens.base : 0
+    })
     .onClick((): void => {
       this.applySel(idx === 0 ? ALL_DAYS : idx - 1);
     })
   }
 
   @Builder
-  stopChip(stop: MapStop) {
+  stopChip(stop: MapStop, idx: number) {
     // 卡片定宽 168×72、圆角 20vp、标题提到 14fp：原来 132×56 / 12fp 在真机上
     // 三张卡挤成一条小字带。选中态与地图气泡双向联动，走 tint 底 + ink 字 + 蓝描边。
     ListItem() {
@@ -418,6 +426,11 @@ export struct MapPage {
       })
       .shadow(ShadowTokens.cardAmbient)
     }
+    // 首末卡 16vp 内缩挂在项上：同 chipRow，List padding 会变成来向侧 16vp 的隐形切线
+    .margin({
+      left: idx === 0 ? SpaceTokens.base : 0,
+      right: idx === this.stops.length - 1 ? SpaceTokens.base : 0
+    })
     .onClick((): void => {
       this.focusStop(stop.index);
     })
@@ -484,7 +497,8 @@ export struct MapPage {
             .width('100%')
             // 轨道比 chip 高 8vp：上下各留 4vp 让 pillFloat 投影落在视野里（等高会把影切平）
             .height(CHIP_BEAD_HEIGHT + SpaceTokens.xs)
-            .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
+            // **不给 List 左右 padding**（见 chipRow 注释）：padding 会变成来向侧 16vp 隐形切线，
+            // 静息内缩由首末项 margin 承担；裁切线在屏幕边缘，chip 能穿到最边缘
             // 不要背景板：只留 chip 按钮浮在底图上（用户 2026-11-09 定）
             // 让开标题栏：内容区从窗口 0 起，不 margin 会落进 106..281 的栏带
             .margin({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
@@ -496,8 +510,8 @@ export struct MapPage {
             Column() {
               // 官方 List 才能按序号把某一项滚进视野（scrollToIndex），卡片定宽不用 lanes
               List({ space: SpaceTokens.xs, scroller: this.stripScroller }) {
-                ForEach(this.stops, (stop: MapStop) => {
-                  this.stopChip(stop)
+                ForEach(this.stops, (stop: MapStop, idx: number) => {
+                  this.stopChip(stop, idx)
                 }, (stop: MapStop): string => `mapstop-${stop.index}`)
               }
               .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
@@ -506,9 +520,9 @@ export struct MapPage {
               .scrollBar(BarState.Off)
               .width('100%')
               .height(STOP_CARD_HEIGHT + SpaceTokens.xs)
-              // List 满屏宽，内缩放在它自己的 padding 里：clip 边界留在屏幕边缘，
-              // 卡片能一路滑出屏幕，不会在屏幕内被提前裁断
-              .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
+              // **不给 List 左右 padding**（见 chipRow 注释）：padding 是来向侧 16vp 隐形切线，
+              // 2026-11-10 真机实证滑动中卡片在 x=1086px 被硬切；内缩由首末项 margin 承担后，
+              // 裁切线回到屏幕边缘，卡片能一路滑出屏幕，不会在屏幕内被提前裁断
             }
             .width('100%')
             // 不要背景板：只剩站点卡浮在底图上；dock 净空照旧让位
