@@ -2,8 +2,8 @@
  * 「我的」页 · dock 第五格根页。
  *
  * 为什么单独一页而不是继续用 `TripsPage`：五格分工后「行程」格才是历史/编辑的入口，
- * 而这一格要装个人信息、勋章与设置。之前这三样全挤在 `TripsPage` 标题栏的三枚菜单里
- * （新建 / 我的勋章 / 退出登录），勋章墙做了两整轮切片却连个卡片位都没有。
+ * 而这一格要装个人信息与两张概览卡（会员 / 勋章）。设置与三份法务文书已独立成
+ * `SettingsPage`，从右上角齿轮进；这里只留概览，不再自己铺设置行。
  *
  * 结构照 `TripsPage` 的 rootMode 双分支：作为 TabContent 根页时自己挂 `HdsNavigation`
  * （`hideBackButton(true)` + `titleMode(MINI)`），被 push 时走 `HdsNavDestination`。
@@ -24,9 +24,7 @@ import { DateUtils } from '../utils/DateUtils';
 import { membershipStatus, membershipUsage, subscriptionActive, MembershipStatus } from '../utils/MembershipCopy';
 import { BadgeGroup, BadgeRecord, badgeCityCount, badgeTotal, buildBadgeBoard } from '../utils/BadgeBoard';
 import { ProfileStore } from '../data/ProfileStore';
-import { LegalDocReader } from '../components/LegalDocReader';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
-import { Pressable } from '../components/Pressable';
 import { Logger } from '../common/logger/Logger';
 import { PlanDraft } from '../data/PlanDraft';
 import { ColorTokens } from '../design/ColorTokens';
@@ -38,21 +36,6 @@ import { HdsChrome } from '../design/HdsChrome';
 import { common } from '@kit.AbilityKit';
 import { HdsNavigation, HdsNavigationTitleMode, HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UIDesignKit';
 import { requestSystemBarRefresh } from '../utils/systemBar';
-import { registerOverlayBackGuard, unregisterOverlayBackGuard, OVERLAY_GUARD_MINE_TAB } from '../utils/overlayBackGuard';
-
-/** 设置区一行：标题 + 落点。kind 非空 = 就地展开这份法务文书 */
-interface SettingRow {
-  title: string;
-  desc: string;
-  symbol: Resource;
-  docKind: string;
-}
-
-const SETTING_ROWS: SettingRow[] = [
-  { title: '隐私政策', desc: '本机存储、定位与日历权限的口径', symbol: $r('sys.symbol.checkmark_shield'), docKind: 'privacy' },
-  { title: '用户协议', desc: '使用前请读一遍', symbol: $r('sys.symbol.doc_text'), docKind: 'terms' },
-  { title: '关于有径', desc: '版本与数据来源', symbol: $r('sys.symbol.info_circle'), docKind: 'about' }
-];
 
 @Component
 export struct MinePage {
@@ -72,8 +55,6 @@ export struct MinePage {
   @State private memberTitle: string = '未开通会员';
   @State private memberDetail: string = '生成免费；导出与无限重排需解锁';
   @State private memberActive: boolean = false;
-  /** 非空 = 就地展开这份法务文书。不 push 路由：CustomDialog/页内展开才没有"返回后这页什么态"的竞态 */
-  @State private reading: string = '';
   /** 顶栏磨砂两态：由**绝对**滚动偏移驱动（每帧增量会被松手回弹的负帧打灭，契约 §Translucency） */
   @State private barScrolled: boolean = false;
   private barScroller: Scroller = new Scroller();
@@ -88,17 +69,6 @@ export struct MinePage {
 
   aboutToAppear(): void {
     this.reload();
-    // 法务文书是就地展开的整页替换、不在 Navigation 栈里：登记守卫，
-    // 让 Index 的返回拦截先关它，而不是"回地图格"
-    registerOverlayBackGuard(OVERLAY_GUARD_MINE_TAB,
-      (): boolean => this.reading.length > 0,
-      (): void => {
-        this.reading = '';
-      });
-  }
-
-  aboutToDisappear(): void {
-    unregisterOverlayBackGuard(OVERLAY_GUARD_MINE_TAB);
   }
 
   private onEntitlementTick(): void {
@@ -131,25 +101,6 @@ export struct MinePage {
       Logger.warn('Ui.Mine', `勋章计数读取失败: ${err.message}`);
     });
     this.refreshMembership();
-  }
-
-  private confirmLogout(): void {
-    this.getUIContext().showAlertDialog({
-      title: '确认退出登录？',
-      message: '退出后回到本机游客空间；该账号下的行程仍留在本机。',
-      primaryButton: { value: '取消', action: (): void => {} },
-      secondaryButton: {
-        value: '退出登录',
-        fontColor: ColorTokens.danger,
-        action: (): void => {
-          AccountStore.logout().then((): void => {
-            this.getUIContext().getPromptAction().showToast({ message: '已退出，回到登录页' });
-          }).catch((err: Error): void => {
-            Logger.warn('Ui.Mine', `登出失败: ${err.message}`);
-          });
-        }
-      }
-    });
   }
 
   @Builder
@@ -262,153 +213,54 @@ export struct MinePage {
   }
 
   @Builder
-  settingRow(row: SettingRow) {
-    ListItem() {
-      Row({ space: SpaceTokens.sm }) {
-        SymbolGlyph(row.symbol)
-          .fontSize(IconSizes.control)
-          .fontColor([ColorTokens.icon])
-          .width(IconSizes.control)
-        Column({ space: SpaceTokens.xxs }) {
-          Text(row.title)
-            .fontSize(TypeTokens.small.size)
-            .fontWeight(600)
-            .fontColor(ColorTokens.ink)
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-          Text(row.desc)
-            .fontSize(TypeTokens.caption.size)
-            .fontWeight(450)
-            .fontColor(ColorTokens.muted)
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-        }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
-        SymbolGlyph($r('sys.symbol.chevron_right'))
-          .fontSize(IconSizes.control)
-          .fontColor([ColorTokens.muted])
-      }
-      // 行高交给内容 + 上下内缩，实测过 minTouchTarget；整行可点，
-      // 触点不收在图标上（裸 SymbolGlyph 挂 onClick 会被第 8 把尺 R4 判成自绘按钮）
-      .width('100%')
-      .constraintSize({ minHeight: LayoutTokens.minTouchTarget })
-      .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
-    }
-    .onClick((): void => {
-      this.reading = row.docKind;
-    })
-  }
-
-  @Builder
   body() {
     Column() {
-      if (this.reading.length > 0) {
-        // 就地展开是整页替换，不是弹窗：没有 bindSheet 那层外部高度上限，
-        // 必须由宿主给出确定高度，阅读器内部 Scroll.layoutWeight(1) 才有边界。
-        // 顶部让开穿底标题栏、底部让开悬浮 dock（与下面 List 分支同一套净空）。
-        Column() {
-          LegalDocReader({
-            kind: this.reading,
-            readerWidth: '100%',
-            fillHost: true,
-            onBack: (): void => {
-              this.reading = '';
-            }
-          })
+      List({ space: SpaceTokens.sm, scroller: this.barScroller }) {
+        ListItem() {
+          this.profileHeader()
         }
-        .width('100%')
-        .height('100%')
-        .padding({
-          left: SpaceTokens.base,
-          right: SpaceTokens.base,
-          top: HdsChrome.contentTopInset(this.statusBarHeight),
-          bottom: LayoutTokens.floatingDockClearance
-        })
-      } else {
-        List({ space: SpaceTokens.sm, scroller: this.barScroller }) {
+        // 游客分区也要能进来看看，所以登录 CTA 放在资料区之后而不是挡整页：
+        // Index 的登录闸门已经拦过"没同意隐私就什么都不给看"，这里只处理已同意未登录
+        if (this.authState === 'guest') {
           ListItem() {
-            this.profileHeader()
-          }
-          // 游客分区也要能进来看看，所以登录 CTA 放在资料区之后而不是挡整页：
-          // Index 的登录闸门已经拦过"没同意隐私就什么都不给看"，这里只处理已同意未登录
-          if (this.authState === 'guest') {
-            ListItem() {
-              YoujingButton({
-                variant: YoujingButtonVariant.PRIMARY,
-                label: '登录华为账号',
-                fullWidth: true,
-                onAction: (): void => {
-                  this.goLogin();
-                }
-              })
-            }
-          }
-          ListItem() {
-            this.memberCard()
-          }
-          ListItem() {
-            this.medalCard()
-          }
-          ListItemGroup({ header: this.sectionHeader('设置') }) {
-            ForEach(SETTING_ROWS, (row: SettingRow) => {
-              this.settingRow(row)
-            }, (row: SettingRow): string => row.docKind)
-          }
-          ListItem() {
-            // 有据无 danger 按钮变体（danger 只作字色），故保留「elevated 底 + danger 字」，
-            // 按下反馈交给家族唯一的 Pressable（opacity 0.92 + scale 0.97 / 140ms）
-            Pressable({
-              fillWidth: true,
-              visualHeight: LayoutTokens.minTouchTarget,
-              action: (): void => {
-                this.confirmLogout();
+            YoujingButton({
+              variant: YoujingButtonVariant.PRIMARY,
+              label: '登录华为账号',
+              fullWidth: true,
+              onAction: (): void => {
+                this.goLogin();
               }
-            }) {
-              Text('退出登录')
-                .fontSize(TypeTokens.callout.size)
-                .fontWeight(600)
-                .fontColor(ColorTokens.danger)
-                .width('100%')
-                .height(LayoutTokens.minTouchTarget)
-                .textAlign(TextAlign.Center)
-                .borderRadius(RadiusTokens.pill)
-                .backgroundColor(ColorTokens.surfaceElevated)
-            }
+            })
           }
         }
-        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
-        .width('100%')
-        .height('100%')
-        .layoutWeight(1)
-        .scrollBar(BarState.Off)
-        // 末行住在悬浮 dock 底下，按实测净空让位（与 TripsPage/BadgePage 同一写法）
-        .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
-          bottom: LayoutTokens.floatingDockClearance })
-        // 穿底（2026-11-08 对标有据 ProfilePage）：让位必须走 contentStartOffset，
-        // 不能挂 padding —— padding 会把**视口**整体压到栏底之下，内容永远上不到
-        // 标题栏那 175px 里，栏体磨砂采样不到任何东西，顶部就永远是一块纯白。
-        // contentStartOffset 只挪首屏起点，滚动后内容照常穿到栏下被糊掉。
-        .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight))
-        .onDidScroll((): void => {
-          this.syncBarScroll();
-        })
+        ListItem() {
+          this.memberCard()
+        }
+        ListItem() {
+          this.medalCard()
+        }
       }
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+      .width('100%')
+      .height('100%')
+      .layoutWeight(1)
+      .scrollBar(BarState.Off)
+      // 末行住在悬浮 dock 底下，按实测净空让位（与 TripsPage/BadgePage 同一写法）
+      .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
+        bottom: LayoutTokens.floatingDockClearance })
+      // 穿底（2026-11-08 对标有据 ProfilePage）：让位必须走 contentStartOffset，
+      // 不能挂 padding —— padding 会把**视口**整体压到栏底之下，内容永远上不到
+      // 标题栏那 175px 里，栏体磨砂采样不到任何东西，顶部就永远是一块纯白。
+      // contentStartOffset 只挪首屏起点，滚动后内容照常穿到栏下被糊掉。
+      .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight))
+      .onDidScroll((): void => {
+        this.syncBarScroll();
+      })
     }
     .width('100%')
     .height('100%')
     // 不涂 canvas：这一层涂色会把 106..281 的标题栏区整块盖成纯白，穿底素材全被挡在下面。
     // 底色由壳层（Index 的 Column）与 TopStrip 单点负责，本页只负责内容。
-  }
-
-  @Builder
-  sectionHeader(title: string) {
-    Text(title)
-      .fontSize(TypeTokens.overline.size)
-      .fontWeight(600)
-      .fontColor(ColorTokens.muted)
-      .width('100%')
-      .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xxs })
   }
 
   /**
@@ -447,8 +299,8 @@ export struct MinePage {
         menu: [HdsChrome.item($r('sys.symbol.plus'), '新建行程', (): void => {
           PlanDraft.fresh();
           enterPlanningFlow('TripInput');
-        }), HdsChrome.item($r('sys.symbol.medal'), '我的勋章', (): void => {
-          this.pathStack.pushPath({ name: 'Badges' });
+        }), HdsChrome.item($r('sys.symbol.gearshape'), '设置', (): void => {
+          this.pathStack.pushPath({ name: 'Settings' });
         })]
       }))
       .navDestination(routerMap)

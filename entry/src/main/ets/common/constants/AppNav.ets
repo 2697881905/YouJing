@@ -155,7 +155,7 @@ export function stackOfRoute(name: string): NavPathStack {
   if (name === 'Trips') {
     return TRIPS_NAV;
   }
-  if (name === 'Badges' || name === 'Mine') {
+  if (name === 'Badges' || name === 'Mine' || name === 'Settings') {
     return PROFILE_NAV;
   }
   return APP_NAV;
@@ -205,7 +205,7 @@ export function tabOfRoute(name: string): number {
   if (name === 'Trips') {
     return TAB_ITINERARY;
   }
-  if (name === 'Badges' || name === 'Mine') {
+  if (name === 'Badges' || name === 'Mine' || name === 'Settings') {
     return TAB_MINE;
   }
   return TAB_PLAN;

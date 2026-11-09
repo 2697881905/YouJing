@@ -43,7 +43,7 @@ import { HDS_MATERIAL_LEVEL_EXQUISITE, HDS_MATERIAL_TYPE_IMMERSIVE,
 import { BottomTabBar, BottomTabItem } from '../components/BottomTabBar';
 import { TopStrip, TOP_STRIP_KEY, STRIP_CANVAS, STRIP_MAP } from '../utils/TopStrip';
 import { BOTTOM_NAV_INSET_KEY } from '../utils/navMode';
-import { consumeOverlayBackFor, OVERLAY_GUARD_EXPENSE_TAB, OVERLAY_GUARD_MINE_TAB, OVERLAY_GUARD_PLAN_TAB } from '../utils/overlayBackGuard';
+import { consumeOverlayBackFor, OVERLAY_GUARD_EXPENSE_TAB, OVERLAY_GUARD_PLAN_TAB } from '../utils/overlayBackGuard';
 import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
 
 const TAG: string = 'Index';
@@ -202,11 +202,11 @@ struct Index {
     if (stackOfTab(this.currentTab).size() > 0) {
       return false;
     }
-    // ② 根页上的弹层/就地文书不在栈里，也不由 Navigation 托管：先问它们要不要关
-    //（费用「记一笔」、我的「隐私政策」都实测过被"回地图"抢走返回）
+    // ② 根页上的弹层不在栈里，也不由 Navigation 托管：先问它们要不要关
+    //（费用「记一笔」实测过被"回地图"抢走返回；「我的」的法务文书已迁到 SettingsPage
+    //  的 bindSheet，由系统收返回，不再需要页内守卫）
     const guardId: string = this.currentTab === TAB_EXPENSE ? OVERLAY_GUARD_EXPENSE_TAB
-      : (this.currentTab === TAB_MINE ? OVERLAY_GUARD_MINE_TAB
-        : (this.currentTab === TAB_PLAN ? OVERLAY_GUARD_PLAN_TAB : ''));
+      : (this.currentTab === TAB_PLAN ? OVERLAY_GUARD_PLAN_TAB : '');
     if (guardId.length > 0 && consumeOverlayBackFor(guardId)) {
       return true;
     }

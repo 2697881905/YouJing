@@ -28,7 +28,7 @@ const ALL_TABS: number[] = [TAB_MAP, TAB_ITINERARY, TAB_PLAN, TAB_EXPENSE, TAB_M
 const ROUTE_NAMES: string[] = [
   'TripInput', 'PreferenceQA', 'SpotPick', 'StayPick', 'AreaMore', 'Generating',
   'GenerateFailed', 'Itinerary', 'EditItinerary', 'OnTrip', 'Share', 'Review',
-  'Badges', 'Map', 'Expense', 'Trips'
+  'Badges', 'Settings', 'Map', 'Expense', 'Trips'
 ];
 
 export default function navStackTest(): void {
@@ -99,6 +99,9 @@ export default function navStackTest(): void {
       // 「行程」列表从旧的「我的」页签搬走了，这条断言就是那次搬家留下的锚
       expect(tabOfRoute('Trips')).assertEqual(TAB_ITINERARY);
       expect(tabOfRoute('Badges')).assertEqual(TAB_MINE);
+      // 设置页从「我的」右上角齿轮进，深链也必须落回 PROFILE_NAV / 我的格
+      expect(tabOfRoute('Settings')).assertEqual(TAB_MINE);
+      expect(stackOfRoute('Settings') === PROFILE_NAV).assertTrue();
       // 规划链与它的产物都归规划 tab（栈是 APP_NAV）
       expect(tabOfRoute('TripInput')).assertEqual(TAB_PLAN);
       expect(tabOfRoute('Itinerary')).assertEqual(TAB_PLAN);
