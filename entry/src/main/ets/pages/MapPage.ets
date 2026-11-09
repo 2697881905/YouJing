@@ -44,9 +44,13 @@ const FIT_BOTTOM_PX: number = 600;
  * y≈826vp（dock 底 804.8 之下 21.2vp），再多压就把水印从 4.84:1 压到 1.23:1，
  * 那是归属声明，不能盖。整块高 169vp、底边离屏底 35vp（= 56 − 21）。
  */
-const DOCK_MASK_FADE_VP: number = 92;
-const DOCK_MASK_PLATEAU_VP: number = 56;
+const DOCK_MASK_FADE_VP: number = LayoutTokens.barGradientMaskHeight;
+const DOCK_MASK_PLATEAU_VP: number = LayoutTokens.floatingDockBarHeight;
+/** 21vp 是按地图 SDK 归属水印顶边实测的，token 里没有对应档，保留具名常量 */
 const DOCK_MASK_BELOW_VP: number = 21;
+/** 站点卡定宽定高：横向 List 需要确定项宽，168vp 够 14fp 标题单行 */
+const STOP_CARD_WIDTH: number = 168;
+const STOP_CARD_HEIGHT: number = 72;
 const DOCK_MASK_HEIGHT_VP: number = DOCK_MASK_FADE_VP + DOCK_MASK_PLATEAU_VP + DOCK_MASK_BELOW_VP;
 /** 实心段起止 = 淡入段占比 / (淡入 + 实心) 占比 */
 const MASK_SOLID_FROM: number = DOCK_MASK_FADE_VP / DOCK_MASK_HEIGHT_VP;
@@ -73,6 +77,8 @@ export struct MapPage {
   /** -1 = 全程 */
   @State private daySel: number = ALL_DAYS;
   @State private stops: MapStop[] = [];
+  /** 0 = 无选中；点地图气泡与点站点卡共用这一个状态（双向高亮） */
+  @State private selectedStop: number = 0;
   @State private signature: string = '';
   @State private request: string = '';
   @State private titleText: string = '地图';
@@ -248,6 +254,7 @@ export struct MapPage {
     const next: MapStop[] = sel === ALL_DAYS ? MapStops.fromDays(this.days) :
       (this.days.length > 0 ? MapStops.fromDay(this.days[Math.min(sel, this.days.length - 1)]) : []);
     this.stops = next;
+    this.selectedStop = 0;
     // 出行方式也进重绘键：坐标不变、transport.mode 改了也要重新算路
     this.signature = MapStops.signature(next) + '|' +
       next.map((s: MapStop): string => s.mode ?? '').join(',');
@@ -260,14 +267,12 @@ export struct MapPage {
   }
 
   private chips(): string[] {
-    const out: string[] = ['全程'];
-    for (const d of this.days) {
-      out.push(`Day ${d.dayIndex}`);
-    }
-    return out;
+    return MapStops.dayLabels(this.days);
   }
 
   private focusStop(index: number): void {
+    // 气泡与卡片共用这一处：高亮、飞镜头、把卡滚进视野一次做完
+    this.selectedStop = index;
     this.seq += 1;
     this.request = `focus:${index}:${this.seq}`;
     // 站点条跟随：点地图气泡时，对应的站点卡可能滚在屏幕外，只飞镜头用户会以为没反应
@@ -279,30 +284,41 @@ export struct MapPage {
 
   @Builder
   chipRow(label: string, idx: number) {
-    // 选中档走 EMPHASIZED 实底：真机上 NORMAL 胶囊表面压在瓦片上与瓦片同色、
-    // 显式 backgroundColor 也被样式吃掉（ItineraryPage「全图」钮同一实测口径）。
-    // 高度 44 最小命中区，字重随选中切换
-    Button(label)
-      .fontSize(TypeTokens.caption.size)
-      .fontWeight(idx === this.daySel + 1 ? 600 : 450)
+    // 裸 Button(Capsule) 压在瓦片上与瓦片同色、显式底色还被系统样式吃掉；
+    // 改成自带底的方角 chip，整条收进一张 surfaceElevated 浮起条（契约 §Shapes：
+    // option chip 20vp 方角、floating bar 30vp；tint 底配 ink 字 + 蓝描边，不配蓝字）。
+    ListItem() {
+      Row() {
+        Text(label)
+          .fontSize(TypeTokens.small.size)
+          .fontWeight(idx === this.daySel + 1 ? 600 : 450)
+          .fontColor(idx === this.daySel + 1 ? ColorTokens.ink : ColorTokens.muted)
+          .fontFeature("'tnum' on")
+      }
+      .justifyContent(FlexAlign.Center)
       .height(LayoutTokens.minTouchTarget)
-      .type(ButtonType.Capsule)
-      .buttonStyle(idx === this.daySel + 1 ? ButtonStyleMode.EMPHASIZED : ButtonStyleMode.NORMAL)
-      .margin({ right: SpaceTokens.xs })
-      .onClick((): void => {
-        this.applySel(idx === 0 ? ALL_DAYS : idx - 1);
+      .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
+      .borderRadius(RadiusTokens.card)
+      .backgroundColor(idx === this.daySel + 1 ? ColorTokens.primaryTint : Color.Transparent)
+      .border({
+        width: idx === this.daySel + 1 ? LayoutTokens.hairlineWidth * 2 : 0,
+        color: idx === this.daySel + 1 ? ColorTokens.primary : Color.Transparent
       })
+    }
+    .onClick((): void => {
+      this.applySel(idx === 0 ? ALL_DAYS : idx - 1);
+    })
   }
 
   @Builder
   stopChip(stop: MapStop) {
-    Button() {
-      Column() {
+    // 卡片定宽 168×72、圆角 20vp、标题提到 14fp：原来 132×56 / 12fp 在真机上
+    // 三张卡挤成一条小字带。选中态与地图气泡双向联动，走 tint 底 + ink 字 + 蓝描边。
+    ListItem() {
+      Column({ space: SpaceTokens.xxs }) {
         Row({ space: SpaceTokens.xxs }) {
-          // 编号原来是裸的品牌蓝 11fp 小字：深色档 `primary #0A84FF` 对 `surface_panel`
-          // 只有 4.03:1，AA 小字门槛 4.5 过不去（浅色档同一对 4.85 是过的）。
-          // 改成实心蓝底 + on_primary 数字——浅色 5.57 / 深色 5.14 都过，
-          // 也正好和地图气泡上的编号说同一种话（契约 §8 深色语义色标签即用 on_primary）
+          // 编号沿用实心蓝底 + on_primary 数字：深色档 primary 裸字只有 4.03:1，
+          // 这样浅 5.57 / 深 5.14 都过 AA（契约 §8）
           Text(`${stop.index}`)
             .fontSize(TypeTokens.overline.size)
             .fontWeight(600)
@@ -314,28 +330,32 @@ export struct MapPage {
             .borderRadius(RadiusTokens.pill)
             .backgroundColor(ColorTokens.primary)
           Text(stop.subtitle)
-            .fontSize(TypeTokens.overline.size)
+            .fontSize(TypeTokens.caption.size)
             .fontWeight(450)
             .fontColor(ColorTokens.muted)
             .fontFeature("'tnum' on")
         }
         Text(stop.title)
-          .fontSize(TypeTokens.caption.size)
-          .fontWeight(500)
+          .fontSize(TypeTokens.small.size)
+          .fontWeight(600)
           .fontColor(ColorTokens.ink)
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
       .alignItems(HorizontalAlign.Start)
+      .width(STOP_CARD_WIDTH)
+      .height(STOP_CARD_HEIGHT)
+      .padding({
+        left: SpaceTokens.sm, right: SpaceTokens.sm,
+        top: SpaceTokens.xs, bottom: SpaceTokens.xs
+      })
+      .borderRadius(RadiusTokens.card)
+      .backgroundColor(stop.index === this.selectedStop ? ColorTokens.primaryTint : ColorTokens.surfacePanel)
+      .border({
+        width: stop.index === this.selectedStop ? LayoutTokens.hairlineWidth * 2 : LayoutTokens.hairlineWidth,
+        color: stop.index === this.selectedStop ? ColorTokens.primary : ColorTokens.borderSubtle
+      })
     }
-    .width(132)
-    .height(56)
-    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
-    .type(ButtonType.Normal)
-    .borderRadius(RadiusTokens.capsule)
-    .buttonStyle(ButtonStyleMode.NORMAL)
-    // 卡片间距由 List 的 space 给（原先是 Scroll+Row 时代的 margin），
-    // 两边都留会变成 16vp 的间隔
     .onClick((): void => {
       this.focusStop(stop.index);
     })
@@ -387,21 +407,26 @@ export struct MapPage {
 
         Column() {
           if (this.days.length > 0) {
-            Scroll() {
-              Row() {
-                ForEach(this.chips(), (label: string, idx: number) => {
-                  this.chipRow(label, idx)
-                }, (label: string): string => `mapchip-${label}`)
-              }
-              .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
+            // 与站点条统一走官方 List：原 Scroll+Row 把两枚 chip 居中、右侧留一大片空白
+            // （真机 dump：全程 [355,281]、Day 1 [555,281]，轨道宽 1136）。
+            // 外层 30vp 浮起条给底，内部 chip 20vp 方角，选中才有 tint 与蓝描边。
+            List({ space: SpaceTokens.xxs }) {
+              ForEach(this.chips(), (label: string, idx: number) => {
+                this.chipRow(label, idx)
+              }, (label: string): string => `mapchip-${label}`)
             }
             .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
-            .scrollable(ScrollDirection.Horizontal)
+            .listDirection(Axis.Horizontal)
+            .alignListItem(ListItemAlign.Center)
             .scrollBar(BarState.Off)
             .width('100%')
-            // 让开标题栏（2026-11-08）：内容区从窗口 0 起（enableComponentSafeArea:false），
-            // 这一行原本直接落在 106..281 的栏带里，与状态栏时钟、标题叠在一起。
-            // 地图页此前一直是无图空态、这行不渲染，所以从没暴露过。
+            .height(LayoutTokens.minTouchTarget + SpaceTokens.xs)
+            .padding({ left: SpaceTokens.xxs, right: SpaceTokens.xxs })
+            .borderRadius(RadiusTokens.dock)
+            .backgroundColor(ColorTokens.surfaceElevated)
+            .border({ width: LayoutTokens.hairlineWidth, color: ColorTokens.borderSubtle })
+            .shadow(ShadowTokens.floating)
+            // 让开标题栏：内容区从窗口 0 起，不 margin 会落进 106..281 的栏带
             .margin({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
           }
 
@@ -409,14 +434,10 @@ export struct MapPage {
 
           if (this.stops.length > 0) {
             Column() {
-              // 站点条从 Scroll+Row 换成官方 List：只有 List 能按序号把某一项滚进视野
-              // （scrollToIndex），Scroll 得靠手算卡片宽度累加定位，一改样式就错位。
-              // 卡片定宽，故用 alignListItem 而不是 lanes（分栏会把 132 宽的卡压成半宽）。
+              // 官方 List 才能按序号把某一项滚进视野（scrollToIndex），卡片定宽不用 lanes
               List({ space: SpaceTokens.xs, scroller: this.stripScroller }) {
                 ForEach(this.stops, (stop: MapStop) => {
-                  ListItem() {
-                    this.stopChip(stop)
-                  }
+                  this.stopChip(stop)
                 }, (stop: MapStop): string => `mapstop-${stop.index}`)
               }
               .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
@@ -424,27 +445,26 @@ export struct MapPage {
               .alignListItem(ListItemAlign.Center)
               .scrollBar(BarState.Off)
               .width('100%')
-              .height(64)
+              .height(STOP_CARD_HEIGHT + SpaceTokens.xs)
               .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
             }
             .width('100%')
             .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
-            // 站点条钉在底部 Stack 上，原来直接坐进 dock 里（实拍「:30-」「和园」被压在
-            // dock 背后只露半截）；让它整条浮在 dock 之上
+            // 钉在底部 Stack 上、整条浮在 dock 之上；30vp 全圆角由前景 Column 统一内缩
             .margin({ bottom: LayoutTokens.floatingDockClearance })
-            .borderRadius({ topLeft: RadiusTokens.hero, topRight: RadiusTokens.hero })
-            // 站点条不是契约四处玻璃面之一（顶栏/分段/dock/吸顶日标题，禁令 9）：
-            // 原挂 THIN 材质属第五处玻璃。改实色 surface-elevated + hairline 描边；
-            // hitTestBehavior Transparent 让手势穿到地图不变。
-            // 阴影不再按深浅归零：黑 alpha 主题中性（契约 v2 §Elevation，深色下的可见性已列入 T9 实拍判据）
+            .borderRadius(RadiusTokens.dock)
             .backgroundColor(ColorTokens.surfaceElevated)
             .border({ width: LayoutTokens.hairlineWidth, color: ColorTokens.borderSubtle })
             .shadow(ShadowTokens.floating)
-          } else if (this.loaded) {
-            if (this.rootMode && this.noOnTrip) {
-              // 按下反馈交给家族唯一的 Pressable；视觉 36 高、命中带仍 44（responseRegion 居中包住）。
-              // 让位 dock 的 margin 挂在外包 Column 上——builder 尾随闭包之后不能再接属性。
-              Column() {
+          } else {
+            // 加载 / 引导空态 / 无坐标三态收成同一张浮起卡：圆角、底色、dock 让位只写一次
+            Column() {
+              if (!this.loaded) {
+                LoadingProgress()
+                  .width(36)
+                  .height(36)
+                  .color(ColorTokens.primary)
+              } else if (this.rootMode && this.noOnTrip) {
                 Pressable({
                   visualHeight: 36,
                   action: (): void => {
@@ -453,41 +473,36 @@ export struct MapPage {
                   }
                 }) {
                   Text('今天没有在途行程 · 去规划一趟')
-                    .fontSize(TypeTokens.caption.size)
+                    .fontSize(TypeTokens.small.size)
                     .fontWeight(600)
                     .fontColor(ColorTokens.primary)
                     .height(36)
                     .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
-                    .backgroundColor(ColorTokens.surfaceElevated)
-                    .borderRadius(RadiusTokens.pill)
                 }
+              } else {
+                Text(this.tripId.length === 0 ? '先从「行程」页签选一条行程' : '这条行程里没有可显示的坐标')
+                  .fontSize(TypeTokens.small.size)
+                  .fontColor(ColorTokens.muted)
               }
-              .margin({ bottom: LayoutTokens.floatingDockClearance })
-            } else {
-              Text(this.tripId.length === 0 ? '先从「行程」页签选一条行程' : '这条行程里没有可显示的坐标')
-                .fontSize(TypeTokens.caption.size)
-                .fontColor(ColorTokens.muted)
-                .height(36)
-                .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
-                .borderRadius(RadiusTokens.pill)
-                .backgroundColor(ColorTokens.surfaceElevated)
-                .margin({ bottom: LayoutTokens.floatingDockClearance })
-            }
-          } else {
-            Column() {
-              LoadingProgress()
-                .width(36)
-                .height(36)
-                .color(ColorTokens.primary)
             }
             .justifyContent(FlexAlign.Center)
-            .height(36)
+            .alignItems(HorizontalAlign.Center)
+            .width('100%')
+            .constraintSize({ minHeight: LayoutTokens.minTouchTarget + SpaceTokens.sm })
+            .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
+              top: SpaceTokens.xs, bottom: SpaceTokens.xs })
             .margin({ bottom: LayoutTokens.floatingDockClearance })
+            .borderRadius(RadiusTokens.dock)
+            .backgroundColor(ColorTokens.surfaceElevated)
+            .border({ width: LayoutTokens.hairlineWidth, color: ColorTokens.borderSubtle })
+            .shadow(ShadowTokens.floating)
           }
 
         }
         .width('100%')
         .height('100%')
+        // 所有浮层统一左右内缩：用 padding 不用 margin（width('100%') + 横向 margin 会整体右移溢出）
+        .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
         .hitTestBehavior(HitTestMode.Transparent)
       }
       .width('100%')

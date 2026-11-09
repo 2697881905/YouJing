@@ -170,6 +170,15 @@ export class MapStops {
     return out;
   }
 
+  /** 「全程 / Day N」切换条标签：页面只负责渲染，标签口径收在这里，离线可断言 */
+  static dayLabels(days: TripDay[]): string[] {
+    const out: string[] = ['全程'];
+    for (const day of days) {
+      out.push(`Day ${day.dayIndex}`);
+    }
+    return out;
+  }
+
   /** 传给子组件的标量键：内容没变就不必重铺 overlay */
   static signature(stops: MapStop[]): string {
     return stops.map((s: MapStop): string => `${s.index}:${s.latitude.toFixed(4)},${s.longitude.toFixed(4)}`)

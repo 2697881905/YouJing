@@ -108,6 +108,18 @@ export default function mapStopsTest(): void {
       expect(runs[1].length).assertEqual(1);
     });
 
+    it('day_labels_start_with_all_and_follow_day_index',
+      TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+        const stops: Activity[] = [act('a1', '09:00', '甲', ActivityCategory.SIGHT, 39.9, 116.4)];
+        const labels: string[] = MapStops.dayLabels([day(1, stops), day(2, stops)]);
+        expect(labels.length).assertEqual(3);
+        expect(labels[0]).assertEqual('全程');
+        expect(labels[1]).assertEqual('Day 1');
+        expect(labels[2]).assertEqual('Day 2');
+        // 没有行程日也只留「全程」，不给空轨道
+        expect(MapStops.dayLabels([]).length).assertEqual(1);
+      });
+
     it('signature_changes_with_content', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
       const a: MapStop[] = MapStops.fromSpots([spot('s1', 39.9, 116.4)]);
       const b: MapStop[] = MapStops.fromSpots([spot('s1', 39.9, 116.41)]);
