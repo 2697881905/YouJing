@@ -19,7 +19,7 @@ import { longFormMaxWidth } from '../utils/responsive';
 
 @Component
 export struct LegalDocReader {
-  /** 'privacy' | 'agreement' */
+  /** 'privacy' | 'agreement' | 'terms' | 'about'；取值统一由 LegalDocs.docOf 收口 */
   @Prop kind: string = 'privacy';
   @Prop readerWidth: Length = '100%';
   /**

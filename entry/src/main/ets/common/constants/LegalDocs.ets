@@ -1,8 +1,9 @@
 /**
- * 隐私政策 / 用户协议正文。
+ * 隐私政策 / 用户协议 / 关于正文。
  *
  * **逐条按当前实现写**（RDB 私有目录、Account Kit 只取 UnionID、日历明示同意、
- * 卡片本机渲染、SkillPrefill 取后即删），不是套模板。
+ * 卡片本机渲染、SkillPrefill 取后即删、rawfile/seed 内置五城、Map Kit 地点检索、
+ * Open-Meteo 天气），不是套模板。
  * 上架前须由法务复核：这里给的是"应用实际怎么做"的事实描述，不构成法律意见。
  * 改动任何一条前，先确认代码里的行为确实如此。
  */
@@ -71,11 +72,45 @@ const AGREEMENT: LegalDoc = {
 };
 
 /**
- * kind: 'privacy' | 'agreement'（登录页/同意弹窗）| 'terms'（「我的」页设置行）。
+ * 关于页。版本/包名照 `AppScope/app.json5`（1.0.0 / 1000000 / com.youjing.app）、
+ * SDK 照 `build-profile.json5`（26.0.0）；数据口径照 `common/constants/Cities.ets`、
+ * `resources/rawfile/seed/`、`data/MapKitCityStore.ets`、`data/WeatherStore.ets`。
+ * 升版本号时同步改这里第一节——本文件保持纯常量，不引 @kit，离线测试才跑得动。
+ */
+const ABOUT: LegalDoc = {
+  title: '关于有径',
+  updated: '2026-11-09',
+  intro: '有径是一款本地优先的行程规划工具。这里写清当前版本，以及行程里的数据从哪里来。',
+  sections: [
+    { heading: '版本', body: '当前版本 1.0.0（版本码 1000000），包名 com.youjing.app，'
+      + '运行于 HarmonyOS，编译 SDK 26.0.0。' },
+    { heading: '内置精选数据', body: '北京、上海、广州、深圳、杨凌五城的景点与住宿区域随应用打包，'
+      + '离线可用；含建议停留时长、闭馆日、预约提示与近似坐标。'
+      + '开放时间等信息请在出行前通过官方渠道核对。' },
+    { heading: '其他城市', body: '内置五城之外的城市走华为 Map Kit 地点检索，'
+      + '检索结果只在内存保留 30 分钟，不写进本机数据库；'
+      + '检索拿不到的评分与预约信息按缺省处理，界面标「以官方为准」。' },
+    { heading: '行程怎么生成', body: '默认由本机规则引擎按距离、开放时段与节奏排布动线，'
+      + '不调用大模型；该版本配置了云端生成服务时，改由大模型输出。'
+      + '两种形态都可能排得不合理，「为什么排在这里」只说明排程依据。' },
+    { heading: '天气', body: '行程进行中的当天，向公开天气服务 Open-Meteo 取当日天气；'
+      + '只发送首个行程地点四舍五入到 0.1 度的坐标（约 11 公里精度），'
+      + '不发行程内容，也不发账号标识。' }
+  ]
+};
+
+/**
+ * kind: 'privacy' | 'agreement'（登录页/同意弹窗）| 'terms' | 'about'（「我的」页设置行）。
  * 'terms' 与 'agreement' 是同一份协议的两个入口名，不能落到 PRIVACY——
- * 之前「我的 → 用户协议」点开显示的是隐私政策全文。
+ * 之前「我的 → 用户协议」点开显示的是隐私政策全文；'about' 同理。
  * 其余值一律退回隐私政策，不给空白页。
  */
 export function docOf(kind: string): LegalDoc {
-  return kind === 'agreement' || kind === 'terms' ? AGREEMENT : PRIVACY;
+  if (kind === 'agreement' || kind === 'terms') {
+    return AGREEMENT;
+  }
+  if (kind === 'about') {
+    return ABOUT;
+  }
+  return PRIVACY;
 }

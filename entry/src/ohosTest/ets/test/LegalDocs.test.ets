@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, TestType, Size, Level } from '@ohos/hypium';
-import { docOf } from '../../../main/ets/common/constants/LegalDocs';
+import { docOf, LegalSection } from '../../../main/ets/common/constants/LegalDocs';
 
 export default function legalDocsTest(): void {
   describe('LegalDocs', () => {
@@ -23,6 +23,18 @@ export default function legalDocsTest(): void {
         expect(docOf('terms').title).assertEqual('用户协议');
         expect(docOf('terms').sections.length).assertEqual(docOf('agreement').sections.length);
         expect(docOf('terms').sections[0].heading).assertEqual(docOf('agreement').sections[0].heading);
+      });
+
+    it('about_has_its_own_version_and_data_sources',
+      TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+        const about = docOf('about');
+        expect(about.title).assertEqual('关于有径');
+        expect(about.sections.length > 0).assertTrue();
+        const text: string = about.sections.map((s: LegalSection): string => s.heading + s.body).join('');
+        // 版本、内置数据之外的地图来源、天气来源，三件都要说清，别退回空壳
+        expect(text.indexOf('1.0.0') >= 0).assertTrue();
+        expect(text.indexOf('Map Kit') >= 0).assertTrue();
+        expect(text.indexOf('Open-Meteo') >= 0).assertTrue();
       });
 
     it('unknown_kind_falls_back_to_privacy_and_never_blank',
