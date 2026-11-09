@@ -36,6 +36,7 @@ import membershipCopyTest from './MembershipCopy.test';
 import activityIdsTest from './ActivityIds.test';
 import durationCnTest from './DurationCn.test';
 import navInsetTest from './NavInset.test';
+import legalDocsTest from './LegalDocs.test';
 
 export default function testsuite() {
   tripParserTest();
@@ -76,4 +77,5 @@ export default function testsuite() {
   activityIdsTest();
   durationCnTest();
   navInsetTest();
+  legalDocsTest();
 }

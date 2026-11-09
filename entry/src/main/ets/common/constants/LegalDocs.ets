@@ -70,7 +70,12 @@ const AGREEMENT: LegalDoc = {
   ]
 };
 
-/** kind: 'privacy' | 'agreement'；其余值一律退回隐私政策，不给空白页 */
+/**
+ * kind: 'privacy' | 'agreement'（登录页/同意弹窗）| 'terms'（「我的」页设置行）。
+ * 'terms' 与 'agreement' 是同一份协议的两个入口名，不能落到 PRIVACY——
+ * 之前「我的 → 用户协议」点开显示的是隐私政策全文。
+ * 其余值一律退回隐私政策，不给空白页。
+ */
 export function docOf(kind: string): LegalDoc {
-  return kind === 'agreement' ? AGREEMENT : PRIVACY;
+  return kind === 'agreement' || kind === 'terms' ? AGREEMENT : PRIVACY;
 }

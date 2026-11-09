@@ -304,12 +304,26 @@ export struct MinePage {
   body() {
     Column() {
       if (this.reading.length > 0) {
-        LegalDocReader({
-          kind: this.reading,
-          readerWidth: '100%',
-          onBack: (): void => {
-            this.reading = '';
-          }
+        // 就地展开是整页替换，不是弹窗：没有 bindSheet 那层外部高度上限，
+        // 必须由宿主给出确定高度，阅读器内部 Scroll.layoutWeight(1) 才有边界。
+        // 顶部让开穿底标题栏、底部让开悬浮 dock（与下面 List 分支同一套净空）。
+        Column() {
+          LegalDocReader({
+            kind: this.reading,
+            readerWidth: '100%',
+            fillHost: true,
+            onBack: (): void => {
+              this.reading = '';
+            }
+          })
+        }
+        .width('100%')
+        .height('100%')
+        .padding({
+          left: SpaceTokens.base,
+          right: SpaceTokens.base,
+          top: HdsChrome.contentTopInset(this.statusBarHeight),
+          bottom: LayoutTokens.floatingDockClearance
         })
       } else {
         List({ space: SpaceTokens.sm, scroller: this.barScroller }) {

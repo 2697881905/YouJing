@@ -22,6 +22,15 @@ export struct LegalDocReader {
   /** 'privacy' | 'agreement' */
   @Prop kind: string = 'privacy';
   @Prop readerWidth: Length = '100%';
+  /**
+   * 整页宿主（「我的」页就地展开）必须传 true。
+   * 阅读器根节点自己没有确定高度，内部 `Scroll().layoutWeight(1)` 在无界父容器里
+   * 会按内容撑开——十节长文整块铺出屏外，标题与「返回」都被挤走（真机 2026-11-09）。
+   * 弹窗 / bindSheet 有外部高度上限，故默认 false 保持原样。
+   * 不能靠调用方在自定义组件上挂 `.height()`：框架会静默忽略自定义组件的通用属性
+   * （INIT_REPORT §5ci 续 24），高度必须由本组件自己写。
+   */
+  @Prop fillHost: boolean = false;
   /** 断点（唯一来源 utils/breakpointCenter.ets）：宽屏给正文一个可读上限 */
   @StorageProp(KEY_CURRENT_BREAKPOINT) bp: string = 'sm';
   onBack: () => void = (): void => {};
@@ -89,6 +98,9 @@ export struct LegalDocReader {
     }
     .alignItems(HorizontalAlign.Start)
     .width(this.readerWidth)
+    // 0 = 不参与剩余分配（按内容量高，与弹窗/sheet 宿主同款）；1 = 吃满宿主高度，
+    // 内部 Scroll 才有边界。属性写在组件自己的根节点上，不靠调用方链式通用属性。
+    .layoutWeight(this.fillHost ? 1 : 0)
     // 这里的上限保持 `constraintSize.maxWidth` 而不是改成 .width()：
     // 本组件的宽度是调用方给的 `readerWidth`（@Prop），不能被返回值顶掉；
     // 而 屏2 那类"卡内子级 width('100%') 溢出被 clip"的问题在这里不存在——
