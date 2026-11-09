@@ -5,6 +5,9 @@
  * 卡片：place serif 21 / 日期 meta / 动线 5 节点（必去金）/ 三统计 / 状态行+进度。
  * 状态切换由数据驱动（trips 为空即 12b），生产接 RDB 后自动生效。
  * §7 必改已落：booking-badge padding 2→0、card-footer gap 6→4、dock padding 10→8。
+ * 两区结构（2026-11-10 用户定）：「正在进行的行程」（未出发+旅行中）大卡片置顶，
+ * 「历史行程」（已结束）手风琴默认收起置其下——大卡片 hero 圆角 28、地名 display serif，
+ * 历史区沿用原卡片；多选/搜索时历史区强制展开，收着就勾不到也看不见。
  * 多选删除：顶栏「多选」进入选择态——卡片点击改勾选、顶栏换 全选/删除/退出，
  * 左滑删除在选择态停用（两套手势不打架）；删除仍走 showAlertDialog 二次确认。
  */
@@ -39,6 +42,9 @@ import { requestSystemBarRefresh } from '../utils/systemBar';
 
 interface TripCardData {
   id: string;
+  /** 排序与分区用的原始日期（ISO 串字典序=日期序） */
+  startDate: string;
+  endDate: string;
   place: string;
   dateMeta: string;
   spots: string;
@@ -95,6 +101,8 @@ export struct TripsPage {
   @State private selecting: boolean = false;
   /** 已勾选行程 id：只整体换数组（push/splice 不触发 @State 渲染） */
   @State private selectedIds: string[] = [];
+  /** 「历史行程」手风琴：默认收起；多选/搜索态强制展开（historyExpanded） */
+  @State private historyOpen: boolean = false;
 
   /** 列表数据只从 RDB 取，刷新动作与首启共用一条路径（Refresh 需要 Promise 收尾） */
   private reload(): Promise<void> {
@@ -114,7 +122,9 @@ export struct TripsPage {
         if (today < r.startDate) {
           progress = 0;
           phase = 'upcoming';
-          statusLine = '未出发';
+          // 大卡片的状态行要回答「什么时候出发」：今天出发已是旅行中，不会出现 0 天
+          const countdown: number = DateUtils.spanDays(today, r.startDate) - 1;
+          statusLine = countdown > 0 ? `未出发 · 还有 ${countdown} 天出发` : '未出发';
           progressLabel = '未出发 · 0%';
         } else if (onTrip) {
           progress = Math.min(100, Math.round((DateUtils.spanDays(r.startDate, today) / span) * 100));
@@ -129,7 +139,7 @@ export struct TripsPage {
           progressLabel = '已结束 · 可回顾';
         }
         const t: TripCardData = {
-          id: r.id, place: r.destination,
+          id: r.id, startDate: r.startDate, endDate: r.endDate, place: r.destination,
           dateMeta: `${r.startDate} – ${r.endDate} · ${span} 天 · ${r.people} 人`,
           spots: `${r.spotCount}`, walk: `${r.legCount} 段`, bookingNum: `${r.bookingCount}`,
           bookingBadge: r.totalCost > 0 ? MoneyText.yuan(r.totalCost) : '',
@@ -165,15 +175,228 @@ export struct TripsPage {
     });
   }
 
-  private visibleTrips(): TripCardData[] {
+  private matchesKeyword(t: TripCardData): boolean {
     const k: string = this.keyword.trim();
-    if (k.length === 0) {
-      return this.trips;
-    }
-    return this.trips.filter((t: TripCardData): boolean => t.place.includes(k) || t.dateMeta.includes(k));
+    return k.length === 0 || t.place.includes(k) || t.dateMeta.includes(k);
   }
 
-  /** 官方行级动作：左滑出删除钮，删除前走系统对话框二次确认（TripDao.deleteTrip 此前无调用方） */
+  /** 「正在进行的行程」：未出发 + 旅行中（今天还在行程区间里的活行程），越早出发越靠前 */
+  private visibleActive(): TripCardData[] {
+    return this.trips
+      .filter((t: TripCardData): boolean =>
+        (t.phase === 'upcoming' || t.phase === 'onTrip') && this.matchesKeyword(t))
+      .sort((a: TripCardData, b: TripCardData): number => a.startDate.localeCompare(b.startDate));
+  }
+
+  /** 「历史行程」：已结束，最近结束的在前 */
+  private visibleHistory(): TripCardData[] {
+    return this.trips
+      .filter((t: TripCardData): boolean => t.phase === 'past' && this.matchesKeyword(t))
+      .sort((a: TripCardData, b: TripCardData): number => b.endDate.localeCompare(a.endDate));
+  }
+
+  /** 搜索/全选作用域 = 两区并集 */
+  private allVisible(): TripCardData[] {
+    return this.visibleActive().concat(this.visibleHistory());
+  }
+
+  /** 历史区展开判定：手风琴默认收起；多选要勾历史、搜索要看见命中，两种状态强制展开 */
+  private historyExpanded(): boolean {
+    return this.historyOpen || this.selecting || this.keyword.trim().length > 0;
+  }
+
+  /** 卡片点击的统一去处（选择态除外）：在途→在途页、可回顾→回顾、其余→一镜到底详情 */
+  private openTrip(t: TripCardData): void {
+    if (this.selecting) {
+      this.toggleSelected(t.id);
+      return;
+    }
+    if (t.onTrip) {
+      this.pathStack.pushPath({ name: 'OnTrip', param: t.id });
+    } else if (t.reviewable) {
+      this.pathStack.pushPath({ name: 'Review', param: t.id });
+    } else {
+      // 一镜到底：量卡片帧 + 截图后推详情；量不到帧也直推（点击绝不吞）
+      openItineraryLongTake(this.getUIContext(), this.pathStack, t.id,
+        'trip-card-' + t.id, RadiusTokens.card);
+    }
+  }
+
+  /** 选择态的勾选圈：占位在最左，卡片点击语义从「打开」换成「勾选」 */
+  @Builder
+  selectCircle(t: TripCardData) {
+    if (this.selecting) {
+      SymbolGlyph(this.isSelected(t.id) ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.circle'))
+        .fontSize(IconSizes.control)
+        .fontColor([this.isSelected(t.id) ? ColorTokens.primary : ColorTokens.icon])
+        .margin({ right: SpaceTokens.sm })
+    }
+  }
+
+  @Builder
+  statRow(t: TripCardData) {
+    Row() {
+      this.statCol(t.spots, '景点', t.muted)
+      this.statCol(t.walk, '通勤', t.muted)
+      this.statCol(t.bookingNum, '需预约', t.muted)
+    }
+    .alignItems(VerticalAlign.Top)
+    .width('100%')
+    .margin({ top: SpaceTokens.sm })
+  }
+
+  @Builder
+  progressBlock(t: TripCardData) {
+    Column({ space: SpaceTokens.xxs }) {
+      Row() {
+        // 状态只说一次：此前「已结束」和「已结束 · 100%」上下各印一遍
+        Text(t.progressLabel)
+          .fontSize(TypeTokens.caption.size)
+          .fontWeight(450)
+          .fontColor(t.phase === 'onTrip' ? ColorTokens.primary : ColorTokens.muted)
+          .fontFeature("'tnum' on")
+          .layoutWeight(1)
+        // 金额此前贴在「需预约」的数字旁边，实拍读成了「5¥1540 需预约」；
+        // 上一版把它做成第四格统计，钉宽屏断点复拍时四格在窄列里整个竖排、
+        // ¥1540 拆成三行——四格太脆，改成末行右端一个带标签的稳定落点
+        if (t.bookingBadge.length > 0) {
+          Text(`总花费 ${t.bookingBadge}`)
+            .fontSize(TypeTokens.caption.size)
+            .fontWeight(600)
+            .fontColor(ColorTokens.ink)
+            .fontFeature("'tnum' on")
+            .margin({ left: SpaceTokens.xs })
+        }
+      }
+      .alignItems(VerticalAlign.Center)
+      .width('100%')
+
+      Progress({ value: t.progress, total: 100, type: ProgressType.Linear })
+        // 只有「旅行中」用品牌蓝；未出发/已结束退到分隔色，
+        // 否则一列表全是同一条蓝线，读起来就是渲染残留（§5.14）
+        .color(t.phase === 'onTrip' ? ColorTokens.primary : ColorTokens.separator)
+        // 未填的那一截同 §5.14：框架默认轨色比卡面亮，整条读起来就是卡里的一条分隔线
+        .backgroundColor(ColorTokens.surfaceSunken)
+        .width('100%')
+        // 不给可及名时读屏念的是框架原话「35.000000」（屏4 的进度条真机实测过这条）
+        .accessibilityText(`行程进度 ${Math.round(t.progress)}%`)
+    }
+    .alignItems(HorizontalAlign.Start)
+    .width('100%')
+    .margin({ top: SpaceTokens.sm })
+  }
+
+  /** 历史行程卡（也用于搜索命中的普通卡）：21 serif 地名 + 日期 + 三统计 + 进度 */
+  @Builder
+  tripCard(t: TripCardData) {
+    // 整卡可点是这屏的主导航：按压反馈交给家族唯一的 Pressable
+    // （opacity 0.92 + scale 0.97 / 140ms）；视觉仍由内层 Column 原样承担。
+    Pressable({
+      fillWidth: true,
+      action: (): void => {
+        this.openTrip(t);
+      }
+    }) {
+    Column() {
+      Row() {
+        this.selectCircle(t)
+        Text(t.place)
+          .fontSize(TypeTokens.title.size)
+          .fontWeight(700)
+          .fontFamily(TypeTokens.title.family)
+          .fontColor(ColorTokens.ink)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .layoutWeight(1)
+        this.phaseChip(t.phase)
+      }
+      .alignItems(VerticalAlign.Center)
+      .width('100%')
+
+      Text(t.dateMeta)
+        .fontSize(TypeTokens.caption.size)
+        .fontWeight(450)
+        .fontColor(ColorTokens.muted)
+        .fontFeature("'tnum' on")
+        .margin({ top: SpaceTokens.xxs })
+
+      this.statRow(t)
+      this.progressBlock(t)
+    }
+    .alignItems(HorizontalAlign.Start)
+    .width('100%')
+    .padding(SpaceTokens.base)
+    .borderRadius(RadiusTokens.card)
+    // 契约 components.card.backgroundColor = {colors.surface-elevated}。
+    // 原来填 canvas：浅色档靠 cardAmbient 投影还分得开卡与底，深色档投影实测不可见
+    // （2026-11-03 实拍：全屏 1767/1950 行读数都是 canvas 的 L=18，卡面档 L=30 零命中）
+    // ⇒ 卡片在深色下完全没有边界。改回契约档。
+    .backgroundColor(ColorTokens.surfaceElevated)
+    .shadow(ShadowTokens.cardAmbient)
+    .accessibilityText(this.selecting
+      ? `${t.place} ${t.dateMeta}，${this.isSelected(t.id) ? '已选中' : '未选中'}，点按切换选中`
+      : `${t.place} ${t.dateMeta}，${t.statusLine}，` +
+      (t.reviewable ? '打开旅行回顾' : '打开行程'))
+    .id('trip-card-' + t.id)
+    }
+  }
+
+  /** 「正在进行」大卡片：display serif 地名 + 状态行（第 N 日/倒计时）+ 同款统计与进度；
+   *  hero 圆角 28、内缩 lg 与历史卡（card 20/base）拉开一档体量 */
+  @Builder
+  activeCard(t: TripCardData) {
+    Pressable({
+      fillWidth: true,
+      action: (): void => {
+        this.openTrip(t);
+      }
+    }) {
+    Column({ space: SpaceTokens.sm }) {
+      Row() {
+        this.selectCircle(t)
+        Text(t.place)
+          .fontSize(TypeTokens.display.size)
+          .fontWeight(TypeTokens.display.weight)
+          .fontFamily(TypeTokens.display.family)
+          .lineHeight(TypeTokens.display.lineHeight)
+          .fontColor(ColorTokens.ink)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .layoutWeight(1)
+        this.phaseChip(t.phase)
+      }
+      .alignItems(VerticalAlign.Center)
+      .width('100%')
+
+      // 状态行是这屏的叙事主句：旅行中报「第 N 日」、未出发报倒计时（reload 生成）
+      Text(t.statusLine)
+        .fontSize(TypeTokens.small.size)
+        .fontWeight(600)
+        .fontColor(t.phase === 'onTrip' ? ColorTokens.primary : ColorTokens.body)
+        .fontFeature("'tnum' on")
+
+      Text(t.dateMeta)
+        .fontSize(TypeTokens.caption.size)
+        .fontWeight(450)
+        .fontColor(ColorTokens.muted)
+        .fontFeature("'tnum' on")
+
+      this.statRow(t)
+      this.progressBlock(t)
+    }
+    .alignItems(HorizontalAlign.Start)
+    .width('100%')
+    .padding(SpaceTokens.lg)
+    .borderRadius(RadiusTokens.hero)
+    .backgroundColor(ColorTokens.surfaceElevated)
+    .shadow(ShadowTokens.cardAmbient)
+    .accessibilityText(this.selecting
+      ? `${t.place} ${t.dateMeta}，${this.isSelected(t.id) ? '已选中' : '未选中'}，点按切换选中`
+      : `${t.place} ${t.dateMeta}，${t.statusLine}，` +
+      (t.reviewable ? '打开旅行回顾' : '打开行程'))
+    .id('trip-card-' + t.id)
+    }
+  }
   @Builder
   deleteAction(t: TripCardData) {
     Row() {
@@ -254,13 +477,13 @@ export struct TripsPage {
   }
 
   private isAllVisibleSelected(): boolean {
-    const vis: TripCardData[] = this.visibleTrips();
+    const vis: TripCardData[] = this.allVisible();
     return vis.length > 0 && vis.every((t: TripCardData): boolean => this.isSelected(t.id));
   }
 
-  /** 全选只圈搜索过滤后的可见项；取消也只摘可见项，被滤掉的勾选原样保留 */
+  /** 全选只圈搜索过滤后的可见项（两区并集）；取消也只摘可见项，被滤掉的勾选原样保留 */
   private toggleSelectAll(): void {
-    const vis: TripCardData[] = this.visibleTrips();
+    const vis: TripCardData[] = this.allVisible();
     if (this.isAllVisibleSelected()) {
       this.selectedIds = this.selectedIds.filter((id: string): boolean =>
         !vis.some((t: TripCardData): boolean => t.id === id));
@@ -412,122 +635,6 @@ export struct TripsPage {
     .layoutWeight(1)
   }
 
-  @Builder
-  tripCard(t: TripCardData) {
-    // 整卡可点是这屏的主导航：按压反馈交给家族唯一的 Pressable
-    // （opacity 0.92 + scale 0.97 / 140ms）；视觉仍由内层 Column 原样承担。
-    Pressable({
-      fillWidth: true,
-      action: (): void => {
-        if (this.selecting) {
-          this.toggleSelected(t.id);
-          return;
-        }
-        if (t.onTrip) {
-          this.pathStack.pushPath({ name: 'OnTrip', param: t.id });
-        } else if (t.reviewable) {
-          this.pathStack.pushPath({ name: 'Review', param: t.id });
-        } else {
-          // 一镜到底：量卡片帧 + 截图后推详情；量不到帧也直推（点击绝不吞）
-          openItineraryLongTake(this.getUIContext(), this.pathStack, t.id,
-            'trip-card-' + t.id, RadiusTokens.card);
-        }
-      }
-    }) {
-    Column() {
-      Row() {
-        if (this.selecting) {
-          // 选择态的勾选圈：占位在最左，卡片点击语义从「打开」换成「勾选」
-          SymbolGlyph(this.isSelected(t.id) ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.circle'))
-            .fontSize(IconSizes.control)
-            .fontColor([this.isSelected(t.id) ? ColorTokens.primary : ColorTokens.icon])
-            .margin({ right: SpaceTokens.sm })
-        }
-        Text(t.place)
-          .fontSize(TypeTokens.title.size)
-          .fontWeight(700)
-          .fontFamily(TypeTokens.title.family)
-          .fontColor(ColorTokens.ink)
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .layoutWeight(1)
-        this.phaseChip(t.phase)
-      }
-      .alignItems(VerticalAlign.Center)
-      .width('100%')
-
-      Text(t.dateMeta)
-        .fontSize(TypeTokens.caption.size)
-        .fontWeight(450)
-        .fontColor(ColorTokens.muted)
-        .fontFeature("'tnum' on")
-        .margin({ top: SpaceTokens.xxs })
-
-      Row() {
-        this.statCol(t.spots, '景点', t.muted)
-        this.statCol(t.walk, '通勤', t.muted)
-        this.statCol(t.bookingNum, '需预约', t.muted)
-      }
-      .alignItems(VerticalAlign.Top)
-      .width('100%')
-      .margin({ top: SpaceTokens.sm })
-
-      Column({ space: SpaceTokens.xxs }) {
-        Row() {
-          // 状态只说一次：此前「已结束」和「已结束 · 100%」上下各印一遍
-          Text(t.progressLabel)
-            .fontSize(TypeTokens.caption.size)
-            .fontWeight(450)
-            .fontColor(t.phase === 'onTrip' ? ColorTokens.primary : ColorTokens.muted)
-            .fontFeature("'tnum' on")
-            .layoutWeight(1)
-          // 金额此前贴在「需预约」的数字旁边，实拍读成了「5¥1540 需预约」；
-          // 上一版把它做成第四格统计，钉宽屏断点复拍时四格在窄列里整个竖排、
-          // ¥1540 拆成三行——四格太脆，改成末行右端一个带标签的稳定落点
-          if (t.bookingBadge.length > 0) {
-            Text(`总花费 ${t.bookingBadge}`)
-              .fontSize(TypeTokens.caption.size)
-              .fontWeight(600)
-              .fontColor(ColorTokens.ink)
-              .fontFeature("'tnum' on")
-              .margin({ left: SpaceTokens.xs })
-          }
-        }
-        .alignItems(VerticalAlign.Center)
-        .width('100%')
-
-        Progress({ value: t.progress, total: 100, type: ProgressType.Linear })
-          // 只有「旅行中」用品牌蓝；未出发/已结束退到分隔色，
-          // 否则一列表全是同一条蓝线，读起来就是渲染残留（§5.14）
-          .color(t.phase === 'onTrip' ? ColorTokens.primary : ColorTokens.separator)
-          // 未填的那一截同 §5.14：框架默认轨色比卡面亮，整条读起来就是卡里的一条分隔线
-          .backgroundColor(ColorTokens.surfaceSunken)
-          .width('100%')
-          // 不给可及名时读屏念的是框架原话「35.000000」（屏4 的进度条真机实测过这条）
-          .accessibilityText(`行程进度 ${Math.round(t.progress)}%`)
-      }
-      .alignItems(HorizontalAlign.Start)
-      .width('100%')
-      .margin({ top: SpaceTokens.sm })
-    }
-    .alignItems(HorizontalAlign.Start)
-    .width('100%')
-    .padding(SpaceTokens.base)
-    .borderRadius(RadiusTokens.card)
-    // 契约 components.card.backgroundColor = {colors.surface-elevated}。
-    // 原来填 canvas：浅色档靠 cardAmbient 投影还分得开卡与底，深色档投影实测不可见
-    // （2026-11-03 实拍：全屏 1767/1950 行读数都是 canvas 的 L=18，卡面档 L=30 零命中）
-    // ⇒ 卡片在深色下完全没有边界。改回契约档。
-    .backgroundColor(ColorTokens.surfaceElevated)
-    .shadow(ShadowTokens.cardAmbient)
-    .accessibilityText(this.selecting
-      ? `${t.place} ${t.dateMeta}，${this.isSelected(t.id) ? '已选中' : '未选中'}，点按切换选中`
-      : `${t.place} ${t.dateMeta}，${t.statusLine}，` +
-      (t.reviewable ? '打开旅行回顾' : '打开行程'))
-    .id('trip-card-' + t.id)
-    }
-  }
-
   /** 根页模式：作为 tab 的内容区内联在 TabContent 里（有据路线 B），此时本页自带 HdsNavigation */
   rootMode: boolean = false;
 
@@ -574,6 +681,68 @@ export struct TripsPage {
     .width('100%')
     // 水平内缩已由宿主 List 的左右 padding 提供（2026-11-08 移进列表后去掉重复内缩）
     .padding({ top: SpaceTokens.xs })
+  }
+
+  /** 小节标题：区名 + 数量（不做成卡，节标题要轻） */
+  @Builder
+  sectionTitle(label: string, count: number) {
+    Row({ space: SpaceTokens.xs }) {
+      Text(label)
+        .fontSize(TypeTokens.headline.size)
+        .fontWeight(TypeTokens.headline.weight)
+        .fontColor(ColorTokens.ink)
+      Text(`${count} 条`)
+        .fontSize(TypeTokens.caption.size)
+        .fontWeight(450)
+        .fontColor(ColorTokens.muted)
+        .fontFeature("'tnum' on")
+    }
+    .alignItems(VerticalAlign.Center)
+    .width('100%')
+    .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xxs })
+    .accessibilityText(`${label}，${count} 条`)
+  }
+
+  /** 进行中区空态：全空状态走上面的 12b 分支，这里只处理「有历史没进行中」的页面 */
+  @Builder
+  activeEmptyRow() {
+    Text('暂无进行中的行程，规划好出发后会出现在这里')
+      .fontSize(TypeTokens.small.size)
+      .fontColor(ColorTokens.muted)
+      .width('100%')
+      .padding({ top: SpaceTokens.xs, bottom: SpaceTokens.xs })
+  }
+
+  /** 「历史行程」手风琴头：默认收起，整行可点展开/收起（多选与搜索态强制展开时箭头指向会跟着走） */
+  @Builder
+  historyHeader(count: number) {
+    Pressable({
+      fillWidth: true,
+      action: (): void => {
+        this.historyOpen = !this.historyOpen;
+      }
+    }) {
+    Row({ space: SpaceTokens.xs }) {
+      Text('历史行程')
+        .fontSize(TypeTokens.headline.size)
+        .fontWeight(TypeTokens.headline.weight)
+        .fontColor(ColorTokens.ink)
+      Text(`${count} 条`)
+        .fontSize(TypeTokens.caption.size)
+        .fontWeight(450)
+        .fontColor(ColorTokens.muted)
+        .fontFeature("'tnum' on")
+      Blank()
+      SymbolGlyph(this.historyExpanded() ? $r('sys.symbol.chevron_up') : $r('sys.symbol.chevron_down'))
+        .fontSize(IconSizes.control)
+        .fontColor([ColorTokens.icon])
+    }
+    .alignItems(VerticalAlign.Center)
+    .width('100%')
+    .padding({ top: SpaceTokens.base, bottom: SpaceTokens.base })
+    .accessibilityText(`历史行程，${count} 条，${this.historyExpanded() ? '点按收起' : '点按展开'}`)
+    .id('history-header')
+    }
   }
 
   @Builder
@@ -661,9 +830,18 @@ export struct TripsPage {
                     .margin({ top: SpaceTokens.xs })
                 }
               }
-              ForEach(this.visibleTrips(), (t: TripCardData) => {
+              // —— 区一：正在进行的行程（未出发+旅行中），大卡片置顶 ——
+              ListItem() {
+                this.sectionTitle('正在进行的行程', this.visibleActive().length)
+              }
+              if (this.visibleActive().length === 0) {
                 ListItem() {
-                  this.tripCard(t)
+                  this.activeEmptyRow()
+                }
+              }
+              ForEach(this.visibleActive(), (t: TripCardData) => {
+                ListItem() {
+                  this.activeCard(t)
                 }
                 // 选择态不出滑删：勾选手势和左滑在同一张卡上会互相干扰
                 .swipeAction(this.selecting
@@ -671,7 +849,23 @@ export struct TripsPage {
                   : { end: this.deleteAction(t), edgeEffect: SwipeEdgeEffect.Spring })
               // key 只用稳定 id：状态/进度变化靠 @State 重渲染，不带进 key
               }, (t: TripCardData): string => `trip-${t.id}`)
-              if (this.visibleTrips().length === 0) {
+              // —— 区二：历史行程，手风琴默认收起置其下 ——
+              if (this.visibleHistory().length > 0) {
+                ListItem() {
+                  this.historyHeader(this.visibleHistory().length)
+                }
+              }
+              if (this.historyExpanded() && this.visibleHistory().length > 0) {
+                ForEach(this.visibleHistory(), (t: TripCardData) => {
+                  ListItem() {
+                    this.tripCard(t)
+                  }
+                  .swipeAction(this.selecting
+                    ? { edgeEffect: SwipeEdgeEffect.Spring }
+                    : { end: this.deleteAction(t), edgeEffect: SwipeEdgeEffect.Spring })
+                }, (t: TripCardData): string => `trip-${t.id}`)
+              }
+              if (this.allVisible().length === 0) {
                 ListItem() {
                   Text(`没有匹配「${this.keyword}」的行程`)
                     .fontSize(TypeTokens.small.size)
