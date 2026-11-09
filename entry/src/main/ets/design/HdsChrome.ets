@@ -93,9 +93,11 @@ export interface ChromeSpec {
 }
 
 /**
- * 栏标题自绘行（2026-11-09 对齐「有据」）：有据**所有**栏标题都是衬线＋品牌蓝
- * （`stackBuilder` 自绘：profileStackTitle / messageBrandRow / draftTitleRow），
- * HDS 内置 mainTitle 是系统默认 sans＋继承色——真机对照，用户点名不一致的就是这条。
+ * 栏标题自绘行（2026-11-09 对齐「有据」）：有据**所有**栏标题都是衬线＋正文字色
+ * （`stackBuilder` 自绘：profileStackTitle / messageBrandRow / draftTitleRow——它的
+ * `ColorTokens.primary` 实为 `ds_text_primary` 正文字色，浅色黑/深色白，**不是品牌蓝**；
+ * 首版错搬成有径的 primary（品牌蓝），用户真机点名改黑）。HDS 内置 mainTitle 是
+ * 系统默认 sans＋继承色——这就是最初用户看到的字体不一致。
  * 两档口径全抄有据：
  * · 根页（backSlot:false，无返回钮）：title 档 21/700/32，左内缩 base（16vp）
  * · 子页（默认，有返回钮）：headline 档 18/600/24 **显式衬线**（有据 headline 档本身
@@ -111,7 +113,7 @@ function chromeTitleRow(spec: ChromeSpec) {
         .fontFamily(spec.backSlot === false ? TypeTokens.title.family : FontFamilyNames.serif)
         .fontWeight(spec.backSlot === false ? TypeTokens.title.weight : TypeTokens.headline.weight)
         .lineHeight(spec.backSlot === false ? TypeTokens.title.lineHeight : TypeTokens.headline.lineHeight)
-        .fontColor(ColorTokens.primary)
+        .fontColor(ColorTokens.ink)
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
       if (spec.subTitle !== undefined && spec.subTitle.length > 0) {
