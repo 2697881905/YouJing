@@ -24,7 +24,9 @@ import { SpaceTokens } from '../design/SpaceTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
 import { GlassTokens } from '../components/GlassTokens';
-import { GlassBlurStyle } from '../utils/immersiveMaterial';
+import { GlassBlurStyle, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE,
+  isImmersiveLightSenseSupported } from '../utils/immersiveMaterial';
+import { HdsMiniBarButton } from '../components/HdsMiniBarButton';
 import { HdsNavigation, HdsNavigationTitleMode, HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UIDesignKit';
 import { routerMap } from './AppRouter';
 import type { HdsNavigationMenuItemOptions, HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
@@ -53,6 +55,9 @@ const DOCK_MASK_BELOW_VP: number = 21;
 /** 站点卡定宽定高：横向 List 需要确定项宽，168vp 够 14fp 标题单行 */
 const STOP_CARD_WIDTH: number = 168;
 const STOP_CARD_HEIGHT: number = 72;
+/** 顶部 chip 定宽定高：玻璃珠由 HdsTabs 浮动栏渲染，宽高必须显式给档 */
+const CHIP_BEAD_WIDTH: number = 120;
+const CHIP_BEAD_HEIGHT: number = LayoutTokens.minTouchTarget + SpaceTokens.sm;
 const DOCK_MASK_HEIGHT_VP: number = DOCK_MASK_FADE_VP + DOCK_MASK_PLATEAU_VP + DOCK_MASK_BELOW_VP;
 /** 实心段起止 = 淡入段占比 / (淡入 + 实心) 占比 */
 const MASK_SOLID_FROM: number = DOCK_MASK_FADE_VP / DOCK_MASK_HEIGHT_VP;
@@ -92,6 +97,15 @@ export struct MapPage {
   private seq: number = 0;
   /** 站点条滚动器：点地图气泡时把对应站点卡带回视野（切片1 A） */
   private stripScroller: Scroller = new Scroller();
+
+  /**
+   * 只有「未选中 + 设备支持 HDS 沉浸光感」才出玻璃珠。选中态保留实心底：
+   * 玻璃珠是半透明的，当前档必须一眼能抓到。门禁与 dock 玻璃珠同一条
+   *（Index.useHdsDock），低版本设备退回自绘磨砂，不会加载即崩。
+   */
+  private beadOn(idx: number): boolean {
+    return idx !== this.daySel + 1 && isImmersiveLightSenseSupported();
+  }
   @StorageProp('statusBarHeight') statusBarHeight: number = 0;
 
   /**
@@ -286,29 +300,60 @@ export struct MapPage {
 
   @Builder
   chipRow(label: string, idx: number) {
-    // 未选中走仓内 GlassPanel 同款自绘玻璃：半透明 PILL_FILL + 系统背景模糊
-    // + glassBorderWidth 玻璃描边；选中仍有据 `brandSolid` 实心底 + onBrand 字
-    // （深色档 #0050A0 上白字 7.91:1），玻璃与实心形成层次，醒目度不丢。
-    // 字阶/圆角仍按契约 option-chip：ink 16fp、20vp 方角。
+    // 未选中态 = dock 那颗玻璃珠的同款材质（HdsMiniBarButton 的 Row 包 HdsTabs +
+    // barFloatingStyle.systemMaterialEffect IMMERSIVE+EXQUISITE，与右上角「全览」圆钮同族）。
+    // 这是仓内唯一在内容区**覆盖层**能出真折射光感的通道：组件级 systemMaterial 在覆盖层
+    // 不出图（2026-11-09 真机实证：chip 透明到只剩黑字浮在地图上）。只给顶部两枚启用，
+    // 底部站点卡保持自绘磨砂，不碰刚修好的横滑。
+    // 选中态仍走 brandSolid 实心底：玻璃半透，当前档必须一眼能抓到。
+    // 文字层落在 V1 上下文的 Stack 里，不进 @ComponentV2 的内容槽——那个闭包读不到
+    // 本页 @State daySel 的更新（Index.dockSelectionPill 同一条真机结论）。
     ListItem() {
-      Row() {
-        Text(label)
-          .fontSize(TypeTokens.body.size)
-          .fontWeight(idx === this.daySel + 1 ? 600 : 450)
-          .fontColor(idx === this.daySel + 1 ? ColorTokens.onBrand : ColorTokens.ink)
-          .fontFeature("'tnum' on")
+      Stack({ alignContent: Alignment.Center }) {
+        if (this.beadOn(idx)) {
+          // 玻璃层：内容槽留空，只出材质；折射环与落影都由系统渲染，不再自绘
+          HdsMiniBarButton({
+            maskColor: '#00ffffff',
+            barWidth: CHIP_BEAD_WIDTH,
+            barHeight: CHIP_BEAD_HEIGHT,
+            contentPadding: 0,
+            // 组件默认 8vp 会把浮动栏底边抬高 8vp：玻璃珠比选中态矮一截且偏上
+            // （真机 TabBar [281,431] vs 容器 [281,456]），归零才两态等高对齐
+            barBottomMargin: 0,
+            materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
+            materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE
+          }) {
+            Column()
+          }
+        } else {
+          // 选中态 / 低版本回退：原来的自绘面（实心蓝底或 GlassPanel 同款自绘玻璃）
+          Row()
+            .width(CHIP_BEAD_WIDTH)
+            .height(CHIP_BEAD_HEIGHT)
+            // HdsTabs 浮动栏固定胶囊形，选中态也走 pill，两态形状才统一
+            .borderRadius(RadiusTokens.pill)
+            .backgroundBlurStyle(idx === this.daySel + 1 ? BlurStyle.NONE : GlassBlurStyle.Card)
+            .backgroundColor(idx === this.daySel + 1 ? ColorTokens.brandSolid : GlassTokens.PILL_FILL)
+            .border({
+              width: idx === this.daySel + 1 ? 0 : LayoutTokens.glassBorderWidth,
+              color: idx === this.daySel + 1 ? Color.Transparent : GlassTokens.PILL_RIM
+            })
+            .shadow(ShadowTokens.pillFloat)
+        }
+        // 文字层：与玻璃同宽同高、居中叠上，尺寸不依赖 HdsTabs 内部布局
+        Row() {
+          Text(label)
+            .fontSize(TypeTokens.body.size)
+            .fontWeight(idx === this.daySel + 1 ? 600 : 450)
+            .fontColor(idx === this.daySel + 1 ? ColorTokens.onBrand : ColorTokens.ink)
+            .fontFeature("'tnum' on")
+        }
+        .justifyContent(FlexAlign.Center)
+        .width(CHIP_BEAD_WIDTH)
+        .height(CHIP_BEAD_HEIGHT)
       }
-      .justifyContent(FlexAlign.Center)
-      .height(LayoutTokens.minTouchTarget + SpaceTokens.sm)
-      .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
-      .borderRadius(RadiusTokens.card)
-      .backgroundBlurStyle(idx === this.daySel + 1 ? BlurStyle.NONE : GlassBlurStyle.Card)
-      .backgroundColor(idx === this.daySel + 1 ? ColorTokens.brandSolid : GlassTokens.PILL_FILL)
-      .border({
-        width: idx === this.daySel + 1 ? 0 : LayoutTokens.glassBorderWidth,
-        color: idx === this.daySel + 1 ? Color.Transparent : GlassTokens.PILL_RIM
-      })
-      .shadow(ShadowTokens.pillFloat)
+      .width(CHIP_BEAD_WIDTH)
+      .height(CHIP_BEAD_HEIGHT)
     }
     .onClick((): void => {
       this.applySel(idx === 0 ? ALL_DAYS : idx - 1);
