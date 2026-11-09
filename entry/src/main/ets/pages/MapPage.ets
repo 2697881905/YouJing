@@ -23,6 +23,8 @@ import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
 import { ShadowTokens } from '../design/ShadowTokens';
+import { GlassTokens } from '../components/GlassTokens';
+import { GlassBlurStyle } from '../utils/immersiveMaterial';
 import { HdsNavigation, HdsNavigationTitleMode, HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UIDesignKit';
 import { routerMap } from './AppRouter';
 import type { HdsNavigationMenuItemOptions, HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
@@ -284,9 +286,10 @@ export struct MapPage {
 
   @Builder
   chipRow(label: string, idx: number) {
-    // 契约 `option-chip`：surface-elevated 白面 + ink 16fp + 20vp 方角、未选中无描边。
-    // 选中改有据 `brandSolid` 实心底 + onBrand 字（深色档 #0050A0 上白字 7.91:1），
-    // 比 tint + 细描边醒目得多；两者都挂 pillFloat 托起影，浮在瓦片上才有边界。
+    // 未选中走仓内 GlassPanel 同款自绘玻璃：半透明 PILL_FILL + 系统背景模糊
+    // + glassBorderWidth 玻璃描边；选中仍有据 `brandSolid` 实心底 + onBrand 字
+    // （深色档 #0050A0 上白字 7.91:1），玻璃与实心形成层次，醒目度不丢。
+    // 字阶/圆角仍按契约 option-chip：ink 16fp、20vp 方角。
     ListItem() {
       Row() {
         Text(label)
@@ -299,7 +302,12 @@ export struct MapPage {
       .height(LayoutTokens.minTouchTarget + SpaceTokens.sm)
       .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
       .borderRadius(RadiusTokens.card)
-      .backgroundColor(idx === this.daySel + 1 ? ColorTokens.brandSolid : ColorTokens.surfaceElevated)
+      .backgroundBlurStyle(idx === this.daySel + 1 ? BlurStyle.NONE : GlassBlurStyle.Card)
+      .backgroundColor(idx === this.daySel + 1 ? ColorTokens.brandSolid : GlassTokens.PILL_FILL)
+      .border({
+        width: idx === this.daySel + 1 ? 0 : LayoutTokens.glassBorderWidth,
+        color: idx === this.daySel + 1 ? Color.Transparent : GlassTokens.PILL_RIM
+      })
       .shadow(ShadowTokens.pillFloat)
     }
     .onClick((): void => {
@@ -347,11 +355,12 @@ export struct MapPage {
         top: SpaceTokens.xs, bottom: SpaceTokens.xs
       })
       .borderRadius(RadiusTokens.card)
-      // 白面 + cardAmbient 环境影托起；选中仍 tint + 蓝描边，卡面大不做实心底
-      .backgroundColor(stop.index === this.selectedStop ? ColorTokens.primaryTint : ColorTokens.surfaceElevated)
+      // 玻璃卡：半透明 CARD_BG + 系统背景模糊 + 玻璃描边；选中叠 tint + 蓝描边
+      .backgroundBlurStyle(GlassBlurStyle.Card)
+      .backgroundColor(stop.index === this.selectedStop ? ColorTokens.primaryTint : GlassTokens.CARD_BG)
       .border({
-        width: stop.index === this.selectedStop ? LayoutTokens.hairlineWidth * 2 : LayoutTokens.hairlineWidth,
-        color: stop.index === this.selectedStop ? ColorTokens.primary : ColorTokens.borderSubtle
+        width: stop.index === this.selectedStop ? LayoutTokens.hairlineWidth * 2 : LayoutTokens.glassBorderWidth,
+        color: stop.index === this.selectedStop ? ColorTokens.primary : GlassTokens.PILL_RIM
       })
       .shadow(ShadowTokens.cardAmbient)
     }
@@ -420,6 +429,7 @@ export struct MapPage {
             .scrollBar(BarState.Off)
             .width('100%')
             .height(LayoutTokens.minTouchTarget + SpaceTokens.sm)
+            .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
             // 不要背景板：只留 chip 按钮浮在底图上（用户 2026-11-09 定）
             // 让开标题栏：内容区从窗口 0 起，不 margin 会落进 106..281 的栏带
             .margin({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
@@ -441,58 +451,66 @@ export struct MapPage {
               .scrollBar(BarState.Off)
               .width('100%')
               .height(STOP_CARD_HEIGHT + SpaceTokens.xs)
-              .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+              // List 满屏宽，内缩放在它自己的 padding 里：clip 边界留在屏幕边缘，
+              // 卡片能一路滑出屏幕，不会在屏幕内被提前裁断
+              .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
             }
             .width('100%')
             // 不要背景板：只剩站点卡浮在底图上；dock 净空照旧让位
             .margin({ bottom: LayoutTokens.floatingDockClearance })
           } else {
-            // 加载 / 引导空态 / 无坐标三态收成同一张浮起卡：圆角、底色、dock 让位只写一次
+            // 内缩只给这一张卡，不放前景 Column（否则会把上面两个 List 的 clip 收窄）
             Column() {
-              if (!this.loaded) {
-                LoadingProgress()
-                  .width(36)
-                  .height(36)
-                  .color(ColorTokens.primary)
-              } else if (this.rootMode && this.noOnTrip) {
-                Pressable({
-                  visualHeight: 36,
-                  action: (): void => {
-                    PlanDraft.fresh();
-                    enterPlanningFlow('TripInput');
-                  }
-                }) {
-                  Text('今天没有在途行程 · 去规划一趟')
-                    .fontSize(TypeTokens.small.size)
-                    .fontWeight(600)
-                    .fontColor(ColorTokens.primary)
+              // 加载 / 引导空态 / 无坐标三态收成同一张浮起卡
+              Column() {
+                if (!this.loaded) {
+                  LoadingProgress()
+                    .width(36)
                     .height(36)
-                    .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
+                    .color(ColorTokens.primary)
+                } else if (this.rootMode && this.noOnTrip) {
+                  Pressable({
+                    visualHeight: 36,
+                    action: (): void => {
+                      PlanDraft.fresh();
+                      enterPlanningFlow('TripInput');
+                    }
+                  }) {
+                    Text('今天没有在途行程 · 去规划一趟')
+                      .fontSize(TypeTokens.small.size)
+                      .fontWeight(600)
+                      .fontColor(ColorTokens.primary)
+                      .height(36)
+                      .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
+                  }
+                } else {
+                  Text(this.tripId.length === 0 ? '先从「行程」页签选一条行程' : '这条行程里没有可显示的坐标')
+                    .fontSize(TypeTokens.small.size)
+                    .fontColor(ColorTokens.muted)
                 }
-              } else {
-                Text(this.tripId.length === 0 ? '先从「行程」页签选一条行程' : '这条行程里没有可显示的坐标')
-                  .fontSize(TypeTokens.small.size)
-                  .fontColor(ColorTokens.muted)
               }
+              .justifyContent(FlexAlign.Center)
+              .alignItems(HorizontalAlign.Center)
+              .width('100%')
+              .constraintSize({ minHeight: LayoutTokens.minTouchTarget + SpaceTokens.sm })
+              .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
+                top: SpaceTokens.xs, bottom: SpaceTokens.xs })
+              .borderRadius(RadiusTokens.dock)
+              .backgroundColor(ColorTokens.surfaceElevated)
+              .border({ width: LayoutTokens.hairlineWidth, color: ColorTokens.borderSubtle })
+              .shadow(ShadowTokens.floating)
             }
-            .justifyContent(FlexAlign.Center)
-            .alignItems(HorizontalAlign.Center)
             .width('100%')
-            .constraintSize({ minHeight: LayoutTokens.minTouchTarget + SpaceTokens.sm })
-            .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
-              top: SpaceTokens.xs, bottom: SpaceTokens.xs })
+            .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
             .margin({ bottom: LayoutTokens.floatingDockClearance })
-            .borderRadius(RadiusTokens.dock)
-            .backgroundColor(ColorTokens.surfaceElevated)
-            .border({ width: LayoutTokens.hairlineWidth, color: ColorTokens.borderSubtle })
-            .shadow(ShadowTokens.floating)
           }
 
         }
         .width('100%')
         .height('100%')
-        // 所有浮层统一左右内缩：用 padding 不用 margin（width('100%') + 横向 margin 会整体右移溢出）
-        .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
+        // 这里**不能**给前景加左右 padding：那会把 List 的 clip 边界一起收窄，
+        // 站点卡滑到屏幕内 50px 处就被裁掉，看着像「滑不到屏幕外」。
+        // 内缩改由各 List 自己的 padding 承担，List 本体保持满屏宽。
         .hitTestBehavior(HitTestMode.Transparent)
       }
       .width('100%')
