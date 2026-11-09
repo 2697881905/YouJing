@@ -52,6 +52,11 @@ const REVEAL_STEP: number = 4;
 
 @Component
 export struct SpotPickPage {
+  // 深浅档代 tick：翻档时 EntryAbility 自增，@StorageProp 变化带动本页 build 重跑，
+  // 把新 tick 传进 HdsChrome.bar → 标题内容换新 ComponentContent 重挂载、按当前档重解色
+  // （官方 HdsTitleBar 自绘内容不随配置切换重渲染，真机实证见 HdsChrome.themeTick）
+  @StorageProp('chromeThemeTick') chromeThemeTick: number = 0;
+
   /** 断点（唯一来源 utils/breakpointCenter.ets）：宽屏下列表并成多栏，不再被整屏拉宽 */
   @StorageProp(KEY_CURRENT_BREAKPOINT) bp: string = 'sm';
 
@@ -516,7 +521,7 @@ export struct SpotPickPage {
       $r('sys.symbol.plus'), '推荐更多', (): void => {
         this.markMore();
       })];
-    return HdsChrome.bar({ mainTitle: '选想去的地方', menu: items, scrolled: this.barScrolled });
+    return HdsChrome.bar({ themeTick: this.chromeThemeTick, mainTitle: '选想去的地方', menu: items, scrolled: this.barScrolled });
   }
 
   /** 绝对滚动偏移 → 顶栏磨砂开关（>0 即开，静止归零） */

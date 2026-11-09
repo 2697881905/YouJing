@@ -60,6 +60,11 @@ const ROW_HEIGHT: number = LayoutTokens.itineraryRowMinHeight;
 
 @Component
 export struct YoujingStartPage {
+  // 深浅档代 tick：翻档时 EntryAbility 自增，@StorageProp 变化带动本页 build 重跑，
+  // 把新 tick 传进 HdsChrome.bar → 标题内容换新 ComponentContent 重挂载、按当前档重解色
+  // （官方 HdsTitleBar 自绘内容不随配置切换重渲染，真机实证见 HdsChrome.themeTick）
+  @StorageProp('chromeThemeTick') chromeThemeTick: number = 0;
+
   private pathStack: NavPathStack = APP_NAV;
   /** 窗口实测宽（vp），由断点中心一处测量；0 = 尚未测到，按不收窄处理 */
   @StorageProp(KEY_WINDOW_WIDTH_VP) windowWidthVp: number = 0;
@@ -411,7 +416,7 @@ export struct YoujingStartPage {
     }
     .titleMode(HdsNavigationTitleMode.MINI)
     .hideBackButton(true)
-    .titleBar(HdsChrome.bar({ mainTitle: '规划', backSlot: false, scrolled: this.barScrolled }))
+    .titleBar(HdsChrome.bar({ themeTick: this.chromeThemeTick, mainTitle: '规划', backSlot: false, scrolled: this.barScrolled }))
     // 不收标题栏（2026-11-08 对标有据）：有据根页标题栏常驻——只有 HomeTab 用
     // hideBottomBuilder 收分段那一行，ProfilePage 完全没有 dynamicHideTitleBar。
     // 整条收起后滚动时顶部没有栏体磨砂，穿底内容直接顶到状态栏下，

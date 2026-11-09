@@ -34,6 +34,11 @@ interface FixOption {
 
 @Component
 export struct GenerateFailedPage {
+  // 深浅档代 tick：翻档时 EntryAbility 自增，@StorageProp 变化带动本页 build 重跑，
+  // 把新 tick 传进 HdsChrome.bar → 标题内容换新 ComponentContent 重挂载、按当前档重解色
+  // （官方 HdsTitleBar 自绘内容不随配置切换重渲染，真机实证见 HdsChrome.themeTick）
+  @StorageProp('chromeThemeTick') chromeThemeTick: number = 0;
+
   /** 窗口实测宽（vp），由断点中心一处测量；0 = 尚未测到，按不收窄处理 */
   @StorageProp(KEY_WINDOW_WIDTH_VP) windowWidthVp: number = 0;
 
@@ -292,7 +297,7 @@ export struct GenerateFailedPage {
     .clip(false)
     // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
     .backgroundColor(ColorTokens.canvas)
-    .titleBar(HdsChrome.bar({ mainTitle: '生成受阻', scrolled: this.barScrolled }))
+    .titleBar(HdsChrome.bar({ themeTick: this.chromeThemeTick, mainTitle: '生成受阻', scrolled: this.barScrolled }))
     .titleMode(HdsNavDestinationTitleMode.MINI)
   }
 }

@@ -44,6 +44,11 @@ const LEGAL_ROWS: SettingItem[] = [
 
 @Component
 export struct SettingsPage {
+  // 深浅档代 tick：翻档时 EntryAbility 自增，@StorageProp 变化带动本页 build 重跑，
+  // 把新 tick 传进 HdsChrome.bar → 标题内容换新 ComponentContent 重挂载、按当前档重解色
+  // （官方 HdsTitleBar 自绘内容不随配置切换重渲染，真机实证见 HdsChrome.themeTick）
+  @StorageProp('chromeThemeTick') chromeThemeTick: number = 0;
+
   @State private showDoc: boolean = false;
   /** 先写 kind 再翻 showDoc：bindSheet 的内容不随打开后的状态重赋值重绘 */
   @State private docKind: string = 'privacy';
@@ -216,7 +221,7 @@ export struct SettingsPage {
     }
     // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带
     .backgroundColor(ColorTokens.canvas)
-    .titleBar(HdsChrome.bar({ mainTitle: '设置', scrolled: this.barScrolled }))
+    .titleBar(HdsChrome.bar({ themeTick: this.chromeThemeTick, mainTitle: '设置', scrolled: this.barScrolled }))
     .titleMode(HdsNavDestinationTitleMode.MINI)
     .bindToScrollable([this.barScroller])
     .clip(false)

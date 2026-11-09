@@ -25,6 +25,11 @@ import { requestSystemBarRefresh } from '../utils/systemBar';
 
 @Component
 export struct PreferenceQAPage {
+  // 深浅档代 tick：翻档时 EntryAbility 自增，@StorageProp 变化带动本页 build 重跑，
+  // 把新 tick 传进 HdsChrome.bar → 标题内容换新 ComponentContent 重挂载、按当前档重解色
+  // （官方 HdsTitleBar 自绘内容不随配置切换重渲染，真机实证见 HdsChrome.themeTick）
+  @StorageProp('chromeThemeTick') chromeThemeTick: number = 0;
+
   /** 断点（唯一来源 utils/breakpointCenter.ets）：宽屏下列表并成多栏，不再被整屏拉宽 */
   @StorageProp(KEY_CURRENT_BREAKPOINT) bp: string = 'sm';
   /**
@@ -272,7 +277,7 @@ export struct PreferenceQAPage {
     .backgroundColor(ColorTokens.canvas)
     // 向导其余四屏的标题栏都只写主标题，步序交给页内；这里原来还把
     // 「问题 N/M」同时写进副标题和页内翻页器，同一句话在 200vp 内出现两遍
-    .titleBar(HdsChrome.bar({ mainTitle: '偏好追问', scrolled: this.barScrolled }))
+    .titleBar(HdsChrome.bar({ themeTick: this.chromeThemeTick, mainTitle: '偏好追问', scrolled: this.barScrolled }))
     .titleMode(HdsNavDestinationTitleMode.MINI)
   }
 }

@@ -48,6 +48,11 @@ const GRIP_COL_GAP_VP: number = 4;
 
 @Component
 export struct EditItineraryPage {
+  // 深浅档代 tick：翻档时 EntryAbility 自增，@StorageProp 变化带动本页 build 重跑，
+  // 把新 tick 传进 HdsChrome.bar → 标题内容换新 ComponentContent 重挂载、按当前档重解色
+  // （官方 HdsTitleBar 自绘内容不随配置切换重渲染，真机实证见 HdsChrome.themeTick）
+  @StorageProp('chromeThemeTick') chromeThemeTick: number = 0;
+
   private pathStack: NavPathStack = APP_NAV;
   /** 顶栏磨砂两态：由**绝对**滚动偏移驱动（每帧增量会被松手回弹的负帧打灭，契约 §Translucency） */
   @State private barScrolled: boolean = false;
@@ -641,7 +646,7 @@ export struct EditItineraryPage {
       HdsChrome.item($r('sys.symbol.plus_circle'), '补选景点', (): void => {
         this.openAdd();
       })];
-    return HdsChrome.bar({ mainTitle: '编辑行程', menu: items, scrolled: this.barScrolled });
+    return HdsChrome.bar({ themeTick: this.chromeThemeTick, mainTitle: '编辑行程', menu: items, scrolled: this.barScrolled });
   }
 
   /** 绝对滚动偏移 → 顶栏磨砂开关（>0 即开，静止归零） */

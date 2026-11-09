@@ -59,6 +59,11 @@ interface TripCardData {
 
 @Component
 export struct TripsPage {
+  // 深浅档代 tick：翻档时 EntryAbility 自增，@StorageProp 变化带动本页 build 重跑，
+  // 把新 tick 传进 HdsChrome.bar → 标题内容换新 ComponentContent 重挂载、按当前档重解色
+  // （官方 HdsTitleBar 自绘内容不随配置切换重渲染，真机实证见 HdsChrome.themeTick）
+  @StorageProp('chromeThemeTick') chromeThemeTick: number = 0;
+
   /** 断点（唯一来源 utils/breakpointCenter.ets）：宽屏下列表并成多栏，不再被整屏拉宽 */
   @StorageProp(KEY_CURRENT_BREAKPOINT) bp: string = 'sm';
 
@@ -339,7 +344,7 @@ export struct TripsPage {
     if (this.selecting) {
       const n: number = this.selectedIds.length;
       const allSel: boolean = this.isAllVisibleSelected();
-      return HdsChrome.bar({
+      return HdsChrome.bar({ themeTick: this.chromeThemeTick,
         mainTitle: n > 0 ? `已选 ${n} 条` : '选择行程',
         backSlot: false,
         scrolled: this.barScrolled,
@@ -358,7 +363,7 @@ export struct TripsPage {
         ]
       });
     }
-    return HdsChrome.bar({
+    return HdsChrome.bar({ themeTick: this.chromeThemeTick,
       mainTitle: '行程',
       backSlot: false,
       scrolled: this.barScrolled,

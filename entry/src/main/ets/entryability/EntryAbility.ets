@@ -574,9 +574,18 @@ export default class EntryAbility extends UIAbility {
    * ——真机证据：深色档里地图 tab 渲染的是亮色路网主题。
    * 兜底改用资源管线自己说真话：把 canvas 与 ink 按「当前生效配置」解出来比亮度，
    * 深色档 ink(#F2F2F4) 比 canvas(#121212) 亮，浅色档反过来——不依赖任何硬编码色值。
+   *
+   * ⚠ `this.context.config` 只在**冷启**时新鲜；系统深浅实时切换时它停留旧值
+   * （真机实证 2026-11-10：系统浅→深后 onConfigurationUpdate 里 context.config.colorMode
+   * 仍是 1=浅色 → isDarkMode 恒 false → 状态栏黑字压深底、地图不换夜色主题、
+   * 深色零阴影门控失效）。所以 onConfigurationUpdate 必须把 **newConfig** 传进来，
+   * 且 newConfig.colorMode 缺失时直接走资源法——不回退到陈旧的 context.config。
+   * 档位**变化**时自增 `chromeThemeTick`，HdsChrome 的标题内容缓存键带 tick，
+   * 翻档后各页 build 重跑即换新 ComponentContent（详见 HdsChrome.themeTick）。
    */
-  private seedDarkMode(): void {
-    const cm: ConfigurationConstant.ColorMode | undefined = this.context.config.colorMode;
+  private seedDarkMode(fresh?: Configuration): void {
+    const cm: ConfigurationConstant.ColorMode | undefined =
+      fresh !== undefined ? fresh.colorMode : this.context.config.colorMode;
     let dark: boolean;
     if (cm === ConfigurationConstant.ColorMode.COLOR_MODE_DARK) {
       dark = true;
@@ -593,8 +602,12 @@ export default class EntryAbility extends UIAbility {
         Logger.warn('EntryAbility', `资源法判深色档失败，按浅色处理: ${(err as Error).message}`);
       }
     }
+    const prev: boolean | undefined = AppStorage.get<boolean>('isDarkMode');
     AppStorage.setOrCreate('isDarkMode', dark);
-    Logger.info('EntryAbility', `isDarkMode=${dark}（config.colorMode=${cm}）`);
+    if (prev !== undefined && prev !== dark) {
+      AppStorage.setOrCreate('chromeThemeTick', (AppStorage.get<number>('chromeThemeTick') ?? 0) + 1);
+    }
+    Logger.info('EntryAbility', `isDarkMode=${dark}（config.colorMode=${cm}，fresh=${fresh !== undefined}）`);
   }
 
   /**
@@ -666,8 +679,9 @@ export default class EntryAbility extends UIAbility {
   }
 
   onConfigurationUpdate(newConfig: Configuration): void {
-    // 深色零阴影门控（契约 §4）：页面用 @StorageProp('isDarkMode') 决定是否挂 elevation
-    this.seedDarkMode();
+    // 深色零阴影门控（契约 §4）：页面用 @StorageProp('isDarkMode') 决定是否挂 elevation。
+    // 必须传 newConfig：实时切换下 context.config 是旧值（见 seedDarkMode 的真机实证）。
+    this.seedDarkMode(newConfig);
     // 深浅档切换后画布色跟着换，带区不重设就会又露出另一档的颜色
     this.applySystemBarSurface();
   }

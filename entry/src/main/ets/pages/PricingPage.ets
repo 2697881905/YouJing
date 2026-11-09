@@ -29,6 +29,11 @@ import { common } from '@kit.AbilityKit';
 
 @Component
 export struct PricingPage {
+  // 深浅档代 tick：翻档时 EntryAbility 自增，@StorageProp 变化带动本页 build 重跑，
+  // 把新 tick 传进 HdsChrome.bar → 标题内容换新 ComponentContent 重挂载、按当前档重解色
+  // （官方 HdsTitleBar 自绘内容不随配置切换重渲染，真机实证见 HdsChrome.themeTick）
+  @StorageProp('chromeThemeTick') chromeThemeTick: number = 0;
+
   @State private purchasing: boolean = false;
   @StorageProp('statusBarHeight') statusBarHeight: number = 0;
   @State private toastMsg: string = '';
@@ -254,7 +259,7 @@ export struct PricingPage {
     .clip(false)
     .backgroundColor(ColorTokens.canvas)
     // 整页是 Column 直排、没有 Scroll/List 可挂 scroller，磨砂等不到滚动帧 → 显式关掉滚动特效
-    .titleBar(HdsChrome.bar({ mainTitle: '解锁行程', scrollable: false }))
+    .titleBar(HdsChrome.bar({ themeTick: this.chromeThemeTick, mainTitle: '解锁行程', scrollable: false }))
     .titleMode(HdsNavDestinationTitleMode.MINI)
     .onReady((ctx: NavDestinationContext): void => {
       this.pathStack = ctx.pathStack;

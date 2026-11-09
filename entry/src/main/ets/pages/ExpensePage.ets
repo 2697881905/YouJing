@@ -105,6 +105,11 @@ function yuan(amount: number): string {
 
 @Component
 export struct ExpensePage {
+  // 深浅档代 tick：翻档时 EntryAbility 自增，@StorageProp 变化带动本页 build 重跑，
+  // 把新 tick 传进 HdsChrome.bar → 标题内容换新 ComponentContent 重挂载、按当前档重解色
+  // （官方 HdsTitleBar 自绘内容不随配置切换重渲染，真机实证见 HdsChrome.themeTick）
+  @StorageProp('chromeThemeTick') chromeThemeTick: number = 0;
+
   /** 断点（唯一来源 utils/breakpointCenter.ets）：宽屏下列表并成多栏，不再被整屏拉宽 */
 
   /** 本页是 EXPENSE_NAV 这条 tab 栈的宿主，push 必须落在自己的栈上 */
@@ -1063,7 +1068,7 @@ export struct ExpensePage {
       .clip(false)
       .titleMode(HdsNavigationTitleMode.MINI)
       .hideBackButton(true)
-      .titleBar(HdsChrome.bar({ mainTitle: '费用', backSlot: false, scrolled: this.barScrolled }))
+      .titleBar(HdsChrome.bar({ themeTick: this.chromeThemeTick, mainTitle: '费用', backSlot: false, scrolled: this.barScrolled }))
       .navDestination(routerMap)
       .mode(NavigationMode.Stack)
       .width('100%')
@@ -1077,7 +1082,7 @@ export struct ExpensePage {
     .clip(false)
       // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
       .backgroundColor(ColorTokens.canvas)
-      .titleBar(HdsChrome.bar({ mainTitle: '费用', scrolled: this.barScrolled }))
+      .titleBar(HdsChrome.bar({ themeTick: this.chromeThemeTick, mainTitle: '费用', scrolled: this.barScrolled }))
       .titleMode(HdsNavDestinationTitleMode.MINI)
     }
   }

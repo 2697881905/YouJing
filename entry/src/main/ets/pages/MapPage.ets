@@ -70,6 +70,11 @@ const MASK_SOLID_TO: number = (DOCK_MASK_FADE_VP + DOCK_MASK_PLATEAU_VP) / DOCK_
 
 @Component
 export struct MapPage {
+  // 深浅档代 tick：翻档时 EntryAbility 自增，@StorageProp 变化带动本页 build 重跑，
+  // 把新 tick 传进 HdsChrome.bar → 标题内容换新 ComponentContent 重挂载、按当前档重解色
+  // （官方 HdsTitleBar 自绘内容不随配置切换重渲染，真机实证见 HdsChrome.themeTick）
+  @StorageProp('chromeThemeTick') chromeThemeTick: number = 0;
+
   /** 本页是 MAP_NAV 这条 tab 栈的宿主，push 必须落在自己的栈上 */
   private pathStack: NavPathStack = MAP_NAV;
   /** dock 切回这一页时重取底图数据（广播见 AppNav.TAB_SHOWN_KEY，主链复审 P1） */
@@ -219,7 +224,7 @@ export struct MapPage {
     const sub: string = this.stops.length > 0 ? `${this.stops.length} 站` : '';
     // 地图格没有纵向滚动正文（满幅底图 + 横向 chip 轨），关特效避免静止态空糊；
     // 收窄也不适用：满幅底图按断点内缩反而是错的（见 INIT_REPORT §5ci 宽屏走查段）
-    return HdsChrome.bar({ mainTitle: this.titleText, backSlot: false, subTitle: sub, menu: items, scrollable: false });
+    return HdsChrome.bar({ themeTick: this.chromeThemeTick, mainTitle: this.titleText, backSlot: false, subTitle: sub, menu: items, scrollable: false });
   }
 
   private reload(): void {

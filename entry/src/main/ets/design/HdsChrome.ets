@@ -90,6 +90,19 @@ export interface ChromeSpec {
   /** 本页是否存在可滚容器；false 时关滚动特效，避免静止态空糊 */
   scrollable?: boolean;
   blurEndVp?: number;
+  /**
+   * 深浅档代 tick（EntryAbility.seedDarkMode 在档位**变化**时自增，AppStorage
+   * `chromeThemeTick`）。页面把它从 `@StorageProp('chromeThemeTick')` 传进来。
+   *
+   * 为什么需要它：官方 HdsTitleBar 的自绘标题内容（stackBuilderComponent 的
+   * ComponentContent）**不随配置切换重渲染**——真机实证（2026-11-10）：系统浅→深
+   * 实时切换后，切档前挂载的页面标题仍按浅色档墨色渲染（#17171A 冻在 #121212 画布上，
+   * 行程/规划两页可复现），build 重跑（滚动触发 barScrolled）也不重建内容。
+   * 唯一可靠的刷新通道 = 换 tick 时换**新的 ComponentContent 实例**（titleContentOf
+   * 缓存键带 tick）+ 页面因 @StorageProp 变化重跑 build，把新内容对象交给栏体重挂载。
+   * 这与 ImmersiveSegmentBar `@Watch('rebuildOptions')` 重建官方件选项是同一族手法。
+   */
+  themeTick?: number;
 }
 
 /**
@@ -243,7 +256,10 @@ export class HdsChrome {
   private static readonly titleCache: Map<string, ComponentContent<Object>> = new Map();
 
   private static titleContentOf(ui: UIContext, spec: ChromeSpec): ComponentContent<Object> {
-    const key: string = `${spec.mainTitle}|${spec.subTitle ?? ''}|${spec.backSlot === false ? 'root' : 'back'}`;
+    // 键必须带深浅档 tick：档位切换时 tick 变化 → 旧缓存不再命中 → 建新 ComponentContent，
+    // 栏体重挂载后按**当前档**重解 $r 色（见 ChromeSpec.themeTick 的真机实证说明）。
+    const tick: number = spec.themeTick === undefined ? 0 : spec.themeTick;
+    const key: string = `${spec.mainTitle}|${spec.subTitle ?? ''}|${spec.backSlot === false ? 'root' : 'back'}|${tick}`;
     const cached: ComponentContent<Object> | undefined = HdsChrome.titleCache.get(key);
     if (cached !== undefined) {
       return cached;
