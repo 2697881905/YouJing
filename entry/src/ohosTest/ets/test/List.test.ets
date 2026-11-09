@@ -37,6 +37,7 @@ import activityIdsTest from './ActivityIds.test';
 import durationCnTest from './DurationCn.test';
 import navInsetTest from './NavInset.test';
 import legalDocsTest from './LegalDocs.test';
+import routeModeTest from './RouteMode.test';
 
 export default function testsuite() {
   tripParserTest();
@@ -78,4 +79,5 @@ export default function testsuite() {
   durationCnTest();
   navInsetTest();
   legalDocsTest();
+  routeModeTest();
 }

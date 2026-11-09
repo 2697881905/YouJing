@@ -10,8 +10,11 @@
  */
 
 import { map, mapCommon, MapComponent } from '@kit.MapKit';
+import { common } from '@kit.AbilityKit';
 import { AsyncCallback, Callback } from '@ohos.base';
 import { BusinessError } from '@kit.BasicServicesKit';
+import { RoadRouteStore } from '../data/RoadRouteStore';
+import { RouteTravelMode, RoutePoint, routeModeOf, mergeRoutePoints } from '../utils/RouteMode';
 import { MapBounds, MapStop, MapStops } from '../utils/MapStops';
 import { NumberedPin } from '../utils/NumberedPin';
 import { image } from '@kit.ImageKit';
@@ -53,6 +56,10 @@ export struct TripMapView {
   @Prop @Watch('onRequest') request: string = '';
   /** 落点之间是否连线：行程要连，屏5 的三片候选是互斥选项、连起来就成了动线 */
   @Prop route: boolean = true;
+  /** true = 用 Map Kit navi 把每段直线换成道路折线；只有地图页开，屏8 小面板/屏5 仍画直线 */
+  @Prop roadRoute: boolean = false;
+  /** 算路请求竞态：每次重绘递增，旧请求回来直接丢弃，不能覆盖新一天的线 */
+  private routeSeq: number = 0;
   /**
    * 全览留白（px，与 newLatLngBounds 同单位）：由宿主按自己盖在底图上的浮层量出来传，
    * 因为底图是满屏的、浮层不是。默认值按屏8 那块 625px 高的小面板量的，别当全局值用。
@@ -207,6 +214,74 @@ export struct TripMapView {
     this.drawn = '';
   }
 
+  /** 沿路动线：run 内逐段算路，全部回来后拼成一条折线再画 */
+  private drawRoadRoutes(ctrl: map.MapComponentController, runs: MapStop[][], mySeq: number): void {
+    const ctx: common.Context = this.getUIContext().getHostContext() as common.Context;
+    runs.forEach((run: MapStop[], r: number): void => {
+      if (!this.route || run.length < 2) {
+        return;
+      }
+      const jobs: Promise<mapCommon.LatLng[]>[] = [];
+      for (let i: number = 0; i < run.length - 1; i++) {
+        const a: MapStop = run[i];
+        const b: MapStop = run[i + 1];
+        const from: mapCommon.LatLng = { latitude: a.latitude, longitude: a.longitude };
+        const to: mapCommon.LatLng = { latitude: b.latitude, longitude: b.longitude };
+        // mode 记的是「到达 b 之前怎么走」，所以取后一个落点的
+        const mode: RouteTravelMode = routeModeOf(b.mode ?? '');
+        jobs.push(RoadRouteStore.segment(ctx, from, to, mode).then(
+          (pts: mapCommon.LatLng[] | null): mapCommon.LatLng[] => {
+            // 离线 / 权限 / 无方案：这一段退回直线，整条动线不断
+            return pts !== null ? pts : [from, to];
+          }));
+      }
+      Promise.all(jobs).then((parts: mapCommon.LatLng[][]): void => {
+        if (mySeq !== this.routeSeq || this.controller === null) {
+          return;
+        }
+        const segments: RoutePoint[][] = [];
+        for (const part of parts) {
+          segments.push(part.map((p: mapCommon.LatLng): RoutePoint => {
+            return { latitude: p.latitude, longitude: p.longitude };
+          }));
+        }
+        const merged: RoutePoint[] = mergeRoutePoints(segments);
+        const points: mapCommon.LatLng[] = merged.map((p: RoutePoint): mapCommon.LatLng => {
+          return { latitude: p.latitude, longitude: p.longitude };
+        });
+        this.addPolyline(ctrl, points, r);
+      }).catch((err: BusinessError): void => {
+        Logger.error(TAG, `第 ${r + 1} 段沿路动线失败 code=${err.code} msg=${err.message}`);
+      });
+    });
+  }
+
+  /** 直线 / 沿路两种来源共用同一个绘制出口，样式只在这里定一次 */
+  private addPolyline(ctrl: map.MapComponentController, points: mapCommon.LatLng[], r: number): void {
+    if (points.length < 2) {
+      return;
+    }
+    const lineOpts: mapCommon.MapPolylineOptions = {
+      points: points,
+      // 动线宽 2vp（契约 route-line-width）。Map Kit 吃 px，按真机密度 3.125 折算：
+      // 6.25px ≈ 2vp（6px 会细 4%，§5.5 实测过这个偏差）
+      width: 6.25,
+      color: this.isDark ? LINE_DARK : LINE_LIGHT,
+      clickable: false,
+      geodesic: false
+    };
+    ctrl.addPolyline(lineOpts).then((line: map.MapPolyline): void => {
+      // 与 markers 同一口径：异步回来时组件可能已拆掉，底图对象失效
+      if (this.controller === null) {
+        Logger.warn(TAG, '底图已拆除，丢弃本次动线生成结果');
+        return;
+      }
+      this.lines.push(line);
+    }).catch((err: BusinessError): void => {
+      Logger.error(TAG, `第 ${r + 1} 段动线绘制失败 code=${err.code} msg=${err.message}`);
+    });
+  }
+
   redraw(): void {
     const ctrl: map.MapComponentController | null = this.controller;
     if (ctrl === null) {
@@ -224,32 +299,20 @@ export struct TripMapView {
       return;
     }
     const runs: MapStop[][] = MapStops.runs(stops);
-    runs.forEach((run: MapStop[], r: number): void => {
-      if (!this.route || run.length < 2) {
-        return;
-      }
-      const runPoints: mapCommon.LatLng[] =
-        run.map((s: MapStop): mapCommon.LatLng => { return { latitude: s.latitude, longitude: s.longitude }; });
-      const lineOpts: mapCommon.MapPolylineOptions = {
-        points: runPoints,
-        // 动线宽 2vp（契约 route-line-width）。Map Kit 吃 px，按真机密度 3.125 折算：
-        // 6.25px ≈ 2vp（6px 会细 4%，§5.5 实测过这个偏差）
-        width: 6.25,
-        color: this.isDark ? LINE_DARK : LINE_LIGHT,
-        clickable: false,
-        geodesic: false
-      };
-      ctrl.addPolyline(lineOpts).then((line: map.MapPolyline): void => {
-        // 与 markers 同一口径：异步回来时组件可能已拆掉，底图对象失效
-        if (this.controller === null) {
-          Logger.warn(TAG, '底图已拆除，丢弃本次动线生成结果');
+    // 递增放在画任何线之前：沿路算路是异步的，旧请求回来时 mySeq 已经对不上
+    const mySeq: number = ++this.routeSeq;
+    if (this.roadRoute) {
+      this.drawRoadRoutes(ctrl, runs, mySeq);
+    } else {
+      runs.forEach((run: MapStop[], r: number): void => {
+        if (!this.route || run.length < 2) {
           return;
         }
-        this.lines.push(line);
-      }).catch((err: BusinessError): void => {
-        Logger.error(TAG, `第 ${r + 1} 段动线绘制失败 code=${err.code} msg=${err.message}`);
+        const runPoints: mapCommon.LatLng[] =
+          run.map((s: MapStop): mapCommon.LatLng => { return { latitude: s.latitude, longitude: s.longitude }; });
+        this.addPolyline(ctrl, runPoints, r);
       });
-    });
+    }
     const brand: string = this.isDark ? PIN_BRAND_DARK : PIN_BRAND_LIGHT;
     const pending: Promise<map.Marker>[] = stops.map((s: MapStop): Promise<map.Marker> => {
       const opts: mapCommon.MarkerOptions = {

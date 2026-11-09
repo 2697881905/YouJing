@@ -19,6 +19,8 @@ export interface MapStop {
   longitude: number;
   title: string;
   subtitle: string;
+  /** 到达本节点前的出行方式自由文案（Activity.transport.mode）；片区/景点落点没有，默认步行 */
+  mode?: string;
 }
 
 export interface MapBounds {
@@ -72,7 +74,8 @@ export class MapStops {
         latitude: act.latitude,
         longitude: act.longitude,
         title: act.title.length > 0 ? act.title : act.location,
-        subtitle: `${act.time}–${act.endTime}`
+        subtitle: `${act.time}–${act.endTime}`,
+        mode: act.transport !== undefined ? act.transport.mode : ''
       });
     }
     return out;
@@ -89,7 +92,8 @@ export class MapStops {
           latitude: stop.latitude,
           longitude: stop.longitude,
           title: stop.title,
-          subtitle: stop.subtitle
+          subtitle: stop.subtitle,
+          mode: stop.mode ?? ''
         });
       }
     }

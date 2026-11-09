@@ -25,6 +25,17 @@ export default function legalDocsTest(): void {
         expect(docOf('terms').sections[0].heading).assertEqual(docOf('agreement').sections[0].heading);
       });
 
+    it('privacy_discloses_map_routing', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+      // 按道路画动线会向 Map Kit 发坐标，这条必须在隐私政策里说清，不能随版本改丢
+      let found: boolean = false;
+      for (const sec of docOf('privacy').sections) {
+        if (sec.heading === '地图上的沿路动线') {
+          found = true;
+        }
+      }
+      expect(found).assertTrue();
+    });
+
     it('about_has_its_own_version_and_data_sources',
       TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
         const about = docOf('about');

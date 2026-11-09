@@ -248,7 +248,9 @@ export struct MapPage {
     const next: MapStop[] = sel === ALL_DAYS ? MapStops.fromDays(this.days) :
       (this.days.length > 0 ? MapStops.fromDay(this.days[Math.min(sel, this.days.length - 1)]) : []);
     this.stops = next;
-    this.signature = MapStops.signature(next);
+    // 出行方式也进重绘键：坐标不变、transport.mode 改了也要重新算路
+    this.signature = MapStops.signature(next) + '|' +
+      next.map((s: MapStop): string => s.mode ?? '').join(',');
     this.fitAll();
   }
 
@@ -352,6 +354,8 @@ export struct MapPage {
             request: this.request,
             fitTopPx: FIT_TOP_PX,
             fitBottomPx: FIT_BOTTOM_PX,
+            // 只有地图页按道路画动线；屏8 小面板、屏5 片区卡仍是直线
+            roadRoute: true,
             onStopClick: (index: number): void => {
               this.focusStop(index);
             }
