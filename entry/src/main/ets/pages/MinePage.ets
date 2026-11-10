@@ -16,7 +16,9 @@
  *
  * 2026-11-09 全量对标有据 ProfileHeader 结构（用户令「搬运」，后续共享两 App 资料）：
  * · 资料区 = 身份行（头像 + 衬线名 + 说明）+ 统计行（StatRow 三列：行程/勋章/足迹）
- *   + 游客「去登录」胶囊（有据 highlight pill 同位）；有据的 16:10 封面卡与
+ *   + 右端胶囊双态：游客「去登录」/ 登录「编辑资料」（有据 ProfileHeader 同位；
+ *   编辑资料 → ProfileEditPage，字段集与有据 User 同形——共享资料的模型契约）。
+ *   有据的 16:10 封面卡与
  *   草稿箱/废纸篓 胶囊不搬（背景图基建未立 / UGC 域概念）
  * · 右上角菜单对标 profileMenuItems：分享在前、设置在后，加号(新建行程)摘除
  * · 分享走系统分享面板带足迹概要文案；有据的 ProfileShareSheet 全面板待主页链接基建
@@ -30,9 +32,11 @@ import { EntitlementStore, Entitlement, SubscriptionInfo, PassInfo } from '../da
 import { DateUtils } from '../utils/DateUtils';
 import { membershipStatus, membershipUsage, subscriptionActive, MembershipStatus } from '../utils/MembershipCopy';
 import { BadgeGroup, BadgeRecord, badgeCityCount, badgeTotal, buildBadgeBoard } from '../utils/BadgeBoard';
-import { ProfileStore } from '../data/ProfileStore';
+import { ProfileStore, UserProfileData, PROFILE_TICK_KEY } from '../data/ProfileStore';
+import { image } from '@kit.ImageKit';
 import { TripDao, TripSummary } from '../data/TripDao';
-import { StatRow, StatItem } from '../components/StatRow';
+import { StatItem } from '../components/StatRow';
+import { ProfileCoverCard } from '../components/ProfileCoverCard';
 import { Pressable } from '../components/Pressable';
 import { Logger } from '../common/logger/Logger';
 import { ColorTokens } from '../design/ColorTokens';
@@ -67,6 +71,12 @@ export struct MinePage {
   @State private cityCount: number = 0;
   /** 行程数：资料区统计行第一列（对标有据 关注/粉丝/获赞 三列位） */
   @State private tripCount: number = 0;
+  /** 用户资料（昵称/简介）：编辑页保存后经 PROFILE_TICK_KEY 广播回显 */
+  @State private profile: UserProfileData = { nickname: '', bio: '', gender: 0, avatar: '', profileBackground: '' };
+  // ProfileCoverCard 的 @Link 槽位（@Link 无缺省，宿主必须持有）：MinePage 不编辑恒 null
+  @State private coverAvatarPreview: image.PixelMap | null = null;
+  @State private coverBackgroundPreview: image.PixelMap | null = null;
+  @StorageProp(PROFILE_TICK_KEY) @Watch('onProfileTick') profileTick: number = 0;
   /** 会员卡：订阅/通行证状态（付费后 App 内唯一能看到权益的地方） */
   @State private memberTitle: string = '未开通会员';
   @State private memberDetail: string = '生成免费；导出与无限重排需解锁';
@@ -89,6 +99,21 @@ export struct MinePage {
 
   private onEntitlementTick(): void {
     this.refreshMembership();
+  }
+
+  /** 编辑资料页保存 → ProfileStore 广播 → 这里重读回显 */
+  private onProfileTick(): void {
+    this.reloadProfile();
+  }
+
+  /** 用户资料（昵称/简介）：编辑页返回后的显示层来源 */
+  private reloadProfile(): void {
+    const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    ProfileStore.loadProfile(ctx, AccountStore.uid()).then((p: UserProfileData): void => {
+      this.profile = p;
+    }).catch((err: Error): void => {
+      Logger.warn('Ui.Mine', `用户资料读取失败: ${err.message}`);
+    });
   }
 
   /** 会员卡按权益缓存即时刷新：订阅看有效期（不信单字段），通行证按条数（MembershipCopy 单点文案）。 */
@@ -122,6 +147,7 @@ export struct MinePage {
     }).catch((err: Error): void => {
       Logger.warn('Ui.Mine', `行程计数读取失败: ${err.message}`);
     });
+    this.reloadProfile();
     this.refreshMembership();
   }
 
@@ -145,106 +171,45 @@ export struct MinePage {
   }
 
   /**
-   * 资料区（2026-11-09 全量对标有据 ProfileHeader 结构）：
-   * · 身份行：头像 + 名字（headline 字号 + 衬线族，有据 name 同款）+ 说明行
-   * · 统计行：StatRow 三列（行程/勋章/足迹）——2026-11-07 对标时预落地的家族件首次挂载；
-   *   有据是 关注/粉丝/获赞（社交域），有径按旅行域换值，列宽 72vp 同源
-   * · 右端胶囊：游客「去登录」（有据 highlight pill 同位同语义），登录后不渲染
-   * 有据的 16:10 封面卡与 草稿箱/废纸篓 胶囊不搬：前者需要资料背景图（后续共享资料再接），
-   * 后者是 UGC 域概念（草稿/回收），有径的对应物不存在。
+   * 资料区（2026-11-10 全量对标有据 ProfileHeader——用户令编辑页全量搬运后，
+   * 资料区升级为封面卡形态与编辑页预览同构，共用 ProfileCoverCard）：
+   * · 16:10 封面卡：背景图（编辑资料页可选）+ 头像 + 名字/性别徽章/简介/ID
+ *   + 统计三列白字（行程/勋章/足迹，有据是 关注/粉丝/获赞）
+   * · 卡下胶囊（有据 ProfileHeader 胶囊排同位）：游客「去登录」/ 登录「编辑资料」
+   * · 草稿箱/废纸篓 胶囊不搬：UGC 域概念（草稿/回收），有径的对应物不存在。
    */
   @Builder
   profileHeader() {
     Column({ space: SpaceTokens.sm }) {
-      Row({ space: SpaceTokens.base }) {
-        Stack({ alignContent: Alignment.Center }) {
-          Circle()
-            .width(LayoutTokens.profileAvatarSize)
-            .height(LayoutTokens.profileAvatarSize)
-            .fill(ColorTokens.primaryTint)
-          // 头像来源只有一个出口：本轮恒返回官方符号占位，接真头像时改 ProfileStore 即可
-          if (ProfileStore.avatarOf(AccountStore.uid()).kind === ProfileStore.KIND_SYMBOL) {
-            SymbolGlyph(ProfileStore.avatarOf(AccountStore.uid()).symbol)
-              .fontSize(LayoutTokens.profileAvatarSize * 0.62)
-              .fontColor([ColorTokens.primary])
-          } else {
-            Image(ProfileStore.avatarOf(AccountStore.uid()).url)
-              .width(LayoutTokens.profileAvatarSize)
-              .height(LayoutTokens.profileAvatarSize)
-              .borderRadius(RadiusTokens.pill)
-              .objectFit(ImageFit.Cover)
-              .draggable(false)
+      ProfileCoverCard({
+        editable: false,
+        avatarSource: this.profile.avatar,
+        backgroundSource: this.profile.profileBackground,
+        avatarPreview: this.coverAvatarPreview ?? null,
+        backgroundPreview: this.coverBackgroundPreview ?? null,
+        // 昵称优先（编辑页自填），未填退账号派生名；简介空传空串（卡内显 placeholder 文案）
+        nickname: ProfileStore.displayName(this.profile),
+        bio: this.profile.bio,
+        gender: this.profile.gender,
+        uidLabel: AccountStore.masked(),
+        // 图上右下单动作胶囊（有据主页「编辑资料」同位同款玻璃描边）
+        actionLabel: this.authState === 'guest' ? '去登录'
+          : (this.authState === 'huawei' ? '编辑资料' : ''),
+        onAction: (): void => {
+          if (this.authState === 'guest') {
+            this.goLogin();
+          } else if (this.authState === 'huawei') {
+            this.pathStack.pushPath({ name: 'ProfileEdit' });
           }
-        }
-        .width(LayoutTokens.profileAvatarSize)
-        .height(LayoutTokens.profileAvatarSize)
-        .borderRadius(RadiusTokens.pill)
-        .border({ width: LayoutTokens.hairlineWidth, color: ColorTokens.hairline })
-
-        Column({ space: SpaceTokens.xxs }) {
-          // headline 字号 + 衬线族：有据 name 的排（profileIdentity name 同款组合）
-          Text(ProfileStore.displayName())
-            .fontSize(TypeTokens.headline.size)
-            .fontWeight(TypeTokens.headline.weight)
-            .fontFamily(TypeTokens.title.family)
-            .fontColor(ColorTokens.ink)
-          Text(ProfileStore.displayHint())
-            .fontSize(TypeTokens.caption.size)
-            .fontWeight(450)
-            .fontColor(ColorTokens.muted)
-            .maxLines(2)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-        }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
-
-      // 统计行 + 游客登录胶囊：有据 ProfileHeader 的 stats-row 同款布局
-      Row() {
-        StatRow({
-          items: [
-            { key: 'trips', value: String(this.tripCount), label: '行程' },
-            { key: 'badges', value: String(this.badgeCount), label: '勋章' },
-            { key: 'cities', value: String(this.cityCount), label: '足迹' }
-          ] as StatItem[]
-        })
-        Blank().layoutWeight(1)
-        if (this.authState === 'guest') {
-          Pressable({
-            visualHeight: LayoutTokens.segmentedHeight,
-            action: (): void => {
-              this.goLogin();
-            }
-          }) {
-            Row() {
-              Text('去登录')
-                .fontSize(TypeTokens.caption.size)
-                .fontWeight(TypeTokens.headline.weight)
-                .fontColor(ColorTokens.primaryPress)
-                .maxLines(1)
-            }
-            .height(LayoutTokens.segmentedHeight)
-            .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
-            .justifyContent(FlexAlign.Center)
-            .alignItems(VerticalAlign.Center)
-            // highlight 配方照有据 GlassPillButton：tint 底 + brand 描边 + press 字
-            .backgroundColor(ColorTokens.primaryTint)
-            .border({
-              width: LayoutTokens.glassBorderWidth,
-              color: ColorTokens.primary,
-              style: BorderStyle.Solid
-            })
-            .borderRadius(RadiusTokens.pill)
-          }
-        }
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
+        },
+        stats: [
+          { key: 'trips', value: String(this.tripCount), label: '行程' },
+          { key: 'badges', value: String(this.badgeCount), label: '勋章' },
+          { key: 'cities', value: String(this.cityCount), label: '足迹' }
+        ] as StatItem[]
+      })
     }
     .width('100%')
-    .padding({ top: SpaceTokens.base, bottom: SpaceTokens.base })
   }
 
   @Builder

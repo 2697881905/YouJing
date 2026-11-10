@@ -1,69 +1,280 @@
 {
   "color": [
-    { "name": "start_window_background", "value": "#000000" },
-    { "name": "canvas", "value": "#FF121212" },
-    { "name": "map_strip_base", "value": "#FF2A3A53" },
-    { "name": "surface_elevated", "value": "#FF1E1E1E" },
-    { "name": "surface_subtle", "value": "#FF232326" },
-    { "name": "surface_panel", "value": "#FF28282C" },
-    { "name": "surface_sunken", "value": "#FF0D0D0F" },
-    { "name": "glass_bar_gradient_mask", "value": "#662A2F36" },
-    { "name": "skeleton_base", "value": "#FF2A2A2F" },
-    { "name": "skeleton_highlight", "value": "#FF35353B" },
-    { "name": "ink", "value": "#FFF2F2F4" },
-    { "name": "body", "value": "#FFA8A8AE" },
-    { "name": "muted", "value": "#FF97979E" },
-    { "name": "faint", "value": "#FF8A8A91" },
-    { "name": "icon", "value": "#FFFFFFFF" },
-    { "name": "on_dark", "value": "#FFFFFFFF" },
-    { "name": "on_dark_degraded", "value": "#99FFFFFF" },
-    { "name": "primary", "value": "#FF0A84FF" },
-    { "name": "primary_press", "value": "#FF3D9BFF" },
-    { "name": "primary_tint", "value": "#330A84FF" },
-    { "name": "primary_glow_edge", "value": "#000A84FF" },
-    { "name": "on_primary", "value": "#FF121212" },
-    { "name": "accent_mention", "value": "#FF7D7AFF" },
-    { "name": "success", "value": "#FF30D158" },
-    { "name": "warning", "value": "#FFFF9F0A" },
-    { "name": "danger", "value": "#FFFF453A" },
-    { "name": "like", "value": "#FFFF453A" },
-    { "name": "bookmark", "value": "#FFFFD60A" },
-    { "name": "hairline", "value": "#FF3A3A3F" },
-    { "name": "map_dock_scrim", "value": "#E6121212" },
-    { "name": "glass_selection_surface", "value": "#332E2E32" },
-    { "name": "border_subtle", "value": "#5245454B" },
-    { "name": "hairline_strong", "value": "#FF3A3A3F" },
-    { "name": "separator", "value": "#4D545458" },
-    { "name": "modal_scrim", "value": "#5217171A" },
-    { "name": "bar_shadow", "value": "#8C000000" },
-    { "name": "route_path", "value": "#FF7DB8FF" },
-    { "name": "route_path_soft", "value": "#4D7DB8FF" },
-    { "name": "route_node_fill", "value": "#FF16203A" },
-    { "name": "route_node_stroke", "value": "#FFECE8DF" },
-    { "name": "route_contour", "value": "#1FFFFFFF" },
-    { "name": "route_water", "value": "#FF0B1424" },
-    { "name": "route_land", "value": "#FF16203A" },
-    { "name": "route_gold", "value": "#FFD9A441" },
-    { "name": "route_bg_top", "value": "#FF070B16" },
-    { "name": "route_bg_bottom", "value": "#FF0E1830" },
-    { "name": "star_ink", "value": "#FFECE8DF" },
-    { "name": "star_ring", "value": "#26FFFFFF" },
-    { "name": "star_icon", "value": "#FF7DB8FF" },
-    { "name": "star_gold", "value": "#FFD9A441" },
-    { "name": "star_badge", "value": "#FF4D9FFF" },
-    { "name": "star_bg_top", "value": "#FF070B16" },
-    { "name": "star_bg_bottom", "value": "#FF0E1830" },
-    { "name": "brand_solid", "value": "#FF0050A0" },
-    { "name": "on_brand", "value": "#FFFFFFFF" },
-    { "name": "chip_solid", "value": "#FF47474E" },
-    { "name": "danger_tint", "value": "#1AFF3B30" },
-    { "name": "glass_bar_surface", "value": "#59121212" },
-    { "name": "glass_bar_border", "value": "#5245454B" },
-    { "name": "glass_bar_bg", "value": "#B3121212" },
-    { "name": "glass_card_bg", "value": "#FF1E1E1E" },
-    { "name": "glass_segment_bg", "value": "#20FFFFFF" },
-    { "name": "glass_segment_border", "value": "#24FFFFFF" },
-    { "name": "glass_pill_fill", "value": "#26FFFFFF" },
-    { "name": "glass_pill_rim", "value": "#40FFFFFF" }
+    {
+      "name": "start_window_background",
+      "value": "#000000"
+    },
+    {
+      "name": "canvas",
+      "value": "#FF121212"
+    },
+    {
+      "name": "map_strip_base",
+      "value": "#FF2A3A53"
+    },
+    {
+      "name": "surface_elevated",
+      "value": "#FF1E1E1E"
+    },
+    {
+      "name": "surface_subtle",
+      "value": "#FF232326"
+    },
+    {
+      "name": "surface_panel",
+      "value": "#FF28282C"
+    },
+    {
+      "name": "surface_sunken",
+      "value": "#FF0D0D0F"
+    },
+    {
+      "name": "glass_bar_gradient_mask",
+      "value": "#662A2F36"
+    },
+    {
+      "name": "skeleton_base",
+      "value": "#FF2A2A2F"
+    },
+    {
+      "name": "skeleton_highlight",
+      "value": "#FF35353B"
+    },
+    {
+      "name": "ink",
+      "value": "#FFF2F2F4"
+    },
+    {
+      "name": "body",
+      "value": "#FFA8A8AE"
+    },
+    {
+      "name": "muted",
+      "value": "#FF97979E"
+    },
+    {
+      "name": "faint",
+      "value": "#FF8A8A91"
+    },
+    {
+      "name": "icon",
+      "value": "#FFFFFFFF"
+    },
+    {
+      "name": "on_dark",
+      "value": "#FFFFFFFF"
+    },
+    {
+      "name": "on_dark_degraded",
+      "value": "#99FFFFFF"
+    },
+    {
+      "name": "primary",
+      "value": "#FF0A84FF"
+    },
+    {
+      "name": "primary_press",
+      "value": "#FF3D9BFF"
+    },
+    {
+      "name": "primary_tint",
+      "value": "#330A84FF"
+    },
+    {
+      "name": "primary_glow_edge",
+      "value": "#000A84FF"
+    },
+    {
+      "name": "on_primary",
+      "value": "#FF121212"
+    },
+    {
+      "name": "accent_mention",
+      "value": "#FF7D7AFF"
+    },
+    {
+      "name": "success",
+      "value": "#FF30D158"
+    },
+    {
+      "name": "warning",
+      "value": "#FFFF9F0A"
+    },
+    {
+      "name": "danger",
+      "value": "#FFFF453A"
+    },
+    {
+      "name": "like",
+      "value": "#FFFF453A"
+    },
+    {
+      "name": "bookmark",
+      "value": "#FFFFD60A"
+    },
+    {
+      "name": "hairline",
+      "value": "#FF3A3A3F"
+    },
+    {
+      "name": "map_dock_scrim",
+      "value": "#E6121212"
+    },
+    {
+      "name": "glass_selection_surface",
+      "value": "#332E2E32"
+    },
+    {
+      "name": "border_subtle",
+      "value": "#5245454B"
+    },
+    {
+      "name": "hairline_strong",
+      "value": "#FF3A3A3F"
+    },
+    {
+      "name": "separator",
+      "value": "#4D545458"
+    },
+    {
+      "name": "modal_scrim",
+      "value": "#5217171A"
+    },
+    {
+      "name": "bar_shadow",
+      "value": "#8C000000"
+    },
+    {
+      "name": "route_path",
+      "value": "#FF7DB8FF"
+    },
+    {
+      "name": "route_path_soft",
+      "value": "#4D7DB8FF"
+    },
+    {
+      "name": "route_node_fill",
+      "value": "#FF16203A"
+    },
+    {
+      "name": "route_node_stroke",
+      "value": "#FFECE8DF"
+    },
+    {
+      "name": "route_contour",
+      "value": "#1FFFFFFF"
+    },
+    {
+      "name": "route_water",
+      "value": "#FF0B1424"
+    },
+    {
+      "name": "route_land",
+      "value": "#FF16203A"
+    },
+    {
+      "name": "route_gold",
+      "value": "#FFD9A441"
+    },
+    {
+      "name": "route_bg_top",
+      "value": "#FF070B16"
+    },
+    {
+      "name": "route_bg_bottom",
+      "value": "#FF0E1830"
+    },
+    {
+      "name": "star_ink",
+      "value": "#FFECE8DF"
+    },
+    {
+      "name": "star_ring",
+      "value": "#26FFFFFF"
+    },
+    {
+      "name": "star_icon",
+      "value": "#FF7DB8FF"
+    },
+    {
+      "name": "star_gold",
+      "value": "#FFD9A441"
+    },
+    {
+      "name": "star_badge",
+      "value": "#FF4D9FFF"
+    },
+    {
+      "name": "star_bg_top",
+      "value": "#FF070B16"
+    },
+    {
+      "name": "star_bg_bottom",
+      "value": "#FF0E1830"
+    },
+    {
+      "name": "brand_solid",
+      "value": "#FF0050A0"
+    },
+    {
+      "name": "on_brand",
+      "value": "#FFFFFFFF"
+    },
+    {
+      "name": "chip_solid",
+      "value": "#FF47474E"
+    },
+    {
+      "name": "danger_tint",
+      "value": "#1AFF3B30"
+    },
+    {
+      "name": "glass_bar_surface",
+      "value": "#59121212"
+    },
+    {
+      "name": "glass_bar_border",
+      "value": "#5245454B"
+    },
+    {
+      "name": "glass_bar_bg",
+      "value": "#B3121212"
+    },
+    {
+      "name": "glass_card_bg",
+      "value": "#FF1E1E1E"
+    },
+    {
+      "name": "glass_segment_bg",
+      "value": "#20FFFFFF"
+    },
+    {
+      "name": "glass_segment_border",
+      "value": "#24FFFFFF"
+    },
+    {
+      "name": "glass_pill_fill",
+      "value": "#26FFFFFF"
+    },
+    {
+      "name": "glass_pill_rim",
+      "value": "#40FFFFFF"
+    },
+    {
+      "name": "gender_male_surface",
+      "value": "#FF1F2E45"
+    },
+    {
+      "name": "gender_male_text",
+      "value": "#FF8AB4FF"
+    },
+    {
+      "name": "gender_female_surface",
+      "value": "#FF3A2030"
+    },
+    {
+      "name": "gender_female_text",
+      "value": "#FFFF9EC4"
+    }
   ]
 }

@@ -74,6 +74,11 @@ export interface ColorTokensType {
   /** 有据玻璃栏面族：自绘玻璃件在内容区 / 低版本设备上的表面与描边兜底 */
   glassBarSurface: Resource;
   glassBarBorder: Resource;
+  /** 性别徽章四件套（值 1:1 取自有据 ds_gender_*，共享资料卡视觉） */
+  genderMaleSurface: Resource;
+  genderMaleText: Resource;
+  genderFemaleSurface: Resource;
+  genderFemaleText: Resource;
   glassBarBg: Resource;
   glassCardBg: Resource;
   glassSegmentBg: Resource;
@@ -107,6 +112,11 @@ export const ColorTokens: ColorTokensType = {
   surfaceSubtle: $r('app.color.surface_subtle'),
   surfacePanel: $r('app.color.surface_panel'),
   surfaceSunken: $r('app.color.surface_sunken'),
+  // 性别徽章四件套：值 1:1 取自有据（ds_gender_*）——资料卡与有据共享视觉，改色需两仓同步
+  genderMaleSurface: $r('app.color.gender_male_surface'),
+  genderMaleText: $r('app.color.gender_male_text'),
+  genderFemaleSurface: $r('app.color.gender_female_surface'),
+  genderFemaleText: $r('app.color.gender_female_text'),
   skeletonBase: $r('app.color.skeleton_base'),
   skeletonHighlight: $r('app.color.skeleton_highlight'),
   ink: $r('app.color.ink'),
