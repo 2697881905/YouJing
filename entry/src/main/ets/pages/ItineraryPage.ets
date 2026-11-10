@@ -1148,7 +1148,9 @@ export struct ItineraryPage {
             .backgroundColor(ColorTokens.surfaceElevated)
             .margin({ top: SpaceTokens.sm, bottom: SpaceTokens.lg })
           }
-          .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
+          // 顶距 16vp 一举两得：标题不再贴弹层上缘（半模态要有呼吸）；
+          // 44vp 分享钮的中心落到 16+22=38vp，与官方 showClose ✕ 的中心（实测 38vp）同心
+          .padding({ top: SpaceTokens.base, left: SpaceTokens.base, right: SpaceTokens.base })
         }
         .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .layoutWeight(1)
@@ -1546,7 +1548,11 @@ export struct ItineraryPage {
       .height('100%')
       .backgroundColor(ColorTokens.canvas)
       .bindSheet($$this.showDetail, this.detailSheet(), {
-        height: '85%',
+        // 85% 是照全页思路给的：单站点详情内容自然高约 600vp（Pocket 2，含顶距 16 与
+        // 末节点两行站名），底部按钮行钉底后中部空出 130vp+，弹层看着像没排版
+        // （真机 2026-11-10）。收到 68% 首屏完整容纳动线位置卡；备注/理由更长或
+        // 大字号时由 Scroll 兜底。
+        height: '68%',
         showClose: true,
         systemMaterial: getSheetImmersiveMaterial(),
         blurStyle: isSystemMaterialActive() ? BlurStyle.NONE : GlassBlurStyle.Floating,
