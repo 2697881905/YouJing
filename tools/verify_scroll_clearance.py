@@ -139,20 +139,26 @@ def grab(tag, out):
         return None, None, None, None, 0
     d = json.load(open(local))
     nodes, bar, tab = [], [None], [None]
+    tabbars = []
 
     def w(n):
         a = attrs(n)
         b = nums(a.get('bounds'))
         ty = str(a.get('type'))
         if b:
-            if ty == 'TabBar' and bar[0] is None:
-                bar[0] = b
+            if ty == 'TabBar':
+                # 地图套件的行程模式控件也会 dump 成 1 子节点的 TabBar（2026-11-09：
+                # 在途行程加载后 y≈294 处出现 3 个假 dock，取"第一个"就把 dock 顶认成 94.1）。
+                # 全量收集，事后取**最宽**的那个——真五格 dock 938px，假的不超过 238px。
+                tabbars.append(b)
             if ty == 'TabContent' and tab[0] is None:
                 tab[0] = b
             nodes.append(((a.get('text') or '').strip(), ty, b))
         for c in n.get('children', []):
             w(c)
     w(d)
+    if tabbars:
+        bar[0] = max(tabbars, key=lambda b: b[2] - b[0])
     cont = tab[0][3] if tab[0] else 2690
     spill = scroll_spill(d, cont)
     if bar[0] is None:
