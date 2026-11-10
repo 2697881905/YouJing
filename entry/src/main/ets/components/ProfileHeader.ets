@@ -20,6 +20,8 @@ export struct ProfileHeader {
   @Prop totalLikes: number = 0;
   /** 统计三列标签（默认有据原值 关注/粉丝/获赞；有径按旅行域传 行程/勋章/足迹） */
   @Prop statLabels: string[] = ['关注', '粉丝', '获赞'];
+  /** 草稿箱/废纸篓胶囊排（有据 UGC 域；有径无对应页传 false 不渲染） */
+  @Prop showToolPills: boolean = true;
   @Prop onBackground: boolean = false;
   onOpenFollowing: () => void = (): void => {};
   onOpenFollowers: () => void = (): void => {};
@@ -39,6 +41,10 @@ export struct ProfileHeader {
         userId: this.userId,
         onBackground: this.onBackground,
       })
+      // 统计三列独占一行。有据原版把编辑资料胶囊与三列并排（Blank 弹开），
+      // 363vp 屏实测放不下：三列 240 + 间隔 36 + 胶囊 76 + 行 padding 24 = 376vp，
+      // 胶囊右缘顶满屏宽被裁（有径真机 dump 实证）。胶囊拆到独立一行右对齐——
+      // 独立胶囊行的排版语言与有据草稿箱/废纸篓行一致。
       Row({ space: SpaceTokens.sm }) {
         ProfileStatItem({
           value: this.followingCount,
@@ -55,7 +61,11 @@ export struct ProfileHeader {
           onOpen: (): void => { this.onOpenFollowers(); },
         })
         ProfileStatItem({ value: this.totalLikes, label: this.statLabels.length > 2 ? this.statLabels[2] : '获赞', onBackground: this.onBackground })
-        Blank().layoutWeight(1)
+      }
+      .width('100%')
+      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+
+      Row() {
         GlassPillButton({
           label: this.isLoggedIn ? '编辑资料' : '去登录',
           highlight: !this.isLoggedIn,
@@ -63,9 +73,10 @@ export struct ProfileHeader {
         })
       }
       .width('100%')
+      .justifyContent(FlexAlign.End)
       .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, bottom: SpaceTokens.sm })
 
-      if (this.isLoggedIn) {
+      if (this.isLoggedIn && this.showToolPills) {
         Row({ space: SpaceTokens.sm }) {
           Column() {
             GlassPillButton({

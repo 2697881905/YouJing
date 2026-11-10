@@ -223,6 +223,8 @@ export struct MinePage {
       totalLikes: this.cityCount,
       statLabels: ['行程', '勋章', '足迹'],
       onBackground: onBackground,
+      // 草稿箱/废纸篓是有据 UGC 域胶囊，有径无对应页——不渲染（用户裁定）
+      showToolPills: false,
       onOpenFollowing: (): void => {},
       onOpenFollowers: (): void => {},
       onEdit: (): void => {
