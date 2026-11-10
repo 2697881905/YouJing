@@ -357,11 +357,14 @@ export struct YoujingStartPage {
           .fontFamily(TypeTokens.title.family)
           .fontColor(ColorTokens.ink)
           .layoutWeight(1)
-        // mock 示例按屏4「京都（示例数据）」同一口径如实标注，不谎报为正式内置库
+        // mock 示例按屏4「京都（示例数据）」同一口径如实标注，不谎报为正式内置库。
+        // 右距 xxl 让位给系统 ✕：官方钮占 [961..1086]px 且竖跨标题行，
+        // 标签直抵弹层右缘（-base）会被压在 ✕ 下方（真机 dump 2026-11-10）
         Text('示例数据')
           .fontSize(TypeTokens.caption.size)
           .fontWeight(450)
           .fontColor(ColorTokens.muted)
+          .margin({ right: SpaceTokens.xxl })
       }
       .alignItems(VerticalAlign.Center)
       .width('100%')

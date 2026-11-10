@@ -31,6 +31,13 @@ export struct LegalDocReader {
    * （INIT_REPORT §5ci 续 24），高度必须由本组件自己写。
    */
   @Prop fillHost: boolean = false;
+  /**
+   * 右上角给宿主关闭钮让位的右缩进。bindSheet 宿主（showClose）传 SpaceTokens.xxl：
+   * 官方 ✕ 实测占右缘 [961..1086]px 且竖跨标题行，「更新于…」日期右缘直抵卡片右缘
+   * 会被压在 ✕ 下方（真机 dump 2026-11-10，同 detailSheet 分享钮的让位口径）。
+   * 弹窗/整页宿主没有右上角浮动钮，默认 0 不让位。
+   */
+  @Prop closeSafeInset: Length = 0;
   /** 断点（唯一来源 utils/breakpointCenter.ets）：宽屏给正文一个可读上限 */
   @StorageProp(KEY_CURRENT_BREAKPOINT) bp: string = 'sm';
   onBack: () => void = (): void => {};
@@ -49,6 +56,7 @@ export struct LegalDocReader {
           .fontWeight(450)
           .fontColor(ColorTokens.muted)
           .fontFeature("'tnum' on")
+          .margin({ right: this.closeSafeInset })
       }
       .alignItems(VerticalAlign.Bottom)
       .width('100%')

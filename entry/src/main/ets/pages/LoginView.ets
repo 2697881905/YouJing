@@ -62,6 +62,8 @@ export struct LoginView {
     Column() {
       LegalDocReader({
         kind: this.docKind,
+        // 右上角让位给系统 ✕（官方钮占 [961..1086]px，日期直抵卡缘被压住）
+        closeSafeInset: SpaceTokens.xxl,
         onBack: (): void => {
           this.showDoc = false;
         }
