@@ -33,10 +33,9 @@ import { DateUtils } from '../utils/DateUtils';
 import { membershipStatus, membershipUsage, subscriptionActive, MembershipStatus } from '../utils/MembershipCopy';
 import { BadgeGroup, BadgeRecord, badgeCityCount, badgeTotal, buildBadgeBoard } from '../utils/BadgeBoard';
 import { ProfileStore, UserProfileData, PROFILE_TICK_KEY } from '../data/ProfileStore';
-import { image } from '@kit.ImageKit';
 import { TripDao, TripSummary } from '../data/TripDao';
-import { StatItem } from '../components/StatRow';
-import { ProfileCoverCard } from '../components/ProfileCoverCard';
+import { ProfileHeader } from '../components/ProfileHeader';
+import { resolveDisplayImageUrl } from '../utils/DisplayMedia';
 import { Pressable } from '../components/Pressable';
 import { Logger } from '../common/logger/Logger';
 import { ColorTokens } from '../design/ColorTokens';
@@ -73,9 +72,6 @@ export struct MinePage {
   @State private tripCount: number = 0;
   /** 用户资料（昵称/简介）：编辑页保存后经 PROFILE_TICK_KEY 广播回显 */
   @State private profile: UserProfileData = { nickname: '', bio: '', gender: 0, avatar: '', profileBackground: '' };
-  // ProfileCoverCard 的 @Link 槽位（@Link 无缺省，宿主必须持有）：MinePage 不编辑恒 null
-  @State private coverAvatarPreview: image.PixelMap | null = null;
-  @State private coverBackgroundPreview: image.PixelMap | null = null;
   @StorageProp(PROFILE_TICK_KEY) @Watch('onProfileTick') profileTick: number = 0;
   /** 会员卡：订阅/通行证状态（付费后 App 内唯一能看到权益的地方） */
   @State private memberTitle: string = '未开通会员';
@@ -171,45 +167,73 @@ export struct MinePage {
   }
 
   /**
-   * 资料区（2026-11-10 全量对标有据 ProfileHeader——用户令编辑页全量搬运后，
-   * 资料区升级为封面卡形态与编辑页预览同构，共用 ProfileCoverCard）：
-   * · 16:10 封面卡：背景图（编辑资料页可选）+ 头像 + 名字/性别徽章/简介/ID
- *   + 统计三列白字（行程/勋章/足迹，有据是 关注/粉丝/获赞）
-   * · 卡下胶囊（有据 ProfileHeader 胶囊排同位）：游客「去登录」/ 登录「编辑资料」
-   * · 草稿箱/废纸篓 胶囊不搬：UGC 域概念（草稿/回收），有径的对应物不存在。
+   * 资料区 · 2026-11-10 直接搬有据 Index.profileHeroBlock + ProfileHeader 全套源码
+   * （用户令「不要效仿，直接搬现成代码」）：
+   * · 有背景图：16:10 Stack（Image Cover + #52000000 压暗层）+ ProfileHeader(true) 恒白字
+   * · 无背景图：ProfileHeader(false) 主题字色（ProfileIdentity 双态自适配）
+   * · 组件 = 有据同名文件原样（ProfileHeader/ProfileIdentity/ProfileStatItem/GlassPillButton/
+   *   CountRoll），统计标签按旅行域换值（statLabels），域回调 onOpenFollowing/Followers 空实现
+   * · 草稿箱/废纸篓 胶囊随组件保留（登录态渲染），路由属 UGC 域待共享资料立项
    */
   @Builder
   profileHeader() {
-    Column({ space: SpaceTokens.sm }) {
-      ProfileCoverCard({
-        editable: false,
-        avatarSource: this.profile.avatar,
-        backgroundSource: this.profile.profileBackground,
-        avatarPreview: this.coverAvatarPreview,
-        backgroundPreview: this.coverBackgroundPreview,
-        // 昵称优先（编辑页自填），未填退账号派生名；简介空传空串（卡内显 placeholder 文案）
-        nickname: ProfileStore.displayName(this.profile),
-        bio: this.profile.bio,
-        gender: this.profile.gender,
-        uidLabel: AccountStore.masked(),
-        // 图上右下单动作胶囊（有据主页「编辑资料」同位同款玻璃描边）
-        actionLabel: this.authState === 'guest' ? '去登录'
-          : (this.authState === 'huawei' ? '编辑资料' : ''),
-        onAction: (): void => {
-          if (this.authState === 'guest') {
-            this.goLogin();
-          } else if (this.authState === 'huawei') {
-            this.pathStack.pushPath({ name: 'ProfileEdit' });
+    if (this.profile.profileBackground !== '') {
+      Column() {
+        Stack() {
+          Image(resolveDisplayImageUrl(this.profile.profileBackground))
+            .width('100%')
+            .height('100%')
+            .objectFit(ImageFit.Cover)
+            .draggable(false)
+          Column() {
+            this.profileHeaderBlock(true)
           }
-        },
-        stats: [
-          { key: 'trips', value: String(this.tripCount), label: '行程' },
-          { key: 'badges', value: String(this.badgeCount), label: '勋章' },
-          { key: 'cities', value: String(this.cityCount), label: '足迹' }
-        ] as StatItem[]
-      })
+          .width('100%')
+          .height('100%')
+          .justifyContent(FlexAlign.End)
+          .backgroundColor('#52000000')
+        }
+        .width('100%')
+        .aspectRatio(16 / 10)
+        .borderRadius(RadiusTokens.lg)
+        .clip(true)
+      }
+      .width('100%')
+      .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs, bottom: SpaceTokens.xs })
+    } else {
+      Column() {
+        this.profileHeaderBlock(false)
+      }
+      .width('100%')
     }
-    .width('100%')
+  }
+
+  /** 有据 profileHeaderBlock 同款：ProfileHeader 挂载段（参数域换值，结构原样） */
+  @Builder
+  profileHeaderBlock(onBackground: boolean) {
+    ProfileHeader({
+      avatar: this.profile.avatar,
+      name: ProfileStore.displayName(this.profile),
+      gender: this.profile.gender,
+      bio: this.profile.bio,
+      userId: 0,
+      isLoggedIn: this.authState === 'huawei',
+      followingCount: this.tripCount,
+      followerCount: this.badgeCount,
+      totalLikes: this.cityCount,
+      statLabels: ['行程', '勋章', '足迹'],
+      onBackground: onBackground,
+      onOpenFollowing: (): void => {},
+      onOpenFollowers: (): void => {},
+      onEdit: (): void => {
+        this.pathStack.pushPath({ name: 'ProfileEdit' });
+      },
+      onOpenDrafts: (): void => {},
+      onOpenTrash: (): void => {},
+      onLogin: (): void => {
+        this.goLogin();
+      }
+    })
   }
 
   @Builder

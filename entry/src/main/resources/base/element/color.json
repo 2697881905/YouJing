@@ -275,6 +275,10 @@
     {
       "name": "gender_female_text",
       "value": "#FFD94F87"
+    },
+    {
+      "name": "bar_tab_selected_bg",
+      "value": "#FFFFFFFF"
     }
   ]
 }

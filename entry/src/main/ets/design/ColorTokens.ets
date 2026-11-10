@@ -79,6 +79,19 @@ export interface ColorTokensType {
   genderMaleText: Resource;
   genderFemaleSurface: Resource;
   genderFemaleText: Resource;
+  /** ── 有据同名字段别名（ProfileHeader/ProfileIdentity/GlassPillButton 等搬运件
+   *  原样引用；值逐个核对过与有径现有资源同源，改色需两仓同步）── */
+  secondary: Resource;
+  tertiary: Resource;
+  sunken: Resource;
+  glassClear: ResourceColor;
+  glassWhite: ResourceColor;
+  barTabSelectedBg: Resource;
+  brand: Resource;
+  brandTint: Resource;
+  brandPress: Resource;
+  barSurface: Resource;
+  barBorder: Resource;
   glassBarBg: Resource;
   glassCardBg: Resource;
   glassSegmentBg: Resource;
@@ -117,6 +130,20 @@ export const ColorTokens: ColorTokensType = {
   genderMaleText: $r('app.color.gender_male_text'),
   genderFemaleSurface: $r('app.color.gender_female_surface'),
   genderFemaleText: $r('app.color.gender_female_text'),
+  // 有据同名别名（逐值核对：secondary=ds_text_secondary=body；tertiary=ds_text_tertiary=muted；
+  // sunken=ds_sunken=surfaceSunken；brand/brandTint/brandPress=primary/primaryTint/primaryPress；
+  // barSurface/barBorder=glassBarSurface/glassBarBorder；glassClear/barTabSelectedBg 为新增）
+  secondary: $r('app.color.body'),
+  tertiary: $r('app.color.muted'),
+  sunken: $r('app.color.surface_sunken'),
+  glassClear: '#00FFFFFF',
+  glassWhite: '#FFFFFF',
+  barTabSelectedBg: $r('app.color.bar_tab_selected_bg'),
+  brand: $r('app.color.primary'),
+  brandTint: $r('app.color.primary_tint'),
+  brandPress: $r('app.color.primary_press'),
+  barSurface: $r('app.color.glass_bar_surface'),
+  barBorder: $r('app.color.glass_bar_border'),
   skeletonBase: $r('app.color.skeleton_base'),
   skeletonHighlight: $r('app.color.skeleton_highlight'),
   ink: $r('app.color.ink'),

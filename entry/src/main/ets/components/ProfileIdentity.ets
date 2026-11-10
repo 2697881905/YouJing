@@ -1,0 +1,116 @@
+import { Avatar } from './Avatar';
+import { ColorTokens } from '../design/ColorTokens';
+import { RadiusTokens } from '../design/RadiusTokens';
+import { SpaceTokens } from '../design/SpaceTokens';
+import { TypeTokens } from '../design/TypeTokens';
+
+// 资料身份信息不包含关注、编辑或私信等权限动作，可由本人和他人主页安全复用。
+@Component
+export struct ProfileIdentity {
+  @Prop avatar: string = '';
+  @Prop name: string = '';
+  @Prop gender: number = 0;
+  @Prop bio: string = '';
+  @Prop userId: number = 0;
+  @Prop deleted: boolean = false;
+  @Prop onBackground: boolean = false;
+
+  private genderLabel(): string {
+    return this.gender === 1 ? '男' : this.gender === 2 ? '女' : '保密';
+  }
+
+  private genderColor(): ResourceColor {
+    // 男=淡蓝底蓝字（用户定稿的是「淡底 + 同色相深字」这层关系）；
+    // 深浅成对，深色侧换深底提亮字，色相身份保留。与 EditableProfilePreview 同款，改色需两处同步。
+    return this.gender === 1 ? ColorTokens.genderMaleText
+      : this.gender === 2 ? ColorTokens.genderFemaleText : ColorTokens.secondary;
+  }
+
+  private genderSurface(): ResourceColor {
+    return this.gender === 1 ? ColorTokens.genderMaleSurface
+      : this.gender === 2 ? ColorTokens.genderFemaleSurface : ColorTokens.sunken;
+  }
+
+  build() {
+    Row({ space: SpaceTokens.sm }) {
+      Stack() {
+        if (this.deleted) {
+          Text('?')
+            .width(this.onBackground ? 94 : 114)
+            .height(this.onBackground ? 94 : 114)
+            .borderRadius(RadiusTokens.pill)
+            .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
+            .fontWeight(TypeTokens.headline.weight)
+            // 注销占位：quaternary #9E9EA3 是亮灰，白字压上去只有 2.67:1（深色 3.43:1，都不达小字 AA）。
+            // 改成 sunken 底 + secondary 字（浅 5.65:1 / 深 8.21:1），'?' 依旧读得出是占位而不是头像。
+            .fontColor(ColorTokens.secondary)
+            .backgroundColor(ColorTokens.sunken)
+            .textAlign(TextAlign.Center)
+        } else {
+          Column()
+            .width(this.onBackground ? 124 : 150)
+            .height(this.onBackground ? 124 : 150)
+            .position({ x: -9, y: -7 })
+            .radialGradient({
+              center: [70, 74],
+              radius: 74,
+              colors: [['#5CFF84B4', 0.0], ['#28FF9BC3', 0.48], [ColorTokens.glassClear, 1.0]],
+            })
+            .borderRadius(RadiusTokens.pill)
+            .clip(true)
+            .hitTestBehavior(HitTestMode.None)
+          Avatar({ avatar: this.avatar, name: this.name, avatarSize: this.onBackground ? 94 : 114 })
+            .position({ x: this.onBackground ? 10 : 12, y: this.onBackground ? 12 : 16 })
+        }
+      }
+      .width(this.onBackground ? 124 : 150)
+      .height(this.onBackground ? 118 : 146)
+
+      Column({ space: SpaceTokens.inlineTight }) {
+        Row({ space: SpaceTokens.inline }) {
+          Text(this.deleted ? '已注销用户' : this.name)
+            .fontSize(TypeTokens.headline.size).fontFamily(TypeTokens.fontFamilySerif)
+            .fontWeight(TypeTokens.headline.weight)
+            .lineHeight(TypeTokens.headline.lineHeight)
+            .letterSpacing(TypeTokens.headline.tracking)
+            .fontColor(this.onBackground ? '#FFFFFFFF' : ColorTokens.primary)
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          if (!this.deleted) {
+            Text(this.genderLabel())
+              .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
+              .fontWeight(TypeTokens.overline.weight)
+              .lineHeight(TypeTokens.overline.lineHeight)
+              .letterSpacing(TypeTokens.overline.tracking)
+              .fontColor(this.genderColor())
+              .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.inlineTight, bottom: SpaceTokens.inlineTight })
+              .backgroundColor(this.genderSurface())
+              .borderRadius(RadiusTokens.pill)
+          }
+        }
+        if (this.bio.length > 0) {
+          Text(this.bio)
+            .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+            .fontWeight(TypeTokens.caption.weight)
+            .lineHeight(TypeTokens.caption.lineHeight)
+            .letterSpacing(TypeTokens.caption.tracking)
+            .fontColor(this.onBackground ? '#E6FFFFFF' : ColorTokens.secondary)
+            .maxLines(2)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+        Text('ID: ' + String(this.userId > 0 ? this.userId : '-'))
+          .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
+          .fontWeight(TypeTokens.caption.weight)
+          .lineHeight(TypeTokens.caption.lineHeight)
+          .letterSpacing(TypeTokens.caption.tracking)
+          .fontFeature(TypeTokens.tabularFeature)
+          .fontColor(this.onBackground ? '#CCFFFFFF' : ColorTokens.tertiary)
+      }
+      .alignItems(HorizontalAlign.End)
+      .layoutWeight(1)
+    }
+    .width('100%')
+    .height(this.onBackground ? 118 : 146)
+    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.xs, bottom: SpaceTokens.xs })
+  }
+}

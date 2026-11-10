@@ -12,8 +12,8 @@
  * base64 data URI → ProfileStore 本地落盘。共享后端落地时只换
  * saveProfile 的落点（base64 → 服务端 URL 上传），选图/压缩/预览链路原样复用。
  *
- * 编辑面即预览面：顶部 ProfileCoverCard(editable=true) 复用我的页资料区同款
- * 组件（有据「编辑页预览复用主页资料区的层级」同构），改背景/头像/文案即时可见。
+ * 编辑面即预览面：顶部 EditableProfilePreview 为有据同名组件原样搬运，
+ * 与我的页资料区（ProfileHeader 全套）同一层级，改背景/头像/文案即时可见。
  */
 
 import { SegmentButton, SegmentButtonOptions, SegmentButtonTextItem, ItemRestriction } from '@kit.ArkUI';
@@ -27,8 +27,7 @@ import { ProfileStore, UserProfileData } from '../data/ProfileStore';
 import { AccountStore } from '../data/AccountStore';
 import { PROFILE_NAV } from '../common/constants/AppNav';
 import { compressAvatar, CompressedImage, toDataUri } from '../utils/ImageCompress';
-import { ProfileCoverCard } from '../components/ProfileCoverCard';
-import { StatItem } from '../components/StatRow';
+import { EditableProfilePreview } from '../components/EditableProfilePreview';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
@@ -85,6 +84,10 @@ export struct ProfileEditPage {
   private originalGender: number = 0;
   private pendingAvatarImage: CompressedImage | null = null;
   private pendingBackgroundImage: CompressedImage | null = null;
+
+  aboutToAppear(): void {
+    this.loadAndFill();
+  }
 
   private loadAndFill(): void {
     const ctx: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
@@ -292,29 +295,28 @@ export struct ProfileEditPage {
   build() {
     HdsNavDestination() {
       List({ space: SpaceTokens.md, scroller: this.barScroller }) {
-        // 编辑面即预览面：与我的页资料区同构（ProfileCoverCard 两用）
+        // 编辑面即预览面：有据 EditableProfilePreview 原样（修改背景/修改头像双胶囊）
         ListItem() {
-          ProfileCoverCard({
-            editable: true,
-            avatarSource: this.avatar,
-            backgroundSource: this.profileBackground,
+          EditableProfilePreview({
+            avatar: this.avatar,
             avatarPreview: this.avatarPreview,
-            backgroundPreview: this.backgroundPreview,
             nickname: this.nickname,
             bio: this.bio,
-            gender: this.currentGender(),
-            uidLabel: AccountStore.masked(),
+            selectedGender: String(this.currentGender()),
+            profileId: 0,
+            followingCount: this.tripCount,
+            followerCount: this.badgeCount,
+            totalLikes: this.cityCount,
+            statLabels: ['行程', '勋章', '足迹'],
+            profileBackground: this.profileBackground,
+            profileBackgroundPreview: this.backgroundPreview,
             backgroundStatus: this.backgroundStatus,
-            stats: [
-              { key: 'trips', value: String(this.tripCount), label: '行程' },
-              { key: 'badges', value: String(this.badgeCount), label: '勋章' },
-              { key: 'cities', value: String(this.cityCount), label: '足迹' }
-            ] as StatItem[],
-            onPickAvatar: (): void => {
-              this.pickImage(true);
-            },
+            uploadingBackground: false,
             onPickBackground: (): void => {
               this.pickImage(false);
+            },
+            onPickAvatar: (): void => {
+              this.pickImage(true);
             }
           })
         }

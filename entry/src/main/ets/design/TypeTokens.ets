@@ -12,9 +12,16 @@ export interface TypeRoleSpec {
   size: number;
   weight: number;
   lineHeight: number;
+  /** 有据同名字段：字距（有据全部档位恒 0——字距全局 0 的契约）。搬运组件 .letterSpacing(x.tracking) 原样引用 */
+  tracking: number;
 }
 
 export interface TypeTokensType {
+  /** 有据顶层同名字段（搬运组件原样引用 TypeTokens.fontFamily / fontFamilySerif / tabularFeature） */
+  fontFamily: string;
+  fontFamilySerif: string;
+  tabularFeature: string;
+
   /** 页面大标题 32/700/44 serif；金额 hero 同档但 family 换 sans */
   display: TypeRoleSpec;
   /** 日标题、卡片目的地名 21/700/32 serif */
@@ -56,22 +63,31 @@ export interface FontFamilyNamesType {
   sans: string;
 }
 
+/** 有据顶层同名字段（搬运组件原样引用 TypeTokens.fontFamily / fontFamilySerif / tabularFeature） */
+export const TYPE_FONT_FAMILY: string = FAMILY_SANS;
+export const TYPE_FONT_FAMILY_SERIF: string = FAMILY_SERIF;
+export const TYPE_TABULAR_FEATURE: string = "'tnum' on";
+
 export const TypeTokens: TypeTokensType = {
+  // 有据顶层同名字段（搬运组件 TypeTokens.fontFamily / fontFamilySerif / tabularFeature 原样引用）
+  fontFamily: FAMILY_SANS,
+  fontFamilySerif: FAMILY_SERIF,
+  tabularFeature: "'tnum' on",
   // ⚠ overline / time 两档的 lineHeight 写 0，含义是「这一档不设行高、走系统默认」，不是行高值。
   // 把它直接喂进 `.lineHeight(0)` 会把行盒压到字高以下（`tools/audit_type.py` 已钉住这条）；
   // 有据同位 overline 是 11/600/**14**，确实要行高时按 14 显式写。
-  display: { family: FAMILY_SERIF, size: 32, weight: 700, lineHeight: 44 },
-  title: { family: FAMILY_SERIF, size: 21, weight: 700, lineHeight: 32 },
-  headline: { family: FAMILY_SANS, size: 18, weight: 600, lineHeight: 24 },
-  body: { family: FAMILY_SANS, size: 16, weight: 400, lineHeight: 24 },
-  small: { family: FAMILY_SANS, size: 14, weight: 400, lineHeight: 20 },
-  caption: { family: FAMILY_SANS, size: 12, weight: 450, lineHeight: 16 },
-  overline: { family: FAMILY_SANS, size: 11, weight: 600, lineHeight: 0 },
-  navLabel: { family: FAMILY_SANS, size: 10, weight: 400, lineHeight: 14 },
-  widgetMeta: { family: FAMILY_SANS, size: 11, weight: 400, lineHeight: 14 },
-  time: { family: FAMILY_SANS, size: 12, weight: 600, lineHeight: 0 },
-  callout: { family: FAMILY_SANS, size: 14, weight: 400, lineHeight: 20 },
-  titleSans: { family: FAMILY_SANS, size: 21, weight: 650, lineHeight: 28 }
+  display: { family: FAMILY_SERIF, size: 32, weight: 700, lineHeight: 44, tracking: 0 },
+  title: { family: FAMILY_SERIF, size: 21, weight: 700, lineHeight: 32, tracking: 0 },
+  headline: { family: FAMILY_SANS, size: 18, weight: 600, lineHeight: 24, tracking: 0 },
+  body: { family: FAMILY_SANS, size: 16, weight: 400, lineHeight: 24, tracking: 0 },
+  small: { family: FAMILY_SANS, size: 14, weight: 400, lineHeight: 20, tracking: 0 },
+  caption: { family: FAMILY_SANS, size: 12, weight: 450, lineHeight: 16, tracking: 0 },
+  overline: { family: FAMILY_SANS, size: 11, weight: 600, lineHeight: 0, tracking: 0 },
+  navLabel: { family: FAMILY_SANS, size: 10, weight: 400, lineHeight: 14, tracking: 0 },
+  widgetMeta: { family: FAMILY_SANS, size: 11, weight: 400, lineHeight: 14, tracking: 0 },
+  time: { family: FAMILY_SANS, size: 12, weight: 600, lineHeight: 0, tracking: 0 },
+  callout: { family: FAMILY_SANS, size: 14, weight: 400, lineHeight: 20, tracking: 0 },
+  titleSans: { family: FAMILY_SANS, size: 21, weight: 650, lineHeight: 28, tracking: 0 }
 };
 
 /** 允许字号封闭集，audit 用 */

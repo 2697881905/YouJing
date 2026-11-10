@@ -19,6 +19,10 @@ export interface RadiusTokensType {
   dock: number;
   /** 所有按钮/徽标/头像 */
   pill: number;
+  /** 有据同名档：玻璃胶囊按钮圆角（GlassPillButton） */
+  floatingBar: number;
+  /** 有据同名档 = 20（资料卡/预览卡圆角，EditableProfilePreview 用） */
+  lg: number;
 }
 
 export const RadiusTokens: RadiusTokensType = {
@@ -29,7 +33,10 @@ export const RadiusTokens: RadiusTokensType = {
   card: 20,
   hero: 28,
   dock: 30,
-  pill: 999
+  pill: 999,
+  /** 有据同名档 = 30（glass_radius_floating_bar）：玻璃胶囊按钮（GlassPillButton） */
+  floatingBar: 30,
+  lg: 20
 };
 
 /** 允许圆角封闭集，audit 用 */

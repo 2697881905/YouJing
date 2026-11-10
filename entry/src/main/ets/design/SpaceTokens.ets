@@ -16,6 +16,9 @@
 export interface SpaceTokensType {
   xxs: number;
   xs: number;
+  /** 有据同名别名：inlineTight = xs、inline = sm（搬运组件原样引用） */
+  inlineTight: number;
+  inline: number;
   sm: number;
   base: number;
   md: number;
@@ -27,6 +30,8 @@ export interface SpaceTokensType {
 export const SpaceTokens: SpaceTokensType = {
   xxs: 4,
   xs: 8,
+  inlineTight: 8,
+  inline: 12,
   sm: 12,
   base: 16,
   md: 20,
