@@ -406,10 +406,7 @@ export struct MinePage {
       }
       // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
       .backgroundColor(ColorTokens.canvas)
-<<<<<<< HEAD
-      .titleBar(HdsChrome.bar({ themeTick: this.chromeThemeTick, mainTitle: '我的', scrolled: this.barScrolled }))
-=======
-      .titleBar(HdsChrome.bar({
+      .titleBar(HdsChrome.bar({ themeTick: this.chromeThemeTick,
         mainTitle: '我的',
         scrolled: this.barScrolled,
         menu: [HdsChrome.item($r('sys.symbol.share'), '分享主页', (): void => {
@@ -418,7 +415,6 @@ export struct MinePage {
           this.pathStack.pushPath({ name: 'Settings' });
         })]
       }))
->>>>>>> 8998e28 (feat(我的): 全量对标有据 ProfileHeader——菜单分享+设置、资料区身份+统计三列)
       .titleMode(HdsNavDestinationTitleMode.MINI)
       // 不收栏（2026-11-08）：NavDestination 内容区恒预留 56vp 栏位、收栏后不回收，收起只留一条 175px 白带
       .bindToScrollable([this.barScroller])
