@@ -68,11 +68,8 @@ export struct ItineraryPage {
    * 与 ComingSoonPage 同法；保留 APP_NAV 作默认值，深链直启时行为不变。
    */
   private pathStack: NavPathStack = APP_NAV;
-  @StorageProp('isDarkMode') isDark: boolean = false;
   /** 断点（唯一来源 utils/breakpointCenter.ets）：宽屏给时间轴一条可读上限 */
   @StorageProp(KEY_CURRENT_BREAKPOINT) bp: string = 'sm';
-  /** 玻璃点位①③是否由系统材质接管（接管处撤自绘背景与阴影）；仅浅色模式下实验 */
-  private glassOn: boolean = isSystemMaterialActive();
   // ——— 一镜到底（官方范式：目的地页自身变形）———
   // 字段初值取「安全终态」（内容可见、截图隐藏），起始态由 doEnterAnimation 显式赋值：
   // 转场万一没跑，页面只是少一段动画，不会停在「内容 0 透明度 + 截图铺满屏」的坏状态。
@@ -891,7 +888,7 @@ export struct ItineraryPage {
     return ` · ${date.slice(5).replace('-', '月')}日`;
   }
 
-  /** 吸顶日标题（玻璃点位④：骨架期实色），挂在 ListItemGroup.header 上由 sticky 吸顶 */
+  /** 日标题（随内容滚走，不吸顶——2026-11-10 用户拍板，见 List 属性链注释） */
   @Builder
   dayHeader() {
     // 原来是一行 Row{日标题, Blank(), meta}：meta「王府井-东城核心 出发 · 第 1 日 · 标准」
@@ -920,12 +917,6 @@ export struct ItineraryPage {
     .width('100%')
     .constraintSize({ minHeight: LayoutTokens.dayDividerHeight })
     .padding({ top: SpaceTokens.sm })
-    // 玻璃点位③（契约 §1024 sticky 变体）：真机实测 systemMaterial 挂在 ListItemGroup
-    // 的 sticky 组头上不出图（带内内容字 min=0，与带外无差别），落回官方组件级磨砂
-    // backgroundBlurStyle(COMPONENT_THICK)——同样是系统绘制的模糊层，不是自绘玻璃。
-    // 顶部悬浮档不投影：栏下就是滚动内容，投影会画在行上。深色档沿用 dock 取舍，落回实色。
-    .backgroundBlurStyle(this.glassOn && !this.isDark ? BlurStyle.COMPONENT_THICK : BlurStyle.NONE)
-    .backgroundColor(this.glassOn && !this.isDark ? Color.Transparent : ColorTokens.canvas)
   }
 
   @Builder
@@ -1381,7 +1372,7 @@ export struct ItineraryPage {
           // 触发「state changed during render」把整屏内容打断成空白（真机 2026-10-30：
           // 1 天行程的屏8 只剩标题栏）。一天也没有可切换的对象，日标题已带 Day 1。
           // 官方 List：地图面板一个 ListItem，节点与通勤腿各成一个 ListItem，
-          // 日标题走 ListItemGroup 的 header —— 底稿写的「吸顶日标题」由 sticky 真正兑现。
+          // 日标题走 ListItemGroup 的 header（在流内，不吸顶）。
           // 行距 12px（itinerary-block-gap）：不传 space 时 List 默认 0，站点行与交通腿会紧贴
           List({ space: LayoutTokens.itineraryBlockGap, scroller: this.listScroller }) {
             // 当天没有落点时**整块地图卡不出**：原来它照样撑满 mapHeightCompact，
@@ -1514,7 +1505,8 @@ export struct ItineraryPage {
           .layoutWeight(1)
           .scrollBar(BarState.Off)
           .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
-          .sticky(StickyStyle.Header)
+          // 2026-11-10 用户拍板撤吸顶（有意偏离底稿「吸顶日标题」）：三行组头钉住后
+          // 底缘硬边把滚过的行字拦腰切断；Day 分段栏常驻已足够指示当前日
           .cachedCount(6)
           .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
             bottom: LayoutTokens.floatingDockClearance })
@@ -1522,7 +1514,7 @@ export struct ItineraryPage {
           // 滚走"——这是错的。padding 是**滚动容器自己的**属性，压的是视口，内容永远到不了
           // 标题栏那 175px，滚动时在栏底被硬切、上面留一片白。
           // 改 `contentStartOffset`：只挪首屏起点，滚动后内容照常穿到栏下被材质糊掉
-          //（有据 ProfilePage 同一写法；吸顶组头也跟着粘在这个偏移上）。
+          //（有据 ProfilePage 同一写法）。
           .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight, 48))
           // 时间轴是单列长内容，不能按断点分栏（会打断主轴竖线），
           // 所以宽屏走"收窄 + 居中"这条路
