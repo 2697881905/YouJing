@@ -95,12 +95,18 @@ export struct SettingsPage {
 
   @Builder
   docSheet() {
-    LegalDocReader({
-      kind: this.docKind,
-      onBack: (): void => {
-        this.showDoc = false;
-      }
-    })
+    // 半模态顶距：sheet 内容首行要与右上 ✕ 同心（SheetPage 不给顶部 inset，
+    // 不补就贴顶——全工程 sheet 家族统一 top: base，见 detailSheet 同款）
+    Column() {
+      LegalDocReader({
+        kind: this.docKind,
+        onBack: (): void => {
+          this.showDoc = false;
+        }
+      })
+    }
+    .width('100%')
+    .padding({ top: SpaceTokens.base })
   }
 
   /** 分组标题：有据是 13fp 次级字，本仓字阶无 13，取 small 14 */

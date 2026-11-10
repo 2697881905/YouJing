@@ -635,7 +635,9 @@ export struct TripInputPage {
     }
     .width('100%')
     .height('100%')
-    .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+    // 顶距 base（16）：SheetPage 不给顶部 inset，sm(8) 的首行贴着 sheet 上缘；
+    // sheet 家族统一 top: base，首行控件中心与右上 ✕ 同心（detailSheet 基准）
+    .padding({ top: SpaceTokens.base, bottom: SpaceTokens.sm })
     .alignItems(HorizontalAlign.Start)
     .backgroundColor(ColorTokens.canvas)
   }
@@ -676,7 +678,8 @@ export struct TripInputPage {
       }
       .alignItems(HorizontalAlign.Start)
       .width('100%')
-      .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.xs })
+      // 顶距 base（16）：sm(8) 时「识别结果」贴 sheet 上缘；家族统一 top: base
+      .padding({ top: SpaceTokens.base, bottom: SpaceTokens.xs })
 
       Scroll() {
         Column({ space: SpaceTokens.xxs }) {
