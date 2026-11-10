@@ -73,7 +73,7 @@ export struct ProfileIdentity {
             .fontWeight(TypeTokens.headline.weight)
             .lineHeight(TypeTokens.headline.lineHeight)
             .letterSpacing(TypeTokens.headline.tracking)
-            .fontColor(this.onBackground ? '#FFFFFFFF' : ColorTokens.primary)
+            .fontColor(this.onBackground ? '#FFFFFFFF' : ColorTokens.ink)
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
           if (!this.deleted) {

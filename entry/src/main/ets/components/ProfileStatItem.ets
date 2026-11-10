@@ -25,7 +25,7 @@ export struct ProfileStatItem {
         CountRoll({
           value: this.value,
           textSize: TypeTokens.headline.size,
-          textColor: this.onBackground ? '#FFFFFFFF' : ColorTokens.primary,
+          textColor: this.onBackground ? '#FFFFFFFF' : ColorTokens.ink,
         })
           .margin({ left: 3 })
         Text(this.label)

@@ -150,7 +150,7 @@ export struct EditableProfilePreview {
         Image(resolveSettingsIcon('edit')).width(IconTokens.compact).height(IconTokens.compact).fillColor(ColorTokens.icon)
         Text(label)
           .fontSize(TypeTokens.caption.size).fontFamily(TypeTokens.fontFamily)
-          .fontWeight(TypeTokens.headline.weight).fontColor(ColorTokens.primary)
+          .fontWeight(TypeTokens.headline.weight).fontColor(ColorTokens.ink)
       }
       .width(160).height(LayoutTokens.segmentedHeight)
       .padding({ left: SpaceTokens.md, right: SpaceTokens.md })

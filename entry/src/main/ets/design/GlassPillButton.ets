@@ -71,7 +71,7 @@ export struct GlassPillButton {
           .fontWeight(TypeTokens.headline.weight)
           .lineHeight(this.fillWidth ? TypeTokens.callout.lineHeight : TypeTokens.caption.lineHeight)
           .fontColor(this.highlight ? ColorTokens.brandPress
-            : (this.muted ? ColorTokens.secondary : ColorTokens.primary))
+            : (this.muted ? ColorTokens.secondary : ColorTokens.ink))
           .maxLines(1)
       }
       .width(this.fillWidth ? '100%' : 'auto')
