@@ -1395,6 +1395,9 @@ export struct ItineraryPage {
                   stops: this.dayStops,
                   signature: this.daySig,
                   request: this.mapRequest,
+                  // 当天动线也按道路画（2026-11-10 用户裁定）：RoadRouteStore 有 30min 缓存
+                  // 且与地图页共享，同一段不重复请求；离线/无方案自动回退直线，不断线
+                  roadRoute: true,
                   onStopClick: (index: number): void => {
                     this.onMapStopTap(index);
                   }

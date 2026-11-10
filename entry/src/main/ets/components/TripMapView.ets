@@ -56,7 +56,7 @@ export struct TripMapView {
   @Prop @Watch('onRequest') request: string = '';
   /** 落点之间是否连线：行程要连，屏5 的三片候选是互斥选项、连起来就成了动线 */
   @Prop route: boolean = true;
-  /** true = 用 Map Kit navi 把每段直线换成道路折线；只有地图页开，屏8 小面板/屏5 仍画直线 */
+  /** true = 用 Map Kit navi 把每段直线换成道路折线；地图页与屏8 行程详情都开，屏5 片区卡 route:false 不连线 */
   @Prop roadRoute: boolean = false;
   /** 算路请求竞态：每次重绘递增，旧请求回来直接丢弃，不能覆盖新一天的线 */
   private routeSeq: number = 0;

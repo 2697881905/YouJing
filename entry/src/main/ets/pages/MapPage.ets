@@ -454,7 +454,8 @@ export struct MapPage {
             request: this.request,
             fitTopPx: FIT_TOP_PX,
             fitBottomPx: FIT_BOTTOM_PX,
-            // 只有地图页按道路画动线；屏8 小面板、屏5 片区卡仍是直线
+            // 按道路画动线：地图页与屏8 行程详情同开（RoadRouteStore 30min 缓存共享，同段不重复请求）；
+            // 屏5 片区卡 route:false 本就不连线
             roadRoute: true,
             onStopClick: (index: number): void => {
               this.focusStop(index);
