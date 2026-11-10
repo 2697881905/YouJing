@@ -260,6 +260,7 @@ export struct MinePage {
     }
     .width('100%')
     .padding(SpaceTokens.base)
+    .margin({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.sm })
     .borderRadius(RadiusTokens.card)
     .backgroundColor(ColorTokens.surfaceElevated)
     .onClick((): void => {
@@ -292,6 +293,7 @@ export struct MinePage {
     }
     .width('100%')
     .padding(SpaceTokens.base)
+    .margin({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.sm })
     .borderRadius(RadiusTokens.card)
     .backgroundColor(ColorTokens.surfaceElevated)
     .onClick((): void => {
@@ -302,7 +304,9 @@ export struct MinePage {
   @Builder
   body() {
     Column() {
-      List({ space: SpaceTokens.sm, scroller: this.barScroller }) {
+      // 有据 ProfilePage 同款：List 无 space、无左右内缩——间距与呼吸全部由
+      // 各项自带（资料卡 hero 内层 sm、内容项自带左右 sm），List 只管滚动。
+      List({ scroller: this.barScroller }) {
         ListItem() {
           this.profileHeader()
         }
@@ -318,9 +322,9 @@ export struct MinePage {
       .height('100%')
       .layoutWeight(1)
       .scrollBar(BarState.Off)
+      .divider({ strokeWidth: 0 })
       // 末行住在悬浮 dock 底下，按实测净空让位（与 TripsPage/BadgePage 同一写法）
-      .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
-        bottom: LayoutTokens.floatingDockClearance })
+      .padding({ bottom: LayoutTokens.floatingDockClearance })
       // 穿底（2026-11-08 对标有据 ProfilePage）：让位必须走 contentStartOffset，
       // 不能挂 padding —— padding 会把**视口**整体压到栏底之下，内容永远上不到
       // 标题栏那 175px 里，栏体磨砂采样不到任何东西，顶部就永远是一块纯白。
@@ -371,9 +375,9 @@ export struct MinePage {
 
         // 右上角官方圆钮排（对标有据 profileMenuItems）：分享在前、设置在后。
         // 原先的 plus(新建行程) 摘除——新建入口归「行程」格，「我的」只留身份动作。
-        menu: [HdsChrome.item($r('sys.symbol.share'), '分享主页', (): void => {
+        menu: [HdsChrome.item($r('app.media.action_share'), '分享主页', (): void => {
           this.shareProfile();
-        }), HdsChrome.item($r('sys.symbol.gearshape'), '设置', (): void => {
+        }), HdsChrome.item($r('app.media.set_gear'), '设置', (): void => {
           this.pathStack.pushPath({ name: 'Settings' });
         })]
       }))
@@ -398,9 +402,9 @@ export struct MinePage {
       .titleBar(HdsChrome.bar({ themeTick: this.chromeThemeTick,
         mainTitle: '我的',
         scrolled: this.barScrolled,
-        menu: [HdsChrome.item($r('sys.symbol.share'), '分享主页', (): void => {
+        menu: [HdsChrome.item($r('app.media.action_share'), '分享主页', (): void => {
           this.shareProfile();
-        }), HdsChrome.item($r('sys.symbol.gearshape'), '设置', (): void => {
+        }), HdsChrome.item($r('app.media.set_gear'), '设置', (): void => {
           this.pathStack.pushPath({ name: 'Settings' });
         })]
       }))
