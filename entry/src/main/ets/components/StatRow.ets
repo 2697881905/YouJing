@@ -22,11 +22,15 @@
  *   「无消费者不加」），也不移植 `Pressable`（这一行不是动作件）。
  * - 有据的 72vp 列宽概念在有径侧由 profileStatWidth 承载，档位同源、名字不同。
  *
- * 无分隔线这条不是漏做：契约 stat-number/stat-label 两档里没有任何线色，
- * 而家族今天正因为「12 处 6 种写法的线」要收成 Separator（见 `components/Separator.ets`
+ * 无分隔线这条不是漏做：契约 stat-number/stat-label 两档里没有任何线色，而家族今天
+ * 正因为「12 处 6 种写法的线」要收成 Separator（见 `components/Separator.ets`
  * 文件头）——统计列之间再加线正好与那条决议相反。要加线得先改契约。
  *
- * 现存消费方：0（概览三列今天内联在页面里，接管属 T2/T4，逐屏复拍）。
+ * ⚠ ForEach 键必须含 value（`${key}:${value}`）：键只写 key 时，数值从 0 变 N
+ * 框架视为同节点不重建，列内容停在首帧（2026-11-09 真机：勋章卡已 1 枚、统计列仍 0）。
+ * 项是纯对象无观察性，键变 = 重建是这个件唯一可靠的更新通路。
+ *
+ * 现存消费方：MinePage 资料区统计行（2026-11-09 挂载，对标有据 ProfileHeader stats-row）。
  */
 
 import { ColorTokens } from '../design/ColorTokens';
@@ -63,7 +67,7 @@ export struct StatRow {
         }
         .width(LayoutTokens.profileStatWidth)
         .alignItems(HorizontalAlign.Start)
-      }, (item: StatItem): string => item.key)
+      }, (item: StatItem): string => `${item.key}:${item.value}`)
     }
     .alignItems(VerticalAlign.Top)
   }

@@ -13,9 +13,16 @@
  * 头像/昵称一律问 `data/ProfileStore`，不在这里写死：真头像是已确认的后续需求，
  * 两条实现路（profile scope 弹窗 vs 接服务端）都还没拍，出口留在这一层，
  * 接的时候页面结构一行不用动。
+ *
+ * 2026-11-09 全量对标有据 ProfileHeader 结构（用户令「搬运」，后续共享两 App 资料）：
+ * · 资料区 = 身份行（头像 + 衬线名 + 说明）+ 统计行（StatRow 三列：行程/勋章/足迹）
+ *   + 游客「去登录」胶囊（有据 highlight pill 同位）；有据的 16:10 封面卡与
+ *   草稿箱/废纸篓 胶囊不搬（背景图基建未立 / UGC 域概念）
+ * · 右上角菜单对标 profileMenuItems：分享在前、设置在后，加号(新建行程)摘除
+ * · 分享走系统分享面板带足迹概要文案；有据的 ProfileShareSheet 全面板待主页链接基建
  */
 
-import { PROFILE_NAV, TAB_MINE, TAB_SHOWN_KEY, isTabShownTick, enterPlanningFlow } from '../common/constants/AppNav';
+import { PROFILE_NAV, TAB_MINE, TAB_SHOWN_KEY, isTabShownTick } from '../common/constants/AppNav';
 import { routerMap } from './AppRouter';
 import { AccountStore, AUTH_STATE_KEY } from '../data/AccountStore';
 import { BadgeDao } from '../data/BadgeDao';
@@ -24,9 +31,10 @@ import { DateUtils } from '../utils/DateUtils';
 import { membershipStatus, membershipUsage, subscriptionActive, MembershipStatus } from '../utils/MembershipCopy';
 import { BadgeGroup, BadgeRecord, badgeCityCount, badgeTotal, buildBadgeBoard } from '../utils/BadgeBoard';
 import { ProfileStore } from '../data/ProfileStore';
-import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
+import { TripDao, TripSummary } from '../data/TripDao';
+import { StatRow, StatItem } from '../components/StatRow';
+import { Pressable } from '../components/Pressable';
 import { Logger } from '../common/logger/Logger';
-import { PlanDraft } from '../data/PlanDraft';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
@@ -34,6 +42,7 @@ import { SpaceTokens } from '../design/SpaceTokens';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { HdsChrome } from '../design/HdsChrome';
 import { common } from '@kit.AbilityKit';
+import { systemShare } from '@kit.ShareKit';
 import { HdsNavigation, HdsNavigationTitleMode, HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UIDesignKit';
 import { requestSystemBarRefresh } from '../utils/systemBar';
 
@@ -56,6 +65,8 @@ export struct MinePage {
   @StorageProp(EntitlementStore.TICK_KEY) @Watch('onEntitlementTick') entTick: number = 0;
   @State private badgeCount: number = 0;
   @State private cityCount: number = 0;
+  /** 行程数：资料区统计行第一列（对标有据 关注/粉丝/获赞 三列位） */
+  @State private tripCount: number = 0;
   /** 会员卡：订阅/通行证状态（付费后 App 内唯一能看到权益的地方） */
   @State private memberTitle: string = '未开通会员';
   @State private memberDetail: string = '生成免费；导出与无限重排需解锁';
@@ -105,50 +116,132 @@ export struct MinePage {
       // 读失败只让卡片显示 0：这是概览，不是勋章墙本体，不该拦住这一格
       Logger.warn('Ui.Mine', `勋章计数读取失败: ${err.message}`);
     });
+    // 统计行第一列：行程数（只取个数，不展开列表——列表归「行程」格）
+    TripDao.listSummaries(ctx).then((rows: TripSummary[]): void => {
+      this.tripCount = rows.length;
+    }).catch((err: Error): void => {
+      Logger.warn('Ui.Mine', `行程计数读取失败: ${err.message}`);
+    });
     this.refreshMembership();
   }
 
+  /**
+   * 分享主页（对标有据：菜单 share 钮 → 分享）。有据走 ProfileShareSheet 全面板
+   * （复制链接/复制卡片文字/系统分享，需要 profileUrl 基建）；有径还没有主页链接，
+   * 先走系统分享面板带足迹概要文案——面板与链接基建等共享资料立项时再对齐。
+   */
+  private shareProfile(): void {
+    const ctx: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    const text: string = `我的有径足迹：${this.tripCount} 次行程 · ${this.badgeCount} 枚勋章 · 走过 ${this.cityCount} 座城市`;
+    const data: systemShare.SharedData = new systemShare.SharedData({
+      utd: 'general.plain-text',
+      content: text,
+      title: '我的有径主页'
+    });
+    const options: systemShare.ShareControllerOptions = {};
+    new systemShare.ShareController(data).show(ctx, options).catch((err: Error): void => {
+      Logger.warn('Ui.Mine', `系统分享失败: ${err.message}`);
+    });
+  }
+
+  /**
+   * 资料区（2026-11-09 全量对标有据 ProfileHeader 结构）：
+   * · 身份行：头像 + 名字（headline 字号 + 衬线族，有据 name 同款）+ 说明行
+   * · 统计行：StatRow 三列（行程/勋章/足迹）——2026-11-07 对标时预落地的家族件首次挂载；
+   *   有据是 关注/粉丝/获赞（社交域），有径按旅行域换值，列宽 72vp 同源
+   * · 右端胶囊：游客「去登录」（有据 highlight pill 同位同语义），登录后不渲染
+   * 有据的 16:10 封面卡与 草稿箱/废纸篓 胶囊不搬：前者需要资料背景图（后续共享资料再接），
+   * 后者是 UGC 域概念（草稿/回收），有径的对应物不存在。
+   */
   @Builder
   profileHeader() {
-    Row({ space: SpaceTokens.base }) {
-      Stack({ alignContent: Alignment.Center }) {
-        Circle()
-          .width(LayoutTokens.profileAvatarSize)
-          .height(LayoutTokens.profileAvatarSize)
-          .fill(ColorTokens.primaryTint)
-        // 头像来源只有一个出口：本轮恒返回官方符号占位，接真头像时改 ProfileStore 即可
-        if (ProfileStore.avatarOf(AccountStore.uid()).kind === ProfileStore.KIND_SYMBOL) {
-          SymbolGlyph(ProfileStore.avatarOf(AccountStore.uid()).symbol)
-            .fontSize(LayoutTokens.profileAvatarSize * 0.62)
-            .fontColor([ColorTokens.primary])
-        } else {
-          Image(ProfileStore.avatarOf(AccountStore.uid()).url)
+    Column({ space: SpaceTokens.sm }) {
+      Row({ space: SpaceTokens.base }) {
+        Stack({ alignContent: Alignment.Center }) {
+          Circle()
             .width(LayoutTokens.profileAvatarSize)
             .height(LayoutTokens.profileAvatarSize)
+            .fill(ColorTokens.primaryTint)
+          // 头像来源只有一个出口：本轮恒返回官方符号占位，接真头像时改 ProfileStore 即可
+          if (ProfileStore.avatarOf(AccountStore.uid()).kind === ProfileStore.KIND_SYMBOL) {
+            SymbolGlyph(ProfileStore.avatarOf(AccountStore.uid()).symbol)
+              .fontSize(LayoutTokens.profileAvatarSize * 0.62)
+              .fontColor([ColorTokens.primary])
+          } else {
+            Image(ProfileStore.avatarOf(AccountStore.uid()).url)
+              .width(LayoutTokens.profileAvatarSize)
+              .height(LayoutTokens.profileAvatarSize)
+              .borderRadius(RadiusTokens.pill)
+              .objectFit(ImageFit.Cover)
+              .draggable(false)
+          }
+        }
+        .width(LayoutTokens.profileAvatarSize)
+        .height(LayoutTokens.profileAvatarSize)
+        .borderRadius(RadiusTokens.pill)
+        .border({ width: LayoutTokens.hairlineWidth, color: ColorTokens.hairline })
+
+        Column({ space: SpaceTokens.xxs }) {
+          // headline 字号 + 衬线族：有据 name 的排（profileIdentity name 同款组合）
+          Text(ProfileStore.displayName())
+            .fontSize(TypeTokens.headline.size)
+            .fontWeight(TypeTokens.headline.weight)
+            .fontFamily(TypeTokens.title.family)
+            .fontColor(ColorTokens.ink)
+          Text(ProfileStore.displayHint())
+            .fontSize(TypeTokens.caption.size)
+            .fontWeight(450)
+            .fontColor(ColorTokens.muted)
+            .maxLines(2)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      // 统计行 + 游客登录胶囊：有据 ProfileHeader 的 stats-row 同款布局
+      Row() {
+        StatRow({
+          items: [
+            { key: 'trips', value: String(this.tripCount), label: '行程' },
+            { key: 'badges', value: String(this.badgeCount), label: '勋章' },
+            { key: 'cities', value: String(this.cityCount), label: '足迹' }
+          ] as StatItem[]
+        })
+        Blank().layoutWeight(1)
+        if (this.authState === 'guest') {
+          Pressable({
+            visualHeight: LayoutTokens.segmentedHeight,
+            action: (): void => {
+              this.goLogin();
+            }
+          }) {
+            Row() {
+              Text('去登录')
+                .fontSize(TypeTokens.caption.size)
+                .fontWeight(TypeTokens.headline.weight)
+                .fontColor(ColorTokens.primaryPress)
+                .maxLines(1)
+            }
+            .height(LayoutTokens.segmentedHeight)
+            .padding({ left: SpaceTokens.md, right: SpaceTokens.md })
+            .justifyContent(FlexAlign.Center)
+            .alignItems(VerticalAlign.Center)
+            // highlight 配方照有据 GlassPillButton：tint 底 + brand 描边 + press 字
+            .backgroundColor(ColorTokens.primaryTint)
+            .border({
+              width: LayoutTokens.glassBorderWidth,
+              color: ColorTokens.primary,
+              style: BorderStyle.Solid
+            })
             .borderRadius(RadiusTokens.pill)
-            .objectFit(ImageFit.Cover)
-            .draggable(false)
+          }
         }
       }
-      .width(LayoutTokens.profileAvatarSize)
-      .height(LayoutTokens.profileAvatarSize)
-      .borderRadius(RadiusTokens.pill)
-      .border({ width: LayoutTokens.hairlineWidth, color: ColorTokens.hairline })
-
-      Column({ space: SpaceTokens.xxs }) {
-        // headline 而非 title：这串是脱敏 ID（操作型文本），契约里 serif 只给编辑性标题
-        Text(ProfileStore.displayName())
-          .fontSize(TypeTokens.headline.size)
-          .fontWeight(TypeTokens.headline.weight)
-          .fontFamily(TypeTokens.headline.family)
-          .fontColor(ColorTokens.ink)
-        Text(ProfileStore.displayHint())
-          .fontSize(TypeTokens.caption.size)
-          .fontWeight(450)
-          .fontColor(ColorTokens.muted)
-      }
-      .alignItems(HorizontalAlign.Start)
-      .layoutWeight(1)
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
     }
     .width('100%')
     .padding({ top: SpaceTokens.base, bottom: SpaceTokens.base })
@@ -224,20 +317,6 @@ export struct MinePage {
         ListItem() {
           this.profileHeader()
         }
-        // 游客分区也要能进来看看，所以登录 CTA 放在资料区之后而不是挡整页：
-        // Index 的登录闸门已经拦过"没同意隐私就什么都不给看"，这里只处理已同意未登录
-        if (this.authState === 'guest') {
-          ListItem() {
-            YoujingButton({
-              variant: YoujingButtonVariant.PRIMARY,
-              label: '登录华为账号',
-              fullWidth: true,
-              onAction: (): void => {
-                this.goLogin();
-              }
-            })
-          }
-        }
         ListItem() {
           this.memberCard()
         }
@@ -273,7 +352,7 @@ export struct MinePage {
    * 这里只把用户送回主链入口，避免在两个地方各写一次 AccountStore.login。
    */
   private goLogin(): void {
-    this.getUIContext().getPromptAction().showToast({ message: '可在首页点「开始规划新行程」时登录' });
+    this.getUIContext().getPromptAction().showToast({ message: '到「规划」格开始一趟行程即可登录' });
   }
 
   /** 绝对滚动偏移 → 顶栏磨砂开关（>0 即开，静止归零） */
@@ -300,10 +379,11 @@ export struct MinePage {
         mainTitle: '我的',
         backSlot: false,
         scrolled: this.barScrolled,
-        
-        menu: [HdsChrome.item($r('sys.symbol.plus'), '新建行程', (): void => {
-          PlanDraft.fresh();
-          enterPlanningFlow('TripInput');
+
+        // 右上角官方圆钮排（对标有据 profileMenuItems）：分享在前、设置在后。
+        // 原先的 plus(新建行程) 摘除——新建入口归「行程」格，「我的」只留身份动作。
+        menu: [HdsChrome.item($r('sys.symbol.share'), '分享主页', (): void => {
+          this.shareProfile();
         }), HdsChrome.item($r('sys.symbol.gearshape'), '设置', (): void => {
           this.pathStack.pushPath({ name: 'Settings' });
         })]
@@ -326,7 +406,19 @@ export struct MinePage {
       }
       // HDS 深色档这层默认纯黑，透明栏会把它露成一条比画布暗一档的带（成因与实测见 Docs/INIT_REPORT.md §5ci 续 80）
       .backgroundColor(ColorTokens.canvas)
+<<<<<<< HEAD
       .titleBar(HdsChrome.bar({ themeTick: this.chromeThemeTick, mainTitle: '我的', scrolled: this.barScrolled }))
+=======
+      .titleBar(HdsChrome.bar({
+        mainTitle: '我的',
+        scrolled: this.barScrolled,
+        menu: [HdsChrome.item($r('sys.symbol.share'), '分享主页', (): void => {
+          this.shareProfile();
+        }), HdsChrome.item($r('sys.symbol.gearshape'), '设置', (): void => {
+          this.pathStack.pushPath({ name: 'Settings' });
+        })]
+      }))
+>>>>>>> 8998e28 (feat(我的): 全量对标有据 ProfileHeader——菜单分享+设置、资料区身份+统计三列)
       .titleMode(HdsNavDestinationTitleMode.MINI)
       // 不收栏（2026-11-08）：NavDestination 内容区恒预留 56vp 栏位、收栏后不回收，收起只留一条 175px 白带
       .bindToScrollable([this.barScroller])
