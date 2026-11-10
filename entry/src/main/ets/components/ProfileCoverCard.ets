@@ -152,10 +152,13 @@ export struct ProfileCoverCard {
           .objectFit(ImageFit.Cover)
           .draggable(false)
       } else {
+        // 无图缺省面**恒深**（#1C1C1E，iOS 系深灰）：这层恒白字系——浅色档 sunken
+        // #E9E9EC 上白字对比 1.6:1 不可读（有据同款结构被用户背景图掩盖的问题），
+        // 恒深面让「没设置背景图」与「设了深色图」的白字同读。
         Column()
           .width('100%')
           .height('100%')
-          .backgroundColor(ColorTokens.surfaceSunken)
+          .backgroundColor('#1C1C1E')
       }
 
       // 内容层：身份行 + 统计行（+ 编辑动作行）

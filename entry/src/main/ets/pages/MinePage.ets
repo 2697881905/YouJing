@@ -185,8 +185,8 @@ export struct MinePage {
         editable: false,
         avatarSource: this.profile.avatar,
         backgroundSource: this.profile.profileBackground,
-        avatarPreview: this.coverAvatarPreview ?? null,
-        backgroundPreview: this.coverBackgroundPreview ?? null,
+        avatarPreview: this.coverAvatarPreview,
+        backgroundPreview: this.coverBackgroundPreview,
         // 昵称优先（编辑页自填），未填退账号派生名；简介空传空串（卡内显 placeholder 文案）
         nickname: ProfileStore.displayName(this.profile),
         bio: this.profile.bio,
