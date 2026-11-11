@@ -13,8 +13,12 @@ import { TypeTokens } from '../design/TypeTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
 import { QuestionFlowConfig } from '../common/constants/QuestionFlowConfig';
-import { FlowQuestion, QuestionOption, TravelStyle, TransitPreference, PaceOption } from '../model/PlanParams';
+import { FlowQuestion, QuestionOption, TravelStyle, TransitPreference, PaceOption, SelectedSpot, SpotPriority } from '../model/PlanParams';
 import { PlanDraft } from '../data/PlanDraft';
+import { PlanRepository } from '../data/PlanRepository';
+import { Spot } from '../model/Spot';
+import { Area } from '../model/Area';
+import { common } from '@kit.AbilityKit';
 import { OptionCard } from '../components/OptionCard';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UIDesignKit';
@@ -132,6 +136,37 @@ export struct PreferenceQAPage {
     } else {
       this.pathStack.pop();
     }
+  }
+
+  /**
+   * 草案先行逃生口（Phase4-B）：不想逐题挑景点/住宿时，一键按当前偏好直接生成。
+   * 自动选前 8 热门景点（前 3 必去）+ 首个住宿区，跳过 SpotPick/StayPick 直达生成。
+   * 表单/追问主次不变——这只是给「先看见草案再调」一条快路。
+   */
+  private async generateDirect(): Promise<void> {
+    this.syncDraft();
+    const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    const d: PlanDraft = PlanDraft.get();
+    const city: string = d.basic.destination;
+    try {
+      if (d.selectedSpots.length === 0) {
+        const spots: Spot[] = await PlanRepository.loadSpots(ctx, city);
+        d.selectedSpots = spots.slice(0, 8).map((s: Spot, i: number): SelectedSpot => {
+          const sel: SelectedSpot = { spotId: s.id, priority: i < 3 ? SpotPriority.MUST : SpotPriority.WANT };
+          return sel;
+        });
+      }
+      if (d.selectedArea.areaId.length === 0) {
+        const areas: Area[] = await PlanRepository.loadAreas(ctx, city);
+        if (areas.length > 0) {
+          d.selectedArea = { areaId: areas[0].id };
+        }
+      }
+    } catch (err) {
+      // 自动选点/区失败也推进：Generating 会给出失败页与重试/降级出口，不静默卡死
+    }
+    PlanDraft.flush();
+    this.pathStack.pushPath({ name: 'Generating' });
   }
 
   /** 绝对滚动偏移 → 顶栏磨砂开关（>0 即开，静止归零） */
@@ -274,7 +309,10 @@ export struct PreferenceQAPage {
     .backgroundColor(ColorTokens.canvas)
     // 向导其余四屏的标题栏都只写主标题，步序交给页内；这里原来还把
     // 「问题 N/M」同时写进副标题和页内翻页器，同一句话在 200vp 内出现两遍
-    .titleBar(HdsChrome.bar({ themeTick: this.chromeThemeTick, mainTitle: '偏好追问', scrolled: this.barScrolled }))
+    .titleBar(HdsChrome.bar({ themeTick: this.chromeThemeTick, mainTitle: '偏好追问', scrolled: this.barScrolled,
+      menu: [HdsChrome.item($r('sys.symbol.wand_and_stars'), '直接生成', (): void => {
+        this.generateDirect();
+      })] }))
     .titleMode(HdsNavDestinationTitleMode.MINI)
   }
 }
