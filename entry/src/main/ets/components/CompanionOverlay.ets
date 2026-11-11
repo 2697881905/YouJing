@@ -98,8 +98,13 @@ export struct CompanionOverlay {
                 label: phrase,
                 tone: SoftChipTone.NEUTRAL,
                 action: (): void => {
-                  // Phase 3：把短语作为意图接 CompanionEngine；Phase 2 先收起面板
                   this.touchOpen = false;
+                  // 可直连现有排程能力的短语先接上；其余（附近美食/换个地方/时间够吗）待后续
+                  if (phrase === '我累了') {
+                    CompanionStore.execute({ kind: 'rest', targetId: '', deltaMin: 0, placeName: '' });
+                  } else if (phrase === '跳过这站') {
+                    CompanionStore.execute({ kind: 'skip_next', targetId: '', deltaMin: 0, placeName: '' });
+                  }
                 }
               })
                 .margin({ right: SpaceTokens.xs, bottom: SpaceTokens.xs })

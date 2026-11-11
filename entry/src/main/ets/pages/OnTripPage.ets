@@ -1298,6 +1298,14 @@ export struct OnTripPage {
     if (trip === null || day === null || this.replanning) {
       return;
     }
+    if (action.kind === 'rest') {
+      await this.performRest();
+      return;
+    }
+    if (action.kind === 'skip_next') {
+      await this.performSkip('');
+      return;
+    }
     if (action.kind !== 'move_tomorrow') {
       this.notice = '好的，按你说的来';
       return;
@@ -1328,6 +1336,27 @@ export struct OnTripPage {
     this.notice = '已挪到明天，可撤销';
     await this.reload();
     this.refreshWidget();
+  }
+
+  /** 「我累了」：提前结束今日剩余站点（复用 SkipPlanner.skipRemaining + 单日快照撤销） */
+  private async performRest(): Promise<void> {
+    const trip: Trip | null = this.trip;
+    const day: TripDay | null = this.day;
+    if (trip === null || day === null || this.replanning) {
+      return;
+    }
+    const nowMin: number = DateUtils.minutesOf(clockNow());
+    const snapshot: TripDay = SkipPlanner.cloneDay(day);
+    this.replanning = true;
+    this.notice = '正在收尾今日行程…';
+    const outcome: ReplanOutcome = SkipPlanner.skipRemaining(day, nowMin);
+    if (outcome.changed !== true) {
+      this.replanning = false;
+      this.notice = '';
+      this.toast(outcome.note);
+      return;
+    }
+    await this.commitDay(trip, snapshot, outcome);
   }
 
   /** 今日天气：命中缓存立即返回；请求/解析失败静默（不出天气行，不阻塞页面） */

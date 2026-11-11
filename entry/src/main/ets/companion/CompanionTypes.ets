@@ -19,7 +19,8 @@ export type CompanionMode = 'ask' | 'notify';
 export type CompanionKind = 'unplanned_arrival' | 'unknown_place';
 
 /** 选项背后结构化意图——集成层据此执行（接 SkipPlanner/commitDay），大脑不直接改行程。 */
-export type CompanionActionKind = 'move_tomorrow' | 'quick_visit' | 'keep_plan' | 'record_place' | 'none';
+export type CompanionActionKind = 'move_tomorrow' | 'quick_visit' | 'keep_plan' | 'record_place' | 'none'
+  | 'rest' | 'skip_next';
 
 export interface CompanionAction {
   kind: CompanionActionKind;
