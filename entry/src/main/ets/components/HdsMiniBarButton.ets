@@ -33,6 +33,10 @@
 // Tabs 内置滑动手势（子节点）会在手势竞争中吃掉横向滑动，宿主挂在外层的
 // PanGesture 永远收不到 onActionUpdate——玻璃珠无法拖动（真机实证 2026-10-26）。
 // 本组件作为指示器使用，内部只有一颗空 TabContent，禁滑无副作用。
+//
+// ⚠️ 第四处差异（有径 2026-11-11）：新增 decorationOnly 参数——纯装饰珠整体退出命中
+// 测试。多颗珠并排时 contentPadding 放大的不可见容器会盖住邻珠吞点击；dock 不传，
+// 行为与有据一致。
 
 import { HdsTabs } from '@kit.UIDesignKit';
 
@@ -128,6 +132,15 @@ export struct HdsMiniBarButton {
    */
   @Param barOverlap: boolean = true;
 
+  /**
+   * 装饰态：整颗玻璃层退出命中测试（HitTestMode.None）。
+   * 多颗珠并排（地图页日期 chip 间距 4vp）时，contentPadding 放大的不可见容器会
+   * 盖到邻珠边缘、空 TabContent 把点击吞掉或转发给邻珠；纯装饰用法下宿主有自己的
+   * 文字层承接命中、onClick 挂在 ListItem 上，珠本体不需要参与测试。
+   * dock 不传（默认 false），交互仍走宿主命中层，行为不变。
+   */
+  @Param decorationOnly: boolean = false;
+
   // ==================== 事件回调 ====================
 
   /**
@@ -208,5 +221,6 @@ export struct HdsMiniBarButton {
     }
     .size(this.getComputedContainerSize())
     .padding(this.contentPadding)
+    .hitTestBehavior(this.decorationOnly ? HitTestMode.None : HitTestMode.Default)
   }
 }

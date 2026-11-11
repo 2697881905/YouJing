@@ -312,15 +312,22 @@ export struct MapPage {
     ListItem() {
       Stack({ alignContent: Alignment.Center }) {
         if (this.beadOn(idx)) {
-          // 玻璃层：内容槽留空，只出材质；折射环与落影都由系统渲染，不再自绘
+          // 玻璃层：内容槽留空，只出材质；折射环与落影都由系统渲染，不再自绘。
+          // contentPadding / barBottomMargin = 8（dock 玻璃珠同参，SpaceTokens.xs）：
+          // 上游对 contentPadding 的定义就是「防止光效被裁切」的容器余量——HdsTabs 的
+          // 光效层在自身边界内渲染，归零时珠底贴着组件底边，落影零余量被硬切成灰带
+          // （2026-11-11 真机：List 净空修到 28 后选中 chip 的自绘影清了，玻璃珠的还在，
+          // 截断边界在 HdsMiniBarButton 内部）。两参同值时珠底 = 38 + P − margin =
+          // Stack 底，「两态等高对齐」不受影响（此前「归零才对齐」是在 padding=0 下测的）。
+          // decorationOnly：珠是纯装饰，命中交给文字层/ListItem，放大后的不可见容器
+          // 不许盖住邻珠边缘吞点击。
           HdsMiniBarButton({
             maskColor: '#00ffffff',
             barWidth: CHIP_BEAD_WIDTH,
             barHeight: CHIP_BEAD_HEIGHT,
-            contentPadding: 0,
-            // 组件默认 8vp 会把浮动栏底边抬高 8vp：玻璃珠比选中态矮一截且偏上
-            // （真机 TabBar [281,431] vs 容器 [281,456]），归零才两态等高对齐
-            barBottomMargin: 0,
+            contentPadding: SpaceTokens.xs,
+            barBottomMargin: SpaceTokens.xs,
+            decorationOnly: true,
             materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
             materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE
           }) {
@@ -359,12 +366,14 @@ export struct MapPage {
       .width(CHIP_BEAD_WIDTH)
       .height(CHIP_BEAD_HEIGHT)
     }
-    // 顶部 4vp 内缩（xxs）：List 改 alignListItem(Start) + 加高后，把 chip 钉回原位——
-    // 见轨道 height 注释。静息内缩（首末项 16vp，与标题栏 x=50px 对齐）挂在这里而不是
-    // List 的 padding：List 的裁切视口按「组件区域 − padding」算，padding 是来向侧一条
-    // 隐形切线——2026-11-10 真机实证：滑动中卡片在 x=1086px（=1136−50px）被硬切，
-    // 出场侧却能滑到 x=0。去掉 padding 后裁切线回到屏幕边缘，chip 左右滑动能穿到最边缘才消失。
-    .padding({ top: SpaceTokens.xxs })
+    // 顶部 8vp 内缩（xs）：玻璃珠恢复 contentPadding=8 后，光效盒（珠 + 四周 8vp）顶边
+    // 必须留在 List 视口内，否则上缘又被切一道（见 chipRow HdsMiniBarButton 注释）；
+    // 轨道 margin 同时上移 4vp 抵消，chip 落位不变。静息内缩（首末项 16vp，与标题栏
+    // x=50px 对齐）挂在这里而不是 List 的 padding：List 的裁切视口按「组件区域 − padding」
+    // 算，padding 是来向侧一条隐形切线——2026-11-10 真机实证：滑动中卡片在
+    // x=1086px（=1136−50px）被硬切，出场侧却能滑到 x=0。去掉 padding 后裁切线回到
+    // 屏幕边缘，chip 左右滑动能穿到最边缘才消失。
+    .padding({ top: SpaceTokens.xs })
     .margin({
       left: idx === 0 ? SpaceTokens.base : 0,
       right: idx === this.days.length ? SpaceTokens.base : 0
@@ -492,21 +501,25 @@ export struct MapPage {
             }
             .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
             .listDirection(Axis.Horizontal)
-            // Start + 项顶 4vp 内缩（见 chipRow padding）：chip 落位与原 Center 版逐像素一致
-            // （原 46 高居中 → chip 顶 = 轨道顶 + 4）。改 Start 是为了把加高的空间全留给投影。
+            // Start + 项顶 8vp 内缩（见 chipRow padding）：chip 落位与净空修复前逐像素一致
+            // （轨道 margin 同时上移 4vp 抵消）。改 Start 是为了把加高的空间全留给投影。
             .alignListItem(ListItemAlign.Start)
             .scrollBar(BarState.Off)
             .width('100%')
-            // 轨道高 = chip 4vp + 本体 38 + 投影净空 28：玻璃珠材质自带的系统落影（选中
-            // chip 的 pillFloat 同理，下探约 11vp）超出旧版上下各 4vp 的净空，在轨道下边缘
-            // 被拦腰截成一条硬边灰带（2026-11-11 真机：每个分段按钮底下压着一块淡灰矩形）。
+            // 轨道高 = 项顶 8 + 本体 38 + 底部净空 24（表达式 38 + xxs + segmentBarShadowRoom）：
+            // 底部净空给选中 chip 的 pillFloat 自绘影（下探约 11vp）收尾；玻璃珠材质的落影
+            // 由 HdsTabs 在自身光效盒（contentPadding=8）内渲染，不依赖这段净空——
+            // 2026-11-11 真机：净空只修 List 时选中 chip 清了、玻璃珠的灰带还在，
+            // 截断边界在 HdsMiniBarButton 内部（见 chipRow 注释）。
             // 28 是有据同款口径 segmentBarShadowRoom，「不可减——减了投影截断成硬边」。
             .height(CHIP_BEAD_HEIGHT + SpaceTokens.xxs + LayoutTokens.segmentBarShadowRoom)
             // **不给 List 左右 padding**（见 chipRow 注释）：padding 会变成来向侧 16vp 隐形切线，
             // 静息内缩由首末项 margin 承担；裁切线在屏幕边缘，chip 能穿到最边缘
             // 不要背景板：只留 chip 按钮浮在底图上（用户 2026-11-09 定）
-            // 让开标题栏：内容区从窗口 0 起，不 margin 会落进 106..281 的栏带
-            .margin({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
+            // 让开标题栏：内容区从窗口 0 起，不 margin 会落进 106..281 的栏带。
+            // 上移 4vp（xxs）抵消项顶内缩 xxs→xs（玻璃珠光效盒需要 8vp 顶净空），
+            // chip 落位与净空修复前逐像素一致
+            .margin({ top: HdsChrome.contentTopInset(this.statusBarHeight) - SpaceTokens.xxs })
           }
 
           Blank()
