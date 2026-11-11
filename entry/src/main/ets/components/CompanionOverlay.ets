@@ -14,6 +14,7 @@
 
 import { ColorTokens } from '../design/ColorTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
+import { LayoutTokens } from '../design/LayoutTokens';
 import { GlassPillButton } from '../design/GlassPillButton';
 import { BOTTOM_BAR_INSET_KEY } from '../utils/navMode';
 import { registerOverlayBackGuard, unregisterOverlayBackGuard } from '../utils/overlayBackGuard';
@@ -85,7 +86,7 @@ export struct CompanionOverlay {
         }
         .width('100%')
         .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
-          bottom: this.bottomBarInset + 64 })
+          bottom: this.bottomBarInset + LayoutTokens.floatingDockClearance + 64 })
         .hitTestBehavior(HitTestMode.None)
       }
 
@@ -121,7 +122,7 @@ export struct CompanionOverlay {
         }
         .width('100%')
         .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
-          bottom: this.bottomBarInset + 64 })
+          bottom: this.bottomBarInset + LayoutTokens.floatingDockClearance + 64 })
         .hitTestBehavior(HitTestMode.None)
       }
 
@@ -141,7 +142,9 @@ export struct CompanionOverlay {
       }
       .width('100%')
       .justifyContent(FlexAlign.End)
-      .padding({ right: SpaceTokens.base, bottom: this.bottomBarInset + SpaceTokens.base })
+      // 抬到 dock 净空之上：触点 44vp 命中区原来压住 dock「我的」tab，挡点击（真机实测）
+      .padding({ right: SpaceTokens.base,
+        bottom: this.bottomBarInset + LayoutTokens.floatingDockClearance + SpaceTokens.xs })
       .hitTestBehavior(HitTestMode.None)
     }
     .width('100%')
