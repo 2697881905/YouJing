@@ -359,10 +359,12 @@ export struct MapPage {
       .width(CHIP_BEAD_WIDTH)
       .height(CHIP_BEAD_HEIGHT)
     }
-    // 静息内缩（首末项 16vp，与标题栏 x=50px 对齐）挂在这里而不是 List 的 padding：
-    // List 的裁切视口按「组件区域 − padding」算，padding 是来向侧一条隐形切线——
-    // 2026-11-10 真机实证：滑动中卡片在 x=1086px（=1136−50px）被硬切，出场侧却能滑到 x=0。
-    // 去掉 padding 后裁切线回到屏幕边缘，chip 左右滑动能穿到最边缘才消失。
+    // 顶部 4vp 内缩（xxs）：List 改 alignListItem(Start) + 加高后，把 chip 钉回原位——
+    // 见轨道 height 注释。静息内缩（首末项 16vp，与标题栏 x=50px 对齐）挂在这里而不是
+    // List 的 padding：List 的裁切视口按「组件区域 − padding」算，padding 是来向侧一条
+    // 隐形切线——2026-11-10 真机实证：滑动中卡片在 x=1086px（=1136−50px）被硬切，
+    // 出场侧却能滑到 x=0。去掉 padding 后裁切线回到屏幕边缘，chip 左右滑动能穿到最边缘才消失。
+    .padding({ top: SpaceTokens.xxs })
     .margin({
       left: idx === 0 ? SpaceTokens.base : 0,
       right: idx === this.days.length ? SpaceTokens.base : 0
@@ -421,7 +423,9 @@ export struct MapPage {
       })
       .shadow(ShadowTokens.cardAmbient)
     }
+    // 顶部 4vp 内缩（xxs）：List 改 alignListItem(Start) + 加高后，把卡片钉回原位——见轨道 height 注释。
     // 首末卡 16vp 内缩挂在项上：同 chipRow，List padding 会变成来向侧 16vp 的隐形切线
+    .padding({ top: SpaceTokens.xxs })
     .margin({
       left: idx === 0 ? SpaceTokens.base : 0,
       right: idx === this.stops.length - 1 ? SpaceTokens.base : 0
@@ -488,11 +492,16 @@ export struct MapPage {
             }
             .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
             .listDirection(Axis.Horizontal)
-            .alignListItem(ListItemAlign.Center)
+            // Start + 项顶 4vp 内缩（见 chipRow padding）：chip 落位与原 Center 版逐像素一致
+            // （原 46 高居中 → chip 顶 = 轨道顶 + 4）。改 Start 是为了把加高的空间全留给投影。
+            .alignListItem(ListItemAlign.Start)
             .scrollBar(BarState.Off)
             .width('100%')
-            // 轨道比 chip 高 8vp：上下各留 4vp 让 pillFloat 投影落在视野里（等高会把影切平）
-            .height(CHIP_BEAD_HEIGHT + SpaceTokens.xs)
+            // 轨道高 = chip 4vp + 本体 38 + 投影净空 28：玻璃珠材质自带的系统落影（选中
+            // chip 的 pillFloat 同理，下探约 11vp）超出旧版上下各 4vp 的净空，在轨道下边缘
+            // 被拦腰截成一条硬边灰带（2026-11-11 真机：每个分段按钮底下压着一块淡灰矩形）。
+            // 28 是有据同款口径 segmentBarShadowRoom，「不可减——减了投影截断成硬边」。
+            .height(CHIP_BEAD_HEIGHT + SpaceTokens.xxs + LayoutTokens.segmentBarShadowRoom)
             // **不给 List 左右 padding**（见 chipRow 注释）：padding 会变成来向侧 16vp 隐形切线，
             // 静息内缩由首末项 margin 承担；裁切线在屏幕边缘，chip 能穿到最边缘
             // 不要背景板：只留 chip 按钮浮在底图上（用户 2026-11-09 定）
@@ -512,10 +521,14 @@ export struct MapPage {
               }
               .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
               .listDirection(Axis.Horizontal)
-              .alignListItem(ListItemAlign.Center)
+              // Start + 项顶 4vp 内缩（见 stopChip padding）：卡片落位与原 Center 版逐像素一致
+              .alignListItem(ListItemAlign.Start)
               .scrollBar(BarState.Off)
               .width('100%')
-              .height(STOP_CARD_HEIGHT + SpaceTokens.xs)
+              // 轨道高 = 卡 4vp + 本体 72 + 投影净空 16：cardAmbient（radius 10 + offsetY 3）
+              // 下探约 13vp，旧版上下各 4vp 净空会把影切成硬边灰带（同 chipRow，2026-11-11）。
+              // 卡片影是自绘档不是 HDS 材质，有据对材质要求的 28 不适用，16 够收尾。
+              .height(STOP_CARD_HEIGHT + SpaceTokens.xxs + SpaceTokens.base)
               // **不给 List 左右 padding**（见 chipRow 注释）：padding 是来向侧 16vp 隐形切线，
               // 2026-11-10 真机实证滑动中卡片在 x=1086px 被硬切；内缩由首末项 margin 承担后，
               // 裁切线回到屏幕边缘，卡片能一路滑出屏幕，不会在屏幕内被提前裁断

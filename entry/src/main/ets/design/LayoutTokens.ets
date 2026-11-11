@@ -40,6 +40,13 @@ export interface LayoutTokensType {
   segmentedControlHeight: number;
   /** 有据源码同名档 `segmentedHeight`（与 segmentedControlHeight 同值，供移植件直读） */
   segmentedHeight: number;
+  /**
+   * HDS 沉浸光感材质的分段/chip 投影下探净空（有据 space.ets `segmentBarShadowRoom` 同值 28）。
+   * 横向 List 裁切视口必须给足，否则玻璃珠材质自带的系统落影被下边缘拦腰截断，
+   * 在每个分段按钮底下切成一条硬边灰带（有据 docs/tutorial-titlebar-immersive-light.md
+   * 案例 9、HomeTab 2026-10-28 真机结论：「不可减——减了投影截断成硬边」）。
+   */
+  segmentBarShadowRoom: number;
   /** 底部 tab 栏高 */
   tabBarHeight: number;
   /**
@@ -165,6 +172,7 @@ export const LayoutTokens: LayoutTokensType = {
   titleBarHeight: 60,
   segmentedControlHeight: 36,
   segmentedHeight: 36,
+  segmentBarShadowRoom: 28,
   tabBarHeight: 64,
   floatingDockWidth: 300,
   floatingDockMediumWidth: 420,
