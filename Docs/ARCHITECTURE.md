@@ -71,7 +71,7 @@ pages/TripReviewPage.ets  ──(城市 + 风格枚举)──▶  ai/ImageGenCli
                           JPEG → cacheDir                │
                           → ShareKit                     ▼
                                                   services/imagegen.js
-                                                  → 百度千帆 text2image（access_token）
+                                                  → 千帆 V2 images/generations（bce-v3 Key）
 ```
 
 - 端侧只发 `city` 与 `style` 两个参数，**prompt 由 BFF 固定模板拼**，客户端不能注入任意提示词；

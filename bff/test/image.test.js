@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   validateImageRequest, buildImagePrompt, buildNegativePrompt, buildImageRequestBody,
-  buildAccessTokenUrl, buildImageUrl, parseImagePayload
+  buildV2RequestBody, buildAccessTokenUrl, buildImageUrl, parseImagePayload, isV2Key
 } from '../src/services/imagegen.js';
 import { subscriptionAllowsImage } from '../src/routes/image.js';
 
@@ -70,7 +70,35 @@ test('parses b64_image (Baidu) and b64_json/url variants, rejects empty and over
 test('Baidu returns HTTP 200 with error_code and actionable hint', () => {
   assert.throws(() => parseImagePayload({ error_code: 110, error_msg: 'Access token invalid' }), /110/);
   assert.throws(() => parseImagePayload({ error_code: 6, error_msg: 'No permission to access data' }),
-    /应用接入/);
+    /V2/);
+});
+
+test('V2 API Key switches driver automatically', () => {
+  assert.equal(isV2Key('bce-v3/ALTAK-abc/def'), true);
+  assert.equal(isV2Key('17GHUmgU9KhxDtEfEkN4FZXD'), false);
+  assert.equal(isV2Key(''), false);
+});
+
+test('V2 request body carries model in body and disables prompt_extend', () => {
+  const body = buildV2RequestBody('杨凌', 'geometry', 'qwen-image');
+  assert.equal(body.model, 'qwen-image');
+  assert.equal(body.negative_prompt, buildNegativePrompt());
+  assert.ok(body.negative_prompt.length <= 500);
+  assert.equal(body.size, '768x1024');
+  assert.equal(body.n, 1);
+  assert.equal(body.prompt_extend, false);
+  assert.equal('access_token' in body, false);
+});
+
+test('V2 url response, task failure and V2 error envelope', () => {
+  assert.deepEqual(parseImagePayload({ data: [{ url: 'https://example.test/a.png' }] }),
+    { image: '', url: 'https://example.test/a.png' });
+  assert.throws(() => parseImagePayload({
+    data: [{ task_status: 'FAILED', task_error_code: 'image_generation_output_image_unsafe' }]
+  }), /生图任务失败/);
+  assert.throws(() => parseImagePayload({
+    code: 'InvalidHTTPAuthHeader', message: 'bad key', type: 'auth'
+  }), /V2 错误/);
 });
 
 test('subscription gate only accepts an active subscription snapshot', () => {

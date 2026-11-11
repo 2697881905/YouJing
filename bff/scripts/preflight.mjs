@@ -55,10 +55,12 @@ if (llmKey.length === 0 || llmKey === 'sk-your-key-here') {
 const imageKey = process.env.IMAGEGEN_API_KEY || '';
 const imageSecret = process.env.IMAGEGEN_SECRET_KEY || '';
 const imageModel = process.env.IMAGEGEN_MODEL || '';
-if (!imageKey || !imageSecret || !imageModel) {
-  warn('生图代理未配置', '/v1/image/generate 会回 503，端侧降级模板海报；主链不受影响');
+if (imageKey.startsWith('bce-v3/') && imageModel) {
+  ok('生图代理已配置（千帆 V2 API Key）');
+} else if (imageKey && imageSecret && imageModel) {
+  warn('生图代理仍是旧版凭证', '旧版应用需先发布文生图服务，否则 error_code 6；建议改用千帆 V2 的 bce-v3/ALTAK-... API Key，无需勾选接口');
 } else {
-  ok('生图代理已配置（百度千帆 API Key / Secret Key / 服务名）');
+  warn('生图代理未配置', '/v1/image/generate 会回 503，端侧降级模板海报；主链不受影响');
 }
 // 安全结构闸门：订阅门禁必须在服务端实时校验，且入口必须挂鉴权与限流。
 const imageRoute = read('src/routes/image.js');

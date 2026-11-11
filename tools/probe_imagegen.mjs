@@ -11,7 +11,7 @@
  *   node tools/probe_imagegen.mjs --city 杨凌 --style geometry --yes
  */
 import dotenv from '../bff/node_modules/dotenv/lib/main.js';
-import { proxyImageRequest, validateImageRequest, buildImagePrompt } from '../bff/src/services/imagegen.js';
+import { proxyImageRequest, validateImageRequest, buildImagePrompt, isV2Key } from '../bff/src/services/imagegen.js';
 
 const args = process.argv.slice(2);
 const cityArg = args.indexOf('--city');
@@ -27,10 +27,13 @@ if (guard !== '') {
 }
 
 dotenv.config({ path: new URL('../bff/.env', import.meta.url).pathname });
-const configured = process.env.IMAGEGEN_API_KEY && process.env.IMAGEGEN_SECRET_KEY && process.env.IMAGEGEN_MODEL;
+const key = process.env.IMAGEGEN_API_KEY || '';
+const v2 = isV2Key(key);
+const configured = key && process.env.IMAGEGEN_MODEL && (v2 || process.env.IMAGEGEN_SECRET_KEY);
 
 console.log(`城市=${city} 风格=${style} 上游超时=${process.env.IMAGEGEN_TIMEOUT_MS || 30000}ms`);
-console.log(`上游=${process.env.IMAGEGEN_BASE_URL || '未配置'} 模型=${process.env.IMAGEGEN_MODEL || '未配置'}`);
+console.log(`驱动=${v2 ? '千帆 V2 /v2/images/generations' : '旧版 ModelBuilder access_token'}`);
+console.log(`上游=${v2 ? 'https://qianfan.baidubce.com' : (process.env.IMAGEGEN_BASE_URL || '未配置')} 模型=${process.env.IMAGEGEN_MODEL || '未配置'}`);
 console.log(`prompt 长度=${buildImagePrompt(city, style).length} 字符`);
 if (!configured) {
   console.error('IMAGEGEN_* 未配置（bff/.env），跳过调用');

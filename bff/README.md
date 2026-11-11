@@ -105,10 +105,12 @@ HTTP 200，提示词里仍内嵌完整 Schema，BFF 仍用同一份 Schema 校�
 |---|---|
 | 请求 | `{ city: string, style: 'geometry' \| 'texture' }`，字段白名单，多一个字段就 400；prompt 由服务端固定模板拼，客户端不能注入 |
 | 订阅 | `getEntitlement()` 实时校验 `status='active' AND period_end >= now`，非订阅 402 `SUBSCRIPTION_REQUIRED` |
-| 上游 | `src/services/imagegen.js` → **百度千帆 ModelBuilder 文生图（SD-XL）**：`IMAGEGEN_API_KEY` + `IMAGEGEN_SECRET_KEY` 换 `access_token`（进程内缓存、提前 5 分钟刷新），再 POST `/rpc/2.0/ai_custom/v1/wenxinworkshop/text2image/<IMAGEGEN_MODEL>`；模型名在 URL 路径末段 |
-| 请求体 | 固定 `prompt` + `negative_prompt` + `size: 768x1024`（官方列为「适用海报传单」）+ `n:1` + `steps:20`。不是 OpenAI `images/generations` 格式 |
-| 响应 | 上游图片在 `data[0].b64_image`；上游报错是 **HTTP 200 + `error_code`/`error_msg`**，适配器统一转 502。BFF 对外仍回 `{ image, mime, model, bytes }`，产物**不落库、不进对象存储、不进 UGC** |
-| 超时 | `IMAGEGEN_TIMEOUT_MS` 默认 30000ms（含换 token 最多 5s）；超时 504 `IMAGEGEN_TIMEOUT`，上游 429 透传，其它非 2xx → 502 |
+| 驱动选择 | 按 `IMAGEGEN_API_KEY` 前缀自动切：`bce-v3/` 开头 = **千帆 V2**（推荐），其余 = 旧版 ModelBuilder。不额外配开关 |
+| 上游 V2 | `POST https://qianfan.baidubce.com/v2/images/generations`，`Authorization: Bearer <bce-v3/ALTAK-...>`。Key 在「安全认证 → API Key」创建（选千帆 ModelBuilder），**永久有效、无需建应用/勾选接口/换 token** |
+| 上游旧版 | `IMAGEGEN_API_KEY` + `IMAGEGEN_SECRET_KEY` 换 `access_token`（进程内缓存），再 POST `aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/text2image/<服务名>` |
+| 请求体 | V2：`{model, prompt, negative_prompt, size:'768x1024', n:1, prompt_extend:false}`；旧版：`{prompt, negative_prompt, size, n, steps:20}`。固定模板，客户端不能注入 |
+| 响应 | V2 返回 `data[0].url`（24h 有效）→ BFF 下载转 base64；旧版返回 `data[0].b64_image`。HTTP 200 的 `error_code` / V2 的 `{code,message}` / `task_status:FAILED` 统一转 502。BFF 对外仍回 `{ image, mime, model, bytes }`，产物**不落库、不进对象存储、不进 UGC** |
+| 超时 | `IMAGEGEN_TIMEOUT_MS` 默认 30000ms，生图与图片下载**共用这一份预算**（端侧读超时 35000ms 留 5s 余量）。超时 504 `IMAGEGEN_TIMEOUT`，上游 429 透传，其它非 2xx → 502 |
 | 与 trip 的差异 | **刻意不挂幂等、不扣额度、不写 `trip_request`**：同步增强、失败端侧降级模板海报；成本靠限流 + 严格超时，不重试 |
 
 端侧读超时 `ApiConfig.IMAGE_GEN_READ_TIMEOUT_MS=35000` 需始终大于服务端超时。
@@ -120,11 +122,12 @@ HTTP 200，提示词里仍内嵌完整 Schema，BFF 仍用同一份 Schema 校�
 三组凭证只放 `bff/.env`，端侧零密钥。改 `BFF_BASE_URL` 后必须全量重编重装 HAP。
 千帆侧需先**发布 `sd_xl` 文生图服务**（官方文档：未部署会请求超时）；用别的模型就改 `IMAGEGEN_MODEL`。
 
-**上游鉴权排错（2026-11-11 实测）**：`access_token` 能换到但生图回
-`error_code: 6 / No permission to access data`，说明是**应用侧授权**，不是 Key 错误、也不是代码问题。
-按官方排查建议依次做：① 千帆控制台 → 应用接入 → 找到这个 AppID 的应用 → 编辑 →
-勾选对应文生图接口 → 点「更新」使授权生效；② 定制服务要处于「已发布」状态（发布成功自动授权）；
-③ 确认 API Key / Secret Key 来自同一个应用；④ 确认接口版本与模型名。
+**上游鉴权排错（2026-11-11 实测，`error_code: 6`）**：旧版三元组能换到 `access_token`，
+但生图回 `No permission to access data`，且「应用接入」里**根本没有文生图接口可勾**。
+根因是百度有两套密钥体系：旧版 AppID + API Key + Secret Key 是换 token 的应用凭证，
+文生图不在它的接口勾选列表里；新版千帆图像服务用的是
+「安全认证 → API Key」创建的 `bce-v3/ALTAK-...` Key，**平台已默认开通 API 调用权限，无需申请/勾选**。
+所以正解是换 V2 Key，不是在旧控制台找开关。旧版那条路只在「定制服务已发布并自动授权」时才通。
 `imagegen.js` 已对 3 / 6 / 17 / 110 给出可操作的错误提示，探针会原样打印。
 
 ## 测试
