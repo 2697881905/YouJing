@@ -231,7 +231,10 @@ export struct OnTripPage {
     CompanionStore.registerExecutor((action: CompanionAction): void => {
       this.handleCompanionAction(action);
     });
-    this.reload();
+    // 从别的页签点助手指令跳进来时，意图暂存在 CompanionStore；首次加载完成后取走执行
+    this.reload().then((): void => {
+      this.drainPendingCompanionAction();
+    });
   }
 
   aboutToDisappear(): void {
@@ -1286,6 +1289,14 @@ export struct OnTripPage {
     }
     this.shownUnplannedId = prompt.id;
     CompanionStore.show(prompt);
+  }
+
+  /** 取走浮层暂存的助手指令并执行（从别的页签跳转进来时）；取后即清，不会重复执行 */
+  private drainPendingCompanionAction(): void {
+    const pending: CompanionAction | null = CompanionStore.takePendingAction();
+    if (pending !== null) {
+      this.handleCompanionAction(pending);
+    }
   }
 
   /**

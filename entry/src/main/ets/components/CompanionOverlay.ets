@@ -25,7 +25,8 @@ import { CompanionCard } from './CompanionCard';
 import { SoftChip, SoftChipTone } from './SoftChip';
 import { GlowInput } from './GlowInput';
 import { COMPANION_PROMPT_KEY, CompanionStore } from '../companion/CompanionStore';
-import { CompanionPrompt } from '../companion/CompanionTypes';
+import { CompanionAction, CompanionPrompt } from '../companion/CompanionTypes';
+import { HOST_NAV, activeTripId } from '../common/constants/AppNav';
 
 const GUARD_ID: string = 'companionOverlay';
 /** 快捷短语（上下文意图，Phase 3 按场景动态化） */
@@ -115,6 +116,28 @@ export struct CompanionOverlay {
     AppStorage.setOrCreate(TOUCH_Y_KEY, targetY);
   }
 
+  private toast(msg: string): void {
+    this.getUIContext().getPromptAction().showToast({ message: msg, duration: 2000 });
+  }
+
+  /**
+   * 派发一条助手指令。执行器只在行程页（OnTrip）注册，浮层却全局可点：
+   * ① 已在行程页 → 直接执行；② 在别的页签但有活跃行程 → 跳进行程页并暂存意图，
+   * 由 OnTrip 首次 reload 后取走执行；③ 没有进行中的行程 → 如实告知，不再静默空操作。
+   */
+  private dispatchAction(action: CompanionAction): void {
+    if (CompanionStore.execute(action)) {
+      return;
+    }
+    const tripId: string = activeTripId();
+    if (tripId.length > 0) {
+      CompanionStore.queueAction(action);
+      HOST_NAV.pushPath({ name: 'OnTrip', param: tripId });
+      return;
+    }
+    this.toast('没有进行中的行程，先去「规划」开一趟吧');
+  }
+
   build() {
     Stack({ alignContent: Alignment.Bottom }) {
       // ⓪ 遮罩：激活时压暗页面，把浮层与下层内容分离（否则芯片/卡浮在内容上可视性差）；
@@ -143,8 +166,8 @@ export struct CompanionOverlay {
                   p.kind === 'unplanned_arrival' ? 'unplanned_move_tomorrow' : p.kind;
                 CompanionStore.prefs.recordChoice(
                   decisionKey, p.options[idx].key, p.options[p.recommendedIndex].key);
-                // 执行选项意图（OnTrip 注册的执行器：跨天挪移+撤销）；其余选项确认即可
-                CompanionStore.execute(p.options[idx].action);
+                // 执行选项意图（行程页执行器：跨天挪移+撤销）；不在行程页时兜底跳转/告知
+                this.dispatchAction(p.options[idx].action);
               }
               CompanionStore.dismiss();
             },
@@ -181,11 +204,14 @@ export struct CompanionOverlay {
                 tone: SoftChipTone.NEUTRAL,
                 action: (): void => {
                   this.touchOpen = false;
-                  // 可直连现有排程能力的短语先接上；其余（附近美食/换个地方/时间够吗）待后续
+                  // 已接排程能力的短语真正执行（不在行程页时兜底跳转/告知）；
+                  // 其余意图尚未接能力，如实告知而非静默收起（用户报「点了没反应」）。
                   if (phrase === '我累了') {
-                    CompanionStore.execute({ kind: 'rest', targetId: '', deltaMin: 0, placeName: '' });
+                    this.dispatchAction({ kind: 'rest', targetId: '', deltaMin: 0, placeName: '' });
                   } else if (phrase === '跳过这站') {
-                    CompanionStore.execute({ kind: 'skip_next', targetId: '', deltaMin: 0, placeName: '' });
+                    this.dispatchAction({ kind: 'skip_next', targetId: '', deltaMin: 0, placeName: '' });
+                  } else {
+                    this.toast(`「${phrase}」这个能力还在路上`);
                   }
                 }
               })
