@@ -110,10 +110,10 @@ HTTP 200，提示词里仍内嵌完整 Schema，BFF 仍用同一份 Schema 校�
 | 上游旧版 | `IMAGEGEN_API_KEY` + `IMAGEGEN_SECRET_KEY` 换 `access_token`（进程内缓存），再 POST `aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/text2image/<服务名>` |
 | 请求体 | V2：`{model, prompt, negative_prompt, size:'768x1024', n:1, prompt_extend:false}`；旧版：`{prompt, negative_prompt, size, n, steps:20}`。固定模板，客户端不能注入 |
 | 响应 | V2 返回 `data[0].url`（24h 有效）→ BFF 下载转 base64；旧版返回 `data[0].b64_image`。HTTP 200 的 `error_code` / V2 的 `{code,message}` / `task_status:FAILED` 统一转 502。BFF 对外仍回 `{ image, mime, model, bytes }`，产物**不落库、不进对象存储、不进 UGC** |
-| 超时 | `IMAGEGEN_TIMEOUT_MS` 默认 30000ms，生图与图片下载**共用这一份预算**（端侧读超时 35000ms 留 5s 余量）。超时 504 `IMAGEGEN_TIMEOUT`，上游 429 透传，其它非 2xx → 502 |
+| 超时 | `IMAGEGEN_TIMEOUT_MS` 默认 60000ms，生图与图片下载**共用这一份预算**（qwen-image 单张实测可超 30s；端侧读超时 70000ms 留 10s 余量）。超时 504 `IMAGEGEN_TIMEOUT`，上游 429 透传，其它非 2xx → 502 |
 | 与 trip 的差异 | **刻意不挂幂等、不扣额度、不写 `trip_request`**：同步增强、失败端侧降级模板海报；成本靠限流 + 严格超时，不重试 |
 
-端侧读超时 `ApiConfig.IMAGE_GEN_READ_TIMEOUT_MS=35000` 需始终大于服务端超时。
+端侧读超时 `ApiConfig.IMAGE_GEN_READ_TIMEOUT_MS=70000` 需始终大于服务端超时。
 未配置 `IMAGEGEN_API_KEY`/`IMAGEGEN_SECRET_KEY` 时 `/v1/image` 回 503，
 `npm run preflight` 给 WARN（主链不受影响）；订阅门禁与鉴权限流的结构检查是 FAIL 级闸门。
 

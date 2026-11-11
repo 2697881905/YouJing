@@ -21,7 +21,7 @@ import { HttpError } from '../lib/http-error.js';
  * - 同步一次、严格超时、不重试。任何失败由端侧降级回模板海报。
  */
 
-const DEFAULT_TIMEOUT_MS = 30000;
+const DEFAULT_TIMEOUT_MS = 60000;
 const TOKEN_TIMEOUT_MS = 5000;
 const V2_BASE_URL = 'https://qianfan.baidubce.com';
 const V2_PATH = '/v2/images/generations';
@@ -238,7 +238,7 @@ export function parseImagePayload(data) {
   throw new HttpError(502, 'IMAGEGEN_INVALID_RESPONSE', '上游既无 b64_image/b64_json 也无 url');
 }
 
-/** 下载与生图共用同一份 30s 预算，保证端侧 35s 读超时前一定能拿到结果或明确失败。 */
+/** 下载与生图共用同一份 60s 预算（qwen-image 单张实测可超 30s），保证端侧 70s 读超时前一定能拿到结果或明确失败。 */
 async function fetchUrlAsBase64(url, budgetMs) {
   const resp = await fetch(url, { signal: AbortSignal.timeout(Math.max(1000, budgetMs)) });
   if (!resp.ok) {

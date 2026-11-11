@@ -93,7 +93,7 @@ export interface ApiConfigType {
    */
   IMAGE_GEN_ENDPOINT: string;
   /**
-   * 生图读取超时。BFF 上游默认 30s（IMAGEGEN_TIMEOUT_MS），这里留 5s 余量；
+   * 生图读取超时。BFF 上游默认 60s（IMAGEGEN_TIMEOUT_MS，qwen-image 单张实测可超 30s），这里留 10s 余量；
    * 超时后页面保留模板海报并如实提示，不重试、不重复计费。
    */
   IMAGE_GEN_READ_TIMEOUT_MS: number;
@@ -117,5 +117,5 @@ export const ApiConfig: ApiConfigType = {
   REPLAN_READ_TIMEOUT_MS: 6000,
   WEATHER_URL: 'https://api.open-meteo.com/v1/forecast',
   IMAGE_GEN_ENDPOINT: '/v1/image/generate',
-  IMAGE_GEN_READ_TIMEOUT_MS: 35000
+  IMAGE_GEN_READ_TIMEOUT_MS: 70000
 };
