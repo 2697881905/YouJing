@@ -7,7 +7,7 @@ import { describe, it, expect, TestType, Size, Level } from '@ohos/hypium';
 import { CompanionPrefs } from '../../../main/ets/companion/CompanionPrefs';
 import { CompanionEngine } from '../../../main/ets/companion/CompanionEngine';
 import { UnplannedInput } from '../../../main/ets/companion/CompanionTypes';
-import { Activity, ActivityCategory, ActivityStatus, IntensityLevel, TripDay } from '../../../main/ets/model/Trip';
+import { Activity, ActivityCategory, ActivityStatus, IntensityLevel, Trip, TripDay, TripOverview } from '../../../main/ets/model/Trip';
 import { Spot } from '../../../main/ets/model/Spot';
 import { GeoPoint } from '../../../main/ets/utils/Geo';
 
@@ -48,6 +48,15 @@ function spot(id: string, name: string, lat: number, lng: number, dur: number): 
 function pt(lat: number, lng: number): GeoPoint {
   const p: GeoPoint = { latitude: lat, longitude: lng };
   return p;
+}
+
+function tripOf(days: TripDay[]): Trip {
+  const ov: TripOverview = { totalCost: 0, highlights: [], summary: '' };
+  const t: Trip = {
+    id: 't1', destination: '北京', startDate: '2026-11-11', endDate: '2026-11-12',
+    people: 2, budget: 5000, style: 'leisure', overview: ov, days: days, tips: []
+  };
+  return t;
 }
 
 export default function companionTest(): void {
@@ -184,6 +193,37 @@ export default function companionTest(): void {
       const spots: Spot[] = [spot('s1', '什刹海', 34.27, 108.07, 90)];
       const u = CompanionEngine.detectUnplanned(pt(35.0, 109.0), day, spots, 600, 5);
       expect(u === null).assertTrue();
+    });
+  });
+
+  describe('CompanionEngine.moveToTomorrow', () => {
+    it('moves_activity_to_next_day', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+      const d1 = dayOf([act('a', '09:00', '10:00', ActivityCategory.SIGHT), act('b', '11:00', '12:00', ActivityCategory.SIGHT)]);
+      const d2 = dayOf([act('c', '09:00', '10:00', ActivityCategory.SIGHT)]);
+      d2.dayIndex = 2;
+      const trip = tripOf([d1, d2]);
+      const updated = CompanionEngine.moveToTomorrow(trip, 0, 'b');
+      expect(updated !== null).assertTrue();
+      expect(updated!.days[0].activities.length).assertEqual(1);
+      expect(updated!.days[0].activities[0].id).assertEqual('a');
+      expect(updated!.days[1].activities.length).assertEqual(2);
+      expect(updated!.days[1].activities[1].id).assertEqual('b');
+      // 原对象不被改动
+      expect(trip.days[0].activities.length).assertEqual(2);
+    });
+
+    it('no_tomorrow_returns_null', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+      const d1 = dayOf([act('a', '09:00', '10:00', ActivityCategory.SIGHT)]);
+      const trip = tripOf([d1]);
+      expect(CompanionEngine.moveToTomorrow(trip, 0, 'a') === null).assertTrue();
+    });
+
+    it('missing_activity_returns_null', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+      const d1 = dayOf([act('a', '09:00', '10:00', ActivityCategory.SIGHT)]);
+      const d2 = dayOf([]);
+      d2.dayIndex = 2;
+      const trip = tripOf([d1, d2]);
+      expect(CompanionEngine.moveToTomorrow(trip, 0, 'zzz') === null).assertTrue();
     });
   });
 }

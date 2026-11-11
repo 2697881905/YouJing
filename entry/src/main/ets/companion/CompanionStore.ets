@@ -6,11 +6,32 @@
  * 用户点选/划掉后 dismiss()。默认空串 = 休眠，不扰现有 UI。
  */
 
-import { CompanionPrompt } from './CompanionTypes';
+import { CompanionAction, CompanionPrompt } from './CompanionTypes';
+import { CompanionPrefs } from './CompanionPrefs';
 
 export const COMPANION_PROMPT_KEY: string = 'companionPromptJson';
 
 export class CompanionStore {
+  /** 共享偏好（OnTrip 生成提示与浮层记录点选共用同一实例，降级闭环才成立） */
+  static readonly prefs: CompanionPrefs = new CompanionPrefs();
+
+  /** 执行委托：浮层在全局壳层，改行程的能力在 OnTrip，由它注册执行器 */
+  private static executor: ((action: CompanionAction) => void) | null = null;
+
+  static registerExecutor(fn: (action: CompanionAction) => void): void {
+    CompanionStore.executor = fn;
+  }
+
+  static clearExecutor(): void {
+    CompanionStore.executor = null;
+  }
+
+  static execute(action: CompanionAction): void {
+    if (CompanionStore.executor !== null) {
+      CompanionStore.executor(action);
+    }
+  }
+
   /** 浮出一张请示卡（同 id 去重由集成层保证） */
   static show(prompt: CompanionPrompt): void {
     AppStorage.setOrCreate(COMPANION_PROMPT_KEY, JSON.stringify(prompt));

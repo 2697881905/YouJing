@@ -65,8 +65,17 @@ export struct CompanionOverlay {
         Column() {
           CompanionCard({
             prompt: this.prompt()!,
-            onSelect: (_idx: number): void => {
-              // Phase 3：执行选项意图 + 偏好 recording；Phase 2 先收起
+            onSelect: (idx: number): void => {
+              // 偏好闭环：记录这次选择（共享 prefs），连续选推荐项会把后续同类决定降为通知
+              const p: CompanionPrompt | null = this.prompt();
+              if (p !== null && idx >= 0 && idx < p.options.length) {
+                const decisionKey: string =
+                  p.kind === 'unplanned_arrival' ? 'unplanned_move_tomorrow' : p.kind;
+                CompanionStore.prefs.recordChoice(
+                  decisionKey, p.options[idx].key, p.options[p.recommendedIndex].key);
+                // 执行选项意图（OnTrip 注册的执行器：跨天挪移+撤销）；其余选项确认即可
+                CompanionStore.execute(p.options[idx].action);
+              }
               CompanionStore.dismiss();
             },
             onDismiss: (): void => {

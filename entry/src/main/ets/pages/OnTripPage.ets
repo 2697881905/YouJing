@@ -27,7 +27,7 @@ import { SpotDao } from '../data/SpotDao';
 import { CompanionEngine } from '../companion/CompanionEngine';
 import { CompanionPrefs } from '../companion/CompanionPrefs';
 import { CompanionStore } from '../companion/CompanionStore';
-import { CompanionPrompt, UnplannedInput } from '../companion/CompanionTypes';
+import { CompanionAction, CompanionPrompt, UnplannedInput } from '../companion/CompanionTypes';
 import { PlanRepository } from '../data/PlanRepository';
 import { mintEditActivityId } from '../utils/ActivityIds';
 import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
@@ -228,11 +228,15 @@ export struct OnTripPage {
 
   aboutToAppear(): void {
     this.disposed = false;
+    CompanionStore.registerExecutor((action: CompanionAction): void => {
+      this.handleCompanionAction(action);
+    });
     this.reload();
   }
 
   aboutToDisappear(): void {
     this.disposed = true;
+    CompanionStore.clearExecutor();
     this.watcher.stop();
     this.watcherActive = false;
     this.watcherStarting = false;
@@ -261,7 +265,9 @@ export struct OnTripPage {
   private unplannedSpotName: string = '';
   private unplannedSinceMs: number = 0;
   private shownUnplannedId: string = '';
-  private companionPrefs: CompanionPrefs = new CompanionPrefs();
+  private companionPrefs: CompanionPrefs = CompanionStore.prefs;
+  /** 伴随跨天挪移的整程撤销快照（区别于 skipSnapshot 的单日快照） */
+  private companionUndoTrip: Trip | null = null;
 
   private async reload(): Promise<void> {
     if (this.tripId.length === 0) {
@@ -933,6 +939,24 @@ export struct OnTripPage {
   /** 撤销 = 把跳过前快照写回该日并落库；快照只在本进程、只保留一层 */
   private async undoSkip(): Promise<void> {
     const trip: Trip | null = this.trip;
+    // 伴随跨天挪移：整程快照优先（区别于单日 skipSnapshot）
+    if (trip !== null && this.companionUndoTrip !== null && this.companionUndoTrip.id === trip.id) {
+      const restore: Trip = this.companionUndoTrip;
+      this.companionUndoTrip = null;
+      try {
+        await TripDao.saveTrip(this.ctx(), restore);
+      } catch (err) {
+        this.notice = '撤销失败，行程未改动';
+        Logger.error('Ui.OnTrip', `伴随撤销失败: ${(err as Error).message}`);
+        return;
+      }
+      this.trip = restore;
+      this.canUndo = false;
+      this.notice = '已撤销挪移';
+      await this.reload();
+      this.refreshWidget();
+      return;
+    }
     const snapshot: TripDay | null = this.skipSnapshot;
     if (trip === null || snapshot === null || this.skipSnapshotTripId !== trip.id) {
       this.toast('没有可撤销的重排');
@@ -1262,6 +1286,48 @@ export struct OnTripPage {
     }
     this.shownUnplannedId = prompt.id;
     CompanionStore.show(prompt);
+  }
+
+  /**
+   * 伴随选项执行（浮层经 CompanionStore 委托到此）：
+   * move_tomorrow 真正跨天挪移 + 整程快照可撤销；其余选项是「我来处理」类，确认即可、不改行程。
+   */
+  private async handleCompanionAction(action: CompanionAction): Promise<void> {
+    const trip: Trip | null = this.trip;
+    const day: TripDay | null = this.day;
+    if (trip === null || day === null || this.replanning) {
+      return;
+    }
+    if (action.kind !== 'move_tomorrow') {
+      this.notice = '好的，按你说的来';
+      return;
+    }
+    let arrIdx: number = -1;
+    for (let i = 0; i < trip.days.length; i++) {
+      if (trip.days[i].dayIndex === day.dayIndex) {
+        arrIdx = i;
+        break;
+      }
+    }
+    const updated: Trip | null = CompanionEngine.moveToTomorrow(trip, arrIdx, action.targetId);
+    if (updated === null) {
+      this.toast('明天不在行程里，挪不了');
+      return;
+    }
+    this.companionUndoTrip = trip;
+    try {
+      await TripDao.saveTrip(this.ctx(), updated);
+    } catch (err) {
+      this.companionUndoTrip = null;
+      this.notice = '保存失败，行程未改动';
+      Logger.error('Ui.OnTrip', `伴随挪移保存失败: ${(err as Error).message}`);
+      return;
+    }
+    this.trip = updated;
+    this.canUndo = true;
+    this.notice = '已挪到明天，可撤销';
+    await this.reload();
+    this.refreshWidget();
   }
 
   /** 今日天气：命中缓存立即返回；请求/解析失败静默（不出天气行，不阻塞页面） */

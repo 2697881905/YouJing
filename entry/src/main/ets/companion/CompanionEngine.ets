@@ -8,7 +8,7 @@
  * 引擎只产出 CompanionPrompt（结构化意图），不直接改行程；执行由集成层接 SkipPlanner/commitDay。
  */
 
-import { Activity, ActivityCategory, TripDay } from '../model/Trip';
+import { Activity, ActivityCategory, Trip, TripDay } from '../model/Trip';
 import { Spot } from '../model/Spot';
 import { DateUtils } from '../utils/DateUtils';
 import { Geo, GeoPoint } from '../utils/Geo';
@@ -102,6 +102,55 @@ export class CompanionEngine {
       }
     }
     return false;
+  }
+
+  /**
+   * 把当日某节点挪到明天（纯函数，返回新 Trip，不改原对象）。
+   * 无明天 / 节点不存在 → null。明天节点追加在末尾（时刻由集成层后续重排）。
+   */
+  static moveToTomorrow(trip: Trip, dayIndex: number, activityId: string): Trip | null {
+    if (dayIndex < 0 || dayIndex + 1 >= trip.days.length) {
+      return null;
+    }
+    const today: TripDay = trip.days[dayIndex];
+    let moved: Activity | null = null;
+    for (const a of today.activities) {
+      if (a.id === activityId) {
+        moved = a;
+        break;
+      }
+    }
+    if (moved === null) {
+      return null;
+    }
+    const tomorrow: TripDay = trip.days[dayIndex + 1];
+    const newToday: TripDay = {
+      dayIndex: today.dayIndex, date: today.date, theme: today.theme, intensity: today.intensity,
+      risk: today.risk, dailyCost: today.dailyCost,
+      activities: today.activities.filter((a: Activity): boolean => a.id !== activityId),
+      meals: today.meals, accommodation: today.accommodation
+    };
+    const newTomorrow: TripDay = {
+      dayIndex: tomorrow.dayIndex, date: tomorrow.date, theme: tomorrow.theme,
+      intensity: tomorrow.intensity, risk: tomorrow.risk, dailyCost: tomorrow.dailyCost,
+      activities: tomorrow.activities.concat([moved]),
+      meals: tomorrow.meals, accommodation: tomorrow.accommodation
+    };
+    const newDays: TripDay[] = trip.days.map((d: TripDay, i: number): TripDay => {
+      if (i === dayIndex) {
+        return newToday;
+      }
+      if (i === dayIndex + 1) {
+        return newTomorrow;
+      }
+      return d;
+    });
+    const result: Trip = {
+      id: trip.id, destination: trip.destination, startDate: trip.startDate, endDate: trip.endDate,
+      people: trip.people, budget: trip.budget, categoryBudgets: trip.categoryBudgets,
+      style: trip.style, overview: trip.overview, days: newDays, tips: trip.tips, passId: trip.passId
+    };
+    return result;
   }
 
   /** 当日 nowMin 之后第一个真实景点（剔除交通/住宿腿）。 */

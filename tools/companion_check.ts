@@ -4,7 +4,7 @@
  * bundled node 运行，不依赖 @kit / 设备。
  */
 
-import { Activity, ActivityCategory, ActivityStatus, IntensityLevel, TripDay } from '../model/Trip';
+import { Activity, ActivityCategory, ActivityStatus, IntensityLevel, Trip, TripDay, TripOverview } from '../model/Trip';
 import { Spot } from '../model/Spot';
 import { GeoPoint } from '../utils/Geo';
 import { CompanionPrefs } from '../companion/CompanionPrefs';
@@ -135,5 +135,26 @@ const planDay = dayOf([act('plan', '11:00', '12:00', ActivityCategory.SIGHT)]);
 planDay.activities[0].latitude = 34.27;
 planDay.activities[0].longitude = 108.07;
 ok(CompanionEngine.detectUnplanned(pt(34.27, 108.07), planDay, spots, 600, 5) === null, '计划内到站不报');
+
+// —— 跨天挪移 ——
+function tripOf(days: TripDay[]): Trip {
+  const ov: TripOverview = { totalCost: 0, highlights: [], summary: '' };
+  const t: Trip = {
+    id: 't1', destination: '北京', startDate: '2026-11-11', endDate: '2026-11-12',
+    people: 2, budget: 5000, style: 'leisure', overview: ov, days: days, tips: []
+  };
+  return t;
+}
+const md1 = dayOf([act('a', '09:00', '10:00', ActivityCategory.SIGHT), act('b', '11:00', '12:00', ActivityCategory.SIGHT)]);
+const md2 = dayOf([act('c', '09:00', '10:00', ActivityCategory.SIGHT)]);
+md2.dayIndex = 2;
+const mtrip = tripOf([md1, md2]);
+const moved = CompanionEngine.moveToTomorrow(mtrip, 0, 'b');
+ok(moved !== null, '挪移成功');
+eq(moved!.days[0].activities.length, 1, '今日剩 1');
+eq(moved!.days[1].activities.length, 2, '明日变 2');
+eq(moved!.days[1].activities[1].id, 'b', 'b 挪到明日');
+eq(mtrip.days[0].activities.length, 2, '原对象不变');
+ok(CompanionEngine.moveToTomorrow(tripOf([md1]), 0, 'a') === null, '无明天返回 null');
 
 console.log(`COMPANION_CHECK_OK cases=${cases}`);
