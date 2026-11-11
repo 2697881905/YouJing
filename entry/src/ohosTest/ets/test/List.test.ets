@@ -39,6 +39,7 @@ import navInsetTest from './NavInset.test';
 import legalDocsTest from './LegalDocs.test';
 import routeModeTest from './RouteMode.test';
 import staticMapPlanTest from './StaticMapPlan.test';
+import companionTest from './Companion.test';
 
 export default function testsuite() {
   tripParserTest();
@@ -82,4 +83,5 @@ export default function testsuite() {
   legalDocsTest();
   routeModeTest();
   staticMapPlanTest();
+  companionTest();
 }
