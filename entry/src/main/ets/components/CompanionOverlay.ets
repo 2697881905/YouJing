@@ -81,6 +81,16 @@ export struct CompanionOverlay {
             },
             onDismiss: (): void => {
               CompanionStore.dismiss();
+            },
+            onCorrect: (): void => {
+              // 纠正回弹：撤销这类决定的降级，下次同类回请示
+              const p: CompanionPrompt | null = this.prompt();
+              if (p !== null) {
+                const decisionKey: string =
+                  p.kind === 'unplanned_arrival' ? 'unplanned_move_tomorrow' : p.kind;
+                CompanionStore.prefs.correct(decisionKey);
+              }
+              CompanionStore.dismiss();
             }
           })
         }

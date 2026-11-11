@@ -15,6 +15,7 @@ import { SpaceTokens } from '../design/SpaceTokens';
 import { IconSizes } from '../design/LayoutTokens';
 import { GlassPanel } from './GlassPanel';
 import { OptionCard } from './OptionCard';
+import { YoujingButton, YoujingButtonVariant } from './YoujingButton';
 import { CompanionOption, CompanionPrompt } from '../companion/CompanionTypes';
 
 const EMPTY_PROMPT: CompanionPrompt = {
@@ -29,6 +30,8 @@ export struct CompanionCard {
   onSelect?: (index: number) => void = undefined;
   /** 划掉/关闭（沉默也是回答） */
   onDismiss?: () => void = undefined;
+  /** 通知态「这次问我」：纠正偏好，下次同类回请示（降级回弹） */
+  onCorrect?: () => void = undefined;
 
   build() {
     GlassPanel({ radius: RadiusTokens.hero, useSystemMaterial: true }) {
@@ -64,11 +67,25 @@ export struct CompanionCard {
           .width('100%')
 
         if (this.prompt.mode === 'notify') {
-          Text('照你之前的习惯，先这么安排了，可随时撤销')
-            .fontSize(TypeTokens.caption.size)
-            .fontWeight(450)
-            .fontColor(ColorTokens.muted)
-            .width('100%')
+          Row() {
+            Text('照你之前的习惯，先这么安排了，可随时撤销')
+              .fontSize(TypeTokens.caption.size)
+              .fontWeight(450)
+              .fontColor(ColorTokens.muted)
+              .layoutWeight(1)
+            YoujingButton({
+              variant: YoujingButtonVariant.TEXT,
+              label: '这次问我',
+              buttonWidth: 88,
+              onAction: (): void => {
+                if (this.onCorrect !== undefined) {
+                  this.onCorrect();
+                }
+              }
+            })
+          }
+          .width('100%')
+          .alignItems(VerticalAlign.Center)
         }
 
         ForEach(this.prompt.options, (opt: CompanionOption, idx: number) => {
