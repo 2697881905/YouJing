@@ -303,8 +303,8 @@ export struct MapPage {
     // 未选中态 = dock 那颗玻璃珠的同款材质（HdsMiniBarButton 的 Row 包 HdsTabs +
     // barFloatingStyle.systemMaterialEffect IMMERSIVE+EXQUISITE，与右上角「全览」圆钮同族）。
     // 这是仓内唯一在内容区**覆盖层**能出真折射光感的通道：组件级 systemMaterial 在覆盖层
-    // 不出图（2026-11-09 真机实证：chip 透明到只剩黑字浮在地图上）。只给顶部两枚启用，
-    // 底部站点卡保持自绘磨砂，不碰刚修好的横滑。
+    // 不出图（2026-11-09 真机实证：chip 透明到只剩黑字浮在地图上）。顶部日期 chip 与
+    // 底部站点卡都用（2026-11-11 站点卡跟进同款）；横滑 List 里的珠靠裁切罩不外溢。
     // 选中态走 chipSolid 中性深灰实心底（用户 2026-11-10 定：不要蓝，深色即可、不是黑色）：
     // 玻璃半透，当前档必须一眼能抓到。字用 onDark（白，两档同值），不再蹭品牌语义。
     // 文字层落在 V1 上下文的 Stack 里，不进 @ComponentV2 的内容槽——那个闭包读不到
@@ -393,52 +393,89 @@ export struct MapPage {
 
   @Builder
   stopChip(stop: MapStop, idx: number) {
-    // 卡片定宽 168×72、圆角 20vp、标题提到 14fp：原来 132×56 / 12fp 在真机上
-    // 三张卡挤成一条小字带。选中态与地图气泡双向联动，走 tint 底 + ink 字 + 蓝描边。
+    // 2026-11-11 用户拍板：站点卡也换玻璃珠（顶部日期 chip 同款，此前一直自绘磨砂）。
+    // 未选 = 珠 + pill 裁切罩——HdsTabs 材质矩形底板只在组件边界内渲染、参数层关不掉，
+    // 罩必须与 bar 同形（pill），成因与真机逐像素实测见 chipRow 注释。选中 = chipSolid
+    // 深灰实心（2026-11-10 口径：不要蓝），文字换 onDark/onDarkDegraded 保对比度。
+    // HdsTabs 浮动栏固定胶囊形，两态形状统一走 pill（168×72 胶囊 = 上下圆头卡）；
+    // 选中影沿用 pillFloat（同 chipRow），落在轨道 16vp 净空内。
     ListItem() {
-      Column({ space: SpaceTokens.xxs }) {
-        Row({ space: SpaceTokens.xxs }) {
-          // 编号沿用实心蓝底 + on_primary 数字：深色档 primary 裸字只有 4.03:1，
-          // 这样浅 5.57 / 深 5.14 都过 AA（契约 §8）
-          Text(`${stop.index}`)
-            .fontSize(TypeTokens.overline.size)
-            .fontWeight(600)
-            .fontColor(ColorTokens.onPrimary)
-            .fontFeature("'tnum' on")
-            .width(18)
-            .height(18)
-            .textAlign(TextAlign.Center)
+      Stack({ alignContent: Alignment.Center }) {
+        if (stop.index !== this.selectedStop && isImmersiveLightSenseSupported()) {
+          // 玻璃层：内容槽留空只出材质；decorationOnly——多颗珠并排时 contentPadding
+          // 放大的不可见容器会盖住邻珠吞点击，命中交给文字层/ListItem
+          Stack() {
+            HdsMiniBarButton({
+              maskColor: '#00ffffff',
+              barWidth: STOP_CARD_WIDTH,
+              barHeight: STOP_CARD_HEIGHT,
+              contentPadding: SpaceTokens.xs,
+              barBottomMargin: SpaceTokens.xs,
+              decorationOnly: true,
+              materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
+              materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE
+            }) {
+              Column()
+            }
+          }
+          .width(STOP_CARD_WIDTH)
+          .height(STOP_CARD_HEIGHT)
+          .borderRadius(RadiusTokens.pill)
+          .clip(true)
+        } else {
+          // 选中态 / 低版本回退：自绘面（实心深灰底或自绘玻璃）
+          Row()
+            .width(STOP_CARD_WIDTH)
+            .height(STOP_CARD_HEIGHT)
             .borderRadius(RadiusTokens.pill)
-            .backgroundColor(ColorTokens.primary)
-          Text(stop.subtitle)
-            .fontSize(TypeTokens.caption.size)
-            .fontWeight(450)
-            .fontColor(ColorTokens.muted)
-            .fontFeature("'tnum' on")
+            .backgroundBlurStyle(stop.index === this.selectedStop ? BlurStyle.NONE : GlassBlurStyle.Card)
+            .backgroundColor(stop.index === this.selectedStop ? ColorTokens.chipSolid : GlassTokens.PILL_FILL)
+            .border({
+              width: stop.index === this.selectedStop ? 0 : LayoutTokens.glassBorderWidth,
+              color: stop.index === this.selectedStop ? Color.Transparent : GlassTokens.PILL_RIM
+            })
+            .shadow(ShadowTokens.pillFloat)
         }
-        Text(stop.title)
-          .fontSize(TypeTokens.small.size)
-          .fontWeight(600)
-          .fontColor(ColorTokens.ink)
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        // 文字层：与玻璃同宽同高、居中叠上，尺寸不依赖 HdsTabs 内部布局。
+        // 横向内缩给 base(16) 而不是原 sm(12)：pill 圆头轮廓在 y=8（徽章顶）处已收进
+        // x≈13.4，12 会让编号徽章戳出玻璃边；纵向节奏不动。
+        Column({ space: SpaceTokens.xxs }) {
+          Row({ space: SpaceTokens.xxs }) {
+            // 编号沿用实心蓝底 + on_primary 数字：深色档 primary 裸字只有 4.03:1，
+            // 这样浅 5.57 / 深 5.14 都过 AA（契约 §8）；chipSolid 底上蓝徽章依旧可辨
+            Text(`${stop.index}`)
+              .fontSize(TypeTokens.overline.size)
+              .fontWeight(600)
+              .fontColor(ColorTokens.onPrimary)
+              .fontFeature("'tnum' on")
+              .width(18)
+              .height(18)
+              .textAlign(TextAlign.Center)
+              .borderRadius(RadiusTokens.pill)
+              .backgroundColor(ColorTokens.primary)
+            Text(stop.subtitle)
+              .fontSize(TypeTokens.caption.size)
+              .fontWeight(450)
+              .fontColor(stop.index === this.selectedStop ? ColorTokens.onDarkDegraded : ColorTokens.muted)
+              .fontFeature("'tnum' on")
+          }
+          Text(stop.title)
+            .fontSize(TypeTokens.small.size)
+            .fontWeight(600)
+            .fontColor(stop.index === this.selectedStop ? ColorTokens.onDark : ColorTokens.ink)
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+        .alignItems(HorizontalAlign.Start)
+        .width(STOP_CARD_WIDTH)
+        .height(STOP_CARD_HEIGHT)
+        .padding({
+          left: SpaceTokens.base, right: SpaceTokens.base,
+          top: SpaceTokens.xs, bottom: SpaceTokens.xs
+        })
       }
-      .alignItems(HorizontalAlign.Start)
       .width(STOP_CARD_WIDTH)
       .height(STOP_CARD_HEIGHT)
-      .padding({
-        left: SpaceTokens.sm, right: SpaceTokens.sm,
-        top: SpaceTokens.xs, bottom: SpaceTokens.xs
-      })
-      .borderRadius(RadiusTokens.card)
-      // 玻璃卡：半透明 CARD_BG + 系统背景模糊 + 玻璃描边；选中叠 tint + 蓝描边
-      .backgroundBlurStyle(GlassBlurStyle.Card)
-      .backgroundColor(stop.index === this.selectedStop ? ColorTokens.primaryTint : GlassTokens.CARD_BG)
-      .border({
-        width: stop.index === this.selectedStop ? LayoutTokens.hairlineWidth * 2 : LayoutTokens.glassBorderWidth,
-        color: stop.index === this.selectedStop ? ColorTokens.primary : GlassTokens.PILL_RIM
-      })
-      .shadow(ShadowTokens.cardAmbient)
     }
     // 顶部 4vp 内缩（xxs）：List 改 alignListItem(Start) + 加高后，把卡片钉回原位——见轨道 height 注释。
     // 首末卡 16vp 内缩挂在项上：同 chipRow，List padding 会变成来向侧 16vp 的隐形切线
@@ -546,9 +583,9 @@ export struct MapPage {
               .alignListItem(ListItemAlign.Start)
               .scrollBar(BarState.Off)
               .width('100%')
-              // 轨道高 = 卡 4vp + 本体 72 + 投影净空 16：cardAmbient（radius 10 + offsetY 3）
-              // 下探约 13vp，旧版上下各 4vp 净空会把影切成硬边灰带（同 chipRow，2026-11-11）。
-              // 卡片影是自绘档不是 HDS 材质，有据对材质要求的 28 不适用，16 够收尾。
+              // 轨道高 = 卡 4vp + 本体 72 + 投影净空 16：选中态 pillFloat（radius 8 + offsetY 3）
+              // 下探约 11vp，16 够收尾；未选玻璃珠的材质落影被裁切罩裁掉，不吃这段净空。
+              // 高度维持 92 不动——卡片落位与珠化前逐像素一致（2026-11-11）。
               .height(STOP_CARD_HEIGHT + SpaceTokens.xxs + SpaceTokens.base)
               // **不给 List 左右 padding**（见 chipRow 注释）：padding 是来向侧 16vp 隐形切线，
               // 2026-11-10 真机实证滑动中卡片在 x=1086px 被硬切；内缩由首末项 margin 承担后，
