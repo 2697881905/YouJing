@@ -73,9 +73,10 @@ export struct SharedSlide {
           y: this.pressed ? MotionTokens.pressSlideScale : 1
         })
         // 跟手分支必须用 duration 可控的线性曲线（springMotion 是物理弹簧，忽略 duration）
+        // IMP-15：MotionCurves.linear = cubicBezier(0,0,1,1)，与 Curve.Linear 数值等价，收编进 token 单源
         .animation({
           duration: this.isTracking() ? MotionTokens.none : MotionTokens.base,
-          curve: this.isTracking() ? Curve.Linear : MotionCurves.springInteract
+          curve: this.isTracking() ? MotionCurves.linear : MotionCurves.springInteract
         })
         // ⚠ 尺寸/圆角声明在 animation 之后：显式动画吃掉的是它之前声明的可动画属性
         .width(this.pillWidth())

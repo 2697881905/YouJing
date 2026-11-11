@@ -137,6 +137,9 @@ export struct ExpensePage {
    * 而 `saveExpense()`(:230) 在 `trip === null` 时直接 return，点了没有任何反馈。
    */
   @State private noTrip: boolean = false;
+  /** IMP-09：记账/分类预算保存进行中闸——原来异步期间按钮与键盘 onSubmit 可并发重复提交 */
+  @State private expenseSaving: boolean = false;
+  @State private budgetSaving: boolean = false;
   @State private budgetTotal: number = 0;
   /** AI 规划的整程预估（overview.totalCost，为 0 时按各天 dailyCost 累加） */
   @State private plannedTotal: number = 0;
@@ -340,7 +343,7 @@ export struct ExpensePage {
   /** 保存分类预算：留空 = 该类不设上限；填了必须是正整数，错了就地说明是哪一类 */
   private saveBudgets(): void {
     const trip: Trip | null = this.trip;
-    if (trip === null) {
+    if (trip === null || this.budgetSaving) {
       return;
     }
     const list: CategoryBudget[] = [];
@@ -359,13 +362,16 @@ export struct ExpensePage {
       const row: CategoryBudget = { category: CATEGORY_LABELS[i].value, amount: Math.round(v) };
       list.push(row);
     }
+    this.budgetSaving = true;
     TripDao.saveCategoryBudgets(this.ctx(), trip.id, list).then((): void => {
+      this.budgetSaving = false;
       this.categoryBudgets = list;
       trip.categoryBudgets = list;
       this.showBudget = false;
       this.reload();
       this.getUIContext().getPromptAction().showToast({ message: '已保存分类预算', duration: 1500 });
     }).catch((err: Error): void => {
+      this.budgetSaving = false;
       Logger.error('Ui.Expense', `分类预算保存失败: ${err.message}`);
       this.getUIContext().getPromptAction().showToast({ message: '保存失败', duration: 1800 });
     });
@@ -379,6 +385,10 @@ export struct ExpensePage {
       this.getUIContext().getPromptAction().showToast({ message: '请填写正确的金额', duration: 1800 });
       return;
     }
+    if (this.expenseSaving) {
+      return;
+    }
+    this.expenseSaving = true;
     const name: string = this.inputName.trim().length > 0 ? this.inputName.trim() : labelOf(this.inputCategory);
     const expense: Expense = {
       id: 0, tripId: trip.id, dayIndex: Math.min(trip.days.length, Math.max(1,
@@ -388,6 +398,7 @@ export struct ExpensePage {
     ExpenseDao.add(this.ctx(), expense).then((): Promise<CategoryTotal[]> => {
       return ExpenseDao.sumByCategory(this.ctx(), trip.id);
     }).then((totals: CategoryTotal[]): void => {
+      this.expenseSaving = false;
       this.applyTotals(totals);
       this.inputAmount = '';
       this.inputName = '';
@@ -395,6 +406,7 @@ export struct ExpensePage {
       this.reload();
       this.getUIContext().getPromptAction().showToast({ message: `已记 ${yuan(expense.amount)}`, duration: 1500 });
     }).catch((err: Error) => {
+      this.expenseSaving = false;
       Logger.error('Ui.Expense', `记账失败: ${err.message}`);
       this.getUIContext().getPromptAction().showToast({ message: '记账失败', duration: 1800 });
     });
@@ -556,8 +568,9 @@ export struct ExpensePage {
 
       YoujingButton({
         variant: YoujingButtonVariant.PRIMARY,
-        label: '保存',
+        label: this.expenseSaving ? '保存中…' : '保存',
         fullWidth: true,
+        disabled: this.expenseSaving,
         onAction: (): void => {
           this.saveExpense();
         }
@@ -639,8 +652,9 @@ export struct ExpensePage {
 
       YoujingButton({
         variant: YoujingButtonVariant.PRIMARY,
-        label: '保存',
+        label: this.budgetSaving ? '保存中…' : '保存',
         fullWidth: true,
+        disabled: this.budgetSaving,
         onAction: (): void => {
           this.saveBudgets();
         }

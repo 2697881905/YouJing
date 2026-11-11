@@ -35,17 +35,24 @@ export struct PrivacyConsentDialog {
    */
   @Builder
   docLink(label: string, kind: string) {
-    Button(label)
-      .fontSize(TypeTokens.caption.size)
-      .fontColor(ColorTokens.primary)
-      .backgroundColor(Color.Transparent)
-      .padding({ left: 0, right: 0 })
-      .type(ButtonType.Capsule)
-      .buttonStyle(ButtonStyleMode.TEXTUAL)
-      .onClick((): void => {
-        this.reading = kind;
-        this.onOpenDoc(kind);
-      })
+    // IMP-17：TEXTUAL 钮命中区只有字面行高（真机口径），44 高 Row 包装承载点击，
+    // 链接观感不变；Button 保留官方 TEXTUAL 档的按压反馈
+    Row() {
+      Button(label)
+        .fontSize(TypeTokens.caption.size)
+        .fontColor(ColorTokens.primary)
+        .backgroundColor(Color.Transparent)
+        .padding({ left: 0, right: 0 })
+        .type(ButtonType.Capsule)
+        .buttonStyle(ButtonStyleMode.TEXTUAL)
+        .hitTestBehavior(HitTestMode.Transparent)
+    }
+    .height(LayoutTokens.minTouchTarget)
+    .alignItems(VerticalAlign.Center)
+    .onClick((): void => {
+      this.reading = kind;
+      this.onOpenDoc(kind);
+    })
   }
 
   build() {

@@ -160,6 +160,8 @@ export struct ItineraryPage {
   private trip: Trip | null = null;
   // 中性占位：加载前不能报一个编造的目的地与天数
   @State private titleText: string = '行程详情';
+  /** IMP-14：首载失败与「真空」分流——原来 catch 只 log，页面留占位标题无任何说明 */
+  @State private loadFailed: boolean = false;
   @State private segments: SegmentedItem[] = [
     { label: 'Day 1' }, { label: 'Day 2' }, { label: 'Day 3' }
   ];
@@ -168,6 +170,7 @@ export struct ItineraryPage {
   private reload(): void {
     if (this.tripId.length > 0) {
       const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      this.loadFailed = false;
       TripDao.loadTrip(ctx, this.tripId).then((trip: Trip | null) => {
         if (trip !== null) {
           this.trip = trip;
@@ -187,6 +190,7 @@ export struct ItineraryPage {
         }
       }).catch((err: Error) => {
         Logger.error('Ui.Itinerary', `加载行程失败: ${err.message}`);
+        this.loadFailed = true;
         // 失败也要交接：宁可露出空态，也别让卡片图长期压住页面
         this.signalTakeContentReady();
       });
@@ -1375,6 +1379,25 @@ export struct ItineraryPage {
           // 日标题走 ListItemGroup 的 header（在流内，不吸顶）。
           // 行距 12px（itinerary-block-gap）：不传 space 时 List 默认 0，站点行与交通腿会紧贴
           List({ space: LayoutTokens.itineraryBlockGap, scroller: this.listScroller }) {
+            // IMP-14 首载失败态：与真空分流，出口=返回重进（onShown 会再 reload）；
+            // 不动飞行窗口与交接时序（signalTakeContentReady 在 catch 里照常发）
+            if (this.loadFailed && this.days.length === 0) {
+              ListItem() {
+                Column({ space: SpaceTokens.sm }) {
+                  Text('行程没加载出来')
+                    .fontSize(TypeTokens.headline.size)
+                    .fontWeight(TypeTokens.headline.weight)
+                    .fontColor(ColorTokens.ink)
+                  Text('返回重进即可重试')
+                    .fontSize(TypeTokens.small.size)
+                    .fontWeight(450)
+                    .fontColor(ColorTokens.muted)
+                }
+                .width('100%')
+                .padding({ top: SpaceTokens.xxl, bottom: SpaceTokens.xxl })
+                .alignItems(HorizontalAlign.Center)
+              }
+            }
             // 当天没有落点时**整块地图卡不出**：原来它照样撑满 mapHeightCompact，
             // 只剩一个深蓝渐变空盒加角落一枚「当日暂无安排」——主屏三分之一的面积
             // 既没信息也不可点（实拍确认）

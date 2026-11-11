@@ -46,6 +46,8 @@ export struct BadgePage {
   /** 城市套章进度：与勋章组同序；没有种子数据的城市 total=0，不画进度 */
   @State private stamps: CityStamp[] = [];
   @State private loading: boolean = true;
+  /** IMP-07：加载失败与「还没有勋章」分流——原来 catch 只 log，失败被显示成空态 */
+  @State private loadFailed: boolean = false;
   /** 顶栏磨砂两态：由**绝对**滚动偏移驱动（每帧增量会被松手回弹的负帧打灭，契约 §Translucency） */
   @State private barScrolled: boolean = false;
   private barScroller: Scroller = new Scroller();
@@ -58,6 +60,7 @@ export struct BadgePage {
 
   private async reload(): Promise<void> {
     const ctx = this.getUIContext().getHostContext() as common.Context;
+    this.loadFailed = false;
     try {
       const rows: BadgeRecord[] = await BadgeDao.listMine(ctx);
       const groups: BadgeGroup[] = buildBadgeBoard(rows);
@@ -76,6 +79,7 @@ export struct BadgePage {
       this.loading = false;
     } catch (err) {
       this.loading = false;
+      this.loadFailed = true;
       Logger.error('Ui.Badge', `勋章加载失败: ${(err as Error).message}`);
     }
   }
@@ -249,12 +253,12 @@ export struct BadgePage {
       SymbolGlyph($r('sys.symbol.medal'))
         .fontSize(IconSizes.display)
         .fontColor([ColorTokens.muted])
-      Text('还没有勋章')
+      Text(this.loadFailed ? '勋章没加载出来' : '还没有勋章')
         .fontSize(TypeTokens.headline.size)
         .fontWeight(TypeTokens.headline.weight)
         .fontFamily(TypeTokens.title.family)
         .fontColor(ColorTokens.ink)
-      Text('在「旅行中」给行程节点打卡，这枚章就会收进来')
+      Text(this.loadFailed ? '返回重进即可重试' : '在「旅行中」给行程节点打卡，这枚章就会收进来')
         .fontSize(TypeTokens.small.size)
         .fontWeight(450)
         .fontColor(ColorTokens.muted)

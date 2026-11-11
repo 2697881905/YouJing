@@ -148,6 +148,8 @@ export struct OnTripPage {
   private owedKey: string = '';
   @State private next: DayStop | null = null;
   @State private checkedIn: boolean = false;
+  /** IMP-10：打卡进行中闸——原来 DAO 回执前按钮可连点；checkedIn 翻转时机不变（不做乐观更新） */
+  @State private checkinBusy: boolean = false;
   @State private elapsedMin: number = 0;
   @State private totalMin: number = 0;
   @State private dayLabel: string = '';
@@ -1340,9 +1342,14 @@ export struct OnTripPage {
       this.toast('当前无节点');
       return;
     }
+    if (this.checkinBusy) {
+      return;
+    }
+    this.checkinBusy = true;
     const target: boolean = !this.checkedIn;
     const evidence: CheckinEvidence | null = target ? this.evidenceNow(cur) : null;
     CheckinDao.set(this.ctx(), trip.id, cur.key, target, evidence).then((): void => {
+      this.checkinBusy = false;
       this.checkedIn = target;
       this.reload();
       if (target && !cur.isMeal) {
@@ -1352,6 +1359,7 @@ export struct OnTripPage {
       }
       this.toast(target ? (evidence === null ? `已打卡 ${cur.title}` : `已到站打卡 ${cur.title}`) : '已取消打卡');
     }).catch((err: Error) => {
+      this.checkinBusy = false;
       Logger.error('Ui.OnTrip', `打卡失败: ${err.message}`);
       this.toast('打卡失败');
     });
@@ -1712,8 +1720,9 @@ export struct OnTripPage {
                 if (this.current !== null) {
                   YoujingButton({
                     variant: YoujingButtonVariant.SECONDARY,
-                    label: this.checkedIn ? '已打卡' : '完成打卡',
+                    label: this.checkinBusy ? '打卡中…' : (this.checkedIn ? '已打卡' : '完成打卡'),
                     buttonWidth: 140,
+                    disabled: this.checkinBusy,
                     onAction: (): void => {
                       this.toggleCheckin();
                     }

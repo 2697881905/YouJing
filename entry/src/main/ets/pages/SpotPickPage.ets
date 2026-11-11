@@ -310,6 +310,7 @@ export struct SpotPickPage {
     }
     PlanDraft.get().selectedSpots = final;
     markDraftDirty(true);
+    PlanDraft.flush();
     this.pathStack.pushPath({ name: 'StayPick' });
   }
 
@@ -682,28 +683,16 @@ export struct SpotPickPage {
 
         if (this.all.length > 0) {
           Column() {
-            Row({ space: SpaceTokens.sm }) {
-              YoujingButton({
-                variant: YoujingButtonVariant.SECONDARY,
-                label: '跳过选择',
-                buttonWidth: 120,
-                onAction: (): void => {
-                  this.confirm();
-                }
-              })
-              // 权重给原生包装层，自定义组件上的 .layoutWeight 不生效（屏5/屏9 同族）
-              Column() {
-                YoujingButton({
-                  variant: YoujingButtonVariant.PRIMARY,
-                  label: '确认选择',
-                  fullWidth: true,
-                  onAction: (): void => {
-                    this.confirm();
-                  }
-                })
+            // IMP-04：原「跳过选择」与「确认选择」同调 confirm()，零选时行为完全相同，
+            // 删重复钮；零勾选仍自动选前 8 热门（confirm 内 toast 口径不变）
+            YoujingButton({
+              variant: YoujingButtonVariant.PRIMARY,
+              label: '确认选择',
+              fullWidth: true,
+              onAction: (): void => {
+                this.confirm();
               }
-              .layoutWeight(1)
-            }
+            })
           }
           .width('100%')
           // 吸底 CTA 条原来只留 lg=16，后来让出 dock 净空 112；2026-11-11 二级页全屏化

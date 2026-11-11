@@ -54,6 +54,8 @@ export struct TripReviewPage {
 
   @State private loading: boolean = true;
   @State private loaded: boolean = false;
+  /** IMP-06：加载失败与「没有打卡」分流——原来 catch 只 log，失败被显示成空态 */
+  @State private loadFailed: boolean = false;
   @State private sharing: boolean = false;
   @State private days: ReviewDay[] = [];
   @State private newBadges: Badge[] = [];
@@ -133,6 +135,7 @@ export struct TripReviewPage {
         `新章 ${review.newBadges.length}`);
     } catch (err) {
       this.loading = false;
+      this.loadFailed = true;
       Logger.error('Ui.Review', `回顾加载失败: ${(err as Error).message}`);
     }
   }
@@ -605,13 +608,13 @@ export struct TripReviewPage {
       SymbolGlyph($r('sys.symbol.medal'))
         .fontSize(IconSizes.display)
         .fontColor([ColorTokens.muted])
-      Text('这趟还没有可回顾的打卡')
+      Text(this.loadFailed ? '回顾没加载出来' : '这趟还没有可回顾的打卡')
         .fontSize(TypeTokens.headline.size)
         .fontWeight(TypeTokens.headline.weight)
         .fontFamily(TypeTokens.title.family)
         .fontColor(ColorTokens.ink)
         .textAlign(TextAlign.Center)
-      Text('在「旅行中」给节点打卡，这里会按天回放你去过的地方')
+      Text(this.loadFailed ? '返回重进可重试，或先看完整行程' : '在「旅行中」给节点打卡，这里会按天回放你去过的地方')
         .fontSize(TypeTokens.small.size)
         .fontWeight(450)
         .fontColor(ColorTokens.muted)

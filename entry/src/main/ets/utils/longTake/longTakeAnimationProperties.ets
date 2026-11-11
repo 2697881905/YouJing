@@ -16,21 +16,14 @@ import { BusinessError } from '@kit.BasicServicesKit';
 import { image } from '@kit.ImageKit';
 import { CardRect } from './cardRect';
 import { CustomTransition } from './customNavigationUtils';
+import { MotionTokens, MotionCurves } from '../../design/MotionTokens';
 
 const TAG: string = 'LongTakeAnimation';
 
-// 时序与圆角（官方同值：350ms；起始 16 → 展开 34。本项目卡面圆角为 16 → 24）
-const DURATION_MS: number = 350;
+// 时序与圆角：时长/曲线全部走 MotionTokens 单源（IMP-16 收编，值=官方原值不变）；
+// 起始圆角 16 → 展开 24 是几何量，留在本地。
 const RADIUS_CARD: number = 16;
 const RADIUS_EXPANDED: number = 24;
-const CONTENT_FADE_DELAY_MS: number = 50;
-const CONTENT_FADE_MS: number = 100;
-// 卡片截图与真内容的交接窗口：
-//   MIN —— 无论真内容多早就绪，截图至少展示这么久（覆盖入场前半段，避免"闪一下就没"）；
-//   MAX —— 上限，真内容迟迟不就绪也必须交接，避免截图长期压住媒体位。
-const SNAPSHOT_HANDOVER_MIN_MS: number = 300;
-const SNAPSHOT_HANDOVER_MAX_MS: number = 1500;
-const SNAPSHOT_FADE_MS: number = 180;
 
 // 源页 → 目的地 的转场参数。
 // 官方用 SnapShotImage 这个静态类持有 PixelMap 跨页传递；本项目改为随 push 参数传递，
@@ -254,8 +247,8 @@ export class LongTakeAnimationProperties {
 
     const animationCount: number = ++this.animationCount;
     ui.animateTo({
-      duration: DURATION_MS,
-      curve: Curve.EaseInOut,
+      duration: MotionTokens.longTake,
+      curve: MotionCurves.longTakeEase,
       onFinish: () => {
         if (animationCount === this.animationCount) {
           this.radius = 0;
@@ -275,14 +268,14 @@ export class LongTakeAnimationProperties {
       this.snapShotRadius = this.mediaRadiusValue;
     });
 
-    ui.animateTo({ delay: CONTENT_FADE_DELAY_MS, duration: CONTENT_FADE_MS, curve: Curve.Sharp }, () => {
+    ui.animateTo({ delay: MotionTokens.longTakeFadeDelay, duration: MotionTokens.longTakeFade, curve: MotionCurves.longTakeSharp }, () => {
       this.postPageOpacity = 1;
     });
 
     // 官方在这里固定 50ms 后淡出截图；本项目详情数据是异步的，改为等真媒体首帧
     // 画出来再交接（onHeroReady），此处只挂上限兜底，保证任何异常路径下截图都会退场。
     this.enterStartMs = Date.now();
-    this.scheduleSnapshotFade(ui, SNAPSHOT_HANDOVER_MAX_MS);
+    this.scheduleSnapshotFade(ui, MotionTokens.longTakeHandoverMax);
   }
 
   /* 真媒体首帧就绪（目的地页收到 PostDetailView 的 onHeroReady 回调后调用）
@@ -294,7 +287,7 @@ export class LongTakeAnimationProperties {
       return;
     }
     const elapsed_ms: number = Date.now() - this.enterStartMs;
-    this.scheduleSnapshotFade(ui, Math.max(0, SNAPSHOT_HANDOVER_MIN_MS - elapsed_ms));
+    this.scheduleSnapshotFade(ui, Math.max(0, MotionTokens.longTakeHandoverMin - elapsed_ms));
   }
 
   // 定时淡出截图：用 animationCount 守卫，返回动画（doBackAnimation）一旦开始，
@@ -305,7 +298,7 @@ export class LongTakeAnimationProperties {
       if (animationCount !== this.animationCount || this.snapShotOpacity === 0) {
         return;
       }
-      ui.animateTo({ duration: SNAPSHOT_FADE_MS, curve: Curve.Friction }, (): void => {
+      ui.animateTo({ duration: MotionTokens.longTakeSnapshotFade, curve: MotionCurves.longTakeFriction }, (): void => {
         this.snapShotOpacity = 0;
       });
     }, delay_ms);
@@ -321,8 +314,8 @@ export class LongTakeAnimationProperties {
     ++this.animationCount;
 
     ui.animateTo({
-      duration: DURATION_MS,
-      curve: Curve.EaseInOut,
+      duration: MotionTokens.longTake,
+      curve: MotionCurves.longTakeEase,
       onFinish: () => {
         transitionProxy.finishTransition();
       }
@@ -339,10 +332,10 @@ export class LongTakeAnimationProperties {
       this.snapShotRadius = this.cardRadiusValue;
     });
 
-    ui.animateTo({ duration: 50, delay: 150, curve: Curve.Friction }, () => {
+    ui.animateTo({ duration: MotionTokens.longTakeBackFade, delay: MotionTokens.longTakeBackSnapDelay, curve: MotionCurves.longTakeFriction }, () => {
       this.snapShotOpacity = 1;
     });
-    ui.animateTo({ duration: 50, delay: 200, curve: Curve.Friction }, () => {
+    ui.animateTo({ duration: MotionTokens.longTakeBackFade, delay: MotionTokens.longTakeBackContentDelay, curve: MotionCurves.longTakeFriction }, () => {
       this.postPageOpacity = 0;
     });
   }

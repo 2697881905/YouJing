@@ -173,16 +173,32 @@ export struct TripInputPage {
           endSelected = startIso;
         }
         this.endDate = endSelected;
+        this.syncBasic();
         this.getUIContext().showDatePickerDialog({
           start: new Date(startIso),
           end: lastDay,
           selected: new Date(endSelected),
           onDateAccept: (v2: Date): void => {
             this.endDate = TripInputPage.toIso(v2);
+            this.syncBasic();
           }
         });
       }
     });
+  }
+
+  /**
+   * 字段级改动随改随存（IMP-01）：原来只有点 CTA 才提交草稿，
+   * 杀进程或返回上一页会丢掉已填的城市/日期/人数/预算。防抖 500ms 落本机盘。
+   */
+  private syncBasic(): void {
+    const d: PlanDraft = PlanDraft.get();
+    const basic: TripBasicInput = {
+      destination: this.city, startDate: this.startDate,
+      endDate: this.endDate, people: this.party, budget: this.budget
+    };
+    d.basic = basic;
+    PlanDraft.persist();
   }
 
   private static styleOf(code: string, fallback: TravelStyle): TravelStyle {
@@ -419,6 +435,7 @@ export struct TripInputPage {
     d.selectedSpots = picked;
     d.selectedArea = { areaId: area !== null ? area.id : '' };
     markDraftDirty(true);
+    PlanDraft.flush();
     const notes: string[] = [];
     if (intent.startDate.length === 0) {
       notes.push('没写日期，从今天出发');
@@ -479,27 +496,29 @@ export struct TripInputPage {
   @Builder
   partyChip(count: number) {
     // 2026-11-07 全量对齐：选中 = brandSolid 实心底 + onBrand 字（C6 裁决已推翻）；
-    // 视觉高 36（有据 segmentedHeight），命中带 44 由 responseRegion 居中兜住。
-    Button(count.toString())
-      .width(LayoutTokens.segmentedHeight)
-      .height(LayoutTokens.segmentedHeight)
-      .fontSize(TypeTokens.callout.size)
-      .fontWeight(this.party === count ? 600 : 450)
-      .fontColor(this.party === count ? ColorTokens.onBrand : ColorTokens.body)
-      .type(ButtonType.Circle)
-      .buttonStyle(ButtonStyleMode.NORMAL)
-      .backgroundColor(this.party === count ? ColorTokens.brandSolid : ColorTokens.surfaceElevated)
-      .border({ width: 0, color: ColorTokens.primary })
-      .responseRegion({
-        x: 0,
-        y: (LayoutTokens.segmentedHeight - LayoutTokens.minTouchTarget) / 2,
-        width: '100%',
-        height: LayoutTokens.minTouchTarget
-      })
-      .accessibilityText(`${count}人`)
-      .onClick(() => {
-        this.party = count;
-      })
+    // 视觉高 36（有据 segmentedHeight）。IMP-17 真机实测：responseRegion 扩不出组件自身
+    // 边界（dump 命中区仍 36×36），改由 44×44 外层包装承载点击，视觉尺寸不变。
+    Row() {
+      Button(count.toString())
+        .width(LayoutTokens.segmentedHeight)
+        .height(LayoutTokens.segmentedHeight)
+        .fontSize(TypeTokens.callout.size)
+        .fontWeight(this.party === count ? 600 : 450)
+        .fontColor(this.party === count ? ColorTokens.onBrand : ColorTokens.body)
+        .type(ButtonType.Circle)
+        .buttonStyle(ButtonStyleMode.NORMAL)
+        .backgroundColor(this.party === count ? ColorTokens.brandSolid : ColorTokens.surfaceElevated)
+        .border({ width: 0, color: ColorTokens.primary })
+        .hitTestBehavior(HitTestMode.Transparent)
+    }
+    .width(LayoutTokens.minTouchTarget)
+    .height(LayoutTokens.minTouchTarget)
+    .justifyContent(FlexAlign.Center)
+    .accessibilityText(`${count}人`)
+    .onClick(() => {
+      this.party = count;
+      this.syncBasic();
+    })
   }
 
   /** 城市面板的“其他城市”：不再限制在 5 个内置城市里，数据由 Map Kit 兜底 */
@@ -512,6 +531,7 @@ export struct TripInputPage {
     this.city = name;
     this.otherCity = '';
     this.showCity = false;
+    this.syncBasic();
   }
 
   @Builder
@@ -566,28 +586,30 @@ export struct TripInputPage {
               bottom: SpaceTokens.xxs })
           Flex({ wrap: FlexWrap.Wrap }) {
             ForEach(POPULAR_MAP_CITIES, (c: string) => {
-              Button(c)
-                .fontSize(TypeTokens.callout.size)
-                .fontWeight(this.city === c ? 600 : 450)
-                .fontColor(this.city === c ? ColorTokens.onBrand : ColorTokens.body)
-                .height(LayoutTokens.segmentedHeight)
-                .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
-                .type(ButtonType.Capsule)
-                .buttonStyle(ButtonStyleMode.NORMAL)
-                .backgroundColor(this.city === c ? ColorTokens.brandSolid : ColorTokens.surfaceElevated)
-                .border({ width: 0, color: ColorTokens.primary })
-                .responseRegion({
-                  x: 0,
-                  y: (LayoutTokens.segmentedHeight - LayoutTokens.minTouchTarget) / 2,
-                  width: '100%',
-                  height: LayoutTokens.minTouchTarget
-                })
-                .margin({ right: SpaceTokens.xs, bottom: SpaceTokens.xs })
-                .accessibilityText(`选择热门城市 ${c}`)
-                .onClick((): void => {
-                  this.city = c;
-                  this.showCity = false;
-                })
+              // IMP-17：44 高外层包装承载点击（responseRegion 扩不出组件边界，真机实测），
+              // 胶囊视觉高 36 不变
+              Column() {
+                Button(c)
+                  .fontSize(TypeTokens.callout.size)
+                  .fontWeight(this.city === c ? 600 : 450)
+                  .fontColor(this.city === c ? ColorTokens.onBrand : ColorTokens.body)
+                  .height(LayoutTokens.segmentedHeight)
+                  .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+                  .type(ButtonType.Capsule)
+                  .buttonStyle(ButtonStyleMode.NORMAL)
+                  .backgroundColor(this.city === c ? ColorTokens.brandSolid : ColorTokens.surfaceElevated)
+                  .border({ width: 0, color: ColorTokens.primary })
+                  .hitTestBehavior(HitTestMode.Transparent)
+              }
+              .height(LayoutTokens.minTouchTarget)
+              .justifyContent(FlexAlign.Center)
+              .margin({ right: SpaceTokens.xs, bottom: SpaceTokens.xxs })
+              .accessibilityText(`选择热门城市 ${c}`)
+              .onClick((): void => {
+                this.city = c;
+                this.showCity = false;
+                this.syncBasic();
+              })
             }, (c: string): string => `hot-city-${c}`)
           }
           .width('100%')
@@ -608,6 +630,7 @@ export struct TripInputPage {
               action: (): void => {
                 this.city = c;
                 this.showCity = false;
+                this.syncBasic();
               }
             }) {
               Row() {
@@ -834,11 +857,14 @@ export struct TripInputPage {
         })
         YoujingButton({
           variant: YoujingButtonVariant.TEXT,
-          label: '填入示例',
+          // IMP-02：原「填入示例」只填不识别，示例路要两击；合一后示例仍可改句再点「识别」
+          label: '示例识别',
           buttonWidth: 120,
+          disabled: this.recognizing,
           onAction: (): void => {
             this.sentence = SAMPLE_SENTENCE;
             this.intentError = '';
+            this.recognize();
           }
         })
       }
@@ -1001,6 +1027,7 @@ export struct TripInputPage {
                   .accessibilityText(`调整预算档位，当前 ${MoneyText.yuan(this.budget)} 每人`)
                   .onChange((v: number) => {
                     this.budget = Math.round(v);
+                    this.syncBasic();
                   })
 
                 Row() {
@@ -1074,6 +1101,7 @@ export struct TripInputPage {
                   };
                   d.basic = basic;
                   markDraftDirty(true);
+                  PlanDraft.flush();
                   this.pathStack.pushPath({ name: 'PreferenceQA' });
                 }
               })

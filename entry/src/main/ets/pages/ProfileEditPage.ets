@@ -175,6 +175,8 @@ export struct ProfileEditPage {
       });
       uris = res.photoUris ?? [];
     } catch (e) {
+      // IMP-19：用户取消走下方空结果分支；这里接住的是真异常，不再静默吞掉
+      this.getUIContext().getPromptAction().showToast({ message: '图片没选上，请重试', duration: 1800 });
       return;
     }
     if (uris.length === 0) {

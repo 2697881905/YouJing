@@ -7,7 +7,7 @@ import { display, window } from '@kit.ArkUI';
 import { resourceManager } from '@kit.LocalizationKit';
 import { initBreakpointCenter } from '../utils/breakpointCenter';
 import { Logger } from '../common/logger/Logger';
-import { stackOfRoute, tabOfRoute, isTabRoot, requestTab, TAB_INDEX_KEY, ACTIVE_TRIP_KEY } from '../common/constants/AppNav';
+import { stackOfRoute, tabOfRoute, isTabRoot, requestTab, TAB_INDEX_KEY, ACTIVE_TRIP_KEY, markDraftDirty } from '../common/constants/AppNav';
 import { DataSeeder } from '../data/DataSeeder';
 import { AccountStore } from '../data/AccountStore';
 import { PlanDraft } from '../data/PlanDraft';
@@ -544,6 +544,9 @@ export default class EntryAbility extends UIAbility {
     }
     if (touched) {
       draft.basic = basic;
+      // 冷启时本段早于 bootstrap 水合：置外部写标记，水合不得用盘上旧快照覆盖这份预填
+      PlanDraft.markExternalWrite();
+      PlanDraft.flush();
       // 这条外部 Want 已带同一批参数，作废可能还躺在盘上的 Skill 预填
       SkillPrefill.clear(this.context);
       Logger.info('EntryAbility',
@@ -806,6 +809,13 @@ export default class EntryAbility extends UIAbility {
 
   /** 登录态必须先于任何行程读写恢复：DAO 取分区键是同步的（阶段 8） */
   private async bootstrap(): Promise<void> {
+    // 草稿水合必须先于 routePending：深链/小艺预填随后写草稿会覆盖水合值（外部意图优先）；
+    // contentReady 在水合后才置位，堵住 onForeground→routePending 抢跑消费预填再被水合覆盖的窗口
+    const draftRestored: boolean = await PlanDraft.hydrate(this.context);
+    if (draftRestored) {
+      // dirty 标记原只在 AppStorage，杀进程即丢——水合成功补广播，根页「续草稿」入口才活
+      markDraftDirty(true);
+    }
     this.contentReady = true;
     try {
       await AccountStore.init(this.context);
@@ -899,6 +909,7 @@ export default class EntryAbility extends UIAbility {
       budget: BudgetConfig.DEFAULT
     };
     draft.basic = basic;
+    PlanDraft.flush();
     Logger.info('EntryAbility',
       `Skill 预填 ${basic.destination} ${basic.startDate}→${basic.endDate} ${basic.people}人 budget=${basic.budget}`);
   }

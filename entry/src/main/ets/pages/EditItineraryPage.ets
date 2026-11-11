@@ -28,6 +28,7 @@ import { Spot } from '../model/Spot';
 import { TripDao } from '../data/TripDao';
 import { WidgetSync } from '../widget/TodayCard';
 import { PlanRepository } from '../data/PlanRepository';
+import { BOTTOM_BAR_INSET_KEY } from '../utils/navMode';
 import { GlassBlurStyle, getSheetImmersiveMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
 import { Logger } from '../common/logger/Logger';
 import { mintEditActivityId } from '../utils/ActivityIds';
@@ -58,11 +59,18 @@ export struct EditItineraryPage {
   @State private barScrolled: boolean = false;
   private barScroller: Scroller = new Scroller();
   @StorageProp('statusBarHeight') statusBarHeight: number = 0;
+  /** IMP-18：钉底操作条让出底部手势条/三键栏（内容级单源键：手势=16vp、三键=栏高+呼吸；
+   *  bottomNavInsetVp 手势档恒 0 只给 dock 用，真机实测 actionBar 原贴窗口底） */
+  @StorageProp(BOTTOM_BAR_INSET_KEY) bottomBarInset: number = 0;
   @Prop tripId: string = '';
   @Prop dayIndex: number = 0;
   @State private acts: Activity[] = [];
   @State private dragIdx: number = -1;
   @State private showReplace: boolean = false;
+  /** IMP-11：候选面板即开即显加载态——原来数据回来才开 sheet，等待期零指示 */
+  @State private candidatesLoading: boolean = false;
+  /** IMP-08：保存进行中闸——原来落库期间按钮可连点重复提交 */
+  @State private saving: boolean = false;
   /**
    * 底稿屏9 的容量提示：「移走后第 1 天空 2.5 小时，可补一个可选景点」+「补一个」。
    * 这屏原来删完什么反馈都没有——用户不知道自己刚掏空了多长时间。
@@ -171,12 +179,17 @@ export struct EditItineraryPage {
       return;
     }
     this.replaceIdx = idx;
+    this.candidates = [];
+    this.candidatesLoading = true;
+    this.showReplace = true;
     PlanRepository.loadSpots(this.ctx(), trip.destination).then((spots: Spot[]): void => {
       const taken: string[] = this.acts.map((a: Activity): string => a.title);
       this.candidates = spots.filter((s: Spot): boolean => taken.indexOf(s.name) < 0);
-      this.showReplace = true;
+      this.candidatesLoading = false;
     }).catch((err: Error) => {
       Logger.warn('Ui.Edit', `景点库加载失败: ${err.message}`);
+      this.candidatesLoading = false;
+      this.showReplace = false;
       this.toast('景点库加载失败');
     });
   }
@@ -268,6 +281,10 @@ export struct EditItineraryPage {
       this.pathStack.pop();
       return;
     }
+    if (this.saving) {
+      return;
+    }
+    this.saving = true;
     const days = trip.days.slice();
     const kept: Activity[] = this.acts.map((a: Activity): Activity => {
       const copy: Activity = {
@@ -293,6 +310,7 @@ export struct EditItineraryPage {
       this.pathStack.pop();
     }).catch((err: Error) => {
       Logger.error('Ui.Edit', `保存失败: ${err.message}`);
+      this.saving = false;
       this.toast('保存失败，改动未落库');
     });
   }
@@ -457,7 +475,23 @@ export struct EditItineraryPage {
         .margin({ bottom: SpaceTokens.sm })
 
       List({ space: SpaceTokens.xxs }) {
-        if (this.candidates.length === 0) {
+        if (this.candidatesLoading) {
+          // IMP-11 加载态：面板已开，数据还在路上（官方 LoadingProgress，TripsPage 同族）
+          ListItem() {
+            Column({ space: SpaceTokens.sm }) {
+              LoadingProgress()
+                .width(48)
+                .height(48)
+                .color(ColorTokens.primary)
+              Text('正在加载景点库…')
+                .fontSize(TypeTokens.small.size)
+                .fontColor(ColorTokens.muted)
+            }
+            .width('100%')
+            .padding({ top: SpaceTokens.xxl, bottom: SpaceTokens.xxl })
+            .alignItems(HorizontalAlign.Center)
+          }
+        } else if (this.candidates.length === 0) {
           // 空态：本城景点库已全部在当日（或库为空），别给一张空 List 不吭声
           ListItem() {
             Column({ space: SpaceTokens.xs }) {
@@ -626,8 +660,9 @@ export struct EditItineraryPage {
       Column() {
         YoujingButton({
           variant: YoujingButtonVariant.PRIMARY,
-          label: '保存修改',
+          label: this.saving ? '保存中…' : '保存修改',
           fullWidth: true,
+          disabled: this.saving,
           onAction: (): void => {
             this.finish();
           }
@@ -636,7 +671,8 @@ export struct EditItineraryPage {
       .layoutWeight(1)
     }
     .width('100%')
-    .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.xs })
+    .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.xs,
+      bottom: this.bottomBarInset })
   }
 
   /** 官方标题栏：补选景点走 content.menu；完成/撤销已下到底部操作条，不再两处各一份 */

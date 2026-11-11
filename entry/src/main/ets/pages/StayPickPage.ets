@@ -78,12 +78,19 @@ export struct StayPickPage {
   @State private aiNote: string = '';
 
   @State private loaded: boolean = false;
+  /** IMP-05：加载失败与真空分流——原来 catch 只 log，用户见到假空态+禁用主键，无重试 */
+  @State private loadFailed: boolean = false;
 
   aboutToAppear(): void {
     const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
     const city: string = PlanDraft.get().basic.destination;
     this.mapCity = isMapCity(city);
     this.loaded = false;
+    this.loadFailed = false;
+    this.load(ctx, city);
+  }
+
+  private load(ctx: common.UIAbilityContext, city: string): void {
     this.loadSpotPoints(ctx, city).then((): Promise<Area[]> => {
       return PlanRepository.loadAreas(ctx, city);
     }).then((areas: Area[]) => {
@@ -101,13 +108,23 @@ export struct StayPickPage {
       this.selectedId = keep !== undefined ? keep.area.id : (list.length > 0 ? list[0].area.id : '');
       this.applyStops(top);
       this.loaded = true;
+      this.loadFailed = false;
       Logger.info('Ui.StayPick',
         `候选片区 ${areas.length} → 统一排序取前 ${AREA_CANDIDATES} → 展示 ${list.length}`);
       this.requestPick(ranked);
     }).catch((err: Error) => {
       this.loaded = true;
+      this.loadFailed = true;
       Logger.error('Ui.StayPick', `区域库加载失败: ${err.message}`);
     });
+  }
+
+  private retryLoad(): void {
+    const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    const city: string = PlanDraft.get().basic.destination;
+    this.loaded = false;
+    this.loadFailed = false;
+    this.load(ctx, city);
   }
 
   /**
@@ -515,6 +532,29 @@ export struct StayPickPage {
             .width('100%')
             .layoutWeight(1)
             .justifyContent(FlexAlign.Center)
+          } else if (this.loadFailed) {
+            // IMP-05 失败态：与真空分流，给重试出口（复用加载态的居中结构）
+            Column() {
+              Text('住宿区域没加载出来')
+                .fontSize(TypeTokens.headline.size)
+                .fontWeight(TypeTokens.headline.weight)
+                .fontColor(ColorTokens.ink)
+              Text('检查网络后重试，已选的景点不会丢')
+                .fontSize(TypeTokens.caption.size)
+                .fontColor(ColorTokens.muted)
+                .margin({ top: SpaceTokens.xs, bottom: SpaceTokens.md })
+              YoujingButton({
+                variant: YoujingButtonVariant.SECONDARY,
+                label: '重试',
+                buttonWidth: 120,
+                onAction: (): void => {
+                  this.retryLoad();
+                }
+              })
+            }
+            .width('100%')
+            .layoutWeight(1)
+            .justifyContent(FlexAlign.Center)
           } else {
             // 主链进度
             Column() {
@@ -627,7 +667,7 @@ export struct StayPickPage {
         .width('100%')
         .height('100%')
 
-        if (this.loaded) {
+        if (this.loaded && !this.loadFailed) {
           Column() {
             Row({ space: SpaceTokens.sm }) {
               YoujingButton({
@@ -651,6 +691,7 @@ export struct StayPickPage {
                     }
                     PlanDraft.get().selectedArea = { areaId: this.selectedId };
                     markDraftDirty(true);
+                    PlanDraft.flush();
                     this.pathStack.pushPath({ name: 'Generating' });
                   }
                 })

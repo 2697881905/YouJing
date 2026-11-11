@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, TestType, Size, Level } from '@ohos/hypium';
-import { PlanDraft } from '../../../main/ets/data/PlanDraft';
+import { PlanDraft, PlanDraftSnapshot } from '../../../main/ets/data/PlanDraft';
 import { BudgetConfig } from '../../../main/ets/common/constants/BudgetConfig';
 import { PaceOption, SelectedSpot, SpotPriority, TravelStyle, TransitPreference, TripBasicInput } from '../../../main/ets/model/PlanParams';
 
@@ -79,6 +79,48 @@ export default function planDraftTest(): void {
       expect(after.paces.length).assertEqual(1);
       expect(after.selectedSpots.length).assertEqual(0);
       expect(after.selectedArea.areaId).assertEqual('');
+    });
+
+    it('snapshot_json_roundtrip_keeps_all_seven_fields', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+      // IMP-01 落盘形态：JSON 往返后七字段逐一不变，水合校验必须放行
+      PlanDraft.fresh();
+      const d: PlanDraft = PlanDraft.get();
+      const basic: TripBasicInput = {
+        destination: '杨凌', startDate: '2026-11-11', endDate: '2026-11-13', people: 3, budget: 4000
+      };
+      d.basic = basic;
+      d.style = TravelStyle.FOODIE;
+      d.stayTier = 'budget';
+      d.transit = TransitPreference.TAXI_MAIN;
+      d.paces = [PaceOption.RELAXED];
+      const pick: SelectedSpot = { spotId: 'spot-9', priority: SpotPriority.WANT };
+      d.selectedSpots = [pick];
+      d.selectedArea = { areaId: 'area-3' };
+
+      const back: PlanDraftSnapshot =
+        JSON.parse(JSON.stringify(PlanDraft.toSnapshot(d))) as PlanDraftSnapshot;
+      expect(PlanDraft.validSnapshot(back)).assertTrue();
+      expect(back.basic.destination).assertEqual('杨凌');
+      expect(back.basic.startDate).assertEqual('2026-11-11');
+      expect(back.basic.endDate).assertEqual('2026-11-13');
+      expect(back.basic.people).assertEqual(3);
+      expect(back.basic.budget).assertEqual(4000);
+      expect(back.style).assertEqual(TravelStyle.FOODIE);
+      expect(back.stayTier).assertEqual('budget');
+      expect(back.transit).assertEqual(TransitPreference.TAXI_MAIN);
+      expect(back.paces[0]).assertEqual(PaceOption.RELAXED);
+      expect(back.selectedSpots[0].spotId).assertEqual('spot-9');
+      expect(back.selectedArea.areaId).assertEqual('area-3');
+    });
+
+    it('snapshot_validation_rejects_broken_shapes', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+      // 盘上旧版/坏 JSON 一律拒收，按默认档起（fail-closed，不能拿半个草稿进生成链）
+      const noBasic: PlanDraftSnapshot = JSON.parse('{"stayTier":"comfort"}') as PlanDraftSnapshot;
+      expect(PlanDraft.validSnapshot(noBasic)).assertFalse();
+      const badCity: PlanDraftSnapshot =
+        JSON.parse('{"basic":{"destination":1,"startDate":"","endDate":"","people":2,"budget":3000},' +
+          '"stayTier":"comfort","paces":[],"selectedSpots":[],"selectedArea":{"areaId":""}}') as PlanDraftSnapshot;
+      expect(PlanDraft.validSnapshot(badCity)).assertFalse();
     });
   });
 }

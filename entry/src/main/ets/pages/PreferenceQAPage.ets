@@ -113,6 +113,7 @@ export struct PreferenceQAPage {
     d.paces = this.paceAnswers.length > 0
       ? this.paceAnswers.map((v: string): PaceOption => v as PaceOption)
       : [PaceOption.STANDARD];
+    PlanDraft.persist();
   }
 
   private advance(): void {

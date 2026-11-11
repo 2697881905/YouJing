@@ -971,9 +971,16 @@ struct Index {
   build() {
     Column() {
       if (this.consentAgreed !== '1') {
-        Blank()
+        // IMP-20：水合期给官方加载指示，不再整屏 Blank（同意闸门弹窗随后即开）
+        LoadingProgress()
+          .width(48)
+          .height(48)
+          .color(ColorTokens.primary)
       } else if (this.authState === '') {
-        Blank()
+        LoadingProgress()
+          .width(48)
+          .height(48)
+          .color(ColorTokens.primary)
       } else if (this.authState !== 'huawei' && !this.guestChosen) {
         LoginView({
           onSignedIn: (): void => {

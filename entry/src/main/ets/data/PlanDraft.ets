@@ -7,6 +7,25 @@ import { PaceOption, SelectedSpot, SelectedArea, TransitPreference, TravelStyle,
 import { BudgetConfig } from '../common/constants/BudgetConfig';
 import { DateUtils } from '../utils/DateUtils';
 import { TripLength } from '../utils/TripLength';
+import { preferences } from '@kit.ArkData';
+import { common } from '@kit.AbilityKit';
+import { Logger } from '../common/logger/Logger';
+import { markDraftDirty } from '../common/constants/AppNav';
+
+const TAG: string = 'PlanDraft';
+const DRAFT_STORE: string = 'planDraft';
+const DRAFT_KEY: string = 'draft_v1';
+
+/** 落盘形态：与草稿七字段一一对应（JSON 往返），不新增业务字段 */
+export interface PlanDraftSnapshot {
+  basic: TripBasicInput;
+  style: TravelStyle;
+  stayTier: string;
+  transit: TransitPreference;
+  paces: PaceOption[];
+  selectedSpots: SelectedSpot[];
+  selectedArea: SelectedArea;
+}
 
 export class PlanDraft {
   /** 屏2 未填日期时的默认档：今天起算 3 天 2 晚 */
@@ -73,5 +92,142 @@ export class PlanDraft {
    */
   static fresh(): void {
     PlanDraft.instance = null;
+    // 草稿作废即无可续：dirty 标志同步清，否则根页「续草稿」入口指向空草稿
+    markDraftDirty(false);
+    // 防抖里可能还挂着一笔旧草稿的写盘：先撤掉，再把盘上那份清掉，
+    // 否则「新建」之后杀进程重进会复活上一段草稿
+    if (PlanDraft.persistTimer >= 0) {
+      clearTimeout(PlanDraft.persistTimer);
+      PlanDraft.persistTimer = -1;
+    }
+    const prefs: preferences.Preferences | null = PlanDraft.prefs;
+    if (prefs !== null) {
+      try {
+        prefs.deleteSync(DRAFT_KEY);
+        prefs.flush().catch((err: Error): void => {
+          Logger.warn(TAG, `草稿清盘失败: ${err.message}`);
+        });
+      } catch (err) {
+        Logger.warn(TAG, `草稿清盘失败: ${(err as Error).message}`);
+      }
+    }
+  }
+
+  // ——— 本机落盘（IMP-01）：杀进程/返回上一页不再丢未提交输入 ———
+  // 口径：只落本机 preferences，不上云、不进 RDB（隐私口径不变）；
+  // 生命周期与内存草稿完全一致——生成成功后不清（现状如此），fresh() 才清。
+  private static ctx: common.Context | null = null;
+  private static prefs: preferences.Preferences | null = null;
+  private static persistTimer: number = -1;
+  /** 冷启 Want 预填先于水合写过草稿时置位：外部意图优先，水合不得用盘上旧快照覆盖 */
+  private static externalWrite: boolean = false;
+
+  static markExternalWrite(): void {
+    PlanDraft.externalWrite = true;
+  }
+
+  /**
+   * 冷启水合：EntryAbility.bootstrap 调用，必须先于深链/小艺预填写草稿。
+   * 返回 true = 盘上有草稿且已恢复（调用方据此广播 dirty，让根页「续草稿」入口活过来）。
+   */
+  static async hydrate(context: common.Context): Promise<boolean> {
+    PlanDraft.ctx = context;
+    try {
+      PlanDraft.prefs = await preferences.getPreferences(context, DRAFT_STORE);
+      if (PlanDraft.externalWrite) {
+        // applyWant 在 onCreate 已写草稿（早于 bootstrap）：保留外部预填并补落盘
+        PlanDraft.flush();
+        return false;
+      }
+      const stored: preferences.ValueType = PlanDraft.prefs.getSync(DRAFT_KEY, '');
+      const raw: string = typeof stored === 'string' ? stored as string : '';
+      if (raw.length === 0) {
+        return false;
+      }
+      const snap: PlanDraftSnapshot = JSON.parse(raw) as PlanDraftSnapshot;
+      if (!PlanDraft.validSnapshot(snap)) {
+        Logger.warn(TAG, '盘上草稿形态不合，按默认档起');
+        return false;
+      }
+      const d: PlanDraft = PlanDraft.get();
+      d.basic = snap.basic;
+      d.style = snap.style;
+      d.stayTier = snap.stayTier;
+      d.transit = snap.transit;
+      d.paces = snap.paces;
+      d.selectedSpots = snap.selectedSpots;
+      d.selectedArea = snap.selectedArea;
+      Logger.info(TAG, `草稿水合 ${d.basic.destination} spots=${d.selectedSpots.length}`);
+      return true;
+    } catch (err) {
+      // 读不到就按默认档起：草稿丢一档只是重填，不能挡住冷启
+      Logger.warn(TAG, `草稿水合失败，按默认档起: ${(err as Error).message}`);
+      return false;
+    }
+  }
+
+  /** 纯函数：草稿 → 落盘快照（hypium 往返用例钉形态） */
+  static toSnapshot(d: PlanDraft): PlanDraftSnapshot {
+    const snap: PlanDraftSnapshot = {
+      basic: d.basic, style: d.style, stayTier: d.stayTier, transit: d.transit,
+      paces: d.paces, selectedSpots: d.selectedSpots, selectedArea: d.selectedArea
+    };
+    return snap;
+  }
+
+  static validSnapshot(s: PlanDraftSnapshot): boolean {
+    return s !== null && s !== undefined
+      && s.basic !== null && s.basic !== undefined
+      && typeof s.basic.destination === 'string'
+      && typeof s.basic.startDate === 'string'
+      && typeof s.basic.endDate === 'string'
+      && typeof s.basic.people === 'number'
+      && typeof s.basic.budget === 'number'
+      && typeof s.stayTier === 'string'
+      && Array.isArray(s.paces)
+      && Array.isArray(s.selectedSpots)
+      && s.selectedArea !== null && s.selectedArea !== undefined;
+  }
+
+  /** 防抖写盘（500ms）：字段级改动随改随存，杀进程最多丢最后半秒 */
+  static persist(): void {
+    if (PlanDraft.persistTimer >= 0) {
+      clearTimeout(PlanDraft.persistTimer);
+    }
+    PlanDraft.persistTimer = setTimeout((): void => {
+      PlanDraft.persistTimer = -1;
+      PlanDraft.flush();
+    }, 500);
+  }
+
+  /** 立即写盘：CTA/识别成功等提交点用 */
+  static flush(): void {
+    const context: common.Context | null = PlanDraft.ctx;
+    if (context === null) {
+      return; // 水合前的极早期写入不落盘（深链/预填随后会带着同一批参数再来一次）
+    }
+    const prefs: preferences.Preferences | null = PlanDraft.prefs;
+    if (prefs === null) {
+      preferences.getPreferences(context, DRAFT_STORE).then((p: preferences.Preferences): void => {
+        PlanDraft.prefs = p;
+        PlanDraft.writeSnapshot(p);
+      }).catch((err: Error): void => {
+        Logger.warn(TAG, `草稿存储打开失败: ${err.message}`);
+      });
+      return;
+    }
+    PlanDraft.writeSnapshot(prefs);
+  }
+
+  private static writeSnapshot(prefs: preferences.Preferences): void {
+    try {
+      const d: PlanDraft = PlanDraft.get();
+      prefs.putSync(DRAFT_KEY, JSON.stringify(PlanDraft.toSnapshot(d)));
+      prefs.flush().catch((err: Error): void => {
+        Logger.warn(TAG, `草稿写盘失败: ${err.message}`);
+      });
+    } catch (err) {
+      Logger.warn(TAG, `草稿写盘失败: ${(err as Error).message}`);
+    }
   }
 }

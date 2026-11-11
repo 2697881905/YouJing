@@ -59,7 +59,9 @@ export struct GeneratingPage {
   aboutToAppear(): void {
     this.cancelled = false;
     this.timer = setInterval(() => {
-      if (!this.done && this.stage < this.stages.length) {
+      // IMP-12：定时器只演示中间档，末档「估算步行耗时」必须等真落库才勾掉，
+      // 进度条封顶 80%，不再先于生成完成到 100%
+      if (!this.done && this.stage < this.stages.length - 1) {
         this.stage += 1;
         this.progress = (this.stage + 1) / (this.stages.length + 1);
       }
@@ -93,6 +95,8 @@ export struct GeneratingPage {
       if (this.cancelled) {
         return;
       }
+      // IMP-12 真里程碑：景点/住宿区数据就位 = 「筛选景点」真完成
+      this.stage = Math.max(this.stage, 1);
       const area: Area | undefined = areas.find((a: Area): boolean => a.id === draft.selectedArea.areaId);
       if (area === undefined) {
         if (isMapCity(draft.basic.destination)) {
@@ -126,6 +130,10 @@ export struct GeneratingPage {
       if (this.cancelled) {
         return;
       }
+      // IMP-12 真里程碑：落库完成即刻报 100%，不再等排不下提示的定时器
+      this.done = true;
+      this.stage = this.stages.length;
+      this.progress = 1;
       // 选中的站不一定都排得进这几天（种子库停留 4h/5h，加上 20:00 起排上限，
       // 3 天最多容纳约 3 站/天）。**少掉的必须说出来**——静默丢失用户的选择比超载更糟。
       let placed: number = 0;
@@ -141,13 +149,17 @@ export struct GeneratingPage {
         });
       }
       this.done = true;
-      this.stage = this.stages.length;
-      this.progress = 1;
       Logger.info('Ui.Generating', `生成并落库 ${trip.id}`);
       WidgetSync.refreshAll(context).catch((err: Error) => {
         Logger.warn('Ui.Generating', `卡片刷新失败: ${err.message}`);
       });
-      HOST_NAV.replacePath({ name: 'Itinerary', param: trip.id });
+      // IMP-03 收栈：生成成功后不留规划链四层（否则行程页返回要按 4 次才回规划根页）；
+      // 改行程走屏8 顶栏既有「编辑行程」入口。失败/额度分支不收栈，保留调整链路。
+      HOST_NAV.clear();
+      HOST_NAV.pushPath({ name: 'Itinerary', param: trip.id });
+      // 草稿已交付：按 PlanDraft 文件头契约重置（内存+盘），
+      // 否则落盘后冷启会让「续草稿」复活一份已交付的规划
+      PlanDraft.fresh();
     } catch (err) {
       if (this.cancelled) {
         return;

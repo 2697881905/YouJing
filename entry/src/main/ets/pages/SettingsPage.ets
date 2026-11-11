@@ -75,6 +75,8 @@ export struct SettingsPage {
             this.getUIContext().getPromptAction().showToast({ message: '已退出，回到登录页' });
           }).catch((err: Error): void => {
             Logger.warn('Ui.Settings', `登出失败: ${err.message}`);
+            // IMP-13：原来 catch 只 log，登出失败用户无感
+            this.getUIContext().getPromptAction().showToast({ message: '退出失败，请重试', duration: 1800 });
           });
         }
       }

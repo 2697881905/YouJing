@@ -51,6 +51,20 @@ export interface MotionTokensType {
    * springBounce(0.4,0.7) 走完整段物理行程需要这个余量，短了果冻感会断在半路。
    */
   dockSettle: number;
+  /**
+   * 一镜到底档（IMP-16 收编，值=官方 transitions-collection 原值，逐帧手感不变）：
+   * 契约 long-take 350ms / snapshot-handover min300 max1500（DESIGN.md:660-661）。
+   * 唯一消费方 utils/longTake/longTakeAnimationProperties.ets。
+   */
+  longTake: number;
+  longTakeFadeDelay: number;
+  longTakeFade: number;
+  longTakeSnapshotFade: number;
+  longTakeHandoverMin: number;
+  longTakeHandoverMax: number;
+  longTakeBackFade: number;
+  longTakeBackSnapDelay: number;
+  longTakeBackContentDelay: number;
 }
 
 export const MotionTokens: MotionTokensType = {
@@ -74,7 +88,16 @@ export const MotionTokens: MotionTokensType = {
   successScale: 1.045,
   enterScale: 0.975,
   dockTravel: 300,
-  dockSettle: 400
+  dockSettle: 400,
+  longTake: 350,
+  longTakeFadeDelay: 50,
+  longTakeFade: 100,
+  longTakeSnapshotFade: 180,
+  longTakeHandoverMin: 300,
+  longTakeHandoverMax: 1500,
+  longTakeBackFade: 50,
+  longTakeBackSnapDelay: 150,
+  longTakeBackContentDelay: 200
 };
 
 /**
@@ -96,4 +119,12 @@ export class MotionCurves {
   static readonly springRelease: ICurve = curves.springMotion(0.5, 0.75);
   static readonly springSettle: ICurve = curves.springMotion(0.3, 0.62);
   static readonly springTrack: ICurve = curves.springMotion(0.25, 0.72);
+  /**
+   * 一镜到底专用（IMP-16）：官方范式用 Curve 枚举，这里原样登记进单源，
+   * 页面不再裸写枚举；不做贝塞尔近似——近似会改逐帧手感，帧差取证不通过。
+   * 类型是 Curve|ICurve（animateTo 的 curve 参数同型）：枚举不是 ICurve，直接赋值编译挂。
+   */
+  static readonly longTakeEase: Curve | ICurve = Curve.EaseInOut;
+  static readonly longTakeSharp: Curve | ICurve = Curve.Sharp;
+  static readonly longTakeFriction: Curve | ICurve = Curve.Friction;
 }
