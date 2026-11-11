@@ -29,8 +29,11 @@ import { ReminderSyncResult, TripReminder } from '../data/TripReminder';
 import { EntitlementStore } from '../data/EntitlementStore';
 import { Logger } from '../common/logger/Logger';
 import { common } from '@kit.AbilityKit';
-import { ImmersiveSegmentBar, SegmentedItem } from '../components/ImmersiveSegmentBar';
-import { GlassBlurStyle, getSheetImmersiveMaterial, isSystemMaterialActive } from '../utils/immersiveMaterial';
+import { SegmentedItem } from '../components/ImmersiveSegmentBar';
+import { GlassBlurStyle, HDS_MATERIAL_TYPE_IMMERSIVE, HDS_MATERIAL_LEVEL_EXQUISITE,
+  getSheetImmersiveMaterial, isImmersiveLightSenseSupported, isSystemMaterialActive } from '../utils/immersiveMaterial';
+import { HdsMiniBarButton } from '../components/HdsMiniBarButton';
+import { GlassTokens } from '../components/GlassTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
@@ -52,6 +55,13 @@ const ITINERARY_ROOT_ID: string = 'itineraryPageRoot';
 const LONG_TAKE_TIMEOUT_MS: number = 2000;
 
 const LOAD_BAR_STYLE: LinearStyleOptions = { strokeWidth: 3, strokeRadius: 1.5 };
+
+/**
+ * Day 分段玻璃珠定宽定高：与地图页日期 chip 同档（MapPage CHIP_BEAD_* 同值）。
+ * 76 宽是 16fp 的「Day 10」留 14vp 边后的下限；高 38 与地图页、dock 胶囊一致。
+ */
+const DAY_BEAD_WIDTH: number = 76;
+const DAY_BEAD_HEIGHT: number = 38;
 
 @Component
 export struct ItineraryPage {
@@ -1340,24 +1350,98 @@ export struct ItineraryPage {
     }
   }
 
-  /** Day 分段栏（官方 SegmentButton + 材质）：迁进栏体做 bottomBuilder 行（有据 HomeTab 形状）。
-   *  单日行程不挂：官方 SegmentButton 只有一项时首帧会改内部 buttonBorderRadius，
-   *  触发「state changed during render」把整屏内容打断成空白（真机 2026-10-30）。
+  /** 无障碍组标签：沿用原 ImmersiveSegmentBar 的 a11yLabel 口径（整栏一个朗读元素） */
+  private daySegmentA11y(): string {
+    const n: number = this.segments.length;
+    if (n === 0) {
+      return '行程日期切换';
+    }
+    const idx: number = Math.min(Math.max(0, this.dayIndex), n - 1);
+    return `行程日期切换，当前 ${this.segments[idx].label}`;
+  }
+
+  /** Day 分段栏（玻璃珠版）：地图页日期 chip 同款（HdsMiniBarButton + pill 裁切罩 + 文字层）。
+   *  取代官方 SegmentButton（此前 overrideTrackMaterial 给整条轨道上材质）：
+   *  - 珠 = 未选中态（decorationOnly 退出命中，命中交给文字层/ListItem）；
+   *  - 选中 = chipSolid 深灰实心（地图页 2026-11-10 口径），低版本设备退回自绘磨砂；
+   *  - 选中**不带悬浮影**：栏内底行 48vp 高且对内容双向裁切（HdsChrome bottomRowHeight 注释），
+   *    pillFloat 影下探约 11vp 会被裁成硬边灰带——官方控件本来就是平面，槽位内不引入落影；
+   *  - 珠外的一切由裁切罩裁掉：HdsTabs 材质矩形底板不再外露（成因与真机实测见 MapPage chipRow）。
+   *  单日行程不挂（days.length > 1 守卫保留）。
    */
   @Builder
   daySegmentRow() {
     if (this.days.length > 1) {
       Row() {
-        ImmersiveSegmentBar({
-          items: this.segments,
-          selectedIndex: $dayIndex,
-          buttonVerticalPadding: 2.15,
-          overrideTrackMaterial: true,
-          a11yLabel: '行程日期切换'
-        })
+        List({ space: SpaceTokens.xxs }) {
+          ForEach(this.segments, (item: SegmentedItem, idx: number) => {
+            ListItem() {
+              Stack({ alignContent: Alignment.Center }) {
+                if (idx !== this.dayIndex && isImmersiveLightSenseSupported()) {
+                  // 玻璃层：内容槽留空只出材质，pill 裁切罩把珠外底板/落影裁掉
+                  Stack() {
+                    HdsMiniBarButton({
+                      maskColor: '#00ffffff',
+                      barWidth: DAY_BEAD_WIDTH,
+                      barHeight: DAY_BEAD_HEIGHT,
+                      contentPadding: SpaceTokens.xs,
+                      barBottomMargin: SpaceTokens.xs,
+                      decorationOnly: true,
+                      materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
+                      materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE
+                    }) {
+                      Column()
+                    }
+                  }
+                  .width(DAY_BEAD_WIDTH)
+                  .height(DAY_BEAD_HEIGHT)
+                  .borderRadius(RadiusTokens.pill)
+                  .clip(true)
+                } else {
+                  // 选中态 / 低版本回退：自绘面（chipSolid 实心或同款自绘玻璃），槽位内不带落影
+                  Row()
+                    .width(DAY_BEAD_WIDTH)
+                    .height(DAY_BEAD_HEIGHT)
+                    .borderRadius(RadiusTokens.pill)
+                    .backgroundBlurStyle(idx === this.dayIndex ? BlurStyle.NONE : GlassBlurStyle.Card)
+                    .backgroundColor(idx === this.dayIndex ? ColorTokens.chipSolid : GlassTokens.PILL_FILL)
+                    .border({
+                      width: idx === this.dayIndex ? 0 : LayoutTokens.glassBorderWidth,
+                      color: idx === this.dayIndex ? Color.Transparent : GlassTokens.PILL_RIM
+                    })
+                }
+                // 文字层：与珠同宽同高居中叠上，尺寸不依赖 HdsTabs 内部布局
+                Row() {
+                  Text(item.label)
+                    .fontSize(TypeTokens.body.size)
+                    .fontWeight(idx === this.dayIndex ? 600 : 450)
+                    .fontColor(idx === this.dayIndex ? ColorTokens.onDark : ColorTokens.ink)
+                    .fontFeature("'tnum' on")
+                    .maxLines(1)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                }
+                .justifyContent(FlexAlign.Center)
+                .width(DAY_BEAD_WIDTH)
+                .height(DAY_BEAD_HEIGHT)
+              }
+              .width(DAY_BEAD_WIDTH)
+              .height(DAY_BEAD_HEIGHT)
+            }
+            .onClick((): void => {
+              this.dayIndex = idx;
+            })
+          }, (item: SegmentedItem): string => item.label)
+        }
+        .listDirection(Axis.Horizontal)
+        .alignListItem(ListItemAlign.Center)
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.None)
+        .width('100%')
+        .height(DAY_BEAD_HEIGHT)
+        .accessibilityGroup(true)
+        .accessibilityText(this.daySegmentA11y())
       }
       .width('100%')
-      .justifyContent(FlexAlign.Start)
       .height('100%')
       .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
     }
