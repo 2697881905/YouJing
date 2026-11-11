@@ -16,6 +16,7 @@ import { ColorTokens } from '../design/ColorTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
+import { MotionTokens, MotionCurves } from '../design/MotionTokens';
 import { GlassPillButton } from '../design/GlassPillButton';
 import { GlassPanel } from './GlassPanel';
 import { BOTTOM_BAR_INSET_KEY } from '../utils/navMode';
@@ -29,15 +30,33 @@ import { CompanionPrompt } from '../companion/CompanionTypes';
 const GUARD_ID: string = 'companionOverlay';
 /** 快捷短语（上下文意图，Phase 3 按场景动态化） */
 const QUICK_PHRASES: string[] = ['我累了', '附近有啥吃的', '跳过这站', '换个地方', '时间够吗'];
+/** 触点位置持久化键（拖拽吸附后固定，跨重启保留） */
+const TOUCH_X_KEY: string = 'companionTouchX';
+const TOUCH_Y_KEY: string = 'companionTouchY';
 
 @Component
 export struct CompanionOverlay {
   @StorageLink(COMPANION_PROMPT_KEY) promptJson: string = '';
   @StorageProp(BOTTOM_BAR_INSET_KEY) bottomBarInset: number = 0;
+  @StorageProp('statusBarHeight') statusBarHeight: number = 0;
   @State private touchOpen: boolean = false;
   @State private inputText: string = '';
+  // 触点位置（vp，相对浮层左上角）；-1 = 未初始化，待面积量到后落默认右下角
+  @State private touchX: number = -1;
+  @State private touchY: number = -1;
+  @State private touchW: number = 0;
+  @State private touchH: number = 0;
+  @State private areaW: number = 0;
+  @State private areaH: number = 0;
+  private dragStartX: number = 0;
+  private dragStartY: number = 0;
 
   aboutToAppear(): void {
+    // 位置持久化：拖拽吸附后固定，跨重启保留
+    PersistentStorage.persistProp(TOUCH_X_KEY, -1);
+    PersistentStorage.persistProp(TOUCH_Y_KEY, -1);
+    this.touchX = AppStorage.get<number>(TOUCH_X_KEY) ?? -1;
+    this.touchY = AppStorage.get<number>(TOUCH_Y_KEY) ?? -1;
     registerOverlayBackGuard(GUARD_ID, (): boolean => {
       return this.prompt() !== null || this.touchOpen;
     }, (): void => {
@@ -59,6 +78,41 @@ export struct CompanionOverlay {
     } catch (err) {
       return null;
     }
+  }
+
+  /** 首次量到浮层与触点尺寸后落默认位置（右下角，dock 净空之上）；已有持久化位置则不覆盖 */
+  private initTouchPosition(): void {
+    if (this.touchX < 0 && this.areaW > 0 && this.areaH > 0 && this.touchW > 0 && this.touchH > 0) {
+      this.touchX = this.areaW - this.touchW - SpaceTokens.base;
+      this.touchY = this.areaH - this.touchH - this.bottomBarInset -
+        LayoutTokens.floatingDockClearance - SpaceTokens.xs;
+    }
+  }
+
+  private clampX(x: number): number {
+    const minX: number = SpaceTokens.xxs;
+    const maxX: number = this.areaW - this.touchW - SpaceTokens.xxs;
+    return Math.max(minX, Math.min(x, maxX));
+  }
+
+  private clampY(y: number): number {
+    const minY: number = this.statusBarHeight + SpaceTokens.xs;
+    const maxY: number = this.areaH - this.touchH - this.bottomBarInset - LayoutTokens.floatingDockClearance;
+    return Math.max(minY, Math.min(y, maxY));
+  }
+
+  /** 松手吸附：横向就近左/右边缘，纵向夹回安全区，弹簧动画落定并持久化 */
+  private snapTouchToEdge(): void {
+    const centerX: number = this.touchX + this.touchW / 2;
+    const targetX: number = centerX < this.areaW / 2
+      ? SpaceTokens.base : this.areaW - this.touchW - SpaceTokens.base;
+    const targetY: number = this.clampY(this.touchY);
+    this.getUIContext().animateTo({ duration: MotionTokens.control, curve: MotionCurves.springSoft }, (): void => {
+      this.touchX = targetX;
+      this.touchY = targetY;
+    });
+    AppStorage.setOrCreate(TOUCH_X_KEY, targetX);
+    AppStorage.setOrCreate(TOUCH_Y_KEY, targetY);
   }
 
   build() {
@@ -156,8 +210,9 @@ export struct CompanionOverlay {
         .hitTestBehavior(HitTestMode.None)
       }
 
-      // ① 常驻触点（右下角拇指区）
-      Row() {
+      // ① 常驻触点：可拖拽，松手吸附最近左/右屏幕边缘，纵向夹在安全区（状态栏下、dock 上）。
+      // 轻点仍开面板（TapGesture 与 PanGesture 共存：无位移=点击，有位移=拖拽）。
+      Column() {
         GlassPillButton({
           label: '助手',
           useSystemMaterial: true,
@@ -170,15 +225,34 @@ export struct CompanionOverlay {
           }
         })
       }
-      .width('100%')
-      .justifyContent(FlexAlign.End)
-      // 抬到 dock 净空之上：触点 44vp 命中区原来压住 dock「我的」tab，挡点击（真机实测）
-      .padding({ right: SpaceTokens.base,
-        bottom: this.bottomBarInset + LayoutTokens.floatingDockClearance + SpaceTokens.xs })
-      .hitTestBehavior(HitTestMode.None)
+      .position({ x: this.touchX, y: this.touchY })
+      .onAreaChange((_o: Area, n: Area): void => {
+        this.touchW = Number(n.width);
+        this.touchH = Number(n.height);
+        this.initTouchPosition();
+      })
+      .gesture(
+        PanGesture()
+          .onActionStart((): void => {
+            this.dragStartX = this.touchX;
+            this.dragStartY = this.touchY;
+          })
+          .onActionUpdate((e: GestureEvent): void => {
+            this.touchX = this.clampX(this.dragStartX + e.offsetX);
+            this.touchY = this.clampY(this.dragStartY + e.offsetY);
+          })
+          .onActionEnd((): void => {
+            this.snapTouchToEdge();
+          })
+      )
     }
     .width('100%')
     .height('100%')
     .hitTestBehavior(HitTestMode.None)
+    .onAreaChange((_o: Area, n: Area): void => {
+      this.areaW = Number(n.width);
+      this.areaH = Number(n.height);
+      this.initTouchPosition();
+    })
   }
 }
