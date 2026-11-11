@@ -15,7 +15,9 @@
 import { ColorTokens } from '../design/ColorTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
+import { RadiusTokens } from '../design/RadiusTokens';
 import { GlassPillButton } from '../design/GlassPillButton';
+import { GlassPanel } from './GlassPanel';
 import { BOTTOM_BAR_INSET_KEY } from '../utils/navMode';
 import { registerOverlayBackGuard, unregisterOverlayBackGuard } from '../utils/overlayBackGuard';
 import { CompanionCard } from './CompanionCard';
@@ -61,6 +63,19 @@ export struct CompanionOverlay {
 
   build() {
     Stack({ alignContent: Alignment.Bottom }) {
+      // ⓪ 遮罩：激活时压暗页面，把浮层与下层内容分离（否则芯片/卡浮在内容上可视性差）；
+      // 点空白处收起。走契约 modalScrim，不新增色值。
+      if (this.touchOpen || this.prompt() !== null) {
+        Column()
+          .width('100%')
+          .height('100%')
+          .backgroundColor(ColorTokens.modalScrim)
+          .onClick((): void => {
+            this.touchOpen = false;
+            CompanionStore.dismiss();
+          })
+      }
+
       // ④ 请示卡（有提示时浮出，底部让出触点高度）
       if (this.prompt() !== null) {
         Column() {
@@ -100,9 +115,11 @@ export struct CompanionOverlay {
         .hitTestBehavior(HitTestMode.None)
       }
 
-      // ②③ 快捷短语面板 + 文字兜底（触点展开时）
+      // ②③ 快捷短语面板 + 文字兜底（触点展开时，GlassPanel 实心背板保证可读）
       if (this.touchOpen) {
-        Column({ space: SpaceTokens.sm }) {
+        Column() {
+          GlassPanel({ radius: RadiusTokens.hero, useSystemMaterial: false }) {
+          Column({ space: SpaceTokens.sm }) {
           Flex({ wrap: FlexWrap.Wrap }) {
             ForEach(QUICK_PHRASES, (phrase: string) => {
               SoftChip({
@@ -129,6 +146,9 @@ export struct CompanionOverlay {
             // 在纵向 Column 里会填满剩余高度把面板撑爆；此处要宽 100% 但不纵扩
             fillWidth: false
           })
+          }
+          .width('100%')
+          }
         }
         .width('100%')
         .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
