@@ -26,9 +26,10 @@ export struct Pressable {
   @Prop disabled: boolean = false;
   /** 满宽：父容器给 100%，用于钉底/通栏动作 */
   @Prop fillWidth: boolean = false;
-  /** 响应区吃满整块视觉高度（默认只吃 touchTargetHeight 那条带） */
+  /** 响应区吃满整块视觉高度（默认档已按视觉高度自动判断，见 build 里的 height 表达式） */
   @Prop fullResponseRegion: boolean = false;
-  /** 视觉高度；>0 时用它算响应区的纵向偏移，让 44vp 命中带居中包住矮控件 */
+  /** 视觉高度；>0 时用它算响应区的纵向偏移，让 44vp 命中带居中包住矮控件。
+   *  不传 = 调用方是整卡/整行可点，响应区吃满自身高度（见下方 responseRegion 的注释）。 */
   @Prop visualHeight: number = 0;
   @Prop touchTargetHeight: number = LayoutTokens.minTouchTarget;
   action: () => void = () => {
@@ -48,11 +49,15 @@ export struct Pressable {
       this.content()
     }
     .width(this.fillWidth ? '100%' : 'auto')
+    // ⚠ 命中带必须跟着调用方走：传了 visualHeight（矮控件，如 36 高胶囊）才收成
+    // 44vp 居中带；没传 visualHeight 的都是整卡/整行可点（行程卡、勋章行、候选项），
+    // 这时还给 44vp 等于只剩卡片顶部一条能点——真机实测行程卡点标题/进度条全无反应，
+    // 只有贴着卡片上沿 44vp 内才打开（2026-11-11 用户报「有时候点了没反应」）。
     .responseRegion({
       x: 0,
       y: this.touchOffset(),
       width: '100%',
-      height: this.fullResponseRegion ? '100%' : this.touchTargetHeight
+      height: (this.fullResponseRegion || this.visualHeight <= 0) ? '100%' : this.touchTargetHeight
     })
     // ↓ 必须紧贴下面的 .stateStyles()，见文件头「顺序是硬约束」
     .animation({ duration: MotionTokens.press, curve: MotionCurves.standard })

@@ -6,7 +6,7 @@
  * 底图铺满、浮层透明穿透（hitTestBehavior Transparent），不遮地图手势。
  */
 
-import { MAP_NAV, TAB_SHOWN_KEY, isTabShownTick, enterPlanningFlow, TAB_MAP } from '../common/constants/AppNav';
+import { HOST_NAV, MAP_NAV, TAB_SHOWN_KEY, isTabShownTick, enterPlanningFlow, TAB_MAP } from '../common/constants/AppNav';
 import { TripDao, TripSummary } from '../data/TripDao';
 import { Trip, TripDay } from '../model/Trip';
 import { MapStop, MapStops } from '../utils/MapStops';
@@ -31,7 +31,6 @@ import { HdsNavigation, HdsNavigationTitleMode, HdsNavDestination, HdsNavDestina
 import { routerMap } from './AppRouter';
 import type { HdsNavigationMenuItemOptions, HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
-import { TopStrip, STRIP_CANVAS, STRIP_MAP } from '../utils/TopStrip';
 import { TripSpan } from '../utils/TripSpan';
 
 const ALL_DAYS: number = -1;
@@ -75,8 +74,14 @@ export struct MapPage {
   // （官方 HdsTitleBar 自绘内容不随配置切换重渲染，真机实证见 HdsChrome.themeTick）
   @StorageProp('chromeThemeTick') chromeThemeTick: number = 0;
 
-  /** 本页是 MAP_NAV 这条 tab 栈的宿主，push 必须落在自己的栈上 */
+  /**
+   * 内层 `HdsNavigation` 的绑定。2026-11-11 二级页全屏化后这条栈不再收任何子页
+   * （仅承载根页自己的 titleBar）；⚠ 绝不能绑 HOST_NAV——一个 NavPathStack 只能被
+   * 一个 Navigation 持有，绑了会把 Index 外层宿主的绑定抢走，二级页就渲染不出来。
+   */
   private pathStack: NavPathStack = MAP_NAV;
+  /** push/pop 统一走宿主栈：二级页（OnTrip 等）全屏盖住 dock，宿主 Navigation 在 Index */
+  private pushStack: NavPathStack = HOST_NAV;
   /** dock 切回这一页时重取底图数据（广播见 AppNav.TAB_SHOWN_KEY，主链复审 P1） */
   @StorageProp(TAB_SHOWN_KEY) @Watch('onDockShown') dockTick: string = '';
 
@@ -127,29 +132,14 @@ export struct MapPage {
    */
   aboutToAppear(): void {
     this.resolveAndReload();
-    if (this.rootMode) {
-      this.bindStripToStackTop();
-    }
   }
 
   /**
-   * 顶部那条带的"蓝灰"只在**地图自己盖在栈顶**时成立。
-   *
-   * 壳层原来只按页签决定带色（`pages/Index.syncTopStrip`），所以从地图格按栏上的
-   * 「旅行中」压进屏15 之后，带子还留在底图蓝灰 56，而屏15 的栏带是画布 18 ——
-   * y=106 处撞出一道 Δ38 的缝（2026-11-01 真机实测，见 §5ci 续 80）。
-   * 栈顶归谁这件事只有本页的导航栈知道，所以收在这一处：栈空回蓝灰，有页就交还画布。
+   * 顶部条带随「宿主栈栈顶归谁」换色这件事，2026-11-11 二级页全屏化后收进了
+   * `Index.aboutToAppear` 的 `HOST_NAV.setInterception`：本页的 push（OnTrip 等）
+   * 现在落宿主栈，挂在 MAP_NAV 上的拦截永远等不到回调；且宿主栈跨页签共用，
+   * 由 Index 持 currentTab 判定才不会把地图带色错涂到别的页签根上。
    */
-  private bindStripToStackTop(): void {
-    this.pathStack.setInterception({
-      willShow: (from: NavDestinationContext | NavBar, to: NavDestinationContext | NavBar,
-        op: NavigationOperation, isAnimated: boolean): void => {
-        // `to === 'navBar'` 就是"这一跳要回到根视图"（NavBar 是字面量类型 'navBar'）
-        const ctx: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
-        TopStrip.apply(ctx, to === 'navBar' ? STRIP_MAP : STRIP_CANVAS);
-      }
-    });
-  }
 
   /**
    * 根页（dock「地图」格）挑哪条行程：**只看今天落在日期区间内的那条**。
@@ -218,7 +208,7 @@ export struct MapPage {
       // 到站检测、打卡、欠站、天气建议都在屏15，地图只做空间呈现——
       // 但既然这一格承诺"看进行中的行程"，就得有一条路走到那屏，不能只给看
       items.push(HdsChrome.item($r('sys.symbol.map_badge_local'), '旅行中', (): void => {
-        this.pathStack.pushPath({ name: 'OnTrip', param: this.tripId });
+        this.pushStack.pushPath({ name: 'OnTrip', param: this.tripId });
       }));
     }
     const sub: string = this.stops.length > 0 ? `${this.stops.length} 站` : '';
@@ -531,8 +521,8 @@ export struct MapPage {
               // 裁切线回到屏幕边缘，卡片能一路滑出屏幕，不会在屏幕内被提前裁断
             }
             .width('100%')
-            // 不要背景板：只剩站点卡浮在底图上；dock 净空照旧让位
-            .margin({ bottom: LayoutTokens.floatingDockClearance })
+            // 不要背景板：只剩站点卡浮在底图上；dock 净空只对根页成立（宿主栈落点全屏无 dock）
+            .margin({ bottom: this.rootMode ? LayoutTokens.floatingDockClearance : 0 })
           } else {
             // 内缩只给这一张卡，不放前景 Column（否则会把上面两个 List 的 clip 收窄）
             Column() {
@@ -577,7 +567,8 @@ export struct MapPage {
             }
             .width('100%')
             .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
-            .margin({ bottom: LayoutTokens.floatingDockClearance })
+            // 同上：dock 净空只对根页成立（宿主栈落点全屏无 dock）
+            .margin({ bottom: this.rootMode ? LayoutTokens.floatingDockClearance : 0 })
           }
 
         }

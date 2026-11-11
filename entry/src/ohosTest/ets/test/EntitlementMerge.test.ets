@@ -73,6 +73,21 @@ export default function entitlementMergeTest(): void {
       expect(tick > 0).assertTrue();
     });
 
+    it('admin_unlimited_bypasses_generate_gate', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, async () => {
+      // 管理员由 BFF 白名单下发 unlimited：额度用满也不该被端侧拦下
+      const admin: Entitlement = {
+        subscription: null, passes: [], giftRemaining: 0, usedToday: 25, dailyCap: 20, unlimited: true
+      };
+      await EntitlementStore.update(admin);
+      expect(EntitlementStore.canGenerate()).assertTrue();
+
+      const normal: Entitlement = {
+        subscription: null, passes: [], giftRemaining: 0, usedToday: 25, dailyCap: 20
+      };
+      await EntitlementStore.update(normal);
+      expect(EntitlementStore.canGenerate()).assertFalse();
+    });
+
     it('daily_cap_follows_server', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
       const quota: QuotaSnapshot = { dailyCap: 20, remainingToday: 7 };
       const merged: Entitlement = mergeQuotaSnapshot(baseEntitlement(), quota);

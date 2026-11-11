@@ -6,6 +6,8 @@
  * 响应字段名沿用 `usedToday` / `dailyCap`：端侧 `EntitlementStore.canGenerate()` 直接读这两个键，
  * 改名要连端侧一起动，而 BFF 还没部署、收益为零。**口径已改成按月**，名字留作历史兼容。
  */
+import { isAdminAccount } from './admin.js';
+
 const MONTHLY_CAP = 20;
 const GIFT_QUOTA = 3;
 
@@ -40,7 +42,10 @@ export function getEntitlement(db, accountId) {
     passes: passes.map(p => ({ localTripId: p.local_trip_id, status: p.status, expiresAt: p.expires_at })),
     giftRemaining,
     usedToday: usedThisMonth?.cnt || 0,
-    dailyCap: MONTHLY_CAP
+    dailyCap: MONTHLY_CAP,
+    // 管理员（ADMIN_ACCOUNT_IDS，仅本机测试）：端侧 canGenerate 直接放行，
+    // 不靠伪造 giftRemaining 绕过门禁；额度用量照常统计，便于观察真实调用量。
+    unlimited: isAdminAccount(accountId)
   };
 }
 
@@ -86,6 +91,11 @@ export function releaseQuota(db, idempotencyKey) {
 }
 
 export function determineQuotaSource(db, accountId, passId) {
+  // 管理员优先于订阅/通行证/赠送：本机测试不该被额度窗口挡住。
+  // 仍返回一个 source 让账本照常落一行（source='admin'），幂等行的写法不用分叉。
+  if (isAdminAccount(accountId)) {
+    return 'admin';
+  }
   const entitlement = getEntitlement(db, accountId);
   if (entitlement.subscription && entitlement.usedToday < entitlement.dailyCap) {
     return 'subscription';

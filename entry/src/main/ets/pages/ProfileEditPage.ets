@@ -25,7 +25,7 @@ import { BadgeDao } from '../data/BadgeDao';
 import { BadgeRecord } from '../utils/BadgeBoard';
 import { ProfileStore, UserProfileData } from '../data/ProfileStore';
 import { AccountStore } from '../data/AccountStore';
-import { PROFILE_NAV } from '../common/constants/AppNav';
+import { HOST_NAV } from '../common/constants/AppNav';
 import { compressAvatar, CompressedImage, toDataUri } from '../utils/ImageCompress';
 import { EditableProfilePreview } from '../components/EditableProfilePreview';
 import { ColorTokens } from '../design/ColorTokens';
@@ -140,7 +140,7 @@ export struct ProfileEditPage {
 
   private onBack(): void {
     if (!this.hasUnsavedChanges()) {
-      PROFILE_NAV.pop();
+      HOST_NAV.pop();
       return;
     }
     this.getUIContext().showAlertDialog({
@@ -151,7 +151,7 @@ export struct ProfileEditPage {
         value: '放弃修改',
         fontColor: ColorTokens.danger,
         action: (): void => {
-          PROFILE_NAV.pop();
+          HOST_NAV.pop();
         }
       }
     });
@@ -256,7 +256,7 @@ export struct ProfileEditPage {
       this.captureTextBaseline();
       this.getUIContext().getPromptAction().showToast({ message: '已保存' });
       setTimeout((): void => {
-        PROFILE_NAV.pop();
+        HOST_NAV.pop();
       }, 350);
     }).catch((err: Error): void => {
       Logger.warn('Ui.ProfileEdit', `资料保存失败: ${err.message}`);
@@ -394,6 +394,7 @@ export struct ProfileEditPage {
     .backgroundColor(ColorTokens.canvas)
     .titleBar(HdsChrome.bar({ themeTick: this.chromeThemeTick,
       mainTitle: '编辑资料',
+      centerTitle: true,
       scrolled: this.barScrolled,
       menu: [HdsChrome.item($r('sys.symbol.checkmark'), '保存', (): void => {
         this.onSave();

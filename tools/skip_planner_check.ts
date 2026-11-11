@@ -10,6 +10,7 @@ import { FreeBlock, KeepStop, ReplanDecision } from '../model/Replan';
 import { SkipPlanner } from '../data/SkipPlanner';
 import { GeofencePlan } from '../utils/GeofencePlan';
 import { ReminderKind, ReminderPlan, ReminderPlanItem } from '../utils/ReminderPlan';
+import { ReminderFailure, ReminderFailureKind } from '../utils/ReminderFailure';
 import { DateUtils } from '../utils/DateUtils';
 
 let cases = 0;
@@ -343,5 +344,17 @@ const pastTrip: Trip = {
   tips: []
 };
 eq(ReminderPlan.plan(pastTrip, reminderNow).length, 0, '已过窗口不补发');
+
+// ---- P4 管控设备错误码伪装：1700002 + 本 App 0 条 = 能力未开通 ----
+eq(ReminderFailure.classify(201, 'Permission denied', 0),
+  ReminderFailureKind.CAPABILITY, '201 判能力未开通');
+eq(ReminderFailure.classify(0, 'ungranted capability: com.huawei.service.notification.agentreminder', 0),
+  ReminderFailureKind.CAPABILITY, 'ungranted capability 判能力未开通');
+eq(ReminderFailure.classify(1700002, 'The number of reminders exceeds the limit', 0),
+  ReminderFailureKind.CAPABILITY, '1700002 且 0 条判能力未开通，不误报数量超限');
+eq(ReminderFailure.classify(1700002, 'The number of reminders exceeds the limit', 64),
+  ReminderFailureKind.LIMIT, '1700002 且已有提醒才判数量超限');
+eq(ReminderFailure.classify(500, 'internal error', 0),
+  ReminderFailureKind.OTHER, '其他错误不冒充能力/数量问题');
 
 console.log(`SKIP_PLANNER_OK cases=${cases}`);

@@ -17,7 +17,7 @@
  * 状态栏 mock 为设备 chrome，不实现。这一屏不读行程数据（历史行程归「行程」格）。
  */
 
-import { APP_NAV, enterPlanningFlow, markDraftDirty, DRAFT_DIRTY_KEY, isDraftDirty, TAB_SHOWN_KEY, isTabShownTick, TAB_PLAN } from '../common/constants/AppNav';
+import { APP_NAV, HOST_NAV, enterPlanningFlow, markDraftDirty, DRAFT_DIRTY_KEY, isDraftDirty, TAB_SHOWN_KEY, isTabShownTick, TAB_PLAN } from '../common/constants/AppNav';
 import { routerMap } from './AppRouter';
 import { HdsChrome } from '../design/HdsChrome';
 import { HdsNavigation, HdsNavigationTitleMode, HideMode } from '@kit.UIDesignKit';
@@ -65,7 +65,13 @@ export struct YoujingStartPage {
   // （官方 HdsTitleBar 自绘内容不随配置切换重渲染，真机实证见 HdsChrome.themeTick）
   @StorageProp('chromeThemeTick') chromeThemeTick: number = 0;
 
+  /**
+   * 内层 `HdsNavigation` 的绑定。2026-11-11 二级页全屏化后这条栈不再收任何子页；
+   * ⚠ 绝不能绑 HOST_NAV——会把 Index 外层宿主的绑定抢走，二级页就渲染不出来。
+   */
   private pathStack: NavPathStack = APP_NAV;
+  /** push 统一走宿主栈：向导链（TripInput/Itinerary）全屏盖住 dock，宿主 Navigation 在 Index */
+  private pushStack: NavPathStack = HOST_NAV;
   /** 窗口实测宽（vp），由断点中心一处测量；0 = 尚未测到，按不收窄处理 */
   @StorageProp(KEY_WINDOW_WIDTH_VP) windowWidthVp: number = 0;
 
@@ -216,7 +222,7 @@ export struct YoujingStartPage {
       Logger.error('Ui.Start', `登录或归户失败，按游客分区继续: ${(err as Error).message}`);
     }
     this.starting = false;
-    this.pathStack.pushPath({ name: 'TripInput' });
+    this.pushStack.pushPath({ name: 'TripInput' });
   }
 
   /** 草稿卡首行：目的地 · 日期（日期无效时只报目的地，不编一个日期出来） */
@@ -408,10 +414,10 @@ export struct YoujingStartPage {
   }
 
   /**
-   * 五格同构（有据形态）：格内自带 `HdsNavigation` + `titleBar`，向导链的深链目的页
-   * 也从这一层解析（`.navDestination(routerMap)`）。
-   * 外层 `Index` 的 `Navigation(HOST_NAV)` 只是宿主，不持有本页的栈——
-   * 一个 NavPathStack 只能被一个 Navigation 持有，抢绑的后果是向导链盖住 dock。
+   * 五格同构（有据形态）：格内自带 `HdsNavigation` + `titleBar`。
+   * 2026-11-11 二级页全屏化：这条内层 Navigation 只承载标题栏，不再解析子页——
+   * 向导链一律 push 到外层 `Index` 的 `Navigation(HOST_NAV)`（pushStack 字段），
+   * 全屏盖住 dock，不显示页签栏、不随页签横滑。
    */
   build() {
     HdsNavigation(this.pathStack) {
@@ -438,6 +444,12 @@ export struct YoujingStartPage {
   scrollBody() {
     Scroll(this.barScroller) {
       Column() {
+        // 整组内容贴底（2026-11-11 用户裁决）：顶部只留系统标题栏「规划」，
+        // 「下一趟，去哪儿？」页题也随内容一起沉到内容区底部。Blank 吃掉全部余量；
+        // 内容超过一屏时它自动归零，不会把下面的卡推出滚动区（minHeight 100% 见链尾）。
+        Blank()
+          .layoutWeight(1)
+
         // ① 页题（2026-11-08 重构）：这一页是「出发页」，页题要**提出问题**而不是报栏目名。
         //    第二行落品牌蓝——整页唯一的高饱和文字，把视线钉在「去哪儿」上。
         Text() {
@@ -573,7 +585,7 @@ export struct YoujingStartPage {
           .margin({ top: SpaceTokens.sm })
           .accessibilityText('打开最近一趟行程')
           .onClick((): void => {
-            this.pathStack.pushPath({ name: 'Itinerary', param: this.recentId });
+            this.pushStack.pushPath({ name: 'Itinerary', param: this.recentId });
           })
         }
 
@@ -621,6 +633,9 @@ export struct YoujingStartPage {
       }
       .width('100%')
       .alignItems(HorizontalAlign.Start)
+      // 撑满内容区但不锁死：内容不足一屏时 Blank 把下半块压到底部，
+      // 超过一屏时这里仍按内容自然高度走、Scroll 照常滚（写 height('100%') 会裁掉溢出）
+      .constraintSize({ minHeight: '100%' })
       // 左右内缩走对称内缩而不是 maxWidth：卡片子级全是 width('100%')，
       // 给父 Column 加 constraintSize.maxWidth 只会左贴边、右侧空出一条（实测更坏）。
       // 折叠屏展开（窗口 707vp）时预览卡原本通铺 642vp、三行节点右侧 55% 全白。

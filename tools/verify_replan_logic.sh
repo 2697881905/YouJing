@@ -22,6 +22,7 @@ copy entry/src/main/ets/utils/DayLoad.ets utils/DayLoad.ts
 copy entry/src/main/ets/utils/DurationCn.ets utils/DurationCn.ts
 copy entry/src/main/ets/utils/GeofencePlan.ets utils/GeofencePlan.ts
 copy entry/src/main/ets/utils/ReminderPlan.ets utils/ReminderPlan.ts
+copy entry/src/main/ets/utils/ReminderFailure.ets utils/ReminderFailure.ts
 copy entry/src/main/ets/common/error/AppError.ets common/error/AppError.ts
 copy entry/src/main/ets/common/error/ErrorCode.ets common/error/ErrorCode.ts
 copy entry/src/main/ets/ai/TripSchema.ets ai/TripSchema.ts

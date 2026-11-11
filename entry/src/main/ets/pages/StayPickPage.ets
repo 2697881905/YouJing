@@ -12,7 +12,7 @@
  */
 
 import { DurationCn } from '../utils/DurationCn';
-import { APP_NAV, markDraftDirty } from '../common/constants/AppNav';
+import { HOST_NAV, markDraftDirty } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
@@ -59,7 +59,8 @@ export struct StayPickPage {
   /** 断点（唯一来源 utils/breakpointCenter.ets）：宽屏下列表并成多栏，不再被整屏拉宽 */
   @StorageProp(KEY_CURRENT_BREAKPOINT) bp: string = 'sm';
 
-  private pathStack: NavPathStack = APP_NAV;
+  // 二级页全屏化（2026-11-11）：本页固定落宿主栈，push Generating 同栈
+  private pathStack: NavPathStack = HOST_NAV;
   /** 顶栏磨砂两态：由**绝对**滚动偏移驱动（每帧增量会被松手回弹的负帧打灭，契约 §Translucency） */
   @State private barScrolled: boolean = false;
   private barScroller: Scroller = new Scroller();
@@ -612,9 +613,9 @@ export struct StayPickPage {
           .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
           .cachedCount(4)
           .alignListItem(ListItemAlign.Start)
-          // 滚动预留跟着钉底条抬高的一档补回来
+          // 滚动预留只补吸底 CTA 条本体（2026-11-11 二级页全屏化后 dock 净空作废）
           .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
-            bottom: LayoutTokens.stickyBarScrollReserve + LayoutTokens.floatingDockClearance })
+            bottom: LayoutTokens.stickyBarScrollReserve })
           // 穿底让位（2026-11-08 对标有据）：让位从外层 padding 移到 contentStartOffset，
           // 只挪首屏起点；滚动后内容才穿得到标题栏下被材质糊掉。
           .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight))
@@ -658,8 +659,10 @@ export struct StayPickPage {
             }
           }
           .width('100%')
+          // 吸底 CTA 条原来只留 lg=16，后来让出 dock 净空 112；2026-11-11 二级页全屏化
+          // 后 dock 作废，按契约「CTA 距底 ≥16」留一档呼吸
           .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.sm,
-            bottom: LayoutTokens.floatingDockClearance })
+            bottom: SpaceTokens.base })
           .backgroundColor(ColorTokens.canvas)
         }
       }

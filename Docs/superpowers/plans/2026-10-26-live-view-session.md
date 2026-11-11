@@ -1,5 +1,8 @@
 # 旅行中实况窗会话（P1）实施计划
 
+> **状态：已关闭（2026-11-09）。** AGC 驳回：旅行/景区到站不在实况窗开放场景内；
+> 本计划不再执行。结论与替代路径见 `Docs/实况窗方案.md` §0。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 在「旅行中」页手动开启一个 PROGRESS 实况窗，锁屏/通知中心显示当日行程进度、当前站与下一站；下一站可跳过时给出「前往下一站 / 不去」两个按钮，点击只拉起 App，并在 App 内复用 Plan A 的跳过/重排用例。

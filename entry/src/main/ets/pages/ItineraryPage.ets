@@ -1508,8 +1508,11 @@ export struct ItineraryPage {
           // 2026-11-10 用户拍板撤吸顶（有意偏离底稿「吸顶日标题」）：三行组头钉住后
           // 底缘硬边把滚过的行字拦腰切断；Day 分段栏常驻已足够指示当前日
           .cachedCount(6)
-          .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
-            bottom: LayoutTokens.floatingDockClearance })
+          // 底部让位（2026-11-11 用户报「行程页底部会被截断」→ 复核令「不要与屏幕底部留出
+          // 空隙」）：无 padding 时最大滚动位最后一站的理由卡被视口底切约 20vp；取 lg(24)
+          // 刚好盖住切量、肉眼近乎贴底——xl(32) 真机实测空白带过于显眼，被用户否掉。
+          // 父容器已是 layoutWeight(1)，padding 会正确落在视口底（TripsPage §5ci 续 79 同教训）
+          .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.lg })
           // 穿底让位（2026-11-08 二次修正）：原先写 `.padding({ top })`，注释说"留白随内容
           // 滚走"——这是错的。padding 是**滚动容器自己的**属性，压的是视口，内容永远到不了
           // 标题栏那 175px，滚动时在栏底被硬切、上面留一片白。

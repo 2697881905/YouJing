@@ -318,8 +318,7 @@ export struct BadgePage {
           .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
           .sticky(StickyStyle.Header)
           .cachedCount(6)
-          .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
-            bottom: LayoutTokens.floatingDockClearance })
+          .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
           // 穿底让位（2026-11-08 对标有据）：让位从 padding 移到 contentStartOffset，
           // 只挪首屏起点；滚动后内容才穿得到标题栏下被材质糊掉（padding 压的是视口）。
           .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight))

@@ -199,7 +199,9 @@ router.post('/generate', idempotencyMiddleware, async (req, res, next) => {
           // 订阅快照必须回传（D9）：端侧此前只能把旧 subscription 原样结转，
           // 到期/退款后要等缓存自然失效，UI 会继续说"订阅有效"。
           subscription: entitlement.subscription,
-          dailyCap: entitlement.dailyCap
+          dailyCap: entitlement.dailyCap,
+          // 管理员账号（ADMIN_ACCOUNT_IDS）回传，端侧据此跳过生成门禁
+          unlimited: entitlement.unlimited === true
         }
       };
       const responseJson = JSON.stringify(responseBody);

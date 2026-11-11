@@ -207,10 +207,7 @@ export struct SettingsPage {
         .width('100%')
         .layoutWeight(1)
         .scrollBar(BarState.Off)
-        .padding({
-          left: SpaceTokens.base, right: SpaceTokens.base,
-          bottom: LayoutTokens.floatingDockClearance
-        })
+        .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
         // 穿底让位只挪首屏起点，滚动后内容照常穿到栏下被糊掉
         .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight))
         .onDidScroll((): void => {

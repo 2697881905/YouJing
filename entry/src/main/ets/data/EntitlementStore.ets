@@ -9,6 +9,8 @@
  * - **例外**：`ApiConfig.DEV_SKIP_BFF` 为真时整套门禁放开（开发机本地开关，仓库版恒 false）。
  *   没这条例外，BFF 未部署（`BFF_BASE_URL` 空串 → 永不写入缓存）会让
  *   `canGenerate()` 恒 false，点「生成行程」直接跳付费页，主路径整条死掉。
+ * - **管理员**：BFF 的 `ADMIN_ACCOUNT_IDS` 命中时权益带 `unlimited: true`，
+ *   `canGenerate()` 直接放行（本机反复生成不被额度窗口拦住）；导出付费墙不受影响。
  */
 
 import { preferences } from '@kit.ArkData';
@@ -41,6 +43,8 @@ export interface Entitlement {
   giftRemaining: number;
   usedToday: number;
   dailyCap: number;
+  /** BFF 管理员白名单命中时为 true；旧版缓存/旧版 BFF 无此字段。 */
+  unlimited?: boolean;
 }
 
 /** BFF `quota` 快照里端侧会消费的字段（其余如 source 只用于日志）。 */
@@ -50,6 +54,7 @@ export interface QuotaSnapshot {
   giftRemaining?: number;
   remainingToday?: number;
   dailyCap?: number;
+  unlimited?: boolean;
 }
 
 /**
@@ -68,7 +73,9 @@ export function mergeQuotaSnapshot(current: Entitlement, quota: QuotaSnapshot): 
     passes: quota.passes !== undefined ? quota.passes : current.passes,
     giftRemaining: quota.giftRemaining !== undefined ? quota.giftRemaining : current.giftRemaining,
     usedToday: quota.remainingToday !== undefined ? quota.remainingToday : current.usedToday,
-    dailyCap: quota.dailyCap !== undefined ? quota.dailyCap : current.dailyCap
+    dailyCap: quota.dailyCap !== undefined ? quota.dailyCap : current.dailyCap,
+    // 只由服务端授予：旧版 BFF 不回传时沿用本地值，不回传不等于撤销管理员
+    unlimited: quota.unlimited !== undefined ? quota.unlimited : current.unlimited === true
   };
   return merged;
 }
@@ -79,7 +86,8 @@ function emptyEntitlement(): Entitlement {
     passes: [],
     giftRemaining: 0,
     usedToday: 0,
-    dailyCap: 0
+    dailyCap: 0,
+    unlimited: false
   };
 }
 
@@ -171,6 +179,10 @@ export class EntitlementStore {
 
   static canGenerate(tripId?: string): boolean {
     if (EntitlementStore.devBypass()) {
+      return true;
+    }
+    // 管理员账号：服务端只对白名单下发 unlimited，端侧不再按额度窗口预拦
+    if (EntitlementStore.cached.unlimited === true) {
       return true;
     }
     if (!EntitlementStore.isCacheValid()) {

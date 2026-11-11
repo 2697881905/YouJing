@@ -7,16 +7,21 @@
  * `stackOfTab(index)`。这类缺陷在真机上一屏一屏拍是拍不出"按钮画得好好的但失灵"的，
  * 而映射本身是纯的：给一个页签序号，必须拿到那条**唯一**的栈。
  *
+ * 2026-11-11 二级页全屏化后映射改了形状：**所有子页一律落宿主栈 HOST_NAV**
+ * （全屏盖住 dock，不显示页签栏、不随 HdsTabs 左右滑切页）；页签栈只承载五个根页。
+ * 所以"最值钱的断言"从「tabOfRoute 与 stackOfRoute 同栈」改成
+ * 「stackOfRoute 恒等 HOST_NAV」——万一有人把子页推回某条页签栈，
+ * 它就会渲染在 TabContent 里，dock 与横滑切页跟着回来。
+ *
  * 四格改五格之后，这个文件还多担一件事：**页签序号重排**
  * （地图0/行程1/规划2/费用3/我的4）。错位不会崩，只会让某个根页的
  * `isTabShownTick` 永远对不上而静默不刷新，或让深链把页面 push 进不可见的栈。
- * 所以下面三条穷举断言是这类"静默错位"唯一的程序化闸门 —— 真机逐格拍是拍不出
- * "数据没刷新"和"上一份数据长得一模一样"的区别的。
+ * 所以下面几条穷举断言是这类"静默错位"唯一的程序化闸门。
  */
 
 import { describe, it, expect, TestType, Size, Level } from '@ohos/hypium';
 import {
-  APP_NAV, MAP_NAV, EXPENSE_NAV, TRIPS_NAV, PROFILE_NAV,
+  APP_NAV, MAP_NAV, EXPENSE_NAV, TRIPS_NAV, PROFILE_NAV, HOST_NAV,
   stackOfTab, stackOfRoute, tabOfRoute, isTabRoot,
   TAB_MAP, TAB_ITINERARY, TAB_PLAN, TAB_EXPENSE, TAB_MINE
 } from '../../../main/ets/common/constants/AppNav';
@@ -72,18 +77,17 @@ export default function navStackTest(): void {
         }
       });
 
-    it('route_tab_and_stack_never_disagree', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
+    it('secondary_routes_all_land_on_host_stack', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
       /**
-       * 核心不变量：`tabOfRoute(n)` 给出的页签，它的栈必须就是 `stackOfRoute(n)`。
+       * 核心不变量（2026-11-11 二级页全屏化）：**所有路由落点都是宿主栈 HOST_NAV**。
        *
-       * `EntryAbility.routeTo` 先用前者决定切到哪、再用后者决定 push 到哪。
-       * 两条分支一旦不同步，深链就会把页面推进**当前不可见**的那条栈 ——
-       * 冷启白屏、点了没反应，且不报错。这是本文件最值钱的断言。
+       * `EntryAbility.routeTo` 先用 `tabOfRoute` 决定底下切到哪个页签、
+       * 再把子页 push 到 `stackOfRoute` 给的栈。子页一旦落回某条页签栈，
+       * 就会渲染进 TabContent——dock 页签栏与 HdsTabs 左右滑切页跟着回来，
+       * 正是用户报的"二级页面能滑走切页、还显示底部 TabBar"。穷举拦住它。
        */
       ROUTE_NAMES.forEach((n: string) => {
-        const viaTab: NavPathStack = stackOfTab(tabOfRoute(n));
-        const viaRoute: NavPathStack = stackOfRoute(n);
-        expect(viaTab === viaRoute).assertTrue();
+        expect(stackOfRoute(n) === HOST_NAV).assertTrue();
       });
     });
 
@@ -93,16 +97,16 @@ export default function navStackTest(): void {
     });
 
     it('route_lands_on_the_tab_that_owns_it', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL1, () => {
-      // 深链进来要先切到归属页签，否则 push 落在当前页签的栈上、用户看不到落点
+      // 深链进来要先切到归属页签（宿主栈盖住的是这个页签的根页），否则 pop 回来时
+      // 用户看到的是另一个页签，位置感就断了
       expect(tabOfRoute('Map')).assertEqual(TAB_MAP);
       expect(tabOfRoute('Expense')).assertEqual(TAB_EXPENSE);
       // 「行程」列表从旧的「我的」页签搬走了，这条断言就是那次搬家留下的锚
       expect(tabOfRoute('Trips')).assertEqual(TAB_ITINERARY);
       expect(tabOfRoute('Badges')).assertEqual(TAB_MINE);
-      // 设置页从「我的」右上角齿轮进，深链也必须落回 PROFILE_NAV / 我的格
+      // 设置页从「我的」右上角齿轮进，深链也必须落回我的格
       expect(tabOfRoute('Settings')).assertEqual(TAB_MINE);
-      expect(stackOfRoute('Settings') === PROFILE_NAV).assertTrue();
-      // 规划链与它的产物都归规划 tab（栈是 APP_NAV）
+      // 规划链与它的产物都归规划 tab
       expect(tabOfRoute('TripInput')).assertEqual(TAB_PLAN);
       expect(tabOfRoute('Itinerary')).assertEqual(TAB_PLAN);
     });

@@ -72,3 +72,41 @@ test('本月用满 20 次后订阅档不再放行', () => {
   assert.notEqual(determineQuotaSource(db, id, null), 'subscription');
   assert.equal(determineQuotaSource(db, id, null), 'gift');
 });
+
+/**
+ * 管理员白名单（本机测试）：`ADMIN_ACCOUNT_IDS` 命中的账号不受额度窗口限制。
+ * 白名单只在环境变量里，未设置即关闭——这条测试同时盯「命中放行」与「未命中照旧」。
+ */
+test('ADMIN_ACCOUNT_IDS 命中时无额度也放行，且不下发伪造的赠送额度', () => {
+  const adminId = 9001;
+  db.prepare('INSERT INTO account (id, union_id, device_id) VALUES (?, ?, ?)')
+    .run(adminId, 'u-admin', 'dev-admin');
+  // 无订阅、无通行证、赠送额度已耗尽，并已在本月用满 20 次
+  db.prepare(
+    `INSERT INTO quota_ledger (account_id, delta, source, state, idempotency_key)
+     VALUES (?, -3, 'gift', 'committed', 'admin-gift-drained')`
+  ).run(adminId);
+  for (let i = 0; i < 25; i += 1) {
+    succeeded(adminId, "datetime('now')");
+  }
+
+  const previous = process.env.ADMIN_ACCOUNT_IDS;
+  process.env.ADMIN_ACCOUNT_IDS = '9001';
+  try {
+    const ent = getEntitlement(db, adminId);
+    assert.equal(ent.unlimited, true);
+    assert.equal(ent.giftRemaining, 0, '仍返回真实赠送额度，不靠伪造数字绕端侧门禁');
+    assert.equal(determineQuotaSource(db, adminId, null), 'admin');
+
+    // 白名单外的账号行为不变：仍走原有订阅/通行证/赠送判定
+    const normalId = account('u-not-admin');
+    assert.equal(getEntitlement(db, normalId).unlimited, false);
+    assert.equal(determineQuotaSource(db, normalId, null), 'gift');
+  } finally {
+    if (previous === undefined) {
+      delete process.env.ADMIN_ACCOUNT_IDS;
+    } else {
+      process.env.ADMIN_ACCOUNT_IDS = previous;
+    }
+  }
+});

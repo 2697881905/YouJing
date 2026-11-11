@@ -1,9 +1,7 @@
 import {
-  AbilityConstant, abilityAccessCtrl, Configuration, ConfigurationConstant, Permissions, skillManager, UIAbility, Want,
-  wantAgent, WantAgent
+  AbilityConstant, abilityAccessCtrl, Configuration, ConfigurationConstant, Permissions, skillManager, UIAbility, Want
 } from '@kit.AbilityKit';
 import { geoLocationManager } from '@kit.LocationKit';
-import { liveViewManager } from '@kit.LiveViewKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { display, window } from '@kit.ArkUI';
 import { resourceManager } from '@kit.LocalizationKit';
@@ -22,7 +20,7 @@ import { BuildConfig } from '../common/constants/BuildConfig';
 import { BudgetConfig } from '../common/constants/BudgetConfig';
 import { WidgetSync } from '../widget/TodayCard';
 import { TopStrip } from '../utils/TopStrip';
-import { initNavModeWatcher, refreshNavMode, publishNavAvoid } from '../utils/navMode';
+import { initNavModeWatcher, refreshNavMode, publishNavAvoid, isThreeButtonNav } from '../utils/navMode';
 import { setSystemBarRefresher } from '../utils/systemBar';
 import { TripReminder } from '../data/TripReminder';
 import { DeviceActivator } from '../data/DeviceActivator';
@@ -36,6 +34,16 @@ import { Spot } from '../model/Spot';
 import { Area } from '../model/Area';
 import { Activity, ActivityCategory, ActivityStatus, IntensityLevel, MealType, Trip, TripDay } from '../model/Trip';
 import { ArrivalNotice } from '../common/location/ArrivalNotice';
+import { ArrivalWatcher } from '../common/location/ArrivalWatcher';
+import { Geo, GeoPoint } from '../utils/Geo';
+
+interface CoordDistance {
+  id: string;
+  name: string;
+  d: number;
+  latitude: number;
+  longitude: number;
+}
 
 export default class EntryAbility extends UIAbility {
   private pendingRoute: string = '';
@@ -61,11 +69,86 @@ export default class EntryAbility extends UIAbility {
     this.applyWant(want);
     this.maybeReminderProbe(want);
     this.maybeGeofenceProbe(want);
-    this.maybeLiveProbe(want);
     this.maybeGenProbe(want);
     this.maybeArrivalProbe(want);
     this.maybeReminderSyncProbe(want);
     this.maybePickProbe(want);
+    this.maybeCoordProbe(want);
+  }
+
+  /**
+   * 杨凌坐标校准探针：`--ps coordprobe 1`
+   * 站在景点里读一次 GPS，打印最近 3 个种子站与距离，用来回填 DataSeeder 坐标。
+   */
+  private maybeCoordProbe(want: Want): void {
+    if (!BuildConfig.IS_DEBUG) {
+      return;
+    }
+    const params: Record<string, Object> | undefined = want.parameters;
+    if (params === undefined || EntryAbility.wantString(params, 'coordprobe') !== '1') {
+      return;
+    }
+    this.runCoordProbe().catch((err: Error) => {
+      Logger.error('Probe.Coord', `坐标探针失败: ${err.message}`);
+    });
+  }
+
+  private async runCoordProbe(): Promise<void> {
+    const tag: string = 'Probe.Coord';
+    if (!canIUse('SystemCapability.Location.Location.Core')) {
+      Logger.warn(tag, '本设备无定位能力');
+      return;
+    }
+    try {
+      if (!geoLocationManager.isLocationEnabled()) {
+        Logger.warn(tag, '系统定位总开关关闭');
+        return;
+      }
+    } catch (err) {
+      Logger.warn(tag, `定位开关读取失败: ${(err as Error).message}`);
+      return;
+    }
+    if (!await ArrivalWatcher.ensurePermission(this.context)) {
+      Logger.warn(tag, '定位权限未授予');
+      return;
+    }
+    const spots: Spot[] = await PlanRepository.loadSpots(this.context, '杨凌');
+    if (spots.length === 0) {
+      Logger.warn(tag, '杨凌景点库为空');
+      return;
+    }
+    const request: geoLocationManager.CurrentLocationRequest = {
+      priority: geoLocationManager.LocationRequestPriority.ACCURACY,
+      scenario: geoLocationManager.LocationRequestScenario.DAILY_LIFE_SERVICE,
+      maxAccuracy: 100,
+      timeoutMs: 12000
+    };
+    try {
+      const loc: geoLocationManager.Location =
+        await geoLocationManager.getCurrentLocation(request);
+      Logger.info(tag, `fix lat=${loc.latitude.toFixed(6)} lng=${loc.longitude.toFixed(6)} ` +
+        `acc=${loc.accuracy.toFixed(0)}m`);
+      const origin: GeoPoint = { latitude: loc.latitude, longitude: loc.longitude };
+      const ranked: CoordDistance[] = spots.map((s: Spot): CoordDistance => {
+        const target: GeoPoint = { latitude: s.latitude, longitude: s.longitude };
+        return {
+          id: s.id, name: s.name, d: Geo.distanceM(origin, target),
+          latitude: s.latitude, longitude: s.longitude
+        };
+      }).sort((a: CoordDistance, b: CoordDistance): number => a.d - b.d);
+      const top: number = Math.min(3, ranked.length);
+      for (let i = 0; i < top; i++) {
+        const r: CoordDistance = ranked[i];
+        Logger.info(tag, `#${i + 1} ${r.name} 距离=${r.d.toFixed(0)}m ` +
+          `seed=${r.latitude},${r.longitude}`);
+      }
+      if (ranked[0].d <= Geo.ARRIVAL_RADIUS_M) {
+        Logger.info(tag, `最近站已在 ${Geo.ARRIVAL_RADIUS_M}m 内：${ranked[0].name}`);
+      }
+    } catch (err) {
+      const be: BusinessError = err as BusinessError;
+      Logger.error(tag, `定位失败 code=${be.code} msg=${be.message}`);
+    }
   }
 
   /**
@@ -274,82 +357,6 @@ export default class EntryAbility extends UIAbility {
       `totalCost=${trip.overview.totalCost} ms=${Date.now() - started}`);
     for (const day of trip.days) {
       Logger.info(tag, `D${day.dayIndex} ${day.date} 活动=${day.activities.length} 餐=${day.meals.length}`);
-    }
-  }
-
-  /** P5 实况窗探针：`--ps liveprobe 1` 只查「围栏触发式实况窗」开关，不创建实况窗 */
-  private maybeLiveProbe(want: Want): void {
-    if (!BuildConfig.IS_DEBUG) {
-      return;
-    }
-    const params: Record<string, Object> | undefined = want.parameters;
-    if (params === undefined || EntryAbility.wantString(params, 'liveprobe') !== '1') {
-      return;
-    }
-    this.runLiveProbe();
-  }
-
-  private async runLiveProbe(): Promise<void> {
-    const tag: string = 'Probe.LiveView';
-    try {
-      const enabled: boolean = await liveViewManager.isGeofenceTriggerEnabled();
-      Logger.info(tag, `isGeofenceTriggerEnabled=${enabled}`);
-    } catch (err) {
-      const be: BusinessError = err as BusinessError;
-      Logger.error(tag, `查询失败 code=${be.code} msg=${be.message}`);
-      return;
-    }
-    let clickAction: WantAgent;
-    try {
-      const info: wantAgent.WantAgentInfo = {
-        wants: [{ bundleName: 'com.youjing.app', abilityName: 'EntryAbility' }],
-        actionType: wantAgent.OperationType.START_ABILITY,
-        requestCode: 1,
-        actionFlags: [wantAgent.WantAgentFlags.UPDATE_PRESENT_FLAG]
-      };
-      clickAction = await wantAgent.getWantAgent(info);
-    } catch (err) {
-      const be: BusinessError = err as BusinessError;
-      Logger.error(tag, `clickAction 创建失败 code=${be.code} msg=${be.message}`);
-      return;
-    }
-    const layout: liveViewManager.PickupLayout = {
-      layoutType: liveViewManager.LayoutType.LAYOUT_TYPE_PICKUP,
-      title: '下一站',
-      content: '博览园 · 可以打卡了',
-      descPic: 'liveview_pickup.png'
-    };
-    const live: liveViewManager.LiveView = {
-      id: 20261109,
-      event: 'CHECK_IN',
-      liveViewData: {
-        primary: {
-          title: '有径 · 到站提醒',
-          content: [{ text: '已到博览园，可以打卡了' }],
-          clickAction: clickAction,
-          layoutData: layout
-        }
-      }
-    };
-    const trigger: liveViewManager.Trigger = {
-      type: liveViewManager.TriggerType.TRIGGER_TYPE_GEOFENCE,
-      condition: {
-        coordinateSystemType: liveViewManager.CoordinateSystemType.COORDINATE_TYPE_GCJ02,
-        longitude: 108.0700,
-        latitude: 34.2680,
-        radius: 200,
-        monitorEvent: liveViewManager.MonitorEvent.MONITOR_TYPE_ENTRY,
-        delayTime: 0
-      },
-      displayTime: 900
-    };
-    try {
-      const result: liveViewManager.LiveViewResult =
-        await liveViewManager.startLiveViewByTrigger(live, trigger);
-      Logger.info(tag, `startLiveViewByTrigger 成功 ${JSON.stringify(result)}`);
-    } catch (err) {
-      const be: BusinessError = err as BusinessError;
-      Logger.error(tag, `startLiveViewByTrigger 失败 code=${be.code} msg=${be.message}`);
     }
   }
 
@@ -631,9 +638,40 @@ export default class EntryAbility extends UIAbility {
       return win.setWindowLayoutFullScreen(true);
     }).then((): void => {
       this.applySystemBarSurface();
+      this.applyNavigationBarPolicy();
       Logger.info('EntryAbility', '窗口已铺满物理屏（layoutFullScreen）');
     }).catch((err: Error): void => {
       Logger.warn('EntryAbility', `全屏布局未生效，按非全屏继续: ${err.message}`);
+    });
+  }
+
+  /**
+   * 底部导航条显隐策略（2026-11-11 用户令「删掉底部小白栏」）：窗口已铺满物理屏后，
+   * 手势指示条是底部唯一一块非应用画的 chrome，隐藏后内容真正贴到物理屏底。
+   * 两层 API 各管一件事（真机实证）：
+   *  - `setWindowSystemBarEnable(['status'])` 只控**三键导航栏**（SDK 注释明说 three-button），
+   *    对手势胶囊条无效——留着是给三键用户兜底；
+   *  - 手势条要 `setSpecificSystemBarEnabled('navigationIndicator', false)`（since 11）。
+   * 三键导航必须保留（藏掉等于砍掉用户唯一导航）。回前台要重设（onForeground）：
+   * 后台期间系统可能把导航条带回来，与 applySystemBarSurface 同一动机。
+   * 上滑返回桌面是系统边缘手势，不依赖指示条显示，隐藏后照常可用。
+   */
+  private applyNavigationBarPolicy(): void {
+    const win: window.Window | null = this.mainWin;
+    if (win === null) {
+      return;
+    }
+    if (isThreeButtonNav()) {
+      win.setWindowSystemBarEnable(['status', 'navigation']).catch((err: Error): void => {
+        Logger.warn('EntryAbility', `恢复三键导航栏失败: ${err.message}`);
+      });
+      return;
+    }
+    win.setWindowSystemBarEnable(['status']).catch((err: Error): void => {
+      Logger.warn('EntryAbility', `设置系统栏显隐失败: ${err.message}`);
+    });
+    win.setSpecificSystemBarEnabled('navigationIndicator', false).catch((err: Error): void => {
+      Logger.warn('EntryAbility', `隐藏手势指示条失败: ${err.message}`);
     });
   }
 
@@ -755,6 +793,8 @@ export default class EntryAbility extends UIAbility {
     this.applySystemBarSurface();
     // 后台期间切换导航方式不会派发 avoidAreaChange，回前台必须重算一次
     refreshNavMode(this.context);
+    // 导航条显隐最后设：要用 refreshNavMode 刚重算的导航方式做判定（系统可能带回来）
+    this.applyNavigationBarPolicy();
     this.routePending();
   }
 

@@ -27,6 +27,7 @@ import { BusinessError } from '@kit.BasicServicesKit';
 import { preferences } from '@kit.ArkData';
 import { Trip } from '../model/Trip';
 import { ReminderKind, ReminderPlan, ReminderPlanItem } from '../utils/ReminderPlan';
+import { ReminderFailure, ReminderFailureKind } from '../utils/ReminderFailure';
 import { Logger } from '../common/logger/Logger';
 
 const TAG: string = 'Data.TripReminder';
@@ -87,16 +88,11 @@ export class TripReminder {
         failed++;
         const be: BusinessError = err as BusinessError;
         const message: string = be.message;
-        // 201 = 权限被拒；管控设备上即使声明了 normal 权限也会因 capability 未开通被拒
-        if (be.code === 201 || message.indexOf('agentreminder') >= 0 ||
-          message.indexOf('ungranted capability') >= 0) {
+        const kind: ReminderFailureKind = ReminderFailure.classify(be.code, message, existingCount);
+        if (kind === ReminderFailureKind.CAPABILITY) {
           blockedByCapability = true;
-        } else if (be.code === 1700002) {
-          if (existingCount === 0) {
-            blockedByCapability = true;
-          } else {
-            blockedByLimit = true;
-          }
+        } else if (kind === ReminderFailureKind.LIMIT) {
+          blockedByLimit = true;
         }
         Logger.warn(TAG, `发布失败 ${items[i].kind} ${items[i].title}: code=${be.code} ${message}`);
       }

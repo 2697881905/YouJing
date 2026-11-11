@@ -592,8 +592,7 @@ export struct TripReviewPage {
     .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
     .cachedCount(6)
-    .padding({ left: this.wideInset(), right: this.wideInset(),
-      bottom: LayoutTokens.floatingDockClearance })
+    .padding({ left: this.wideInset(), right: this.wideInset() })
     // 穿底让位（2026-11-08）：原本写在外层 Column 的 padding 上，压的是视口，
     // 内容永远上不到标题栏那 175px，滚到栏底就被硬切。改 contentStartOffset：
     // 只挪首屏起点，滚动后内容照常穿到栏下被材质糊掉（有据 ProfilePage 同一写法）。

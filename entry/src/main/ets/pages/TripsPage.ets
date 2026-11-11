@@ -12,7 +12,7 @@
  * 左滑删除在选择态停用（两套手势不打架）；删除仍走 showAlertDialog 二次确认。
  */
 
-import { TRIPS_NAV, enterPlanningFlow, TAB_SHOWN_KEY, isTabShownTick, TAB_ITINERARY, ACTIVE_TRIP_KEY, activeTripId } from '../common/constants/AppNav';
+import { HOST_NAV, TRIPS_NAV, enterPlanningFlow, TAB_SHOWN_KEY, isTabShownTick, TAB_ITINERARY, ACTIVE_TRIP_KEY, activeTripId } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { MoneyText } from '../utils/MoneyText';
 import { TypeTokens } from '../design/TypeTokens';
@@ -33,7 +33,6 @@ import type { HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import { routerMap } from './AppRouter';
 import { HdsChrome } from '../design/HdsChrome';
 import { openItineraryLongTake } from '../utils/longTake/itineraryNav';
-import { longTakeTransitionHook } from '../utils/longTake/navTransitionHook';
 import { Logger } from '../common/logger/Logger';
 import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
 import { listLanesForBreakpoint } from '../utils/responsive';
@@ -73,8 +72,13 @@ export struct TripsPage {
   /** 断点（唯一来源 utils/breakpointCenter.ets）：宽屏下列表并成多栏，不再被整屏拉宽 */
   @StorageProp(KEY_CURRENT_BREAKPOINT) bp: string = 'sm';
 
-  /** 本页是 TRIPS_NAV 这条 tab 栈的宿主，push 必须落在自己的栈上 */
+  /**
+   * 内层 `HdsNavigation` 的绑定。2026-11-11 二级页全屏化后这条栈不再收任何子页；
+   * ⚠ 绝不能绑 HOST_NAV——会把 Index 外层宿主的绑定抢走，二级页就渲染不出来。
+   */
   private pathStack: NavPathStack = TRIPS_NAV;
+  /** push 统一走宿主栈：二级页（OnTrip/Review/Itinerary）全屏盖住 dock，宿主 Navigation 在 Index */
+  private pushStack: NavPathStack = HOST_NAV;
   /** dock 切回这一页时重取列表：新建/删除行程后切回来不再看到旧那份 */
   @StorageProp(TAB_SHOWN_KEY) @Watch('onDockShown') dockTick: string = '';
 
@@ -212,12 +216,12 @@ export struct TripsPage {
       return;
     }
     if (t.onTrip) {
-      this.pathStack.pushPath({ name: 'OnTrip', param: t.id });
+      this.pushStack.pushPath({ name: 'OnTrip', param: t.id });
     } else if (t.reviewable) {
-      this.pathStack.pushPath({ name: 'Review', param: t.id });
+      this.pushStack.pushPath({ name: 'Review', param: t.id });
     } else {
       // 一镜到底：量卡片帧 + 截图后推详情；量不到帧也直推（点击绝不吞）
-      openItineraryLongTake(this.getUIContext(), this.pathStack, t.id,
+      openItineraryLongTake(this.getUIContext(), this.pushStack, t.id,
         'trip-card-' + t.id, RadiusTokens.card);
     }
   }
@@ -645,7 +649,7 @@ export struct TripsPage {
       Pressable({
         fillWidth: true,
         action: (): void => {
-          this.pathStack.pushPath({ name: 'Review', param: this.anniversaryId });
+          this.pushStack.pushPath({ name: 'Review', param: this.anniversaryId });
         }
       }) {
         Row({ space: SpaceTokens.sm }) {
@@ -941,8 +945,8 @@ export struct TripsPage {
       .clip(false)
       .titleMode(HdsNavigationTitleMode.MINI)
       .hideBackButton(true)
-      // 一镜到底挂钩必须挂在**持有该栈的这层**（有径每格自带 HdsNavigation）
-      .customNavContentTransition(longTakeTransitionHook)
+      // 一镜到底挂钩 2026-11-11 移到 Index 的外层 Navigation（Itinerary 改落宿主栈，
+      // 转场回调必须挂在持有该栈的那层；这条内层的已等不到任何 push，摘除）。
       .titleBar(this.titleBar())
       .navDestination(routerMap)
       .mode(NavigationMode.Stack)

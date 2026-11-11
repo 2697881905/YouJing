@@ -9,7 +9,7 @@
  * 不编「到首个景点」「日均通勤」「房源数」——本项目没有路径规划与住宿库存。
  */
 
-import { APP_NAV } from '../common/constants/AppNav';
+import { HOST_NAV } from '../common/constants/AppNav';
 import { PlanRepository } from '../data/PlanRepository';
 import { Area, AreaGroup, AreaPriceTier } from '../model/Area';
 import { Logger } from '../common/logger/Logger';
@@ -40,7 +40,8 @@ export struct AreaMorePage {
   /** 断点（唯一来源 utils/breakpointCenter.ets）：宽屏下列表并成多栏，不再被整屏拉宽 */
   @StorageProp(KEY_CURRENT_BREAKPOINT) bp: string = 'sm';
 
-  private pathStack: NavPathStack = APP_NAV;
+  // 二级页全屏化（2026-11-11）：本页固定落宿主栈，pop 才弹得回
+  private pathStack: NavPathStack = HOST_NAV;
   @Prop city: string = '';
   @State private areas: Area[] = [];
   @State private keyword: string = '';
@@ -281,10 +282,9 @@ export struct AreaMorePage {
           .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
           .sticky(StickyStyle.Header)
           .cachedCount(6)
-          // 真机实拍（§5o）：这一屏最后一片区域整行压在浮动 dock 底下，
-          // dock 是覆盖层，滚动容器不给净空就会被盖住——四个 tab 下的页面里只有这屏漏了
-          .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
-            bottom: LayoutTokens.floatingDockClearance })
+          // 真机实拍（§5o）的 dock 净空已随 2026-11-11 二级页全屏化作废：本页落宿主栈、
+          // 全屏无 dock，滚动内容直接贴到安全区底
+          .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
           // 穿底让位（2026-11-08 对标有据）：让位从 padding 移到 contentStartOffset，
           // 只挪首屏起点；滚动后内容才穿得到标题栏下被材质糊掉（padding 压的是视口）。
           .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight, 56))

@@ -637,7 +637,6 @@ export struct EditItineraryPage {
     }
     .width('100%')
     .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.xs })
-    .margin({ bottom: LayoutTokens.floatingDockClearance })
   }
 
   /** 官方标题栏：补选景点走 content.menu；完成/撤销已下到底部操作条，不再两处各一份 */
@@ -706,8 +705,7 @@ export struct EditItineraryPage {
           .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
           .layoutWeight(1)
           .scrollBar(BarState.Off)
-          .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
-            bottom: LayoutTokens.floatingDockClearance })
+          .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
           // 穿底让位（2026-11-08 对标有据）：让位从外层 padding 移到 contentStartOffset，
           // 只挪首屏起点；滚动后内容才穿得到标题栏下被材质糊掉。
           .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight))

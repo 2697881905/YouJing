@@ -38,6 +38,7 @@ import durationCnTest from './DurationCn.test';
 import navInsetTest from './NavInset.test';
 import legalDocsTest from './LegalDocs.test';
 import routeModeTest from './RouteMode.test';
+import staticMapPlanTest from './StaticMapPlan.test';
 
 export default function testsuite() {
   tripParserTest();
@@ -80,4 +81,5 @@ export default function testsuite() {
   navInsetTest();
   legalDocsTest();
   routeModeTest();
+  staticMapPlanTest();
 }

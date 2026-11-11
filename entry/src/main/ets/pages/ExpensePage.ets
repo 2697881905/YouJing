@@ -1,13 +1,12 @@
 /**
  * 屏11 费用 · 预算对账（帧 1ab099b1）+ 屏11b 超支数据态（帧 70642048）。
- * 同路由双数据态：segment 预算/实际 切换即两帧（稿件分帧只是分别取证）。
- * §7 必改已落：dock padding 10→8、hero-figure margin 6→4、record-btn gap 6→4、segmented padding 2→0。
+ * 2026-11-11 用户裁决：预算/实际不再用分段栏切换，合并进同一张总览卡并行读数，
+ * 分段栏整条删除；分类条随之收敛为单一口径（详见 currentCats / categoryHeaderTitle）。
  * 金额 hero：32/700 走 sans（数字永不 serif，禁令 8）。
  *
  * 数据口径（阶段 10 接真值）：
  * - 预算总额 = trip.budget（屏2 是「每人预算」）× trip.people，与底稿 8,000×2=16,000 一致；
- * - 实际与分类条全部来自 expense 表；模型里没有「分类预算」，故预算视角的百分比按
- *   各分类占预算总额、实际视角按占最大分类，不编造分档预算。
+ * - 实际与分类条全部来自 expense 表；设了分类预算的按各自上限画条，没设的按占最大分类。
  */
 
 import { ACTIVE_TRIP_KEY, EXPENSE_NAV, TAB_SHOWN_KEY, isTabShownTick, activeTripId, enterPlanningFlow, TAB_EXPENSE } from '../common/constants/AppNav';
@@ -17,7 +16,6 @@ import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
-import { ImmersiveSegmentBar, SegmentedItem } from '../components/ImmersiveSegmentBar';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { ExpenseDao } from '../data/ExpenseDao';
 import { TripDao, TripSummary } from '../data/TripDao';
@@ -112,7 +110,11 @@ export struct ExpensePage {
 
   /** 断点（唯一来源 utils/breakpointCenter.ets）：宽屏下列表并成多栏，不再被整屏拉宽 */
 
-  /** 本页是 EXPENSE_NAV 这条 tab 栈的宿主，push 必须落在自己的栈上 */
+  /**
+   * 内层 `HdsNavigation` 的绑定。2026-11-11 二级页全屏化后这条栈不再收任何子页；
+   * ⚠ 绝不能绑 HOST_NAV——会把 Index 外层宿主的绑定抢走，二级页就渲染不出来。
+   * （本页没有任何 push 调用，无需 pushStack。）
+   */
   private pathStack: NavPathStack = EXPENSE_NAV;
   /** dock 切回这一页时重取账目（广播见 AppNav.TAB_SHOWN_KEY，主链复审 P1） */
   @StorageProp(TAB_SHOWN_KEY) @Watch('onDockShown') dockTick: string = '';
@@ -135,7 +137,6 @@ export struct ExpensePage {
    * 而 `saveExpense()`(:230) 在 `trip === null` 时直接 return，点了没有任何反馈。
    */
   @State private noTrip: boolean = false;
-  @State private seg: number = 0;
   @State private budgetTotal: number = 0;
   /** AI 规划的整程预估（overview.totalCost，为 0 时按各天 dailyCost 累加） */
   @State private plannedTotal: number = 0;
@@ -163,7 +164,6 @@ export struct ExpensePage {
   @State private barScrolled: boolean = false;
   private barScroller: Scroller = new Scroller();
   @StorageProp('statusBarHeight') statusBarHeight: number = 0;
-  private segments: SegmentedItem[] = [{ label: '预算' }, { label: '实际' }];
   private trip: Trip | null = null;
   /** 已经因「上下文行程不存在」退回过一次无上下文分支；防异步自循环 */
   private contextRetried: boolean = false;
@@ -281,8 +281,9 @@ export struct ExpensePage {
   }
 
   /**
-   * 预算视角：这一类**设了上限就按自己的上限画条**（超了转 danger），没设才退回"占行程总预算"；
-   * 实际视角仍按占最大分类。同一批真值、三种读法。
+   * 分类条的唯一口径（2026-11-11 预算/实际合并后不再分视角）：
+   * 该类设了上限 ⇒ 条按自己的上限画，超了整行转 danger；
+   * 没设 ⇒ 按占最大分类画（相对花销分布，条才有可读长度）。
    */
   private currentCats(): CategorySpend[] {
     let max: number = 0;
@@ -292,10 +293,9 @@ export struct ExpensePage {
       }
     }
     return this.totals.map((t: CategoryTotal): CategorySpend => {
-      const budget: number = this.seg === 0 ? this.budgetOf(t.category) : 0;
+      const budget: number = this.budgetOf(t.category);
       const over: boolean = budget > 0 && t.amount > budget;
-      const base: number = budget > 0 ? budget :
-        (this.seg === 0 ? Math.max(1, this.budgetTotal) : Math.max(1, max));
+      const base: number = budget > 0 ? budget : Math.max(1, max);
       const c: CategorySpend = {
         name: labelOf(t.category),
         amount: t.amount,
@@ -416,7 +416,7 @@ export struct ExpensePage {
         .layoutWeight(1)
         .accessibilityText(cat.budget > 0
           ? `${cat.name} 已花 ${cat.amount} 元，上限 ${cat.budget} 元`
-          : `${cat.name} 占预算 ${Math.round(cat.pct)}%`)
+          : `${cat.name} 已花 ${cat.amount} 元，占最大分类 ${Math.round(cat.pct)}%`)
 
       Column() {
         Text(yuan(cat.amount))
@@ -660,6 +660,22 @@ export struct ExpensePage {
     return Math.max(0, Math.min(100, Math.round((this.spent / this.budgetTotal) * 100)));
   }
 
+  /**
+   * 总览卡的口径行：人数 · 天数 · 各天预估。
+   * 两个数量是不同的东西：预算=人均×人数（用户给的），各天预估=AI 各天 dailyCost 合计
+   * （真机核过 total_cost 540+540+460=1540）。叫"规划预估"会让人以为整程只花这些，
+   * 按口径直说；预估为 0（没有 AI 数据）时整段省略，不写"预估 ¥0"。
+   */
+  private metaLine(): string {
+    const people: number = this.trip === null ? 0 : this.trip.people;
+    const days: number = this.trip === null ? 0 : this.trip.days.length;
+    let line: string = `${people} 人 · ${days} 天`;
+    if (this.plannedTotal > 0) {
+      line += ` · 各天预估 ${yuan(this.plannedTotal)}`;
+    }
+    return line;
+  }
+
   @Builder
   sectionHeader(title: string) {
     Text(title)
@@ -670,23 +686,18 @@ export struct ExpensePage {
       .padding({ top: SpaceTokens.base, bottom: SpaceTokens.xs })
   }
 
-  /** 分类支出这一组的头：左边标题、右边进「分类预算」工作表 */
   /**
-   * 条形画的是占比，但分母随分段与「是否设过分类预算」变三种（见 currentCats）。
-   * 行内不重复标分母，改由分组头说清当前这一档的分母是什么：
-   * 预算档且没给任何分类预算 ⇒ 占行程总预算；预算档且设了 ⇒ 各自的预算（超了转 danger，
-   * 分组头不再硬说"占行程预算"）；实际档 ⇒ 占最大分类。
+   * 分类支出这一组的头：左边标题、右边进「分类预算」工作表。
+   * 行内不重复标分母，由分组头说清当前口径：设过分类预算 ⇒ 各自上限；
+   * 没设 ⇒ 占最大分类（currentCats 的单一分母）。
    */
   private categoryHeaderTitle(): string {
-    if (this.seg !== 0) {
-      return '分类支出 · 占最大分类';
-    }
     for (const b of this.categoryBudgets) {
       if (b.amount > 0) {
         return '分类支出';
       }
     }
-    return '分类支出 · 占行程预算';
+    return '分类支出 · 占最大分类';
   }
 
   @Builder
@@ -800,24 +811,9 @@ export struct ExpensePage {
       Stack({ alignContent: Alignment.Bottom }) {
       Column() {
 
-        // 分段栏是 itemWidth:164 的定宽控件（2×164=328vp 恰好是 sm 的通栏宽），
-        // 到了 md 内容通栏之后它会贴左、右边空出一条。让 ListItem 居中对齐：
-        // 通栏的子级本身占满，居中不改变它们，只有这枚定宽栏会被摆到中间。
+        // 2026-11-11 预算/实际合并：分段栏删除，总览卡内同时给出「预算」与「已花」。
+        // 账目行做成一列右对齐（label 左、数值右），长金额也不会互相挤。
         List({ scroller: this.barScroller }) {
-          ListItem() {
-            ImmersiveSegmentBar({
-              items: this.segments,
-              selectedIndex: $seg,
-              itemWidth: 164,
-              buttonVerticalPadding: 2.15,
-              // 契约四处玻璃面之一：分段控件轨道走系统材质（handoff §5/§9）。
-              // 本页轨道下有 surfaceElevated 实色背板而非滚动内容，lightContent 保持 false
-              overrideTrackMaterial: true,
-              a11yLabel: '支出维度切换'
-            })
-          }
-          .margin({ bottom: SpaceTokens.base })
-
           ListItem() {
             // hero 面板：永不带影（决议 4）
             Column() {
@@ -831,33 +827,48 @@ export struct ExpensePage {
                   .fontFeature("'tnum' on")
                   .margin({ bottom: SpaceTokens.xxs })
               }
-              Text(this.seg === 0 ?
-                // 两个数量的是不同的东西：预算=人均×人数（用户给的），
-                // 后者=AI 各天 dailyCost 合计（真机核过 total_cost 540+540+460=1540）。
-                // 叫"规划预估"会让人以为整程只花这些，按口径直说
-                `预算 ${yuan(this.budgetTotal)} · 各天预估合计 ${yuan(this.plannedTotal)} · ` +
-                `${this.trip === null ? 0 : this.trip.people} 人 · ` +
-                `${this.trip === null ? 0 : this.trip.days.length} 天` :
-                `实际 ${yuan(this.spent)} · ${this.trip === null ? 0 : this.trip.people} 人 · ` +
-                `${this.trip === null ? 0 : this.trip.days.length} 天`)
-                .fontSize(TypeTokens.overline.size)
-                .fontWeight(600)
-                .fontColor(ColorTokens.muted)
-                .fontFeature("'tnum' on")
-              Row({ space: SpaceTokens.xs }) {
-                Text(yuan(this.spent))
-                  .fontSize(TypeTokens.display.size)
-                  .fontWeight(700)
-                  .fontColor(this.spent > this.budgetTotal ? ColorTokens.danger : ColorTokens.ink)
+              // 预算：参照值，与「已花」同列右对齐，方便上下对比
+              Row() {
+                Text('预算')
+                  .fontSize(TypeTokens.caption.size)
+                  .fontWeight(450)
+                  .fontColor(ColorTokens.muted)
+                  .margin({ bottom: SpaceTokens.xxs })
+                Blank()
+                Text(yuan(this.budgetTotal))
+                  .fontSize(TypeTokens.titleSans.size)
+                  .fontWeight(TypeTokens.titleSans.weight)
+                  .fontColor(ColorTokens.ink)
                   .fontFeature("'tnum' on")
+              }
+              .width('100%')
+              .alignItems(VerticalAlign.Bottom)
+
+              // 已花：主角数字（超支转 danger），与上面预算同列
+              Row() {
                 Text('已花')
                   .fontSize(TypeTokens.caption.size)
                   .fontWeight(450)
                   .fontColor(ColorTokens.muted)
                   .margin({ bottom: SpaceTokens.xxs })
+                Blank()
+                Text(yuan(this.spent))
+                  .fontSize(TypeTokens.display.size)
+                  .fontWeight(700)
+                  .fontColor(this.spent > this.budgetTotal ? ColorTokens.danger : ColorTokens.ink)
+                  .fontFeature("'tnum' on")
               }
+              .width('100%')
               .alignItems(VerticalAlign.Bottom)
               .margin({ top: SpaceTokens.xxs })
+
+              // 人数/天数/各天预估：口径说明，不再重复预算
+              Text(this.metaLine())
+                .fontSize(TypeTokens.caption.size)
+                .fontWeight(450)
+                .fontColor(ColorTokens.muted)
+                .fontFeature("'tnum' on")
+                .margin({ top: SpaceTokens.xs })
 
               // 进度条原来单独一条、无读数：已花 0 时它就是一个灰底空轨，
               // 实拍读起来是「hero 卡里的一条分隔线」（§5.14 同一类）。
@@ -908,7 +919,7 @@ export struct ExpensePage {
               ListItem() {
                 this.categoryRow(cat)
               }
-            }, (cat: CategorySpend): string => `cat-${this.seg}-${cat.name}-${cat.amount}-${cat.pct}`)
+            }, (cat: CategorySpend): string => `cat-${cat.name}-${cat.amount}-${cat.pct}`)
           }
           .divider({ strokeWidth: LayoutTokens.hairlineWidth, color: ColorTokens.separator })
           .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
@@ -998,20 +1009,17 @@ export struct ExpensePage {
           }
           .margin({ top: SpaceTokens.lg })
         }
-        // 这一屏不并栏：List 里装的是「总览 + 预算/实际切换 + 分类条形 + 最近记账 + 钉底记一笔」，
-        // 是一份报告而不是卡片墙。md 实测 lanes(2) 把官方分段栏压成 50..1075（左半屏）、
-        // 「记一笔」主钮压成 50..1105 = 337.6vp 靠左半边——同一屏两套左右边界，
-        // 分段栏也不该被切成半宽。卡片类的屏12/屏4/屏5 才用 lanes，这里保持单栏。
-        // 分段栏是 itemWidth:164 的定宽控件（2×164=328vp 恰好 sm 通栏），
-        // md 下内容通栏后它会贴左、右边空出一条；让 ListItem 居中，
-        // 通栏子级本身占满不受影响，只有这枚定宽栏被摆到中间。
-        .alignListItem(ListItemAlign.Center)
+        // 这一屏不并栏：List 里装的是「预算/已花总览 + 分类条形 + 最近记账 + 钉底记一笔」，
+        // 是一份报告而不是卡片墙。md 实测 lanes(2) 会把「记一笔」主钮压成 50..1105 =
+        // 337.6vp 靠左半边——同一屏两套左右边界。卡片类的屏12/屏4/屏5 才用 lanes。
         .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .cachedCount(6)
-        // 「+ 记一笔」是这条 List 的最后一行，而 dock 是浮在内容上的：
-        // 通用 94 比 dock 实占的 112 少 18vp，滚到底按钮下沿仍藏在 dock 底下
-        .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: LayoutTokens.floatingDockClearance })
+        // 末行让位只对根页成立：根页底下有悬浮 dock（通用 94 比实占 112 少 18vp 的
+        // 教训见 §5o）；作为宿主栈二级页（屏15「记一笔」压进来）时全屏无 dock，
+        // 2026-11-11 起按 rootMode 分档
+        .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
+          bottom: this.rootMode ? LayoutTokens.floatingDockClearance : 0 })
         .layoutWeight(1)
         // 穿底（2026-11-08 对标有据）：让位从 padding 改到 contentStartOffset——
         // padding 会把视口压到栏底之下，标题栏那 175px 永远采样不到内容。

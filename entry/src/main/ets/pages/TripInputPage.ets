@@ -4,13 +4,13 @@
  * 目的地/日期选择器与预算滑杆交互在批次 4 接入，本批为静态展示态 + 可选人数。
  */
 
-import { APP_NAV, markDraftDirty } from '../common/constants/AppNav';
+import { HOST_NAV, markDraftDirty } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { MoneyText } from '../utils/MoneyText';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
-import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
+import { IconSizes, IconTokens, LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { Pressable } from '../components/Pressable';
 import { GlowInput } from '../components/GlowInput';
@@ -33,7 +33,6 @@ import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
 import { longFormMaxWidth } from '../utils/responsive';
 import { SUPPORTED_CITIES, POPULAR_MAP_CITIES, isMapCity } from '../common/constants/Cities';
 import { TripSpan } from '../utils/TripSpan';
-import { BOTTOM_NAV_INSET_KEY } from '../utils/navMode';
 import { requestSystemBarRefresh } from '../utils/systemBar';
 
 // 京都为 mock 演示城（底稿帧同源），标注「示例数据」不谎报是正式内置库；
@@ -50,11 +49,10 @@ export struct TripInputPage {
   // （官方 HdsTitleBar 自绘内容不随配置切换重渲染，真机实证见 HdsChrome.themeTick）
   @StorageProp('chromeThemeTick') chromeThemeTick: number = 0;
 
-  private pathStack: NavPathStack = APP_NAV;
+  // 二级页全屏化（2026-11-11）：本页固定落宿主栈，push Generating/PreferenceQA 同栈
+  private pathStack: NavPathStack = HOST_NAV;
   /** 断点（唯一来源 utils/breakpointCenter.ets） */
   @StorageProp(KEY_CURRENT_BREAKPOINT) bp: string = 'sm';
-  /** 底部避让量（单源 utils/navMode，取 Dock 那把键：手势档恒 0，不动现有像素） */
-  @StorageLink(BOTTOM_NAV_INSET_KEY) dockNavInset: number = 0;
   @State private party: number = 2;
   @State private city: string = '北京';
   @State private startDate: string = '';
@@ -65,6 +63,9 @@ export struct TripInputPage {
   @State private budget: number = BudgetConfig.DEFAULT;
   // 一句话成行程：原句只在内存里，识别结果先落表单与草稿，再由用户决定生成或去调整
   @State private sentence: string = '';
+  /** 入口展开态：收起时只留一枚小胶囊；展开才让出输入面（2026-11-11 用户裁决，
+   *  原首屏大卡片占掉近 1/4 版面，表单反被挤到折叠线以下） */
+  @State private sentenceOpen: boolean = false;
   @State private recognizing: boolean = false;
   @State private intentError: string = '';
   @State private previewOpen: boolean = false;
@@ -383,6 +384,8 @@ export struct TripInputPage {
         `一句话识别 ${targetCity} ${days}天 people=${people} spots=${picked.length} ` +
         `area=${area !== null ? area.id : 'none'} viaMap=${viaMap}`);
       // bindSheet 的内容不随父状态重赋值重绘：预览字段必须在开面板之前写好
+      // 入口小卡先收起：预览半模态与它同屏会叠出两层输入面
+      this.sentenceOpen = false;
       this.previewOpen = true;
     } catch (err) {
       if (!this.alive) {
@@ -750,6 +753,103 @@ export struct TripInputPage {
     }
   }
 
+  /**
+   * 一句话输入面（展开态）：单行输入 + 识别/示例两枚动作，全部收在一小块里。
+   * 默认不展开——收起后只剩主 CTA 上方一枚胶囊，版面主体还给四个字段卡。
+   */
+  @Builder
+  sentenceComposer() {
+    Column({ space: SpaceTokens.xs }) {
+      Row() {
+        SymbolGlyph($r('sys.symbol.wand_and_stars'))
+          .fontSize(IconTokens.compact)
+          .fontColor([ColorTokens.primary])
+          .margin({ right: SpaceTokens.xxs })
+        Text('一句话成行程')
+          .fontSize(TypeTokens.small.size)
+          .fontWeight(600)
+          .fontColor(ColorTokens.primary)
+          .layoutWeight(1)
+        // 收起：命中带按 44 给，视觉只占一行小字
+        Row() {
+          Text('收起')
+            .fontSize(TypeTokens.caption.size)
+            .fontWeight(450)
+            .fontColor(ColorTokens.muted)
+        }
+        .height(LayoutTokens.minTouchTarget)
+        .padding({ left: SpaceTokens.sm })
+        .accessibilityText('收起一句话输入')
+        .onClick((): void => {
+          this.sentenceOpen = false;
+          this.getUIContext().getFocusController().clearFocus();
+        })
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      GlowInput({
+        text: $sentence,
+        placeholder: '例：下周五去上海玩三天，两个人',
+        fillWidth: true,
+        inputHeight: LayoutTokens.minTouchTarget,
+        onChange: (v: string): void => {
+          this.sentence = v;
+          if (this.intentError.length > 0) {
+            this.intentError = '';
+          }
+        },
+        onEnter: (): void => {
+          this.recognize();
+        }
+      })
+        .accessibilityText('一句话描述行程')
+
+      // 原大卡片上的口径不随卡片消失：本机识别、只有未内置城市才联网（合规声明）
+      Text('本机识别，不花模型额度；未内置城市联网查地图')
+        .fontSize(TypeTokens.caption.size)
+        .fontWeight(450)
+        .fontColor(ColorTokens.muted)
+        .lineHeight(TypeTokens.caption.lineHeight)
+        .width('100%')
+
+      if (this.intentError.length > 0) {
+        Text(this.intentError)
+          .fontSize(TypeTokens.caption.size)
+          .fontWeight(450)
+          .fontColor(ColorTokens.danger)
+          .width('100%')
+      }
+
+      Row({ space: SpaceTokens.xs }) {
+        // 实心主按钮留给底部「开始规划」，这里用次按钮，避免同屏双实心蓝
+        YoujingButton({
+          variant: YoujingButtonVariant.SECONDARY,
+          label: this.recognizing ? '识别中…' : '识别',
+          buttonWidth: 120,
+          disabled: this.recognizing,
+          onAction: (): void => {
+            this.recognize();
+          }
+        })
+        YoujingButton({
+          variant: YoujingButtonVariant.TEXT,
+          label: '填入示例',
+          buttonWidth: 120,
+          onAction: (): void => {
+            this.sentence = SAMPLE_SENTENCE;
+            this.intentError = '';
+          }
+        })
+      }
+      .width('100%')
+    }
+    .alignItems(HorizontalAlign.Start)
+    .width('100%')
+    // 不铺卡底：与输入框的 surfaceSubtle 同色会糊成一片（深色档两者都是 #232326），
+    // 展开态只用输入胶囊本身作面，视觉重量压到最低
+  }
+
   build() {
     HdsNavDestination() {
       Column() {
@@ -769,69 +869,6 @@ export struct TripInputPage {
             .alignItems(HorizontalAlign.Start)
             .width('100%')
             .margin({ top: SpaceTokens.base, bottom: SpaceTokens.base })
-
-            // 一句话成行程：本地解析，识别结果先给预览，再由用户决定直接生成或去逐屏调整
-            Column({ space: SpaceTokens.xs }) {
-              Text('一句话成行程')
-                .fontSize(TypeTokens.body.size)
-                .fontWeight(600)
-                .fontColor(ColorTokens.ink)
-              Text('说清去哪、几天、几个人。识别在本机完成；未内置城市会联网查地图服务，不花模型额度')
-                .fontSize(TypeTokens.caption.size)
-                .fontWeight(450)
-                .fontColor(ColorTokens.muted)
-              GlowInput({
-                text: $sentence,
-                placeholder: '例：下周五去上海玩三天，两个人',
-                fillWidth: true,
-                inputHeight: LayoutTokens.composeFieldHeight,
-                onChange: (v: string): void => {
-                  this.sentence = v;
-                  if (this.intentError.length > 0) {
-                    this.intentError = '';
-                  }
-                },
-                onEnter: (): void => {
-                  this.recognize();
-                }
-              })
-                .accessibilityText('一句话描述行程')
-              if (this.intentError.length > 0) {
-                Text(this.intentError)
-                  .fontSize(TypeTokens.caption.size)
-                  .fontWeight(450)
-                  .fontColor(ColorTokens.danger)
-                  .width('100%')
-              }
-              Row({ space: SpaceTokens.xs }) {
-                // 实心主按钮留给底部「开始规划」，这里用次按钮，避免同屏双实心蓝
-                YoujingButton({
-                  variant: YoujingButtonVariant.SECONDARY,
-                  label: this.recognizing ? '识别中…' : '识别',
-                  buttonWidth: 120,
-                  disabled: this.recognizing,
-                  onAction: (): void => {
-                    this.recognize();
-                  }
-                })
-                YoujingButton({
-                  variant: YoujingButtonVariant.TEXT,
-                  label: '填入示例',
-                  buttonWidth: 120,
-                  onAction: (): void => {
-                    this.sentence = SAMPLE_SENTENCE;
-                    this.intentError = '';
-                  }
-                })
-              }
-              .width('100%')
-            }
-            .alignItems(HorizontalAlign.Start)
-            .width('100%')
-            .padding(SpaceTokens.base)
-            .borderRadius(RadiusTokens.card)
-            .backgroundColor(ColorTokens.surfaceSubtle)
-            .margin({ bottom: SpaceTokens.base })
 
             Column({ space: SpaceTokens.sm }) {
               // 目的地
@@ -983,10 +1020,78 @@ export struct TripInputPage {
               .padding(SpaceTokens.base)
               .borderRadius(RadiusTokens.card)
               .backgroundColor(ColorTokens.surfaceSubtle)
+
+              // 一句话成行程（2026-11-11 用户裁决）：入口收成一枚小胶囊，放在主 CTA 正上方——
+              // 先逐项填、或最后一键补全，都在同一只手的落点上；展开面向上生长。
+              if (this.sentenceOpen) {
+                this.sentenceComposer()
+              } else {
+                Row() {
+                  Pressable({
+                    visualHeight: LayoutTokens.segmentedHeight,
+                    action: (): void => {
+                      this.sentenceOpen = true;
+                      if (this.intentError.length > 0) {
+                        this.intentError = '';
+                      }
+                    }
+                  }) {
+                    Row({ space: SpaceTokens.xxs }) {
+                      SymbolGlyph($r('sys.symbol.wand_and_stars'))
+                        .fontSize(IconTokens.compact)
+                        .fontColor([ColorTokens.primary])
+                      Text('一句话成行程')
+                        .fontSize(TypeTokens.small.size)
+                        .fontWeight(600)
+                        .fontColor(ColorTokens.primary)
+                    }
+                    .height(LayoutTokens.segmentedHeight)
+                    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
+                    .borderRadius(RadiusTokens.pill)
+                    .backgroundColor(ColorTokens.surfaceSubtle)
+                    .accessibilityText('一句话成行程，展开智能填写')
+                  }
+                }
+                .width('100%')
+                .justifyContent(FlexAlign.End)
+              }
             }
+
+            // 主 CTA（2026-11-11 用户裁决）：「开始规划」与表单同容器——原来钉在底部
+            // 独立动作条里，滚动内容在动作条上沿被硬切；进滚动流后随内容一起滚到底，
+            // 不再截断。一张节点只能挂一张 bindSheet：城市选择在根节点，识别预览挂这个块。
+            Column() {
+              YoujingButton({
+                variant: YoujingButtonVariant.PRIMARY,
+                label: '开始规划',
+                fullWidth: true,
+                trailingSymbol: $r('sys.symbol.arrow_right'),
+                onAction: (): void => {
+                  const d: PlanDraft = PlanDraft.get();
+                  const basic: TripBasicInput = {
+                    destination: this.city, startDate: this.startDate,
+                    endDate: this.endDate, people: this.party, budget: this.budget
+                  };
+                  d.basic = basic;
+                  markDraftDirty(true);
+                  this.pathStack.pushPath({ name: 'PreferenceQA' });
+                }
+              })
+            }
+            .width('100%')
+            .margin({ top: SpaceTokens.sm })
+            // 契约「CTA 距底 ≥16」：进滚动流后这一档就是页面底部的呼吸
+            .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.base })
+            .bindSheet($$this.previewOpen, this.intentSheet(), {
+              height: '72%',
+              showClose: true,
+              systemMaterial: getSheetImmersiveMaterial(),
+              // 材质生效时 blur 与实色底让位，避免玻璃面外再叠一层（配方照有据 DetailPostContent:287-296）
+              blurStyle: isSystemMaterialActive() ? BlurStyle.NONE : GlassBlurStyle.Floating,
+              backgroundColor: isSystemMaterialActive() ? undefined : ColorTokens.canvas
+            })
           }
-          .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
-            bottom: LayoutTokens.bottomScrollReserve + this.dockNavInset })
+          .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
           // 表单不收窄到 720 的话，宽屏上一行「目的地」能拉到八百多 vp，
           // 输入框与滑杆的可用长度就失去意义
           .width(longFormMaxWidth(this.bp, LayoutTokens.contentMaxWidth))
@@ -995,45 +1100,13 @@ export struct TripInputPage {
         .layoutWeight(1)
         .scrollBar(BarState.Off)
         .align(Alignment.Top)
+        // 穿底让位（2026-11-11）：top 让位从根 Column 的 padding 移到 contentStartOffset——
+        // padding 压的是滚动区视口，滚上去的内容在栏底就被硬切、上不到屏幕顶
+        .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight))
         .onDidScroll((): void => {
           this.syncBarScroll();
         })
-
-        Column() {
-          YoujingButton({
-            variant: YoujingButtonVariant.PRIMARY,
-            label: '开始规划',
-            fullWidth: true,
-            trailingSymbol: $r('sys.symbol.arrow_right'),
-            onAction: (): void => {
-              const d: PlanDraft = PlanDraft.get();
-              const basic: TripBasicInput = {
-                destination: this.city, startDate: this.startDate,
-                endDate: this.endDate, people: this.party, budget: this.budget
-              };
-              d.basic = basic;
-              markDraftDirty(true);
-              this.pathStack.pushPath({ name: 'PreferenceQA' });
-            }
-          })
-        }
-        // 钉底动作条要与上面被收窄的表单同宽：它和滚动区是兄弟节点，
-        // 只给滚动区设上限的话，主按钮会照旧铺满整屏（md 实测 50..2160 = 675vp，
-        // 而上面的字段卡是 218..1993）——同一屏两套左右边界，就是"排版交错"。
-        .width(longFormMaxWidth(this.bp, LayoutTokens.contentMaxWidth))
-        .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.sm,
-          bottom: LayoutTokens.floatingDockClearance })
-        // 一张节点只能挂一张 bindSheet：城市选择在根节点，识别预览挂在这条动作条上
-        .bindSheet($$this.previewOpen, this.intentSheet(), {
-          height: '72%',
-          showClose: true,
-          systemMaterial: getSheetImmersiveMaterial(),
-          // 材质生效时 blur 与实色底让位，避免玻璃面外再叠一层（配方照有据 DetailPostContent:287-296）
-          blurStyle: isSystemMaterialActive() ? BlurStyle.NONE : GlassBlurStyle.Floating,
-          backgroundColor: isSystemMaterialActive() ? undefined : ColorTokens.canvas
-        })
       }
-      .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
       .width('100%')
       .height('100%')
       .backgroundColor(ColorTokens.canvas)

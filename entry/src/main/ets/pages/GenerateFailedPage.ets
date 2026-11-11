@@ -7,7 +7,7 @@
  * 骨架期仍可经 aa start --ps route GenerateFailed 直达（EntryAbility 预填通道）。
  */
 
-import { APP_NAV } from '../common/constants/AppNav';
+import { HOST_NAV } from '../common/constants/AppNav';
 import { failureDetail, failureHeadline } from '../common/error/FailureCopy';
 import { ErrorCode } from '../common/error/ErrorCode';
 import { ColorTokens } from '../design/ColorTokens';
@@ -46,7 +46,8 @@ export struct GenerateFailedPage {
   private wideInset(): number {
     return symmetricInsetForCap(this.windowWidthVp, BP_MD_MIN_VP, SpaceTokens.base);
   }
-  private pathStack: NavPathStack = APP_NAV;
+  // 二级页全屏化（2026-11-11）：本页固定落宿主栈，popToName/push/replace 都在同栈生效
+  private pathStack: NavPathStack = HOST_NAV;
   @Prop code: number = 0;
   @Prop detail: string = '';
   /**
@@ -220,7 +221,9 @@ export struct GenerateFailedPage {
           }
           .padding({ left: this.wideInset(), right: this.wideInset() })
         }
-        .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
+        // 穿底让位（2026-11-11）：top 让位从滚动区 padding 移到 contentStartOffset——
+        // padding 压的是视口，滚上去的内容在栏底就被硬切、上不到屏幕顶
+        .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight))
         .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .layoutWeight(1)
         .width('100%')
@@ -285,8 +288,9 @@ export struct GenerateFailedPage {
           }
         }
         .width('100%')
-        // 钉底动作条原来只留 xl(24)：这一屏也在悬浮 dock 上，实拍第三颗钮整颗被压住
-        .padding({ left: this.wideInset(), right: this.wideInset(), bottom: LayoutTokens.floatingDockClearance })
+        // 钉底动作条原来只留 xl(24)，后来让出 dock 净空；2026-11-11 二级页全屏化
+        // 后 dock 作废，按契约「CTA 距底 ≥16」留一档呼吸
+        .padding({ left: this.wideInset(), right: this.wideInset(), bottom: SpaceTokens.base })
       }
       .width('100%')
       .height('100%')

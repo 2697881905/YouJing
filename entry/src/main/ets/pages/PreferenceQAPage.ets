@@ -5,7 +5,7 @@
  * 全部答完（或直接推进到底）触发 SpotPick（批次 4 落地，暂进占位页）。
  */
 
-import { APP_NAV, markDraftDirty } from '../common/constants/AppNav';
+import { HOST_NAV, markDraftDirty } from '../common/constants/AppNav';
 import { KEY_CURRENT_BREAKPOINT } from '../utils/breakpointCenter';
 import { listLanesForBreakpoint } from '../utils/responsive';
 import { ColorTokens } from '../design/ColorTokens';
@@ -19,7 +19,6 @@ import { OptionCard } from '../components/OptionCard';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
-import { BOTTOM_NAV_INSET_KEY } from '../utils/navMode';
 import { FlowSteps, FLOW_STEP_PREFERENCE_QA } from '../components/FlowSteps';
 import { requestSystemBarRefresh } from '../utils/systemBar';
 
@@ -32,13 +31,9 @@ export struct PreferenceQAPage {
 
   /** 断点（唯一来源 utils/breakpointCenter.ets）：宽屏下列表并成多栏，不再被整屏拉宽 */
   @StorageProp(KEY_CURRENT_BREAKPOINT) bp: string = 'sm';
-  /**
-   * 底部避让量（单源 utils/navMode）。取「Dock 边距」那把键而不是 `bottomBarInsetVp`：
-   * 前者手势档恒 0（94 已够盖 dock），后者手势档也加指示条高度，会把现有渲染整体顶高 28vp。
-   */
-  @StorageLink(BOTTOM_NAV_INSET_KEY) dockNavInset: number = 0;
 
-  private pathStack: NavPathStack = APP_NAV;
+  // 二级页全屏化（2026-11-11）：本页固定落宿主栈，push SpotPick 同栈
+  private pathStack: NavPathStack = HOST_NAV;
   @State private qIndex: number = 0;
   @State private singleAnswers: string[] = ['leisure', 'comfort', 'public', ''];
   @State private paceAnswers: string[] = [];
@@ -222,8 +217,7 @@ export struct PreferenceQAPage {
         .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .cachedCount(6)
         .alignListItem(ListItemAlign.Start)
-        .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
-          bottom: LayoutTokens.bottomScrollReserve + this.dockNavInset })
+        .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
         // 穿底让位（2026-11-08 对标有据）：让位从外层 padding 移到 contentStartOffset，
         // 只挪首屏起点；滚动后内容才穿得到标题栏下被材质糊掉。
         .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight))
@@ -262,8 +256,10 @@ export struct PreferenceQAPage {
           })
         }
         .width('100%')
+        // 底部动作条原来让出 dock 净空 112；2026-11-11 二级页全屏化后 dock 作废，
+        // 按契约「CTA 距底 ≥16」留一档呼吸
         .padding({ left: SpaceTokens.base, right: SpaceTokens.base, top: SpaceTokens.sm,
-          bottom: LayoutTokens.floatingDockClearance })
+          bottom: SpaceTokens.base })
       }
       .width('100%')
       .height('100%')

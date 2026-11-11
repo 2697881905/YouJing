@@ -29,6 +29,11 @@ import sys
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'entry', 'src', 'main', 'ets')
 
+# R1 适用范围（2026-11-11 二级页全屏化，用户裁决「二级页删掉底部留白」）：
+# 悬浮 dock 只存在于五个页签根页（Index 的 TabContent），宿主栈二级页全屏、
+# 底下没有 dock——"钉底让位"只对根页生效。MapPage/ExpensePage 双角色
+# （根页 + 宿主栈落点），净空在页面里按 rootMode 三元分档。
+R1_ROOT_PAGES = {'MapPage.ets', 'TripsPage.ets', 'YoujingStartPage.ets', 'ExpensePage.ets', 'MinePage.ets'}
 # R1：这些页的钉底块住在 bindSheet/半模态里，不在 dock 之下，不该让位
 R1_EXEMPT = {'ItineraryPage.ets': 'bindSheet 面板内容'}
 # R2：真在干活的线/底/骨架，不是死块
@@ -93,6 +98,9 @@ def r1():
     尺自己报噪声比不报更糟：会被当成"已知豁免"忽略掉真缺陷。"""
     out = []
     for p in ets_files():
+        # 非 dock 页（宿主栈二级页）不做钉底让位检查——见 R1_ROOT_PAGES 注释
+        if os.path.basename(os.path.dirname(p)) == 'pages' and os.path.basename(p) not in R1_ROOT_PAGES:
+            continue
         L = lines(p)
         for i, l in enumerate(L):
             if 'Alignment.Bottom' not in l or 'Stack(' not in l:

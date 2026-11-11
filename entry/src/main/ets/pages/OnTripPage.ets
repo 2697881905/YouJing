@@ -45,8 +45,6 @@ import { Geo, GeoPoint } from '../utils/Geo';
 import { ArrivalWatcher, LocationFix } from '../common/location/ArrivalWatcher';
 import { GeofenceManager } from '../common/location/GeofenceManager';
 import { ArrivalNotice } from '../common/location/ArrivalNotice';
-import { TripLiveView } from '../common/liveview/TripLiveView';
-import { LiveViewConfig } from '../common/liveview/LiveViewConfig';
 import { FenceSpec } from '../utils/GeofencePlan';
 import { WidgetSync } from '../widget/TodayCard';
 import { TransitSymbol } from '../utils/TransitSymbol';
@@ -190,8 +188,6 @@ export struct OnTripPage {
   /** P5 到站围栏：注册成功才走系统事件，失败静默降级为前台定位 */
   private geofence: GeofenceManager = new GeofenceManager();
   private geofenceDayKey: string = '';
-  /** 实况窗预登记键：登记的是「即将到达」而不是「已经到达」的站 */
-  private liveViewKey: string = '';
   /** 权限弹窗还没回来：避免 reload 连点导致重复 start */
   private watcherStarting: boolean = false;
   private lastFix: LocationFix | null = null;
@@ -235,8 +231,6 @@ export struct OnTripPage {
     this.watcherStarting = false;
     this.geofence.stop();
     this.geofenceDayKey = '';
-    this.liveViewKey = '';
-    TripLiveView.stop();
     this.closeBadgeDialog();
   }
 
@@ -1107,7 +1101,6 @@ export struct OnTripPage {
   /** 只有「今天 + 当前站有坐标」才订阅前台定位；其余情况一律退订并清状态 */
   private syncArrivalWatcher(): void {
     this.syncGeofences();
-    this.syncLiveViewTrigger();
     const cur: DayStop | null = this.current;
     const need: boolean = this.isToday && cur !== null && Geo.usable(cur.lat, cur.lng);
     if (!need) {
@@ -1166,69 +1159,6 @@ export struct OnTripPage {
     }).catch((err: Error): void => {
       Logger.warn('Ui.OnTrip', `到站围栏启动失败: ${err.message}`);
     });
-  }
-
-  /**
-   * 实况窗触发必须先登记：startLiveViewByTrigger 只记录围栏条件，
-   * 到站后再登记等不到下一次进入。这里为「即将到达的一站」预登记：
-   * 当前站尚未打卡就登记当前站，否则登记下一站；餐次无坐标，顺延到下一站。
-   */
-  private syncLiveViewTrigger(): void {
-    const day: TripDay | null = this.day;
-    if (!LiveViewConfig.ENABLED || !this.isToday || day === null) {
-      if (this.liveViewKey.length > 0) {
-        this.liveViewKey = '';
-        TripLiveView.stop();
-      }
-      return;
-    }
-    const target: DayStop | null = this.liveViewTarget();
-    if (target === null) {
-      return;
-    }
-    const key: string = `${day.date}:${target.key}`;
-    if (this.liveViewKey === key) {
-      return;
-    }
-    const stop: DayStop = target;
-    const act: Activity | undefined =
-      day.activities.find((a: Activity): boolean => a.id === stop.key);
-    if (act === undefined) {
-      return;
-    }
-    this.liveViewKey = key;
-    TripLiveView.startForStop(day, act).catch((err: Error): void => {
-      Logger.warn('Ui.OnTrip', `实况窗预登记失败: ${err.message}`);
-    });
-  }
-
-  /** 预登记目标：从当前站往后第一座「未打卡、有坐标、可游览」的站；餐次/交通/住宿/空闲不登记 */
-  private liveViewTarget(): DayStop | null {
-    let from: number = 0;
-    const cur: DayStop | null = this.current;
-    if (cur !== null) {
-      for (let i = 0; i < this.stops.length; i++) {
-        if (this.stops[i].key === cur.key) {
-          from = i;
-          break;
-        }
-      }
-    }
-    for (let i = from; i < this.stops.length; i++) {
-      const s: DayStop = this.stops[i];
-      if (s.isMeal || s.category === ActivityCategory.REST ||
-          s.category === ActivityCategory.TRANSPORT || s.category === ActivityCategory.HOTEL) {
-        continue;
-      }
-      if (this.marks[s.key] !== undefined) {
-        continue;
-      }
-      if (!Geo.usable(s.lat, s.lng)) {
-        continue;
-      }
-      return s;
-    }
-    return null;
   }
 
   /** 系统围栏到站：不自动打卡，只把「可以打卡了」推到 hero/提示条，用户确认后落库 */
@@ -1956,8 +1886,7 @@ export struct OnTripPage {
       .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .sticky(StickyStyle.Header)
       .cachedCount(6)
-      .padding({ left: this.wideInset(), right: this.wideInset(),
-            bottom: LayoutTokens.floatingDockClearance })
+      .padding({ left: this.wideInset(), right: this.wideInset() })
       // 穿底让位（2026-11-08 对标有据）：让位从 padding 移到 contentStartOffset，
       // 只挪首屏起点；滚动后内容才穿得到标题栏下被材质糊掉（padding 压的是视口）。
       .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight))

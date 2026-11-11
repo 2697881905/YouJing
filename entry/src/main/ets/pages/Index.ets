@@ -1,9 +1,14 @@
 /**
  * 应用根 · 官方 HdsTabs 四页签骨架（对齐「有据」定稿：底部悬浮页签是导航的一部分，不是页面自己贴的条）。
  *
- * 四条栈 = 四个 TabContent：`APP_NAV` 仍是**行程 tab**（主链 16 个文件都往它 push，
- * 名字不动以维持最小改动），地图/费用/我的各一条。切页签由官方组件自己管，
+ * 五条 TabContent = 五个根页：`APP_NAV` 等页签栈由各根页自己内嵌 HdsNavigation 持有
+ * （名字不动以维持最小改动），地图/费用/我的各一条。切页签由官方组件自己管，
  * 每 tab 的返回栈互不干扰。
+ *
+ * 2026-11-11 二级页全屏化：所有二级页一律 push 到外层宿主栈 `HOST_NAV`（HDS 标准
+ * 形态：一级页签 + 二级页全屏）——二级页盖住 dock，页签栏不显示、也不随左右滑切页。
+ * `routerMap`（落点构造器）与一镜到底转场挂钩都挂在这层外层 Navigation 上：
+ * 转场回调必须挂在**持有该栈**的 Navigation（navTransitionHook 头注释同款结论）。
  *
  * 冷启深链为什么用 `index` 而不是 `changeIndex`：上一版在 aboutToAppear / onDidBuild /
  * @StorageLink+@Watch 三条路径里都调过 `hdsController.changeIndex()`，真机 dumpLayout
@@ -12,7 +17,7 @@
  * 首帧就在目标 tab；运行期（App 已存活时的 onNewWant）才用 changeIndex。
  */
 
-import { HOST_NAV, ACTIVE_TRIP_KEY, TAB_INDEX_KEY, TAB_SWITCH_KEY, DOCK_TABS, announceTabShown, stackOfTab, TAB_PLAN, TAB_ITINERARY, TAB_MAP, TAB_EXPENSE, TAB_MINE } from '../common/constants/AppNav';
+import { HOST_NAV, ACTIVE_TRIP_KEY, TAB_INDEX_KEY, TAB_SWITCH_KEY, DOCK_TABS, announceTabShown, TAB_PLAN, TAB_ITINERARY, TAB_MAP, TAB_EXPENSE, TAB_MINE } from '../common/constants/AppNav';
 import { setSharedUiContext } from '../utils/longTake/cardRect';
 import { TripDao, TripSummary } from '../data/TripDao';
 import { AUTH_STATE_KEY } from '../data/AccountStore';
@@ -38,6 +43,8 @@ import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
 import { MotionCurves, MotionTokens } from '../design/MotionTokens';
 import { HdsMiniBarButton } from '../components/HdsMiniBarButton';
+import { routerMap } from './AppRouter';
+import { longTakeTransitionHook } from '../utils/longTake/navTransitionHook';
 import { HDS_MATERIAL_LEVEL_EXQUISITE, HDS_MATERIAL_TYPE_IMMERSIVE,
   isImmersiveLightSenseSupported } from '../utils/immersiveMaterial';
 import { BottomTabBar, BottomTabItem } from '../components/BottomTabBar';
@@ -192,14 +199,14 @@ struct Index {
    * 系统就按"入口页"处理了——但用户的原话是「Back 不该退出 App」。
    *
    * 所以分四步，顺序就是优先级：
-   * ① 当前页签栈里有页（如 我的 → 我的勋章）→ 交给 Navigation 自己 pop，不抢；
+   * ① 宿主栈里有二级页（如 我的 → 我的勋章）→ 交给 Navigation 自己 pop，不抢；
    * ② 根页的弹层/就地文书开着 → 交给页内守卫关掉（utils/overlayBackGuard）；
    * ③ 不在「地图」格 → 切回「地图」并吃掉这次返回（这是"上一级"的本意）；
    * ④ 已在「地图」格 → 交还系统（退后台），保留唯一一个符合平台习惯的出口。
    */
   onBackPress(): boolean {
-    // ① 页签栈里有页 → 交给 Navigation pop，不抢
-    if (stackOfTab(this.currentTab).size() > 0) {
+    // ① 宿主栈里有二级页 → 交给 Navigation pop，不抢
+    if (HOST_NAV.size() > 0) {
       return false;
     }
     // ② 根页上的弹层不在栈里，也不由 Navigation 托管：先问它们要不要关
@@ -227,6 +234,18 @@ struct Index {
   aboutToAppear(): void {
     // 一镜到底的量测/截图 util 没有 this.getUIContext()，从这里共享（与有据同法）
     setSharedUiContext(this.getUIContext());
+    // 顶部条带随宿主栈栈顶换色（原 MapPage.bindStripToStackTop 的职责上移，2026-11-11）：
+    // 二级页全屏化后所有 push 都落 HOST_NAV，且宿主栈跨页签共用——
+    // 回到根视图（to === 'navBar'）时按**当前页签**给色（地图格回底图蓝灰，其余画布），
+    // 有二级页盖住时一律画布。挂在 Index 是因为只有它同时知道栈事件和 currentTab；
+    // 挂在各根页的栈上则既收不到回调、又会在别的页签 pop 回根时错涂地图带色。
+    HOST_NAV.setInterception({
+      willShow: (_from: NavDestinationContext | NavBar, to: NavDestinationContext | NavBar,
+        _op: NavigationOperation, _isAnimated: boolean): void => {
+        TopStrip.apply(this.getUIContext().getHostContext() as common.UIAbilityContext,
+          to === 'navBar' && this.currentTab === TAB_MAP ? STRIP_MAP : STRIP_CANVAS);
+      }
+    });
     // 2026-11-07 全量对齐：按有据的 API 23+ 门禁分流 dock。
     // 本工程 compatibleSdk 26 ⇒ 当前设备恒走官方 HdsTabs，自绘 BottomTabBar 分支不可达，
     // 仅作为未来降 SDK 时的预留兼容分支（差异表 P-09，不宣称已真机验证）。
@@ -725,7 +744,7 @@ struct Index {
    */
   private syncTopStrip(index: number): void {
     TopStrip.apply(this.getUIContext().getHostContext() as common.UIAbilityContext,
-      index === TAB_MAP && stackOfTab(TAB_MAP).size() === 0 ? STRIP_MAP : STRIP_CANVAS);
+      index === TAB_MAP && HOST_NAV.size() === 0 ? STRIP_MAP : STRIP_CANVAS);
   }
 
   /**
@@ -787,7 +806,7 @@ struct Index {
       }
       .tabBar(this.tabLabel(TAB_ITINERARY))
 
-      // 规划 tab：门面 + 屏2→屏6 向导链都走 APP_NAV（主链 16 个文件的字段不动）。
+      // 规划 tab：门面是根页；屏2→屏6 向导链走 HOST_NAV（二级页全屏化）。
       // 2026-11-05 五格同构：`HdsNavigation(APP_NAV)` 与它的 titleBar 都搬进页面自己挂，
       // 壳层不再替这一格代管顶栏（以前只有它是异形，滚动状态还得经 AppStorage 递一层）。
       TabContent() {
@@ -857,10 +876,9 @@ struct Index {
       if (index !== this.currentTab) {
         return;
       }
-      const stack: NavPathStack = stackOfTab(index);
-      if (stack.size() > 0) {
-        stack.clear();
-      }
+      // 二级页全屏化后 dock 只在宿主栈为空时可见（栈里有页时 dock 被盖住），
+      // 这条 clear 是"回根"语义的兜底。
+      HOST_NAV.clear();
       this.syncTopStrip(index);
       // 回根和切页签一样算「这一页重新露面」：刚生成的行程要在首页立刻出现
       announceTabShown(index);
@@ -971,15 +989,21 @@ struct Index {
           }
         })
       } else {
-        // 外层宿主（有据形态）：Navigation 只包住五格，标题栏收起、模式显式 Stack
+        // 外层宿主（有据形态）：Navigation 只包住五格根页，标题栏收起、模式显式 Stack
         // （默认 Auto 在宽屏会切 Split，整页被关进 240vp 窄列）。
         // 绑 `HOST_NAV` 而不是任何一格的栈：一个 NavPathStack 只能被一个 Navigation 持有，
-        // 抢绑 `APP_NAV` 会把规划格的绑定夺走，向导链就从「页签内」变成「盖住 dock 的全屏」。
+        // 抢绑 `APP_NAV` 会把规划格的绑定夺走（编译不报错、页面渲染不出来）。
+        //
+        // 2026-11-11 二级页全屏化：所有二级页都 push 到这条宿主栈，落点构造器挂在这层
+        // `.navDestination(routerMap)`；一镜到底（行程卡 → 行程详情）的转场挂钩也必须挂
+        // 在**持有该栈**的 Navigation 上（navTransitionHook 头注释同款结论）。
         Navigation(HOST_NAV) {
           this.mainTabs()
         }
         .mode(NavigationMode.Stack)
         .hideTitleBar(true)
+        .navDestination(routerMap)
+        .customNavContentTransition(longTakeTransitionHook)
         .width('100%')
         .height('100%')
       }

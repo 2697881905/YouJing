@@ -24,7 +24,7 @@
  * · 分享走系统分享面板带足迹概要文案；有据的 ProfileShareSheet 全面板待主页链接基建
  */
 
-import { PROFILE_NAV, TAB_MINE, TAB_SHOWN_KEY, isTabShownTick } from '../common/constants/AppNav';
+import { HOST_NAV, PROFILE_NAV, TAB_MINE, TAB_SHOWN_KEY, isTabShownTick } from '../common/constants/AppNav';
 import { routerMap } from './AppRouter';
 import { AccountStore, AUTH_STATE_KEY } from '../data/AccountStore';
 import { BadgeDao } from '../data/BadgeDao';
@@ -58,8 +58,13 @@ export struct MinePage {
 
   /** true = 作为 dock 根页内联在 TabContent 里（路线 B），此时要自己挂 HdsNavigation */
   @Prop rootMode: boolean = false;
-  /** 本页是 PROFILE_NAV 这条 tab 栈的宿主，push 必须落在自己的栈上 */
+  /**
+   * 内层 `HdsNavigation` 的绑定。2026-11-11 二级页全屏化后这条栈不再收任何子页；
+   * ⚠ 绝不能绑 HOST_NAV——会把 Index 外层宿主的绑定抢走，二级页就渲染不出来。
+   */
   private pathStack: NavPathStack = PROFILE_NAV;
+  /** push 统一走宿主栈：二级页（ProfileEdit/Badges/Settings）全屏盖住 dock，宿主 Navigation 在 Index */
+  private pushStack: NavPathStack = HOST_NAV;
   /** 切回这一格时重取勋章计数：在屏15 收了新章再切回来，不该还看到旧那份 */
   @StorageProp(TAB_SHOWN_KEY) @Watch('onDockShown') dockTick: string = '';
   /** 登录态：'' 水合中 / guest / huawei。资料区要跟它即时变 */
@@ -228,7 +233,7 @@ export struct MinePage {
       onOpenFollowing: (): void => {},
       onOpenFollowers: (): void => {},
       onEdit: (): void => {
-        this.pathStack.pushPath({ name: 'ProfileEdit' });
+        this.pushStack.pushPath({ name: 'ProfileEdit' });
       },
       onOpenDrafts: (): void => {},
       onOpenTrash: (): void => {},
@@ -262,11 +267,13 @@ export struct MinePage {
     }
     .width('100%')
     .padding(SpaceTokens.base)
-    .margin({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.sm })
+    // 横向内缩在 ListItem 的 padding 上（hero 资料卡同款范式）：width('100%') 与横向
+    // margin 同节点 = 100%+边距，卡面必然外溢屏幕（audit_button_width 同一条）
+    .margin({ top: SpaceTokens.sm })
     .borderRadius(RadiusTokens.card)
     .backgroundColor(ColorTokens.surfaceElevated)
     .onClick((): void => {
-      this.pathStack.pushPath({ name: 'Pricing' });
+      this.pushStack.pushPath({ name: 'Pricing' });
     })
   }
 
@@ -295,11 +302,12 @@ export struct MinePage {
     }
     .width('100%')
     .padding(SpaceTokens.base)
-    .margin({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.sm })
+    // 同 memberCard：横向内缩归 ListItem padding，卡面 width('100%') 不再加横向 margin
+    .margin({ top: SpaceTokens.sm })
     .borderRadius(RadiusTokens.card)
     .backgroundColor(ColorTokens.surfaceElevated)
     .onClick((): void => {
-      this.pathStack.pushPath({ name: 'Badges' });
+      this.pushStack.pushPath({ name: 'Badges' });
     })
   }
 
@@ -315,9 +323,12 @@ export struct MinePage {
         ListItem() {
           this.memberCard()
         }
+        // 横向内缩在这一层（hero 资料卡同款：包层让位、卡面撑满内容宽）
+        .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
         ListItem() {
           this.medalCard()
         }
+        .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm })
       }
       .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .width('100%')
@@ -380,7 +391,7 @@ export struct MinePage {
         menu: [HdsChrome.item($r('app.media.action_share'), '分享主页', (): void => {
           this.shareProfile();
         }), HdsChrome.item($r('app.media.set_gear'), '设置', (): void => {
-          this.pathStack.pushPath({ name: 'Settings' });
+          this.pushStack.pushPath({ name: 'Settings' });
         })]
       }))
       .navDestination(routerMap)
@@ -407,7 +418,7 @@ export struct MinePage {
         menu: [HdsChrome.item($r('app.media.action_share'), '分享主页', (): void => {
           this.shareProfile();
         }), HdsChrome.item($r('app.media.set_gear'), '设置', (): void => {
-          this.pathStack.pushPath({ name: 'Settings' });
+          this.pushStack.pushPath({ name: 'Settings' });
         })]
       }))
       .titleMode(HdsNavDestinationTitleMode.MINI)

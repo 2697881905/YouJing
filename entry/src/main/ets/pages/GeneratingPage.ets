@@ -5,7 +5,7 @@
  * 失败（重试耗尽）replacePath 进屏7 GenerateFailed（§4.1-5 降级链）。
  */
 
-import { APP_NAV, FailInfo } from '../common/constants/AppNav';
+import { HOST_NAV, FailInfo } from '../common/constants/AppNav';
 import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
@@ -147,7 +147,7 @@ export struct GeneratingPage {
       WidgetSync.refreshAll(context).catch((err: Error) => {
         Logger.warn('Ui.Generating', `卡片刷新失败: ${err.message}`);
       });
-      APP_NAV.replacePath({ name: 'Itinerary', param: trip.id });
+      HOST_NAV.replacePath({ name: 'Itinerary', param: trip.id });
     } catch (err) {
       if (this.cancelled) {
         return;
@@ -156,11 +156,11 @@ export struct GeneratingPage {
       Logger.error('Ui.Generating', `生成失败 code=${code}: ${(err as Error).message}`);
       this.done = true;
       if (code === ErrorCode.CLOUD_QUOTA_EXHAUSTED) {
-        APP_NAV.replacePath({ name: 'Pricing', param: this.localTripId });
+        HOST_NAV.replacePath({ name: 'Pricing', param: this.localTripId });
         return;
       }
       const info: FailInfo = { code: code, detail: (err as Error).message };
-      APP_NAV.replacePath({ name: 'GenerateFailed', param: info });
+      HOST_NAV.replacePath({ name: 'GenerateFailed', param: info });
     }
   }
 
@@ -279,13 +279,14 @@ export struct GeneratingPage {
             label: '取消',
             fullWidth: true,
             onAction: (): void => {
-              APP_NAV.pop();
+              HOST_NAV.pop();
             }
           })
         }
         .width('100%')
-        // 与屏7 同一处漏网：钉底的「取消」只留 xl(24)，这一屏也挂在悬浮 dock 上
-        .padding({ bottom: LayoutTokens.floatingDockClearance })
+        // 钉底「取消」原来只留 xl(24)，后来让出 dock 净空；2026-11-11 二级页全屏化
+        // 后 dock 作废，按契约「CTA 距底 ≥16」留一档呼吸
+        .padding({ bottom: SpaceTokens.base })
       }
       .width('100%')
       .height('100%')

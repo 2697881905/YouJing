@@ -18,11 +18,14 @@ export const TRIPS_NAV: NavPathStack = new NavPathStack();
 /** 新「我的」页（个人信息 + 勋章卡 + 设置）的栈 */
 export const PROFILE_NAV: NavPathStack = new NavPathStack();
 /**
- * 壳层宿主栈（对齐「有据」`Index` 的 `pageStack`：外层 `Navigation` 只做宿主，
- * 不承载任何一格的导航）。
+ * 壳层宿主栈：外层 `Navigation(HOST_NAV)`（Index）**唯一**承载所有二级页的栈。
+ *
+ * 2026-11-11 二级页全屏化：所有子页（向导链 / 行程详情 / 勋章 / 设置…）一律 push 到
+ * 这条栈，全屏盖住 HdsTabs——dock 页签栏不显示、也不随左右滑切页签（HDS 导航的
+ * 标准形态：一级页签 + 二级页全屏）。根页仍内联在各自 TabContent 里。
  * ⚠ 它**不能**等于任何一格自己的栈：一个 `NavPathStack` 只能被一个 `Navigation` 持有，
- * 外层若绑 `APP_NAV`，规划格那个 `HdsNavigation(APP_NAV)` 的绑定会被抢走，
- * 向导链就会从「页签内」改成「盖住 dock 的全屏」——那是观感回归不是重构。
+ * 外层若绑 `APP_NAV`，规划格那个 `HdsNavigation(APP_NAV)` 的绑定会被抢走（编译不报错、
+ * 页面渲染不出来）。
  */
 export const HOST_NAV: NavPathStack = new NavPathStack();
 
@@ -127,38 +130,26 @@ export function activeTripId(): string {
 
 /**
  * 建行程主链的唯一入口。
- * 主链 16 个页面全往 APP_NAV push；从别的页签把它 push 到自己那条栈上，
- * 下一跳就会落到看不见的栈里——真机表现为「点开始规划没反应」（§4j 那条 P0）。
- * 所以入口一律：先切到规划 tab，再把第一页推进 APP_NAV（规划 tab 的栈）。
+ * 主链页面全往 HOST_NAV push（二级页全屏化：盖住 dock，不随页签横滑）。
+ * 入口一律：先切到规划 tab，再把第一页推进宿主栈——返回时先逐层弹回向导链，
+ * 走完落到规划 tab 根页。
  */
 export function enterPlanningFlow(name: string): void {
   requestTab(TAB_PLAN);
-  APP_NAV.pushPath({ name: name });
+  HOST_NAV.pushPath({ name: name });
 }
 
 /**
- * 路由名 → 归属栈。
+ * 路由名 → 落点栈。
  *
- * ⚠ 必须与 `tabOfRoute` 逐分支对齐：`EntryAbility.routeTo` 先用 `tabOfRoute` 决定
- * 初始页签、再用 `stackOfRoute` 决定 push 到哪条栈。两者一旦错位，
- * 深链就会把页面 push 进**当前不可见**的那条栈 —— 冷启白屏、点了没反应，
- * 且不报错。`NavStackRouting.test` 里有一条
- * `stackOfTab(tabOfRoute(n)) === stackOfRoute(n)` 的不变量断言专门锁这件事。
+ * 2026-11-11 二级页全屏化：**所有非根路由一律落宿主栈 HOST_NAV**（全屏盖住 dock，
+ * 不显示页签栏、不随 HdsTabs 左右滑切页）。`tabOfRoute` 仍负责决定底下停在哪个页签：
+ * `EntryAbility.routeTo` 先切页签、再把子页 push 到这条宿主栈上。
+ * ⚠ 根路由（Map/Expense/Trips/Mine）不会被 push（routeTo 有 `isTabRoot` 判定拦着）；
+ * 这里统一返回 HOST_NAV，万一被绕过也只是多叠一层全屏页，不会推进看不见的栈。
  */
-export function stackOfRoute(name: string): NavPathStack {
-  if (name === 'Map') {
-    return MAP_NAV;
-  }
-  if (name === 'Expense') {
-    return EXPENSE_NAV;
-  }
-  if (name === 'Trips') {
-    return TRIPS_NAV;
-  }
-  if (name === 'Badges' || name === 'Mine' || name === 'Settings') {
-    return PROFILE_NAV;
-  }
-  return APP_NAV;
+export function stackOfRoute(_name: string): NavPathStack {
+  return HOST_NAV;
 }
 
 /**

@@ -66,6 +66,11 @@ export interface ChromeSpec {
   backSlot?: boolean;
   /** 右侧官方圆钮菜单（替代自绘 SymbolGlyph + onClick） */
   menu?: Array<HdsNavigationMenuItemOptions>;
+  /**
+   * 标题水平居中：HDS 自绘标题默认左对齐（有据口径），个别表单页（编辑资料）要求居中。
+   * 居中档左右内缩对称取 BACK_SLOT_END_VP，让标题落在屏幕正中而不是返回键右侧剩余区的正中。
+   */
+  centerTitle?: boolean;
   /** 栏内最多直出几枚图标，其余收进官方「更多」；不给即 3 */
   menuMaxCount?: number;
   // 这里原有过一项 `fullBleed`（内容铺到状态栏下、栏体只作透明悬浮层）：全仓零调用点，
@@ -139,14 +144,16 @@ function chromeTitleRow(spec: ChromeSpec) {
           .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
     }
-    .alignItems(HorizontalAlign.Start)
+    .alignItems(spec.centerTitle === true ? HorizontalAlign.Center : HorizontalAlign.Start)
+    .width('100%')
   }
   .width('100%')
   .height('100%')
   .alignItems(VerticalAlign.Center)
   .padding({
     left: spec.backSlot === false ? SpaceTokens.base : BACK_SLOT_END_VP,
-    right: SpaceTokens.base
+    // 居中档右内缩与左对称，标题中心才落在屏幕中线（否则会被返回键位挤偏 24vp）
+    right: spec.centerTitle === true ? BACK_SLOT_END_VP : SpaceTokens.base
   })
 }
 
@@ -259,7 +266,7 @@ export class HdsChrome {
     // 键必须带深浅档 tick：档位切换时 tick 变化 → 旧缓存不再命中 → 建新 ComponentContent，
     // 栏体重挂载后按**当前档**重解 $r 色（见 ChromeSpec.themeTick 的真机实证说明）。
     const tick: number = spec.themeTick === undefined ? 0 : spec.themeTick;
-    const key: string = `${spec.mainTitle}|${spec.subTitle ?? ''}|${spec.backSlot === false ? 'root' : 'back'}|${tick}`;
+    const key: string = `${spec.mainTitle}|${spec.subTitle ?? ''}|${spec.backSlot === false ? 'root' : 'back'}|${spec.centerTitle === true ? 'center' : 'left'}|${tick}`;
     const cached: ComponentContent<Object> | undefined = HdsChrome.titleCache.get(key);
     if (cached !== undefined) {
       return cached;
