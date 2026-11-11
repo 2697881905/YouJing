@@ -158,11 +158,25 @@ export async function getAccessToken(cfg, budgetMs) {
   return tokenCache.token;
 }
 
+/**
+ * 百度推理服务错误码的排查提示。
+ * https://ai.baidu.com/ai-doc/WENXINWORKSHOP/tlmyncueh
+ * 6 最常见：应用没勾选该接口，或定制服务未发布——控制台侧动作，改代码没用。
+ */
+const ERROR_HINTS = {
+  3: '接口地址或模型名不存在，核对 IMAGEGEN_MODEL',
+  6: '应用无该接口权限：千帆控制台 → 应用接入 → 编辑应用 → 勾选对应接口 → 更新；定制服务须处于「已发布」',
+  17: '付费接口未开通 / 账户欠费 / 当日限额用尽',
+  110: 'access_token 失效，检查 API Key 与 Secret Key 是否来自同一应用'
+};
+
 /** 上游响应 → base64 字符串；兼容百度 b64_image 与 OpenAI 风格 b64_json / url。 */
 export function parseImagePayload(data) {
   if (data && (data.error_code !== undefined || data.error_msg !== undefined)) {
-    throw new HttpError(502, 'IMAGEGEN_UPSTREAM_ERROR',
-      `上游错误 ${data.error_code ?? ''}: ${data.error_msg || ''}`.slice(0, 240));
+    const hint = ERROR_HINTS[String(data.error_code)] || '';
+    const text = `上游错误 ${data.error_code ?? ''}: ${data.error_msg || ''}` +
+      (hint.length > 0 ? ` | ${hint}` : '');
+    throw new HttpError(502, 'IMAGEGEN_UPSTREAM_ERROR', text.slice(0, 320));
   }
   const first = data && Array.isArray(data.data) ? data.data[0] : null;
   if (!first) {

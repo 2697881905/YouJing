@@ -67,9 +67,10 @@ test('parses b64_image (Baidu) and b64_json/url variants, rejects empty and over
   assert.throws(() => parseImagePayload({ data: [{ b64_image: 'A'.repeat(6 * 1024 * 1024) }] }));
 });
 
-test('Baidu returns HTTP 200 with error_code on auth failure', () => {
-  assert.throws(() => parseImagePayload({ error_code: 110, error_msg: 'Access token invalid' }),
-    /IMAGEGEN_UPSTREAM_ERROR|110/);
+test('Baidu returns HTTP 200 with error_code and actionable hint', () => {
+  assert.throws(() => parseImagePayload({ error_code: 110, error_msg: 'Access token invalid' }), /110/);
+  assert.throws(() => parseImagePayload({ error_code: 6, error_msg: 'No permission to access data' }),
+    /应用接入/);
 });
 
 test('subscription gate only accepts an active subscription snapshot', () => {
