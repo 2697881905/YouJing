@@ -97,6 +97,23 @@ HTTP 200，提示词里仍内嵌完整 Schema，BFF 仍用同一份 Schema 校�
 `pending`；同一 key 并发时只有第一个请求 `changes=1`，其余直接 409，不会各自调 LLM
 造成双扣费/双写。
 
+## 生图端点（/v1/image/generate，2026-11-11）
+
+回顾海报 AI 底图，**只对有效订阅开放**，挂 `authMiddleware` + `rateLimitMiddleware`。
+
+| 项 | 口径 |
+|---|---|
+| 请求 | `{ city: string, style: 'geometry' \| 'texture' }`，字段白名单，多一个字段就 400；prompt 由服务端固定模板拼，客户端不能注入 |
+| 订阅 | `getEntitlement()` 实时校验 `status='active' AND period_end >= now`，非订阅 402 `SUBSCRIPTION_REQUIRED` |
+| 上游 | `src/services/imagegen.js` → OpenAI 兼容 `images/generations`，Key 只存 `IMAGEGEN_BASE_URL` / `IMAGEGEN_API_KEY` / `IMAGEGEN_MODEL` 环境变量 |
+| 超时 | `IMAGEGEN_TIMEOUT_MS` 默认 30000ms；超时 504 `IMAGEGEN_TIMEOUT`，上游 429 透传，其它非 2xx → 502 |
+| 响应 | `{ image, mime, model, bytes }`，`image` 是 base64；产物**不落库、不进对象存储、不进 UGC** |
+| 与 trip 的差异 | **刻意不挂幂等、不扣额度、不写 `trip_request`**：同步增强、失败端侧降级模板海报；成本靠限流 + 严格超时，不重试 |
+
+端侧读超时 `ApiConfig.IMAGE_GEN_READ_TIMEOUT_MS=35000` 需始终大于服务端超时。
+未配置 `IMAGEGEN_*` 时 `/v1/image` 回 503，`npm run preflight` 给 WARN（主链不受影响）；
+订阅门禁与鉴权限流的结构检查是 FAIL 级闸门。
+
 ## 测试
 
 ```bash
@@ -104,7 +121,7 @@ cd bff
 npm test
 ```
 
-`node:test`，不依赖 express / better-sqlite3 / 网络：
+`node:test`，纯函数用例不依赖网络；集成用例会起真实 Express + SQLite：
 
 - `test/prompt.test.js`：17 条规则、Schema 内嵌、rich/sparse 拼装、response_format、SOT hash
 - `test/trip-validator.test.js`：合法/非法 Trip（必填、枚举、类型、空数组、天数、日期倒挂、时刻顺序、午晚各一）
@@ -113,6 +130,7 @@ npm test
   与 BFF rich 分支逐字段比对
 - `test/trip-route.integration.test.js`：真实 Express + SQLite 路由（UPSERT、配额快照、重放、
   同键不同体 422、并发 409、上游 4xx 502、校验失败 502 不扣额）
+- `test/image.test.js`：生图参数白名单 / 固定 prompt / 请求体 / 上游响应解析 / 订阅门禁（6 例）
 
 ## 上线前自检与部署清单
 

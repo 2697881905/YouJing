@@ -83,3 +83,33 @@
   | `docs/DESIGN.md` | `3fcc3a62edc7bc8ac3d782c9910d20aa`（本轮零改动，与 round 1 相同） |
   | `docs/youjing-stitch-prompts.md` | `f98d054dd272f7e3280d1f714188ff9c`（round 1：`6ea9e425…`） |
   | `docs/youjing-engineering-handoff.md` | `ad6fa4ea16a8c1a12f01a50d7b18e672`（round 1：`7139d0c4…`） |
+
+## v2.1 增补（2026-11-11）：AI 海报底图例外
+
+本轮按用户决策**正式修订了仓库内 v2 契约文本**，不是加一句临时例外：
+
+- `DESIGN.md` §Typography 首段：「no illustration system」改为带一处**登记例外**的表述；
+- §3 有径 product layer 新增 `AI poster base` 规范段（允许范围 / 禁止内容 / 可读性 / 失败态 / 产品边界）；
+- `Do's and Don'ts` 新增一条扩张禁令，另两条既有禁令补例外引用；
+- Family-wide 段登记家族同步待办。
+
+实现侧：`entry/src/main/ets/pages/TripReviewPage.ets`（唯一载体）、
+`ai/ImageGenClient.ets`、`bff/src/routes/image.js` + `services/imagegen.js`，
+口径见 `Docs/行后情绪方案.md` §AI 底图、`Docs/商业化方案.md` §2.1。
+
+### 未同步项（本轮不跨仓、不改仓库外个人目录，需人工确认后执行）
+
+| 项 | 位置 | 待办 |
+|---|---|---|
+| 契约原件 | `~/Pictures/有径/有径-设计底稿-v1/docs/DESIGN.md` | 同步上述四处措辞。`tools/audit_*.py` 默认读原件，只改快照不影响审计行为，所以这一步不能省 |
+| 有据（姊妹产品） | 主检出 `~/HarmonyProject1` 的对应设计契约 | 同步同一条例外措辞；有据本轮不实现生图，只对齐契约避免品牌漂移 |
+| 原件 md5 | 上表 | 原件同步后重算并更新；当前表仍是 2026-11-02 的原件值 |
+
+比对快照与原件的差异，只复制代码块内的行：
+
+```
+diff /Users/itxiaobai/WorkBuddy/Worktrees/HarmonyProject2/feat-layout-structure-migration-9fab5e72/Docs/design-v2/DESIGN.md "$HOME/Pictures/有径/有径-设计底稿-v1/docs/DESIGN.md"
+```
+
+`docs/youjing-stitch-prompts.md` 与 `youjing-engineering-handoff.md` 的帧底稿/实测列按 R5/R8 不回写：
+39 帧没有这一屏的 AI 底图，改了就成了篡改证据。

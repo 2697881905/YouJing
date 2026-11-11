@@ -3,7 +3,10 @@
  *
  * 契约：
  * - 权益数据由 BFF /v1/entitlement 返回，端上缓存到 preferences（TTL 5 分钟）；
- * - canExport() 是导出付费墙的判定入口：订阅有效或该行程有通行证即放行；
+ * - canExport() 是 ICS 等通用导出的判定入口：订阅有效或该行程有通行证即放行；
+ * - canExportPoster() 是 2026-11-11 收紧后的海报/AI 生图判定入口：**只认有效订阅**，
+ *   通行证与赠送额度不再放行（商业化方案 §2 同步改口径）。生图请求另由 BFF 实时校验订阅，
+ *   是硬门禁；海报分享是本机文件、服务端无感知，判据依赖本地权益缓存，这里如实注明这一不对称。
  * - 导出不要求缓存新鲜（缓存只有 5 分钟，而导出的是本机文件、服务端无感知）；
  *   但**没有任何缓存**时仍拒绝——那说明从没成功拿到过权益。
  * - **例外**：`ApiConfig.DEV_SKIP_BFF` 为真时整套门禁放开（开发机本地开关，仓库版恒 false）。
@@ -95,6 +98,22 @@ export function exportAllowed(devBypass: boolean, isGuest: boolean,
   return hasSubscription || hasPass;
 }
 
+/**
+ * 海报与 AI 生图放行的纯判定（2026-11-11 决策）。
+ * 只认有效订阅：通行证是「单行程生成与导出」权益，不覆盖成本更高的海报/生图；
+ * 赠送额度同理。DEV_SKIP_BFF 仍按既有契约放开整套门禁。
+ */
+export function posterAllowed(devBypass: boolean, isGuest: boolean,
+  hasSubscription: boolean): boolean {
+  if (devBypass) {
+    return true;
+  }
+  if (isGuest) {
+    return false;
+  }
+  return hasSubscription;
+}
+
 /** 生成放行的纯判定：订阅未满额 / 该行程有通行证 / 还有赠送额度。 */
 export function generateAllowed(hasSubscription: boolean, usedToday: number, dailyCap: number,
   hasPass: boolean, hasGift: boolean): boolean {
@@ -163,6 +182,12 @@ export class EntitlementStore {
   static canExport(tripId: string): boolean {
     return exportAllowed(EntitlementStore.devBypass(), AccountStore.isGuest(),
       EntitlementStore.hasSubscription(), EntitlementStore.hasPass(tripId));
+  }
+
+  /** 海报分享与 AI 生图共用：只认有效订阅，通行证/赠送额度不放行。 */
+  static canExportPoster(): boolean {
+    return posterAllowed(EntitlementStore.devBypass(), AccountStore.isGuest(),
+      EntitlementStore.hasSubscription());
   }
 
   static hasGiftQuota(): boolean {

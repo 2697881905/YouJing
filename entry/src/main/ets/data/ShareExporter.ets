@@ -6,6 +6,10 @@
  * 3) 本机生成的 .ics 日历文件（general.file，
  * 写进 cacheDir 后交 fileUri，系统分享面板负责给接收方临时读权限）。
  * 不上传任何数据，不含账号信息。
+ *
+ * 例外（2026-11-11）：回顾海报的 AI 底图由 `ai/ImageGenClient` 向 BFF 发送
+ * 「城市 + 风格」两个生成参数（见 pages/TripReviewPage）。本文件三条分享通路仍全程本机，
+ * 图片产物不上传、不落服务端库。
  */
 
 import { fileIo as fs, fileUri } from '@kit.CoreFileKit';

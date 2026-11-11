@@ -87,6 +87,16 @@ export interface ApiConfigType {
    * 空串 = 不出天气行。只发当日首站坐标四舍五入到 0.1°，不发实时定位。
    */
   WEATHER_URL: string;
+  /**
+   * 回顾海报 AI 底图端点（BFF /v1/image）。请求只带城市与风格枚举，
+   * 不带行程、打卡、账本或任何图片；响应是 base64 图片，不落服务端。
+   */
+  IMAGE_GEN_ENDPOINT: string;
+  /**
+   * 生图读取超时。BFF 上游默认 30s（IMAGEGEN_TIMEOUT_MS），这里留 5s 余量；
+   * 超时后页面保留模板海报并如实提示，不重试、不重复计费。
+   */
+  IMAGE_GEN_READ_TIMEOUT_MS: number;
 }
 
 export const ApiConfig: ApiConfigType = {
@@ -105,5 +115,7 @@ export const ApiConfig: ApiConfigType = {
   REPLAN_TOKEN: '',
   REPLAN_CONNECT_TIMEOUT_MS: 2000,
   REPLAN_READ_TIMEOUT_MS: 6000,
-  WEATHER_URL: 'https://api.open-meteo.com/v1/forecast'
+  WEATHER_URL: 'https://api.open-meteo.com/v1/forecast',
+  IMAGE_GEN_ENDPOINT: '/v1/image/generate',
+  IMAGE_GEN_READ_TIMEOUT_MS: 35000
 };

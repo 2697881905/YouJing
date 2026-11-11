@@ -8,6 +8,10 @@
  * 数据全部派生自既有证据（utils/TripReview + BadgeDao + ExpenseDao），本页不写库。
  * 海报走「本机离屏快照 → JPEG 落 cache → 系统分享面板」；快照/打包失败时降级为
  * 分享行程文本，并如实告知，不假装海报已生成。
+ *
+ * 2026-11-11 增补：订阅者可先生成一张 AI 抽象底图（ai/ImageGenClient，只发城市+风格），
+ * 底图只作 posterCard 的背景，产物仍由本机离屏快照生成、不上传、不落库。
+ * 生图失败/超时一律保留模板海报；分享海报与生成配图共用 canExportPoster 订阅门禁。
  */
 
 import { PricingReason } from '../utils/PricingReason';
@@ -28,6 +32,7 @@ import { BadgeDao } from '../data/BadgeDao';
 import { ExpenseDao } from '../data/ExpenseDao';
 import { ShareExporter } from '../data/ShareExporter';
 import { EntitlementStore } from '../data/EntitlementStore';
+import { ImageGenClient } from '../ai/ImageGenClient';
 import { Trip } from '../model/Trip';
 import { Badge, BadgeGroup, BadgeRecord, badgeDateText, buildBadgeBoard } from '../utils/BadgeBoard';
 import { ReviewDay, ReviewItem, ReviewView, buildReview, reviewTimeText } from '../utils/TripReview';
@@ -75,6 +80,10 @@ export struct TripReviewPage {
   @State private pvStops: string = '';
   @State private pvBadges: string = '';
   @State private pvSpend: string = '';
+
+  /** AI 底图：只存在内存，null = 模板海报。名字避开 CustomComponent 保留成员名 */
+  @State private genPixelMap: image.PixelMap | null = null;
+  @State private genPending: boolean = false;
 
   aboutToAppear(): void {
     this.load();
@@ -153,6 +162,40 @@ export struct TripReviewPage {
   }
 
   /**
+   * 生成一张 AI 抽象底图。同步只发一次、严格超时、失败降级模板海报，不重试。
+   * 只把城市与风格枚举交给 ai/ 层；行程、打卡、账本与图片一律不出端。
+   */
+  private async generatePosterImage(): Promise<void> {
+    if (this.genPending) {
+      return;
+    }
+    if (!EntitlementStore.canExportPoster()) {
+      PricingReason.markExportGate();
+      this.pathStack.pushPath({ name: 'Pricing', param: this.tripId });
+      return;
+    }
+    this.genPending = true;
+    try {
+      const pixelMap: image.PixelMap | null = await ImageGenClient.generate(this.pvCity, 'geometry');
+      if (pixelMap === null) {
+        this.toast('配图没生成出来，已保留原海报');
+        return;
+      }
+      const previous: image.PixelMap | null = this.genPixelMap;
+      this.genPixelMap = pixelMap;
+      if (previous !== null) {
+        try {
+          await previous.release();
+        } catch (err) {
+          Logger.warn('Ui.Review', `旧底图释放失败: ${(err as Error).message}`);
+        }
+      }
+    } finally {
+      this.genPending = false;
+    }
+  }
+
+  /**
    * 离屏快照海报 → JPEG → 系统分享。
    * 任何一步失败都退回分享行程文字：用户至少拿到内容，且弹窗说明降级原因。
    */
@@ -162,8 +205,8 @@ export struct TripReviewPage {
     if (this.sharing || review === null || trip === null) {
       return;
     }
-    if (!EntitlementStore.canExport(this.tripId)) {
-      // 海报同属导出族：反馈落在付费页标题上（toast 紧跟跳页时不显示）
+    if (!EntitlementStore.canExportPoster()) {
+      // 2026-11-11 收紧：海报只认有效订阅，通行证不再放行；反馈落在付费页标题上
       PricingReason.markExportGate();
       this.pathStack.pushPath({ name: 'Pricing', param: this.tripId });
       return;
@@ -232,64 +275,82 @@ export struct TripReviewPage {
     .layoutWeight(1)
   }
 
-  /** 屏幕内按容器铺满；离屏快照用固定宽（builder 根宽为 0 会直接失败） */
+  /**
+   * 屏幕内按容器铺满；离屏快照用固定宽（builder 根宽为 0 会直接失败）。
+   * 有 AI 底图时叠一层画布色遮罩保证 ink 文字对比度；底图只在内存，不落相册。
+   */
   @Builder
   posterCard(fixedWidth: boolean) {
-    Column({ space: SpaceTokens.xs }) {
-      Row() {
-        Text('旅途回放')
-          .fontSize(TypeTokens.overline.size)
-          .fontWeight(600)
+    Stack({ alignContent: Alignment.TopStart }) {
+      if (this.genPixelMap !== null) {
+        Image(this.genPixelMap)
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
+        Column()
+          .width('100%')
+          .height('100%')
+          .backgroundColor(ColorTokens.canvas)
+          .opacity(0.78)
+      }
+      Column({ space: SpaceTokens.xs }) {
+        Row() {
+          Text('旅途回放')
+            .fontSize(TypeTokens.overline.size)
+            .fontWeight(600)
+            .fontColor(ColorTokens.muted)
+          Blank()
+          SymbolGlyph($r('sys.symbol.medal'))
+            .fontSize(IconSizes.control)
+            .fontColor([ColorTokens.primary])
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+
+        Text(this.pvCity)
+          .fontSize(TypeTokens.title.size)
+          .fontWeight(700)
+          .fontFamily(TypeTokens.title.family)
+          .fontColor(ColorTokens.ink)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .margin({ top: SpaceTokens.xxs })
+
+        Text(this.pvDates)
+          .fontSize(TypeTokens.caption.size)
+          .fontWeight(450)
           .fontColor(ColorTokens.muted)
-        Blank()
-        SymbolGlyph($r('sys.symbol.medal'))
-          .fontSize(IconSizes.control)
-          .fontColor([ColorTokens.primary])
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
+          .fontFeature("'tnum' on")
 
-      Text(this.pvCity)
-        .fontSize(TypeTokens.title.size)
-        .fontWeight(700)
-        .fontFamily(TypeTokens.title.family)
-        .fontColor(ColorTokens.ink)
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .margin({ top: SpaceTokens.xxs })
+        Text(this.pvMeta)
+          .fontSize(TypeTokens.small.size)
+          .fontWeight(450)
+          .fontColor(ColorTokens.body)
+          .fontFeature("'tnum' on")
 
-      Text(this.pvDates)
-        .fontSize(TypeTokens.caption.size)
-        .fontWeight(450)
-        .fontColor(ColorTokens.muted)
-        .fontFeature("'tnum' on")
-
-      Text(this.pvMeta)
-        .fontSize(TypeTokens.small.size)
-        .fontWeight(450)
-        .fontColor(ColorTokens.body)
-        .fontFeature("'tnum' on")
-
-      Row() {
-        this.posterStat(this.pvStops, '打卡')
-        this.posterStat(this.pvBadges, '新章')
-        this.posterStat(this.pvSpend, '记账')
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Top)
-      .margin({ top: SpaceTokens.sm })
-
-      Text('有径 · 去过的地方都算数')
-        .fontSize(TypeTokens.overline.size)
-        .fontWeight(450)
-        .fontColor(ColorTokens.muted)
+        Row() {
+          this.posterStat(this.pvStops, '打卡')
+          this.posterStat(this.pvBadges, '新章')
+          this.posterStat(this.pvSpend, '记账')
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Top)
         .margin({ top: SpaceTokens.sm })
+
+        Text('有径 · 去过的地方都算数')
+          .fontSize(TypeTokens.overline.size)
+          .fontWeight(450)
+          .fontColor(ColorTokens.muted)
+          .margin({ top: SpaceTokens.sm })
+      }
+      .width('100%')
+      .padding(SpaceTokens.lg)
+      .alignItems(HorizontalAlign.Start)
     }
     .width(fixedWidth ? 320 : '100%')
-    .padding(SpaceTokens.lg)
     .borderRadius(RadiusTokens.hero)
     .backgroundColor(ColorTokens.surfaceElevated)
-    .alignItems(HorizontalAlign.Start)
+    .clip(true)
   }
 
   /** 离屏快照的外框：垫一层画布色，避免 JPEG 把卡片圆角外的透明区压成白角 */
@@ -307,29 +368,38 @@ export struct TripReviewPage {
   posterSection() {
     Column() {
       this.posterCard(false)
-      Row({ space: SpaceTokens.sm }) {
+      // 三枚动作在窄屏会自动换行，不靠固定宽度硬挤（竖折内屏 ~360vp）
+      Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Center }) {
+        YoujingButton({
+          variant: YoujingButtonVariant.SECONDARY,
+          label: this.genPending ? '生成中…' : '生成配图',
+          buttonWidth: 110,
+          disabled: this.genPending || this.sharing,
+          onAction: (): void => {
+            this.generatePosterImage();
+          }
+        }).margin({ right: SpaceTokens.sm, bottom: SpaceTokens.xs })
         YoujingButton({
           variant: YoujingButtonVariant.PRIMARY,
           label: this.sharing ? '生成中…' : '分享海报',
-          buttonWidth: 150,
-          disabled: this.sharing,
+          buttonWidth: 140,
+          disabled: this.sharing || this.genPending,
           onAction: (): void => {
             this.sharePoster();
           }
-        })
+        }).margin({ right: SpaceTokens.sm, bottom: SpaceTokens.xs })
         YoujingButton({
           // 空态那一侧的「查看完整行程」本来就是 SECONDARY；这里用 TEXT 时它渲染成
           // 一行裸白字，实拍读不出是可点的（屏16 真机 2026-11-04）
           variant: YoujingButtonVariant.SECONDARY,
           label: '完整行程',
-          buttonWidth: 120,
+          buttonWidth: 110,
           onAction: (): void => {
             this.openItinerary();
           }
-        })
+        }).margin({ bottom: SpaceTokens.xs })
       }
       .width('100%')
-      .justifyContent(FlexAlign.Center)
       .margin({ top: SpaceTokens.sm })
     }
     .width('100%')
@@ -574,7 +644,7 @@ export struct TripReviewPage {
         }
       }
       ListItem() {
-        Text('回顾在本机生成，不上传服务器、不含账号信息')
+        Text('回顾与海报文件在本机生成、不上传；生成配图仅发送城市与风格，不含账号与行程内容')
           .fontSize(TypeTokens.caption.size)
           .fontWeight(450)
           .fontColor(ColorTokens.muted)

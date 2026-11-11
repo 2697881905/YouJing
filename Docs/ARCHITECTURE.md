@@ -14,7 +14,7 @@
 | `components/` | 可复用 UI 组件（DayCard、ActivityItem、SpotCard、AreaCard、OptionButton 等） | model（仅类型）、design、common | pages、data、ai、mock |
 | `model/` | 业务数据模型与类型定义（Trip、Spot、Area、PlanParams） | common | pages、components、data、ai、mock、design |
 | `data/` | RDB 建库建表、版本迁移、DAO（TripDao/SpotDao/AreaDao/DatabaseHelper） | model、mock（USE_MOCK_DATA 数据路由）、common | pages、components、ai、design |
-| `ai/` | Prompt 构造、JSON Schema 常量、类型守卫解析、LLM 调用（PromptBuilder/TripSchema/TripParser/LlmClient） | model、common | pages、components、data、mock、design |
+| `ai/` | Prompt 构造、JSON Schema 常量、类型守卫解析、LLM 与生图客户端（PromptBuilder/TripSchema/TripParser/LlmClient/PickClient/ImageGenClient） | model、common、`data/DeviceTokenStore`（仅读设备票据） | pages、components、mock、design；禁止写 RDB |
 | `mock/` | Mock 数据（MockTrip），供开发期数据路由 | model、common | pages、components、data、ai、design |
 | `utils/` | 纯函数工具（GeoUtils 距离计算、DateUtils 日期） | common | pages、components、model、data、ai、mock、design |
 | `design/` | 设计 tokens（ColorTokens/TypeTokens/SpaceTokens/RadiusTokens/LayoutTokens/ShadowTokens/MotionTokens + HdsChrome），视觉常量单一事实源 | common | 其余全部业务目录 |
@@ -31,7 +31,8 @@ pages → components → model / data / ai / utils → common
 ```
 
 - 依赖只允许沿箭头方向单向流动，禁止反向引用（如 common 引 model、model 引 components）。
-- 禁止跨层直连：**页面不得直接操作 RDB，不得直接发起 LLM 请求**，必须分别经 `data/`、`ai/` 层。
+- 禁止跨层直连：**页面不得直接操作 RDB，不得直接发起 LLM / 生图请求**，必须分别经 `data/`、`ai/` 层。
+  `ai/` 客户端只被允许读 `data/DeviceTokenStore` 的设备票据，不得写 RDB、不得引 `components/`。
 - `design/` 与 `common/` 同属底层，可被 pages/components 引用；`design/` 不得引用任何业务目录。
 - `mock/` 仅被 `data/` 在 `MockConfig.USE_MOCK_DATA` 开启时作为数据路由读取，UI 层不得直接引用 mock。
 
@@ -59,3 +60,27 @@ pages → components → model / data / ai / utils → common
 - **token 先行**：新增视觉常量必须先进 token 文件（语义化命名）再使用，禁止页面内先写死再"回头收口"。
 - **豁免类**：布局百分比（'100%'）、动画 spring 参数、边框宽度等结构性数值不强制走 token，但同类数值出现第二处时必须收口。
 - **组件标识**：testKey / id 按第 4 节「模块前缀-语义 id」规范执行（如 `spot-card-{spotId}`），禁止裸数字 id。
+
+## 6. 生图链路（2026-11-11 增补）
+
+```
+pages/TripReviewPage.ets  ──(城市 + 风格枚举)──▶  ai/ImageGenClient.ets
+        ▲                                              │
+        │ PixelMap | null                              ▼  Bearer 设备票据
+        └──────────────  本机离屏快照 ──────────  bff POST /v1/image/generate
+                          JPEG → cacheDir                │
+                          → ShareKit                     ▼
+                                                  services/imagegen.js
+                                                  → OpenAI 兼容 images/generations
+```
+
+- 端侧只发 `city` 与 `style` 两个参数，**prompt 由 BFF 固定模板拼**，客户端不能注入任意提示词；
+  `bff/src/routes/image.js` 做参数白名单 + 订阅实时校验 + 统一错误映射。
+- 上游 Key 只存 BFF env（`IMAGEGEN_*`），不进发布包；产物图片以 base64 回端侧内存，
+  **不落库、不进对象存储、不进 UGC**，最终文件仍由本机 `createFromBuilder` 快照生成。
+- 同步一次、严格超时、不重试、不扣行程额度；任何失败返回 `null`，页面保留模板海报。
+- 门禁：`EntitlementStore.canExportPoster()`（端侧，只认有效订阅）+
+  `subscriptionAllowsImage()`（BFF，实时）+ `authMiddleware` + `rateLimitMiddleware`。
+- 新增页面/新增路由均不需要；`main_pages.json`、`AppRouter`、`AppNav` 不动。
+- 相关契约：`Docs/行后情绪方案.md` §海报、`Docs/商业化方案.md` §2.1、
+  `Docs/design-v2/DESIGN.md` §AI poster base。

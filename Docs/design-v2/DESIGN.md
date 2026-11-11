@@ -908,7 +908,7 @@ The correct selected-state recipe, measured:
 So: **a tint fill carries an ink label plus a blue stroke, never a blue label.** Blue-as-text is only allowed on the flat canvas or on an opaque `elevated`/`subtle` surface (5.57 / 5.20:1). If a screen genuinely needs a blue label on a selected row, darken the label to `primary-press` `#0055BB` (5.62:1) rather than lightening the tint.
 # Typography
 
-Type is the product's credibility device. 有径 has no photography budget, no illustration system, and must not look like a chatbot's output — so the entire "an editor made this, not a model" feeling is carried by two families used in strictly separated roles.
+Type is the product's credibility device. 有径 has no photography budget, no illustration system, and must not look like a chatbot's output — so the entire "an editor made this, not a model" feeling is carried by two families used in strictly separated roles. **One narrow, registered exception exists (v2.1, 2026-11-11): a generated abstract background may appear inside the review share-image only — see §3 "AI poster base". It is a background, not an illustration system, and it never reaches the entry screen, day cards, or widgets.**
 
 ## 1. Family inventory (what actually ships)
 
@@ -1141,7 +1141,7 @@ Dark mode note: a solid `primary` button in dark mode paints `#0A84FF` with a `#
 
 ## 3. 有径 product layer
 
-**Destination & date entry.** Serif `display` city name on the canvas, a 64px `surface-elevated` field row (label in `muted` caption, value in `headline`, chevron in `faint`) for dates and travelers, then one `primary` CTA. No map screenshot, no stock photo hero — the entry screen is type on white.
+**Destination & date entry.** Serif `display` city name on the canvas, a 64px `surface-elevated` field row (label in `muted` caption, value in `headline`, chevron in `faint`) for dates and travelers, then one `primary` CTA. No map screenshot, no stock photo hero — the entry screen is type on white. The §3 AI poster base exception applies to the review share-image only and never to this screen.
 
 **Interview question (`question-card`).** Full-bleed canvas, 24px/16px padding: serif `title` question, a `muted` `callout` helper line, then a stack of `option-chip` cards with 8px gaps. Each chip: `surface-elevated`, `lg` radius, min 56px tall, 16px padding, `body` label, optional `caption` sub-line, and a `primary` check mark top-right when selected. Selected state = `brand-solid` solid fill + `on-brand` label. Press = scale 0.97 / 140ms. Progress is a row of 6px dots (active `primary`, inactive `surface-sunken`) plus an `overline` "第 2/5 步". Skip is `button-ghost`, never a grey text link. No chat bubbles, no AI avatar, no typing indicator.
 
@@ -1160,6 +1160,14 @@ Dark mode note: a solid `primary` button in dark mode paints `#0A84FF` with a `#
 **Calendar sync row.** 64px, `body` title + `muted` one-line explanation of exactly what gets written, `primary` switch on the right, chevron if it opens a sub-panel. Never a permission ask inside a sheet.
 
 **Badge text polarity flips with the theme, and this is not a stylistic choice.** Light-mode fills are deep earth tones (#A06400 / #1C7440 / #C0392B / #9A6206) that hold white text at 4.86–5.8:1. Dark-mode fills are the system-bright set (#FF9F0A / #30D158 / #FF453A / #FFD60A) — white on those is 2.0–3.4:1 and fails AA outright. In dark mode the badge text must therefore be the *canvas* color (#121212), which measures 9.11:1 on #FF9F0A, 9.27:1 on #30D158, 13.27:1 on #FFD60A and 5.50:1 on #FF453A — dark ink punched into a bright pill. Never keep white-on-bright. The neutral 自由安排 badge is an exception: it is a grey panel (`#28282C`) with `dark-ink` text, 13.13:1.
+
+**AI poster base (v2.1, 2026-11-11 — registered exception to "no illustration system").** The review share-image is the **only** surface allowed to carry a generated background. It is produced by the BFF from a fixed prompt, gated to active subscribers, and exists only in device memory before the local offscreen snapshot becomes the shared JPEG.
+
+- Content: flat geometric blocks or low-contrast line/paper texture; the closed five-activity palette plus neutral greys; generous negative space; low contrast in the centre so serif `title` city, `tnum` stats and `muted` captions keep their AA ratios.
+- Never: lettering, numerals, people, animals, photoreal buildings, photography, maps, watermarks, logos, magic sparkles, chat bubbles or an AI avatar. A generated image may not introduce a new hue.
+- Legibility: a `canvas` veil at 0.78 opacity sits between the image and all text. The card keeps the `hero` radius and `lg` padding; the image is clipped to the card, never full-bleed on a screen.
+- Failure is a design state, not an error state: timeout, missing config, non-2xx or decode failure falls back to the existing type-on-white template poster with one honest toast. No placeholder shimmer, no "generating" sparkle, no retry.
+- Product boundary: this is a background for one share-image, **not** an AI creation tool, a feed image, an avatar, or a hero. 有据 inherits the wording of this exception, not the imagery.
 
 # Do's and Don'ts
 Do:
@@ -1181,9 +1189,10 @@ Don't:
 - Don't set blue label text on a blue tint fill (4.49:1 light / 3.59:1 dark, both sub-AA). Tint fills take an `ink` label plus a blue stroke.
 - Don't put white text on a dark-mode bright fill (2.02–3.65:1); bright fills take `#121212` ink.
 - Don't introduce new hues for new activity types or moods. The five-type allocation is closed; the sixth meaning is carried by an icon or a word.
-- Don't style AI output like chat: no speech bubbles, no AI avatar, no typing indicator, no gradient text, no "magic" sparkles as a primary motif.
+- Don't style AI output like chat: no speech bubbles, no AI avatar, no typing indicator, no gradient text, no "magic" sparkles as a primary motif. The AI poster base is a background, not a chat surface; it carries no copy of its own.
 - Don't fake precision: no invented percentages, no fake distance numbers, no decorative map pins without a real coordinate.
-- Don't use stock photography or map-screenshot heroes on the entry screen; type on white is the brand.
+- Don't use stock photography or map-screenshot heroes on the entry screen; type on white is the brand. The v2.1 AI poster base exception is confined to the review share-image.
+- Don't extend the AI poster base beyond the review share-image: no generated imagery on the entry screen, day cards, widgets, avatars or any 有据 surface, and no new pricing tier, new hue or new button family built around it.
 - Don't add letter-spacing (positive or negative) to CJK.
 - Don't set colored advisory text (warning / bookmark / danger hues) at 11–12px on a `surface-panel` fill — 4.24:1. Panels carry color as a rule, a dot, or an icon.
 - Don't use pure black #000 text or pure white cards in light mode (`#17171A` on `#F7F7F8` is the contract).
@@ -1197,6 +1206,7 @@ Family-wide (applies to both products):
 - Don't fork a shared token value per product. If 有据 needs a new surface step, 有径 inherits it.
 - Don't let one app invent a third glass surface, a third radius tier, or a second display family — that is how sibling brands drift apart.
 - Do keep the serif/sans split, the 4px baseline, the 20px card and the 300×64 dock identical in both, because those four are what a user actually recognizes across apps.
+- **v2.1 family sync is still open**: the AI poster base exception is registered in this mirror. The contract original and the 有据 design doc must adopt the same wording before either product ships generated imagery; 有径 is the only implementation in scope for this increment.
 
 ---
 
