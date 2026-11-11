@@ -8,6 +8,8 @@ import { CompanionPrefs } from '../../../main/ets/companion/CompanionPrefs';
 import { CompanionEngine } from '../../../main/ets/companion/CompanionEngine';
 import { UnplannedInput } from '../../../main/ets/companion/CompanionTypes';
 import { Activity, ActivityCategory, ActivityStatus, IntensityLevel, TripDay } from '../../../main/ets/model/Trip';
+import { Spot } from '../../../main/ets/model/Spot';
+import { GeoPoint } from '../../../main/ets/utils/Geo';
 
 function act(id: string, time: string, endTime: string, cat: ActivityCategory): Activity {
   const a: Activity = {
@@ -31,6 +33,21 @@ function input(recognized: boolean, estVisitMin: number, day: TripDay, nowMin: n
     day: day, nowMin: nowMin
   };
   return u;
+}
+
+function spot(id: string, name: string, lat: number, lng: number, dur: number): Spot {
+  const s: Spot = {
+    id: id, name: name, city: '北京', tags: [], brief: '', suggestedDuration: dur,
+    popularity: 0, nearbySpotIds: [], longitude: lng, latitude: lat,
+    district: '', nearestMetro: '', booking: { requiresBooking: false },
+    provenance: { source: 'test', updatedAt: '2026-11-11' }
+  };
+  return s;
+}
+
+function pt(lat: number, lng: number): GeoPoint {
+  const p: GeoPoint = { latitude: lat, longitude: lng };
+  return p;
 }
 
 export default function companionTest(): void {
@@ -114,6 +131,59 @@ export default function companionTest(): void {
       const p = CompanionEngine.unplannedArrival(input(true, 90, day, 600), prefs);
       expect(p !== null).assertTrue();
       expect(p!.mode).assertEqual('notify');
+    });
+  });
+
+  describe('CompanionEngine.detectUnplanned', () => {
+    it('recognizes_unplanned_spot_after_dwell', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+      // 计划站在远处（34.5,108.5），fix 落在规划外景点什刹海（34.27,108.07），停够 5min
+      const day = dayOf([act('plan', '11:00', '12:00', ActivityCategory.SIGHT)]);
+      day.activities[0].latitude = 34.5;
+      day.activities[0].longitude = 108.5;
+      const spots: Spot[] = [spot('s1', '什刹海', 34.27, 108.07, 90)];
+      const u = CompanionEngine.detectUnplanned(pt(34.27, 108.07), day, spots, 600, 5);
+      expect(u !== null).assertTrue();
+      expect(u!.recognized).assertTrue();
+      expect(u!.placeName).assertEqual('什刹海');
+      expect(u!.estVisitMin).assertEqual(90);
+    });
+
+    it('passing_by_without_dwell_is_null', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+      const day = dayOf([act('plan', '11:00', '12:00', ActivityCategory.SIGHT)]);
+      day.activities[0].latitude = 34.5;
+      day.activities[0].longitude = 108.5;
+      const spots: Spot[] = [spot('s1', '什刹海', 34.27, 108.07, 90)];
+      const u = CompanionEngine.detectUnplanned(pt(34.27, 108.07), day, spots, 600, 1);
+      expect(u === null).assertTrue();
+    });
+
+    it('planned_arrival_is_null', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+      // fix 落在计划内站点附近 → 不是规划外
+      const day = dayOf([act('plan', '11:00', '12:00', ActivityCategory.SIGHT)]);
+      day.activities[0].latitude = 34.27;
+      day.activities[0].longitude = 108.07;
+      const spots: Spot[] = [spot('s1', '什刹海', 34.27, 108.07, 90)];
+      const u = CompanionEngine.detectUnplanned(pt(34.27, 108.07), day, spots, 600, 5);
+      expect(u === null).assertTrue();
+    });
+
+    it('spot_already_in_plan_is_null', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+      // 景点名已在计划（按名匹配）→ 不算规划外
+      const day = dayOf([act('什刹海', '11:00', '12:00', ActivityCategory.SIGHT)]);
+      day.activities[0].latitude = 34.5;
+      day.activities[0].longitude = 108.5;
+      const spots: Spot[] = [spot('s1', '什刹海', 34.27, 108.07, 90)];
+      const u = CompanionEngine.detectUnplanned(pt(34.27, 108.07), day, spots, 600, 5);
+      expect(u === null).assertTrue();
+    });
+
+    it('fix_near_no_known_spot_is_null', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+      const day = dayOf([act('plan', '11:00', '12:00', ActivityCategory.SIGHT)]);
+      day.activities[0].latitude = 34.5;
+      day.activities[0].longitude = 108.5;
+      const spots: Spot[] = [spot('s1', '什刹海', 34.27, 108.07, 90)];
+      const u = CompanionEngine.detectUnplanned(pt(35.0, 109.0), day, spots, 600, 5);
+      expect(u === null).assertTrue();
     });
   });
 }

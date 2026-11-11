@@ -17,7 +17,9 @@ copy() {
 
 copy entry/src/main/ets/model/Trip.ets model/Trip.ts
 copy entry/src/main/ets/model/Expense.ets model/Expense.ts
+copy entry/src/main/ets/model/Spot.ets model/Spot.ts
 copy entry/src/main/ets/utils/DateUtils.ets utils/DateUtils.ts
+copy entry/src/main/ets/utils/Geo.ets utils/Geo.ts
 copy entry/src/main/ets/companion/CompanionTypes.ets companion/CompanionTypes.ts
 copy entry/src/main/ets/companion/CompanionPrefs.ets companion/CompanionPrefs.ts
 copy entry/src/main/ets/companion/CompanionEngine.ets companion/CompanionEngine.ts

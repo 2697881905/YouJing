@@ -5,6 +5,8 @@
  */
 
 import { Activity, ActivityCategory, ActivityStatus, IntensityLevel, TripDay } from '../model/Trip';
+import { Spot } from '../model/Spot';
+import { GeoPoint } from '../utils/Geo';
 import { CompanionPrefs } from '../companion/CompanionPrefs';
 import { CompanionEngine } from '../companion/CompanionEngine';
 import { CompanionPrompt, UnplannedInput } from '../companion/CompanionTypes';
@@ -102,5 +104,36 @@ prefs3.recordChoice('unplanned_move_tomorrow', 'move_tomorrow', 'move_tomorrow')
 const degraded: CompanionPrompt | null = CompanionEngine.unplannedArrival(input(true, 90, day, 600), prefs3);
 ok(degraded !== null, '降级后仍出卡');
 eq(degraded!.mode, 'notify', '偏好降级为通知');
+
+// —— 规划外地点识别 ——
+function spot(id: string, name: string, lat: number, lng: number, dur: number): Spot {
+  const s: Spot = {
+    id: id, name: name, city: '北京', tags: [], brief: '', suggestedDuration: dur,
+    popularity: 0, nearbySpotIds: [], longitude: lng, latitude: lat,
+    district: '', nearestMetro: '', booking: { requiresBooking: false },
+    provenance: { source: 'test', updatedAt: '2026-11-11' }
+  };
+  return s;
+}
+function pt(lat: number, lng: number): GeoPoint {
+  const p: GeoPoint = { latitude: lat, longitude: lng };
+  return p;
+}
+const farDay = dayOf([act('plan', '11:00', '12:00', ActivityCategory.SIGHT)]);
+farDay.activities[0].latitude = 34.5;
+farDay.activities[0].longitude = 108.5;
+const spots: Spot[] = [spot('s1', '什刹海', 34.27, 108.07, 90)];
+
+const det = CompanionEngine.detectUnplanned(pt(34.27, 108.07), farDay, spots, 600, 5);
+ok(det !== null, '停够识别规划外景点');
+eq(det!.placeName, '什刹海', '识别地点名');
+eq(det!.estVisitMin, 90, '游览时长取自景点');
+ok(CompanionEngine.detectUnplanned(pt(34.27, 108.07), farDay, spots, 600, 1) === null, '路过不算');
+ok(CompanionEngine.detectUnplanned(pt(35.0, 109.0), farDay, spots, 600, 5) === null, '无已知景点不报');
+
+const planDay = dayOf([act('plan', '11:00', '12:00', ActivityCategory.SIGHT)]);
+planDay.activities[0].latitude = 34.27;
+planDay.activities[0].longitude = 108.07;
+ok(CompanionEngine.detectUnplanned(pt(34.27, 108.07), planDay, spots, 600, 5) === null, '计划内到站不报');
 
 console.log(`COMPANION_CHECK_OK cases=${cases}`);

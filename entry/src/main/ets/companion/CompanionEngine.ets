@@ -9,7 +9,9 @@
  */
 
 import { Activity, ActivityCategory, TripDay } from '../model/Trip';
+import { Spot } from '../model/Spot';
 import { DateUtils } from '../utils/DateUtils';
+import { Geo, GeoPoint } from '../utils/Geo';
 import { CompanionPrefs } from './CompanionPrefs';
 import {
   CompanionAction, CompanionOption, CompanionPrompt, UnplannedInput
@@ -17,6 +19,9 @@ import {
 
 /** 偏好降级键：规划外到访「挪明天」决定 */
 const KEY_MOVE_TOMORROW: string = 'unplanned_move_tomorrow';
+
+/** 停留闸（分钟）：停够才算「去了」，路过不算（测不准留余地） */
+const DWELL_MIN: number = 3;
 
 export class CompanionEngine {
   /**
@@ -36,6 +41,67 @@ export class CompanionEngine {
       return null; // 塞得下，无后果，不打扰
     }
     return CompanionEngine.conflictPrompt(input, next, prefs);
+  }
+
+  /**
+   * 从定位 fix 识别「规划外到访」（纯函数，可单测）。
+   * 停留不够 → null（路过不算）；fix 落在计划内站点 → null（那是计划内到站）；
+   * fix 落在某个已知景点（种子/MapKit）且不在当日计划 → 返回 UnplannedInput。
+   * 识别不出已知景点 → null（unknown_place 轻问留待后续，避免把任意坐标都当新地点）。
+   */
+  static detectUnplanned(fix: GeoPoint, day: TripDay, spots: Spot[],
+    nowMin: number, dwellMin: number): UnplannedInput | null {
+    if (dwellMin < DWELL_MIN) {
+      return null;
+    }
+    const best: Spot | null = CompanionEngine.matchUnplannedSpot(fix, day, spots);
+    if (best === null) {
+      return null;
+    }
+    const input: UnplannedInput = {
+      recognized: true, placeName: best.name, estVisitMin: best.suggestedDuration,
+      day: day, nowMin: nowMin
+    };
+    return input;
+  }
+
+  /**
+   * 匹配 fix 附近「不在当日计划」的最近已知景点（无停留闸，供集成层做停留追踪）。
+   * fix 落在计划内站点附近 → null；无已知景点 → null。
+   */
+  static matchUnplannedSpot(fix: GeoPoint, day: TripDay, spots: Spot[]): Spot | null {
+    for (const a of day.activities) {
+      if (Geo.usable(a.latitude, a.longitude) &&
+        Geo.arrived(Geo.distanceM(fix, { latitude: a.latitude, longitude: a.longitude }))) {
+        return null;
+      }
+    }
+    let best: Spot | null = null;
+    let bestDist: number = Number.MAX_VALUE;
+    for (const s of spots) {
+      if (!Geo.usable(s.latitude, s.longitude)) {
+        continue;
+      }
+      if (CompanionEngine.inPlan(day, s)) {
+        continue;
+      }
+      const dist: number = Geo.distanceM(fix, { latitude: s.latitude, longitude: s.longitude });
+      if (Geo.arrived(dist) && dist < bestDist) {
+        best = s;
+        bestDist = dist;
+      }
+    }
+    return best;
+  }
+
+  /** 景点是否已在当日计划（按名匹配 title/location）。 */
+  private static inPlan(day: TripDay, spot: Spot): boolean {
+    for (const a of day.activities) {
+      if (a.title === spot.name || a.location === spot.name) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** 当日 nowMin 之后第一个真实景点（剔除交通/住宿腿）。 */

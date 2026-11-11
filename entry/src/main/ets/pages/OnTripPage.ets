@@ -23,6 +23,11 @@ import { TimelineNode } from '../components/TimelineNode';
 import { Activity, ActivityCategory, ActivityStatus, MealType, Trip, TripDay } from '../model/Trip';
 import { ReplanAction, ReplanDecision, ReplanOutcome } from '../model/Replan';
 import { Spot } from '../model/Spot';
+import { SpotDao } from '../data/SpotDao';
+import { CompanionEngine } from '../companion/CompanionEngine';
+import { CompanionPrefs } from '../companion/CompanionPrefs';
+import { CompanionStore } from '../companion/CompanionStore';
+import { CompanionPrompt, UnplannedInput } from '../companion/CompanionTypes';
 import { PlanRepository } from '../data/PlanRepository';
 import { mintEditActivityId } from '../utils/ActivityIds';
 import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
@@ -251,6 +256,12 @@ export struct OnTripPage {
 
   /** 串行化 reload：快速连点只保留最后一次的结果 */
   private reloadSeq: number = 0;
+  // 伴随助手·规划外到访（Phase3）：本城景点缓存 + 停留追踪 + 去重 + 偏好
+  private citySpots: Spot[] = [];
+  private unplannedSpotName: string = '';
+  private unplannedSinceMs: number = 0;
+  private shownUnplannedId: string = '';
+  private companionPrefs: CompanionPrefs = new CompanionPrefs();
 
   private async reload(): Promise<void> {
     if (this.tripId.length === 0) {
@@ -285,6 +296,12 @@ export struct OnTripPage {
       }
       this.trip = trip;
       AppStorage.setOrCreate(ACTIVE_TRIP_KEY, trip.id);
+      // 伴随助手：加载本城景点供「规划外到访」识别（失败静默，不阻塞行中）
+      SpotDao.loadByCity(context, trip.destination).then((spots: Spot[]): void => {
+        this.citySpots = spots;
+      }).catch((): void => {
+        this.citySpots = [];
+      });
       if (this.skipSnapshotTripId.length > 0 && this.skipSnapshotTripId !== trip.id) {
         this.clearSkipState();
         this.notice = '';
@@ -1118,6 +1135,7 @@ export struct OnTripPage {
     if (this.watcherActive || this.watcherStarting) {
       this.refreshArrival();
       this.refreshSignal();
+      this.refreshCompanion();
       return;
     }
     this.watcherStarting = true;
@@ -1125,12 +1143,14 @@ export struct OnTripPage {
       this.lastFix = fix;
       this.refreshArrival();
       this.refreshSignal();
+      this.refreshCompanion();
     }).then((ok: boolean): void => {
       this.watcherStarting = false;
       this.watcherActive = ok;
       if (ok) {
         this.refreshArrival();
         this.refreshSignal();
+        this.refreshCompanion();
       }
     });
   }
@@ -1204,6 +1224,44 @@ export struct OnTripPage {
     }
     this.arrived = Geo.arrived(distance);
     this.arrivalText = this.arrived ? `已到站 · 距站点 ${text}` : `距此站 ${text}`;
+  }
+
+  /**
+   * 伴随助手·规划外到访：每次定位 fix 比对计划 vs 现实。
+   * 停留够 + 落在规划外已知景点 + 有后果 → 浮出请示卡（CompanionStore）。
+   * 无后果安静吸收；同卡去重；路过（停留不够）不打扰。
+   */
+  private refreshCompanion(): void {
+    const day: TripDay | null = this.day;
+    const fix: LocationFix | null = this.lastFix;
+    if (day === null || fix === null || !this.isToday) {
+      return;
+    }
+    const point: GeoPoint = { latitude: fix.latitude, longitude: fix.longitude };
+    const nowMs: number = Date.now();
+    const candidate: Spot | null = CompanionEngine.matchUnplannedSpot(point, day, this.citySpots);
+    if (candidate === null) {
+      this.unplannedSpotName = '';
+      this.unplannedSinceMs = 0;
+      return;
+    }
+    if (candidate.name !== this.unplannedSpotName) {
+      this.unplannedSpotName = candidate.name;
+      this.unplannedSinceMs = nowMs;
+    }
+    const dwellMin: number = (nowMs - this.unplannedSinceMs) / 60000;
+    const nowMin: number = DateUtils.minutesOf(clockNow());
+    const input: UnplannedInput | null =
+      CompanionEngine.detectUnplanned(point, day, this.citySpots, nowMin, dwellMin);
+    if (input === null) {
+      return;
+    }
+    const prompt: CompanionPrompt | null = CompanionEngine.unplannedArrival(input, this.companionPrefs);
+    if (prompt === null || prompt.id === this.shownUnplannedId) {
+      return;
+    }
+    this.shownUnplannedId = prompt.id;
+    CompanionStore.show(prompt);
   }
 
   /** 今日天气：命中缓存立即返回；请求/解析失败静默（不出天气行，不阻塞页面） */
