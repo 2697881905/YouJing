@@ -17,7 +17,7 @@ import { SpaceTokens } from '../design/SpaceTokens';
 import { LayoutTokens } from '../design/LayoutTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { MotionTokens, MotionCurves } from '../design/MotionTokens';
-import { GlassPillButton } from '../design/GlassPillButton';
+import { CompanionOrb } from './CompanionOrb';
 import { GlassPanel } from './GlassPanel';
 import { BOTTOM_BAR_INSET_KEY } from '../utils/navMode';
 import { registerOverlayBackGuard, unregisterOverlayBackGuard } from '../utils/overlayBackGuard';
@@ -210,21 +210,18 @@ export struct CompanionOverlay {
         .hitTestBehavior(HitTestMode.None)
       }
 
-      // ① 常驻触点：可拖拽，松手吸附最近左/右屏幕边缘，纵向夹在安全区（状态栏下、dock 上）。
-      // 轻点仍开面板（TapGesture 与 PanGesture 共存：无位移=点击，有位移=拖拽）。
+      // ① 常驻触点：AI 能量球图标，可拖拽，松手吸附最近左/右屏幕边缘，纵向夹在安全区。
+      // 轻点仍开面板（onClick 与 PanGesture 共存：无位移=点击，有位移=拖拽）。
       Column() {
-        GlassPillButton({
-          label: '助手',
-          useSystemMaterial: true,
-          action: (): void => {
-            // 卡与面板互斥：开面板先收卡（避免两层叠在一起）
-            if (!this.touchOpen) {
-              CompanionStore.dismiss();
-            }
-            this.touchOpen = !this.touchOpen;
-          }
-        })
+        CompanionOrb()
       }
+      .onClick((): void => {
+        // 卡与面板互斥：开面板先收卡（避免两层叠在一起）
+        if (!this.touchOpen) {
+          CompanionStore.dismiss();
+        }
+        this.touchOpen = !this.touchOpen;
+      })
       .position({ x: this.touchX, y: this.touchY })
       .onAreaChange((_o: Area, n: Area): void => {
         this.touchW = Number(n.width);
