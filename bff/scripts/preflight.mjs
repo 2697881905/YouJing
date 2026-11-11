@@ -52,13 +52,13 @@ if (llmKey.length === 0 || llmKey === 'sk-your-key-here') {
 
 // 1b) 回顾海报生图代理（2026-11-11 新增能力） --------------------------------
 // 未配置只让 /v1/image 回 503、端侧降级模板海报，不影响主链，所以是 WARN 不是阻断。
-const imageBase = process.env.IMAGEGEN_BASE_URL || '';
 const imageKey = process.env.IMAGEGEN_API_KEY || '';
+const imageSecret = process.env.IMAGEGEN_SECRET_KEY || '';
 const imageModel = process.env.IMAGEGEN_MODEL || '';
-if (!imageBase || !imageKey || !imageModel) {
+if (!imageKey || !imageSecret || !imageModel) {
   warn('生图代理未配置', '/v1/image/generate 会回 503，端侧降级模板海报；主链不受影响');
 } else {
-  ok('生图代理已配置（BaseURL / Key / Model）');
+  ok('生图代理已配置（百度千帆 API Key / Secret Key / 服务名）');
 }
 // 安全结构闸门：订阅门禁必须在服务端实时校验，且入口必须挂鉴权与限流。
 const imageRoute = read('src/routes/image.js');

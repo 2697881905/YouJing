@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  validateImageRequest, buildImagePrompt, buildImageRequestBody, parseImagePayload
+  validateImageRequest, buildImagePrompt, buildNegativePrompt, buildImageRequestBody,
+  buildAccessTokenUrl, buildImageUrl, parseImagePayload
 } from '../src/services/imagegen.js';
 import { subscriptionAllowsImage } from '../src/routes/image.js';
 
@@ -30,24 +31,45 @@ test('prompt is a fixed abstract brief, not a free-form client prompt', () => {
   assert.ok(buildImagePrompt('杨凌', 'texture').includes('细线纹理'));
 });
 
-test('request body fixes n, size and b64_json', () => {
-  const body = buildImageRequestBody('杨凌', 'geometry', { model: 'test-image-model' });
-  assert.equal(body.model, 'test-image-model');
+test('request body is Baidu SD-XL shape, not OpenAI images/generations', () => {
+  const body = buildImageRequestBody('杨凌', 'geometry');
+  assert.equal(body.prompt, buildImagePrompt('杨凌', 'geometry'));
+  assert.equal(body.negative_prompt, buildNegativePrompt());
+  assert.ok(body.negative_prompt.length < 1024);
+  assert.equal(body.size, '768x1024');
   assert.equal(body.n, 1);
-  assert.equal(body.size, '1024x1024');
-  assert.equal(body.response_format, 'b64_json');
-  assert.equal('url' in body, false);
+  assert.equal(body.steps, 20);
+  assert.equal('model' in body, false);
+  assert.equal('response_format' in body, false);
 });
 
-test('parses b64_json and url variants, rejects empty and oversized', () => {
+test('builds access_token and text2image URLs from the same base', () => {
+  const cfg = {
+    baseUrl: 'https://aip.baidubce.com/', apiKey: 'ak test', secretKey: 'sk test', model: 'sd_xl'
+  };
+  assert.equal(buildAccessTokenUrl(cfg),
+    'https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials' +
+    '&client_id=ak%20test&client_secret=sk%20test');
+  assert.equal(buildImageUrl(cfg, '24.abc/def'),
+    'https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/text2image/sd_xl' +
+    '?access_token=24.abc%2Fdef');
+});
+
+test('parses b64_image (Baidu) and b64_json/url variants, rejects empty and oversized', () => {
   const image = Buffer.from('fake-image-bytes').toString('base64');
+  assert.equal(parseImagePayload({ data: [{ b64_image: image, index: 1 }] }).image, image);
   assert.equal(parseImagePayload({ data: [{ b64_json: image }] }).image, image);
   assert.deepEqual(parseImagePayload({ data: [{ url: 'https://example.test/a.png' }] }), {
     image: '', url: 'https://example.test/a.png'
   });
   assert.throws(() => parseImagePayload({ data: [] }));
   assert.throws(() => parseImagePayload({ data: [{}] }));
-  assert.throws(() => parseImagePayload({ data: [{ b64_json: 'A'.repeat(6 * 1024 * 1024) }] }));
+  assert.throws(() => parseImagePayload({ data: [{ b64_image: 'A'.repeat(6 * 1024 * 1024) }] }));
+});
+
+test('Baidu returns HTTP 200 with error_code on auth failure', () => {
+  assert.throws(() => parseImagePayload({ error_code: 110, error_msg: 'Access token invalid' }),
+    /IMAGEGEN_UPSTREAM_ERROR|110/);
 });
 
 test('subscription gate only accepts an active subscription snapshot', () => {

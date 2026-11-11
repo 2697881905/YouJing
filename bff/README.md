@@ -105,14 +105,20 @@ HTTP 200，提示词里仍内嵌完整 Schema，BFF 仍用同一份 Schema 校�
 |---|---|
 | 请求 | `{ city: string, style: 'geometry' \| 'texture' }`，字段白名单，多一个字段就 400；prompt 由服务端固定模板拼，客户端不能注入 |
 | 订阅 | `getEntitlement()` 实时校验 `status='active' AND period_end >= now`，非订阅 402 `SUBSCRIPTION_REQUIRED` |
-| 上游 | `src/services/imagegen.js` → OpenAI 兼容 `images/generations`，Key 只存 `IMAGEGEN_BASE_URL` / `IMAGEGEN_API_KEY` / `IMAGEGEN_MODEL` 环境变量 |
-| 超时 | `IMAGEGEN_TIMEOUT_MS` 默认 30000ms；超时 504 `IMAGEGEN_TIMEOUT`，上游 429 透传，其它非 2xx → 502 |
-| 响应 | `{ image, mime, model, bytes }`，`image` 是 base64；产物**不落库、不进对象存储、不进 UGC** |
+| 上游 | `src/services/imagegen.js` → **百度千帆 ModelBuilder 文生图（SD-XL）**：`IMAGEGEN_API_KEY` + `IMAGEGEN_SECRET_KEY` 换 `access_token`（进程内缓存、提前 5 分钟刷新），再 POST `/rpc/2.0/ai_custom/v1/wenxinworkshop/text2image/<IMAGEGEN_MODEL>`；模型名在 URL 路径末段 |
+| 请求体 | 固定 `prompt` + `negative_prompt` + `size: 768x1024`（官方列为「适用海报传单」）+ `n:1` + `steps:20`。不是 OpenAI `images/generations` 格式 |
+| 响应 | 上游图片在 `data[0].b64_image`；上游报错是 **HTTP 200 + `error_code`/`error_msg`**，适配器统一转 502。BFF 对外仍回 `{ image, mime, model, bytes }`，产物**不落库、不进对象存储、不进 UGC** |
+| 超时 | `IMAGEGEN_TIMEOUT_MS` 默认 30000ms（含换 token 最多 5s）；超时 504 `IMAGEGEN_TIMEOUT`，上游 429 透传，其它非 2xx → 502 |
 | 与 trip 的差异 | **刻意不挂幂等、不扣额度、不写 `trip_request`**：同步增强、失败端侧降级模板海报；成本靠限流 + 严格超时，不重试 |
 
 端侧读超时 `ApiConfig.IMAGE_GEN_READ_TIMEOUT_MS=35000` 需始终大于服务端超时。
-未配置 `IMAGEGEN_*` 时 `/v1/image` 回 503，`npm run preflight` 给 WARN（主链不受影响）；
-订阅门禁与鉴权限流的结构检查是 FAIL 级闸门。
+未配置 `IMAGEGEN_API_KEY`/`IMAGEGEN_SECRET_KEY` 时 `/v1/image` 回 503，
+`npm run preflight` 给 WARN（主链不受影响）；订阅门禁与鉴权限流的结构检查是 FAIL 级闸门。
+
+**本机联调（2026-11-11 用户选定「本地 BFF 代理」）**：BFF 用 `npm run dev` 起在 3000，
+端侧 `ApiConfig.BFF_BASE_URL` 填 `http://<Mac 局域网 IP>:3000`，该文件设 skip-worktree 不入库；
+三组凭证只放 `bff/.env`，端侧零密钥。改 `BFF_BASE_URL` 后必须全量重编重装 HAP。
+千帆侧需先**发布 `sd_xl` 文生图服务**（官方文档：未部署会请求超时）；用别的模型就改 `IMAGEGEN_MODEL`。
 
 ## 测试
 

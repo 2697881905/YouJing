@@ -1,35 +1,60 @@
 import { HttpError } from '../lib/http-error.js';
 
 /**
- * 回顾海报 AI 底图代理（OpenAI 兼容 images/generations）。
+ * 百度千帆（ModelBuilder / 文生图）代理，服务接口 Stable-Diffusion-XL。
+ * 官方文档：https://ai.baidu.com/ai-doc/WENXINWORKSHOP/Klkqubb9w
+ *
+ * 与 OpenAI 兼容 images/generations 的差异（这是本文件的存在理由）：
+ * - 鉴权是「应用 API Key + Secret Key → access_token」，token 放 Query，不是 Bearer 头；
+ * - 请求体是 prompt / negative_prompt / size / n / steps，模型名在 URL 路径末段；
+ * - 成功响应的图片在 data[0].b64_image，错误则是 HTTP 200 + error_code/error_msg。
  *
  * 边界（Docs/行后情绪方案.md §海报 / Docs/design-v2/DESIGN.md §AI poster base）：
  * - 端侧只发「城市 + 风格枚举」，prompt 由服务端按固定模板拼，客户端不能注入任意提示词；
- * - 上游 Key 只存服务端 env，绝不进发布包；
+ * - 上游 Key 只存服务端 env，绝不进发布包；access_token 只在进程内存缓存；
  * - 产物图片不落库、不进对象存储、不进 UGC，直接以 base64 回端侧内存；
  * - 同步一次、严格超时、不重试。任何失败由端侧降级回模板海报。
  */
 
 const DEFAULT_TIMEOUT_MS = 30000;
+const TOKEN_TIMEOUT_MS = 5000;
+const DEFAULT_BASE_URL = 'https://aip.baidubce.com';
+const DEFAULT_MODEL = 'sd_xl';
+/** 官方文档列为「适用海报传单」的竖版尺寸，贴合 320vp 回顾卡 */
+const SIZE = '768x1024';
 // 只放字面空格，不放 \s：换行/制表符会被拼进服务端 prompt，等于给客户端开了注入口
 const CITY_PATTERN = /^[\u4e00-\u9fa5A-Za-z0-9·\- ]{1,24}$/;
 const STYLES = ['geometry', 'texture'];
-const SIZE = '1024x1024';
 /** 4MB 二进制上限；base64 约 5.6MB。超了直接判无效，避免把整张图读进内存 */
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 const MAX_BASE64_LENGTH = Math.ceil(MAX_IMAGE_BYTES * 4 / 3) + 2048;
 
+let tokenCache = { token: '', expireAt: 0 };
+
+/** 仅供测试：清空进程内 access_token 缓存 */
+export function resetTokenCache() {
+  tokenCache = { token: '', expireAt: 0 };
+}
+
 function config() {
   return {
-    baseUrl: process.env.IMAGEGEN_BASE_URL || '',
+    baseUrl: process.env.IMAGEGEN_BASE_URL || DEFAULT_BASE_URL,
     apiKey: process.env.IMAGEGEN_API_KEY || '',
-    model: process.env.IMAGEGEN_MODEL || ''
+    secretKey: process.env.IMAGEGEN_SECRET_KEY || '',
+    model: process.env.IMAGEGEN_MODEL || DEFAULT_MODEL
   };
 }
 
 function timeoutMs() {
   const raw = Number(process.env.IMAGEGEN_TIMEOUT_MS);
   return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_TIMEOUT_MS;
+}
+
+function upstreamError(err, what, budget) {
+  if (err && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
+    throw new HttpError(504, 'IMAGEGEN_TIMEOUT', `${what}超时 ${budget}ms`);
+  }
+  throw err;
 }
 
 /** 请求参数守卫：只放行白名单字段语义，坏请求不该烧一次上游调用。 */
@@ -64,36 +89,102 @@ export function buildImagePrompt(city, style) {
     '输出为竖版卡片背景，不是完整海报。';
 }
 
-export function buildImageRequestBody(city, style, options = {}) {
+/** 反向提示词比正面禁令更有效，且长度必须 <1024 字符。 */
+export function buildNegativePrompt() {
+  return '文字, 字母, 数字, 人物, 动物, 写实建筑, 摄影, 照片, 地图, 水印, logo, ' +
+    '闪光, 渐变光效, 对话气泡, 高饱和新色相, 复杂细节';
+}
+
+export function buildImageRequestBody(city, style) {
   return {
-    model: options.model || config().model,
     prompt: buildImagePrompt(city, style),
-    n: 1,
+    negative_prompt: buildNegativePrompt(),
     size: SIZE,
-    response_format: 'b64_json'
+    n: 1,
+    steps: 20
   };
 }
 
-/** 上游响应 → base64 字符串；不接受任意结构，也不接受超大图。 */
+export function buildAccessTokenUrl(cfg) {
+  const base = cfg.baseUrl.replace(/\/$/, '');
+  return `${base}/oauth/2.0/token?grant_type=client_credentials` +
+    `&client_id=${encodeURIComponent(cfg.apiKey)}&client_secret=${encodeURIComponent(cfg.secretKey)}`;
+}
+
+export function buildImageUrl(cfg, token) {
+  const base = cfg.baseUrl.replace(/\/$/, '');
+  return `${base}/rpc/2.0/ai_custom/v1/wenxinworkshop/text2image/` +
+    `${encodeURIComponent(cfg.model)}?access_token=${encodeURIComponent(token)}`;
+}
+
+/** access_token 有效期通常 30 天，进程内缓存并提前 5 分钟刷新，避免每次生成多一次往返。 */
+export async function getAccessToken(cfg, budgetMs) {
+  if (tokenCache.token.length > 0 && Date.now() < tokenCache.expireAt) {
+    return tokenCache.token;
+  }
+  const url = buildAccessTokenUrl(cfg);
+  let resp;
+  try {
+    resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: '""',
+      signal: AbortSignal.timeout(budgetMs)
+    });
+  } catch (err) {
+    upstreamError(err, '换取 access_token', budgetMs);
+  }
+  const text = await resp.text();
+  if (!resp.ok) {
+    throw new HttpError(502, 'IMAGEGEN_AUTH_ERROR',
+      `access_token 接口 ${resp.status}: ${text.slice(0, 200)}`);
+  }
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (err) {
+    throw new HttpError(502, 'IMAGEGEN_AUTH_ERROR', 'access_token 响应不是合法 JSON');
+  }
+  if (!data.access_token || data.error) {
+    throw new HttpError(502, 'IMAGEGEN_AUTH_ERROR',
+      `access_token 获取失败: ${data.error_description || data.error || '缺 access_token'}`);
+  }
+  const rawTtl = Number(data.expires_in);
+  const ttl = Number.isFinite(rawTtl) && rawTtl > 0 ? rawTtl : 86400;
+  tokenCache = {
+    token: data.access_token,
+    expireAt: Date.now() + Math.max(60, ttl - 300) * 1000
+  };
+  return tokenCache.token;
+}
+
+/** 上游响应 → base64 字符串；兼容百度 b64_image 与 OpenAI 风格 b64_json / url。 */
 export function parseImagePayload(data) {
+  if (data && (data.error_code !== undefined || data.error_msg !== undefined)) {
+    throw new HttpError(502, 'IMAGEGEN_UPSTREAM_ERROR',
+      `上游错误 ${data.error_code ?? ''}: ${data.error_msg || ''}`.slice(0, 240));
+  }
   const first = data && Array.isArray(data.data) ? data.data[0] : null;
   if (!first) {
     throw new HttpError(502, 'IMAGEGEN_INVALID_RESPONSE', '上游未返回图片');
   }
-  if (typeof first.b64_json === 'string' && first.b64_json.length > 0) {
-    if (first.b64_json.length > MAX_BASE64_LENGTH) {
+  const raw = typeof first.b64_image === 'string' && first.b64_image.length > 0
+    ? first.b64_image
+    : (typeof first.b64_json === 'string' ? first.b64_json : '');
+  if (raw.length > 0) {
+    if (raw.length > MAX_BASE64_LENGTH) {
       throw new HttpError(502, 'IMAGEGEN_INVALID_RESPONSE', '上游图片体积超限');
     }
-    const bytes = Buffer.from(first.b64_json, 'base64');
+    const bytes = Buffer.from(raw, 'base64');
     if (bytes.length === 0 || bytes.length > MAX_IMAGE_BYTES) {
       throw new HttpError(502, 'IMAGEGEN_INVALID_RESPONSE', '上游图片为空或体积超限');
     }
-    return { image: first.b64_json, bytes: bytes.length };
+    return { image: raw, bytes: bytes.length };
   }
   if (typeof first.url === 'string' && first.url.length > 0) {
     return { image: '', url: first.url };
   }
-  throw new HttpError(502, 'IMAGEGEN_INVALID_RESPONSE', '上游既无 b64_json 也无 url');
+  throw new HttpError(502, 'IMAGEGEN_INVALID_RESPONSE', '上游既无 b64_image 也无 url');
 }
 
 async function fetchUrlAsBase64(url, timeout) {
@@ -110,45 +201,44 @@ async function fetchUrlAsBase64(url, timeout) {
 
 export async function proxyImageRequest(city, style) {
   const cfg = config();
-  if (!cfg.baseUrl || !cfg.apiKey || !cfg.model) {
+  if (!cfg.apiKey || !cfg.secretKey || !cfg.model) {
     throw new HttpError(503, 'IMAGEGEN_NOT_CONFIGURED',
-      '生图服务未配置 IMAGEGEN_BASE_URL / IMAGEGEN_API_KEY / IMAGEGEN_MODEL');
+      '生图服务未配置 IMAGEGEN_API_KEY / IMAGEGEN_SECRET_KEY / IMAGEGEN_MODEL');
   }
   const timeout = timeoutMs();
   const started = Date.now();
+  const token = await getAccessToken(cfg, Math.min(TOKEN_TIMEOUT_MS, timeout));
+  const remaining = Math.max(1000, timeout - (Date.now() - started));
   const body = buildImageRequestBody(city, style);
 
   let resp;
   try {
-    resp = await fetch(`${cfg.baseUrl}/images/generations`, {
+    resp = await fetch(buildImageUrl(cfg, token), {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${cfg.apiKey}`
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(timeout)
+      signal: AbortSignal.timeout(remaining)
     });
   } catch (err) {
-    if (err && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
-      throw new HttpError(504, 'IMAGEGEN_TIMEOUT', `生图上游超时 ${timeout}ms`);
-    }
-    throw err;
+    upstreamError(err, '生图上游', remaining);
   }
 
+  const text = await resp.text();
   if (!resp.ok) {
-    const text = await resp.text();
     console.log(`[imagegen] http=${resp.status} error=${text.slice(0, 160)}`);
     if (resp.status === 429) {
       throw new HttpError(429, 'IMAGEGEN_RATE_LIMITED', `生图上游 429: ${text.slice(0, 200)}`);
     }
     throw new HttpError(502, 'IMAGEGEN_UPSTREAM_ERROR', `生图上游 ${resp.status}: ${text.slice(0, 200)}`);
   }
-
-  const parsed = parseImagePayload(await resp.json());
-  const result = parsed.image
-    ? parsed
-    : await fetchUrlAsBase64(parsed.url, timeout);
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (err) {
+    throw new HttpError(502, 'IMAGEGEN_INVALID_RESPONSE', '生图上游响应不是合法 JSON');
+  }
+  const parsed = parseImagePayload(data);
+  const result = parsed.image ? parsed : await fetchUrlAsBase64(parsed.url, remaining);
   console.log(`[imagegen] model=${cfg.model} style=${style} bytes=${result.bytes} ` +
     `elapsed=${Date.now() - started}ms`);
   return {

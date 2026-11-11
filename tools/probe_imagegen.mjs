@@ -27,7 +27,7 @@ if (guard !== '') {
 }
 
 dotenv.config({ path: new URL('../bff/.env', import.meta.url).pathname });
-const configured = process.env.IMAGEGEN_BASE_URL && process.env.IMAGEGEN_API_KEY && process.env.IMAGEGEN_MODEL;
+const configured = process.env.IMAGEGEN_API_KEY && process.env.IMAGEGEN_SECRET_KEY && process.env.IMAGEGEN_MODEL;
 
 console.log(`城市=${city} 风格=${style} 上游超时=${process.env.IMAGEGEN_TIMEOUT_MS || 30000}ms`);
 console.log(`上游=${process.env.IMAGEGEN_BASE_URL || '未配置'} 模型=${process.env.IMAGEGEN_MODEL || '未配置'}`);
