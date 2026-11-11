@@ -313,26 +313,34 @@ export struct MapPage {
       Stack({ alignContent: Alignment.Center }) {
         if (this.beadOn(idx)) {
           // 玻璃层：内容槽留空，只出材质；折射环与落影都由系统渲染，不再自绘。
-          // contentPadding / barBottomMargin = 8（dock 玻璃珠同参，SpaceTokens.xs）：
-          // 上游对 contentPadding 的定义就是「防止光效被裁切」的容器余量——HdsTabs 的
-          // 光效层在自身边界内渲染，归零时珠底贴着组件底边，落影零余量被硬切成灰带
-          // （2026-11-11 真机：List 净空修到 28 后选中 chip 的自绘影清了，玻璃珠的还在，
-          // 截断边界在 HdsMiniBarButton 内部）。两参同值时珠底 = 38 + P − margin =
-          // Stack 底，「两态等高对齐」不受影响（此前「归零才对齐」是在 padding=0 下测的）。
-          // decorationOnly：珠是纯装饰，命中交给文字层/ListItem，放大后的不可见容器
-          // 不许盖住邻珠边缘吞点击。
-          HdsMiniBarButton({
-            maskColor: '#00ffffff',
-            barWidth: CHIP_BEAD_WIDTH,
-            barHeight: CHIP_BEAD_HEIGHT,
-            contentPadding: SpaceTokens.xs,
-            barBottomMargin: SpaceTokens.xs,
-            decorationOnly: true,
-            materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
-            materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE
-          }) {
-            Column()
+          // ⚠️ 必须罩在 pill 形裁切容器里（76×38 + borderRadius(pill) + clip(true)）：
+          // HdsTabs 的沉浸材质在**组件自身边界**内铺满渲染，胶囊珠只是画在底板上的 bar——
+          // contentPadding=8 时组件 92×54，材质矩形底板每边露出珠外 8vp，在浅色地图上
+          // 就是一块淡灰矩形，相邻底板叠压连成整条（2026-11-11 真机逐像素实测：板区
+          // x=[珠左-24px, 珠右+24px]，选中 chip 旁正好是亮缺口）。padding=0 时底板=珠形
+          // 看不见，但 bar 系统落影零余量被组件底边硬切——两种 padding 是同一枚硬币的
+          // 两面，参数层拆不开（SDK 全参数核对过：gradientMask 是底部渐隐遮罩且已传
+          // 全透明，barOpacity 只调整体，没有关底板的开关）。裁切罩把珠外的一切裁掉：
+          // 材质在珠内原样保留（dock 同款真玻璃），珠外无板无影无硬边。
+          // decorationOnly：珠是纯装饰，命中交给文字层/ListItem。
+          Stack() {
+            HdsMiniBarButton({
+              maskColor: '#00ffffff',
+              barWidth: CHIP_BEAD_WIDTH,
+              barHeight: CHIP_BEAD_HEIGHT,
+              contentPadding: SpaceTokens.xs,
+              barBottomMargin: SpaceTokens.xs,
+              decorationOnly: true,
+              materialType: HDS_MATERIAL_TYPE_IMMERSIVE,
+              materialLevel: HDS_MATERIAL_LEVEL_EXQUISITE
+            }) {
+              Column()
+            }
           }
+          .width(CHIP_BEAD_WIDTH)
+          .height(CHIP_BEAD_HEIGHT)
+          .borderRadius(RadiusTokens.pill)
+          .clip(true)
         } else {
           // 选中态 / 低版本回退：原来的自绘面（实心深灰底或 GlassPanel 同款自绘玻璃）
           Row()
