@@ -48,6 +48,7 @@ import { longTakeTransitionHook } from '../utils/longTake/navTransitionHook';
 import { HDS_MATERIAL_LEVEL_EXQUISITE, HDS_MATERIAL_TYPE_IMMERSIVE,
   isImmersiveLightSenseSupported } from '../utils/immersiveMaterial';
 import { BottomTabBar, BottomTabItem } from '../components/BottomTabBar';
+import { CompanionOverlay } from '../components/CompanionOverlay';
 import { TopStrip, TOP_STRIP_KEY, STRIP_CANVAS, STRIP_MAP } from '../utils/TopStrip';
 import { BOTTOM_NAV_INSET_KEY } from '../utils/navMode';
 import { consumeOverlayBackFor, OVERLAY_GUARD_EXPENSE_TAB, OVERLAY_GUARD_PLAN_TAB } from '../utils/overlayBackGuard';
@@ -205,6 +206,10 @@ struct Index {
    * ④ 已在「地图」格 → 交还系统（退后台），保留唯一一个符合平台习惯的出口。
    */
   onBackPress(): boolean {
+    // ⓪ 伴随浮层（请示卡/触点面板）优先关——它盖在二级页之上，无论栈里有没有页都先收它
+    if (consumeOverlayBackFor('companionOverlay')) {
+      return true;
+    }
     // ① 宿主栈里有二级页 → 交给 Navigation pop，不抢
     if (HOST_NAV.size() > 0) {
       return false;
@@ -1004,13 +1009,19 @@ struct Index {
         // 2026-11-11 二级页全屏化：所有二级页都 push 到这条宿主栈，落点构造器挂在这层
         // `.navDestination(routerMap)`；一镜到底（行程卡 → 行程详情）的转场挂钩也必须挂
         // 在**持有该栈**的 Navigation 上（navTransitionHook 头注释同款结论）。
-        Navigation(HOST_NAV) {
-          this.mainTabs()
+        Stack({ alignContent: Alignment.Bottom }) {
+          Navigation(HOST_NAV) {
+            this.mainTabs()
+          }
+          .mode(NavigationMode.Stack)
+          .hideTitleBar(true)
+          .navDestination(routerMap)
+          .customNavContentTransition(longTakeTransitionHook)
+          .width('100%')
+          .height('100%')
+          // 伴随助手全局浮层：Navigation 同级兄弟，盖住二级页；默认休眠不扰现有 UI
+          CompanionOverlay()
         }
-        .mode(NavigationMode.Stack)
-        .hideTitleBar(true)
-        .navDestination(routerMap)
-        .customNavContentTransition(longTakeTransitionHook)
         .width('100%')
         .height('100%')
       }
