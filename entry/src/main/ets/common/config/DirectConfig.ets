@@ -27,7 +27,7 @@ export interface DirectConfigType {
 
 export const DirectConfig: DirectConfigType = {
   URL: 'https://api.deepseek.com/v1/chat/completions',
-  KEY: 'sk-5743b6ca85d344239d64a01909a16669',
+  KEY: '',
   MODEL: 'deepseek-chat',
   MAX_TOKENS: 8192
 };

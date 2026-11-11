@@ -1206,7 +1206,7 @@ Family-wide (applies to both products):
 - Don't fork a shared token value per product. If 有据 needs a new surface step, 有径 inherits it.
 - Don't let one app invent a third glass surface, a third radius tier, or a second display family — that is how sibling brands drift apart.
 - Do keep the serif/sans split, the 4px baseline, the 20px card and the 300×64 dock identical in both, because those four are what a user actually recognizes across apps.
-- **v2.1 family sync is still open**: the AI poster base exception is registered in this mirror. The contract original and the 有据 design doc must adopt the same wording before either product ships generated imagery; 有径 is the only implementation in scope for this increment.
+- **v2.1 family sync (done 2026-11-11)**: the contract original at `~/Pictures/有径/有径-设计底稿-v1/docs/DESIGN.md` now carries the same AI poster base wording as this mirror. 有据 keeps no local copy of this contract, so the shared original is the single source and no 有据 file changes are required. 有径 remains the only implementation in scope.
 
 ---
 

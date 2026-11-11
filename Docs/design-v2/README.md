@@ -80,7 +80,7 @@
 
   | 原件 | md5 |
   |---|---|
-  | `docs/DESIGN.md` | `3fcc3a62edc7bc8ac3d782c9910d20aa`（本轮零改动，与 round 1 相同） |
+  | `docs/DESIGN.md` | `1c843b8146310eeaefe42136d55304e7`（2026-11-11 同步 v2.1 后重算；v2 原值 `3fcc3a62…`） |
   | `docs/youjing-stitch-prompts.md` | `f98d054dd272f7e3280d1f714188ff9c`（round 1：`6ea9e425…`） |
   | `docs/youjing-engineering-handoff.md` | `ad6fa4ea16a8c1a12f01a50d7b18e672`（round 1：`7139d0c4…`） |
 
@@ -97,13 +97,16 @@
 `ai/ImageGenClient.ets`、`bff/src/routes/image.js` + `services/imagegen.js`，
 口径见 `Docs/行后情绪方案.md` §AI 底图、`Docs/商业化方案.md` §2.1。
 
-### 未同步项（本轮不跨仓、不改仓库外个人目录，需人工确认后执行）
+### 家族同步结果（2026-11-11 已完成）
 
-| 项 | 位置 | 待办 |
+| 项 | 位置 | 结果 |
 |---|---|---|
-| 契约原件 | `~/Pictures/有径/有径-设计底稿-v1/docs/DESIGN.md` | 同步上述四处措辞。`tools/audit_*.py` 默认读原件，只改快照不影响审计行为，所以这一步不能省 |
-| 有据（姊妹产品） | 主检出 `~/HarmonyProject1` 的对应设计契约 | 同步同一条例外措辞；有据本轮不实现生图，只对齐契约避免品牌漂移 |
-| 原件 md5 | 上表 | 原件同步后重算并更新；当前表仍是 2026-11-02 的原件值 |
+| 契约原件 | `~/Pictures/有径/有径-设计底稿-v1/docs/DESIGN.md` | **已同步**上述四处措辞 + Family-wide 那条。`tools/audit_*.py` 默认读原件，所以这一步是必须的；同步前已备份为同目录 `DESIGN.md.bak-2026-11-11` |
+| 原件 md5 | 上表 | 已重算为 `1c843b8146310eeaefe42136d55304e7` |
+| 有据（姊妹产品） | `~/HarmonyProject1` | 全仓检索无 `design-v2` / 家族契约副本，**没有可改的文件**。家族共享契约的唯一载体就是上面这份原件，原件同步即口径统一；有据本轮不实现生图，无需新增文档 |
+
+原件保留了两行快照里没有的 `chip-solid` / `dark-chip-solid` 色板条目，因此同步后
+快照与原件仍有 2 行差异，属**预期且不应抹平**（原件侧历史条目，按 R5/R8 不回写）。
 
 比对快照与原件的差异，只复制代码块内的行：
 
