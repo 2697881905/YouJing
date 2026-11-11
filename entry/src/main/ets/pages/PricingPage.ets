@@ -12,7 +12,7 @@ import { ColorTokens } from '../design/ColorTokens';
 import { TypeTokens } from '../design/TypeTokens';
 import { RadiusTokens } from '../design/RadiusTokens';
 import { SpaceTokens } from '../design/SpaceTokens';
-import { LayoutTokens } from '../design/LayoutTokens';
+import { LayoutTokens, IconTokens } from '../design/LayoutTokens';
 import { HdsNavDestination, HdsNavDestinationTitleMode } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
@@ -286,7 +286,7 @@ export struct PricingPage {
       ForEach(features, (f: string): void => {
         Row({ space: SpaceTokens.xxs }) {
           SymbolGlyph($r('sys.symbol.checkmark'))
-            .fontSize(14)
+            .fontSize(IconTokens.compact)
             .fontColor([ColorTokens.success])
           Text(f)
             .fontSize(TypeTokens.small.size)

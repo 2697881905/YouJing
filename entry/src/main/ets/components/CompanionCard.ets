@@ -34,7 +34,10 @@ export struct CompanionCard {
   onCorrect?: () => void = undefined;
 
   build() {
-    GlassPanel({ radius: RadiusTokens.hero, useSystemMaterial: true }) {
+    // useSystemMaterial=false：卡片浮在任意内容之上，系统材质在该位置渲染不出图，
+    // true 会把背景设成 Transparent 导致背景文字透出、卡不可读（真机深色实测）。
+    // false 走不透明 glassCardBg 兜底 + 描边 + 投影，保证决策卡可读。
+    GlassPanel({ radius: RadiusTokens.hero, useSystemMaterial: false }) {
       Column({ space: SpaceTokens.sm }) {
         Row() {
           Text(this.prompt.title)

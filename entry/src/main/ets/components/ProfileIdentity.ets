@@ -80,7 +80,6 @@ export struct ProfileIdentity {
             Text(this.genderLabel())
               .fontSize(TypeTokens.overline.size).fontFamily(TypeTokens.fontFamily)
               .fontWeight(TypeTokens.overline.weight)
-              .lineHeight(TypeTokens.overline.lineHeight)
               .letterSpacing(TypeTokens.overline.tracking)
               .fontColor(this.genderColor())
               .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.inlineTight, bottom: SpaceTokens.inlineTight })
