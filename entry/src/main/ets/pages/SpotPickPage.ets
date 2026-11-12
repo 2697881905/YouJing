@@ -315,6 +315,60 @@ export struct SpotPickPage {
   }
 
   @Builder
+  selectionSummary() {
+    Column({ space: SpaceTokens.xs }) {
+      Row({ space: SpaceTokens.xxs }) {
+        Text('已选')
+          .fontSize(TypeTokens.caption.size)
+          .fontColor(ColorTokens.muted)
+        Text(`${this.priorities.length}`)
+          .fontSize(TypeTokens.title.size)
+          .fontWeight(TypeTokens.title.weight)
+          .fontFamily(TypeTokens.title.family)
+          .fontColor(ColorTokens.primary)
+          .fontFeature("'tnum' on")
+        Text(`/ ${this.capacity}`)
+          .fontSize(TypeTokens.caption.size)
+          .fontColor(ColorTokens.muted)
+          .fontFeature("'tnum' on")
+        Blank()
+        Text(`可用 ${this.days} 天`)
+          .fontSize(TypeTokens.caption.size)
+          .fontWeight(450)
+          .fontColor(ColorTokens.body)
+          .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs,
+            top: SpaceTokens.xxs, bottom: SpaceTokens.xxs })
+          .backgroundColor(ColorTokens.surfaceSubtle)
+          .borderRadius(RadiusTokens.pill)
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+      Progress({
+        value: Math.round(this.priorities.length * 100 / Math.max(1, this.capacity)),
+        total: 100,
+        type: ProgressType.Linear
+      })
+        .color(ColorTokens.primary)
+        .backgroundColor(ColorTokens.surfaceSunken)
+        .width('100%')
+        .accessibilityText(`已选 ${this.priorities.length} 个景点，` +
+          `按 ${this.days} 天建议上限 ${this.capacity} 个`)
+      if (this.priorities.length === 0) {
+        Text('点每行右侧的圆环，标记必去 / 想去 / 可去')
+          .fontSize(TypeTokens.overline.size)
+          .fontWeight(450)
+          .fontColor(ColorTokens.muted)
+      }
+    }
+    .alignItems(HorizontalAlign.Start)
+    .width('100%')
+    .padding(SpaceTokens.base)
+    .backgroundColor(ColorTokens.surfaceElevated)
+    .borderRadius(RadiusTokens.card)
+    .border({ width: LayoutTokens.hairlineWidth, color: ColorTokens.primaryGlowEdge })
+  }
+
+  @Builder
   groupHeader(group: SpotGroup) {
     // 吸顶组头必须有**不透明底板**：sticky(StickyStyle.Header) 的组头压在滚动内容上，裸 Text 没底板
     // 时行文字会从组头底下透出来叠成两行。带高不靠 padding 凑，照有据钉成一条
@@ -583,66 +637,12 @@ export struct SpotPickPage {
               .width('100%')
               .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
             }
-            Column({ space: SpaceTokens.xs }) {
-              Row({ space: SpaceTokens.xxs }) {
-                Text('已选')
-                  .fontSize(TypeTokens.caption.size)
-                  .fontColor(ColorTokens.muted)
-                Text(`${this.priorities.length}`)
-                  .fontSize(TypeTokens.title.size)
-                  .fontWeight(TypeTokens.title.weight)
-                  .fontFamily(TypeTokens.title.family)
-                  .fontColor(ColorTokens.primary)
-                  .fontFeature("'tnum' on")
-                Text(`/ ${this.capacity}`)
-                  .fontSize(TypeTokens.caption.size)
-                  .fontColor(ColorTokens.muted)
-                  .fontFeature("'tnum' on")
-                Blank()
-                Text(`可用 ${this.days} 天`)
-                  .fontSize(TypeTokens.caption.size)
-                  .fontWeight(450)
-                  .fontColor(ColorTokens.body)
-                  .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs,
-                    top: SpaceTokens.xxs, bottom: SpaceTokens.xxs })
-                  .backgroundColor(ColorTokens.surfaceSubtle)
-                  .borderRadius(RadiusTokens.pill)
-              }
-              .width('100%')
-              .alignItems(VerticalAlign.Center)
-              Progress({
-                value: Math.round(this.priorities.length * 100 / Math.max(1, this.capacity)),
-                total: 100,
-                type: ProgressType.Linear
-              })
-                .color(ColorTokens.primary)
-                .backgroundColor(ColorTokens.surfaceSunken)
-                .width('100%')
-                // 进度条不给可及名时，读屏念的是框架的「100.000000」——
-                // 这一屏 dumpLayout 里就是这么显示的，等于把内部比例甩给使用者
-                .accessibilityText(`已选 ${this.priorities.length} 个景点，` +
-                  `按 ${this.days} 天建议上限 ${this.capacity} 个`)
-              // 这一屏的核心动作只有一个入口：行右侧那枚 24vp 的空圆环。
-              // 整行刻意不可点（源码写明「点名字就改了优先级」会误触），
-              // 于是新用户站在这屏不知道该怎么"选"——给一条只在没选过时出现的引导
-              if (this.priorities.length === 0) {
-                Text('点每行右侧的圆环，标记必去 / 想去 / 可去')
-                  .fontSize(TypeTokens.overline.size)
-                  .fontWeight(450)
-                  .fontColor(ColorTokens.muted)
-              }
-            }
-            .alignItems(HorizontalAlign.Start)
-            .width('100%')
-            .padding(SpaceTokens.base)
-            // 与下方 AI 洞察卡同一容器语言：elevated 面 + card 圆角 + 品牌微光描边
-            .backgroundColor(ColorTokens.surfaceElevated)
-            .borderRadius(RadiusTokens.card)
-            .border({ width: LayoutTokens.hairlineWidth, color: ColorTokens.primaryGlowEdge })
-            .margin({ left: SpaceTokens.base, right: SpaceTokens.base })
-
             // 官方 List + ListItemGroup：分组头吸顶，组间靠留白分隔（禁令 12：不画分隔线）
+            // 头部摘要卡与 AI 洞察卡同为 ListItem：同宽（List 内缩）、同间距（List space）
             List({ space: SpaceTokens.sm, scroller: this.barScroller }) {
+              ListItem() {
+                this.selectionSummary()
+              }
               if (this.priorities.length > this.capacity) {
                 ListItem() {
                   Column({ space: SpaceTokens.xxs }) {
