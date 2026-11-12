@@ -368,7 +368,11 @@ export struct SpotPickPage {
             .fontSize(TypeTokens.caption.size)
             .fontWeight(450)
             .fontColor(ColorTokens.primary)
-            .margin({ top: SpaceTokens.xxs })
+            .margin({ top: SpaceTokens.xs })
+            .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs,
+              top: SpaceTokens.xxs, bottom: SpaceTokens.xxs })
+            .backgroundColor(ColorTokens.primaryTint)
+            .borderRadius(RadiusTokens.reason)
             .maxLines(2)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
         }
@@ -433,8 +437,10 @@ export struct SpotPickPage {
       } as MenuOptions)
     }
     .width('100%')
-    .constraintSize({ minHeight: LayoutTokens.itineraryRowMinHeight })
-    .padding({ left: SpaceTokens.sm, right: SpaceTokens.sm, top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+    // 行即卡片：elevated 面 + card 圆角 + base 内缩，列表读作可扫读的卡片而非散行
+    .padding(SpaceTokens.base)
+    .backgroundColor(ColorTokens.surfaceElevated)
+    .borderRadius(RadiusTokens.card)
   }
 
   private backToInput(): void {
