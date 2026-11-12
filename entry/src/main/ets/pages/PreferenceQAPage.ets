@@ -254,9 +254,8 @@ export struct PreferenceQAPage {
         .cachedCount(6)
         .alignListItem(ListItemAlign.Start)
         .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
-        // 穿底让位（2026-11-08 对标有据）：让位从外层 padding 移到 contentStartOffset，
-        // 只挪首屏起点；滚动后内容才穿得到标题栏下被材质糊掉。
-        .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight))
+        // 顶部让位已在外层 Column 承担（固定头不让位会叠标题），List 起点不再重复让位
+        .contentStartOffset(0)
         .onDidScroll((): void => {
           this.syncBarScroll();
         })
@@ -299,8 +298,9 @@ export struct PreferenceQAPage {
       }
       .width('100%')
       .height('100%')
-      // 不涂 canvas、也不在这里让位（2026-11-08 对标有据）：这层白会把标题栏区盖死，
-      // 让位已下放到 List 的 contentStartOffset。
+      // 顶部让位放外层：FlowSteps 与「问题 N/M」是 List 之外的固定头，
+      // 不让位会顶到标题栏下与主标题叠字；List 不再重复让位（否则头下多空一条缝）
+      .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
     }
     // 不收栏（2026-11-08）：NavDestination 内容区恒预留 56vp 栏位、收栏后不回收，收起只留一条 175px 白带
     .bindToScrollable([this.barScroller])

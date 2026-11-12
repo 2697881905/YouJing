@@ -656,9 +656,8 @@ export struct StayPickPage {
           // 滚动预留只补吸底 CTA 条本体（2026-11-11 二级页全屏化后 dock 净空作废）
           .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
             bottom: LayoutTokens.stickyBarScrollReserve })
-          // 穿底让位（2026-11-08 对标有据）：让位从外层 padding 移到 contentStartOffset，
-          // 只挪首屏起点；滚动后内容才穿得到标题栏下被材质糊掉。
-          .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight))
+          // 顶部让位已在外层 Column 承担（FlowSteps 固定头不让位会叠标题），List 不再重复让位
+          .contentStartOffset(0)
           .onDidScroll((): void => {
             this.syncBarScroll();
           })
@@ -666,6 +665,8 @@ export struct StayPickPage {
         }
         .width('100%')
         .height('100%')
+        // 顶部让位放外层：FlowSteps 是 List 之外的固定头，不让位会顶到标题栏下叠字
+        .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
 
         if (this.loaded && !this.loadFailed) {
           Column() {
