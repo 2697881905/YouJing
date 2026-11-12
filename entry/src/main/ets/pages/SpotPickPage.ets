@@ -635,8 +635,10 @@ export struct SpotPickPage {
             .alignItems(HorizontalAlign.Start)
             .width('100%')
             .padding(SpaceTokens.base)
-            .backgroundColor(ColorTokens.surfacePanel)
+            // 与下方 AI 洞察卡同一容器语言：elevated 面 + card 圆角 + 品牌微光描边
+            .backgroundColor(ColorTokens.surfaceElevated)
             .borderRadius(RadiusTokens.card)
+            .border({ width: LayoutTokens.hairlineWidth, color: ColorTokens.primaryGlowEdge })
             .margin({ left: SpaceTokens.base, right: SpaceTokens.base })
 
             // 官方 List + ListItemGroup：分组头吸顶，组间靠留白分隔（禁令 12：不画分隔线）
