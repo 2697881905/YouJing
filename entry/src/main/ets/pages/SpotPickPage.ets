@@ -495,6 +495,8 @@ export struct SpotPickPage {
     .padding(SpaceTokens.base)
     .backgroundColor(ColorTokens.surfaceElevated)
     .borderRadius(RadiusTokens.card)
+    // List 的 space 不作用于 ListItemGroup 内部，组内卡片需自带下间距，否则紧贴
+    .margin({ bottom: SpaceTokens.sm })
   }
 
   private backToInput(): void {
