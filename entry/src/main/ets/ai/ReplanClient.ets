@@ -9,7 +9,7 @@ import { BusinessError } from '@kit.BasicServicesKit';
 import { ApiConfig } from '../common/config/ApiConfig';
 import { Logger } from '../common/logger/Logger';
 import { AppError } from '../common/error/AppError';
-import { ReplanDecision, ReplanRequest, REPLAN_SCHEMA_VERSION } from '../model/Replan';
+import { ReplanAction, ReplanDecision, ReplanRequest, REPLAN_SCHEMA_VERSION } from '../model/Replan';
 import { Activity, TripDay } from '../model/Trip';
 import { SkipPlanner } from '../data/SkipPlanner';
 import { ReplanParser } from './ReplanParser';
@@ -108,7 +108,27 @@ export class ReplanClient {
       const messages: DirectChatMessage[] = ReplanPromptBuilder.messages(request);
       const result: DirectChatResult =
         await DirectChat.complete(messages, REPLAN_DIRECT_MAX_TOKENS, REPLAN_DIRECT_READ_TIMEOUT_MS);
-      const decision: ReplanDecision = ReplanParser.parseDecision(result.json);
+      // 意图决策的提示词不要求 schemaVersion/keep/freeBlocks（云函数由守卫补 keep:[]/freeBlocks:[]）；
+      // 端侧直连同样补齐再交 ReplanParser，跳过/加站决策自带这些字段则原样通过
+      const raw: Record<string, Object> = JSON.parse(result.json) as Record<string, Object>;
+      const emptyArr: Object[] = [];
+      if (raw['schemaVersion'] === undefined) {
+        raw['schemaVersion'] = REPLAN_SCHEMA_VERSION;
+      }
+      if (raw['keep'] === undefined) {
+        raw['keep'] = emptyArr;
+      }
+      if (raw['freeBlocks'] === undefined) {
+        raw['freeBlocks'] = emptyArr;
+      }
+      const decision: ReplanDecision = ReplanParser.parseDecision(JSON.stringify(raw));
+      // 意图决策完整性守卫（对齐云函数 guardIntentDecision）：skip 既无 targetId 又非收尾今日 → 不完整，回本地兜底
+      if (decision.action === ReplanAction.SKIP &&
+        (decision.targetId === undefined || decision.targetId.length === 0) &&
+        decision.skipRemaining !== true) {
+        Logger.warn(TAG, 'replan 直连意图决策不完整（skip 缺 targetId/skipRemaining），走本地兜底');
+        return null;
+      }
       Logger.info(TAG, `replan 直连决策 action=${decision.action ?? 'skip'} keep=${decision.keep.length} ` +
         `blocks=${decision.freeBlocks.length}`);
       return decision;

@@ -767,15 +767,16 @@ export struct OnTripPage {
   private applyIntentDecision(day: TripDay, d: ReplanDecision, candidates: Activity[],
     nowMin: number): void {
     if (d.action === undefined || d.action === ReplanAction.SKIP) {
+      // 收尾今日（skipRemaining）不需要具体 targetId，先判它，否则真 LLM 的「我累了」决策会被下面的缺 targetId 早退卡住
+      if (d.skipRemaining === true) {
+        this.previewOutcome(day, SkipPlanner.skipRemaining(day, nowMin));
+        return;
+      }
       if (d.targetId === undefined) {
         this.intentPreview = d.note.length > 0 ? d.note : '没听懂，换个说法再试';
         return;
       }
-      if (d.skipRemaining === true) {
-        this.previewOutcome(day, SkipPlanner.skipRemaining(day, nowMin));
-      } else {
-        this.previewOutcome(day, SkipPlanner.plan(day, d.targetId, nowMin, null));
-      }
+      this.previewOutcome(day, SkipPlanner.plan(day, d.targetId, nowMin, null));
       return;
     }
     if (d.action === ReplanAction.SHIFT) {

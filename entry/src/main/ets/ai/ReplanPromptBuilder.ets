@@ -198,11 +198,12 @@ export class ReplanPromptBuilder {
       '- add：新增一站（端侧会打开选点面板，newStopId 可给推荐候选）；',
       '- replace：把某一站换成 candidates 里的另一站。',
       '必须遵守：',
-      '1. 只输出 JSON：{"action":"skip|shift|add|replace","targetId":"...","newStopId":"...","shiftMinutes":30,"skipRemaining":false,"note":"..."}；',
+      '1. 只输出 JSON：{"action":"skip|shift|add|replace","targetId":"...","newStopId":"...","skipRemaining":false,"note":"..."}；只有 shift 动作才加 "shiftMinutes":30（15–240 整数），其它动作一律不要输出 shiftMinutes 字段；',
       '2. skip/replace 必须给 targetId，且必须是 activities 里已存在的 id；',
       '3. replace 的 newStopId 必须来自 candidates；add 可省略 targetId；',
       '4. 不得编造 activities/candidates 里没有的站点或事实；',
-      '5. note 不超过 100 字，用中文复述你理解到的意图。'
+      '5. note 不超过 100 字，用中文复述你理解到的意图；',
+      '6. 「我累了/想回酒店/不想逛了/结束今天」这类意愿映射为 skip 且 skipRemaining=true。'
     ].join('\n');
     const activitiesPayload: PromptIntentActivity[] = future.map((a: ReplanRequestActivity): PromptIntentActivity => {
       const p: PromptIntentActivity = {
