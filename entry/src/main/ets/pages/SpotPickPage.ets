@@ -583,21 +583,33 @@ export struct SpotPickPage {
               .width('100%')
               .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
             }
-            Column({ space: SpaceTokens.xxs }) {
-              Text(`已选 ${this.priorities.length} / 可用 ${this.days} 天 · 建议上限 ${this.capacity} 个`)
-                .fontSize(TypeTokens.caption.size)
-                .fontWeight(450)
-                .fontColor(ColorTokens.body)
-                .fontFeature("'tnum' on")
-              // 这一屏的核心动作只有一个入口：行右侧那枚 24vp 的空圆环。
-              // 整行刻意不可点（源码写明「点名字就改了优先级」会误触），
-              // 于是新用户站在这屏不知道该怎么"选"——给一条只在没选过时出现的引导
-              if (this.priorities.length === 0) {
-                Text('点每行右侧的圆环，标记必去 / 想去 / 可去')
-                  .fontSize(TypeTokens.overline.size)
-                  .fontWeight(450)
+            Column({ space: SpaceTokens.xs }) {
+              Row({ space: SpaceTokens.xxs }) {
+                Text('已选')
+                  .fontSize(TypeTokens.caption.size)
                   .fontColor(ColorTokens.muted)
+                Text(`${this.priorities.length}`)
+                  .fontSize(TypeTokens.title.size)
+                  .fontWeight(TypeTokens.title.weight)
+                  .fontFamily(TypeTokens.title.family)
+                  .fontColor(ColorTokens.primary)
+                  .fontFeature("'tnum' on")
+                Text(`/ ${this.capacity}`)
+                  .fontSize(TypeTokens.caption.size)
+                  .fontColor(ColorTokens.muted)
+                  .fontFeature("'tnum' on")
+                Blank()
+                Text(`可用 ${this.days} 天`)
+                  .fontSize(TypeTokens.caption.size)
+                  .fontWeight(450)
+                  .fontColor(ColorTokens.body)
+                  .padding({ left: SpaceTokens.xs, right: SpaceTokens.xs,
+                    top: SpaceTokens.xxs, bottom: SpaceTokens.xxs })
+                  .backgroundColor(ColorTokens.surfaceSubtle)
+                  .borderRadius(RadiusTokens.pill)
               }
+              .width('100%')
+              .alignItems(VerticalAlign.Center)
               Progress({
                 value: Math.round(this.priorities.length * 100 / Math.max(1, this.capacity)),
                 total: 100,
@@ -610,15 +622,22 @@ export struct SpotPickPage {
                 // 这一屏 dumpLayout 里就是这么显示的，等于把内部比例甩给使用者
                 .accessibilityText(`已选 ${this.priorities.length} 个景点，` +
                   `按 ${this.days} 天建议上限 ${this.capacity} 个`)
+              // 这一屏的核心动作只有一个入口：行右侧那枚 24vp 的空圆环。
+              // 整行刻意不可点（源码写明「点名字就改了优先级」会误触），
+              // 于是新用户站在这屏不知道该怎么"选"——给一条只在没选过时出现的引导
+              if (this.priorities.length === 0) {
+                Text('点每行右侧的圆环，标记必去 / 想去 / 可去')
+                  .fontSize(TypeTokens.overline.size)
+                  .fontWeight(450)
+                  .fontColor(ColorTokens.muted)
+              }
             }
-            .justifyContent(FlexAlign.Center)
             .alignItems(HorizontalAlign.Start)
             .width('100%')
-            // 原来钉死 height(56)：内容（16 文字 + 4 间距 + 进度条）居中后
-            // 进度条正好压在灰带下沿上，实拍读起来像这条带被裁了一半
-            .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
-              top: SpaceTokens.sm, bottom: SpaceTokens.sm })
+            .padding(SpaceTokens.base)
             .backgroundColor(ColorTokens.surfacePanel)
+            .borderRadius(RadiusTokens.card)
+            .margin({ left: SpaceTokens.base, right: SpaceTokens.base })
 
             // 官方 List + ListItemGroup：分组头吸顶，组间靠留白分隔（禁令 12：不画分隔线）
             List({ space: SpaceTokens.sm, scroller: this.barScroller }) {
@@ -643,13 +662,32 @@ export struct SpotPickPage {
 
               if (this.aiNote.length > 0) {
                 ListItem() {
-                  Text(`AI 精选：${this.aiNote}`)
-                    .fontSize(TypeTokens.caption.size)
-                    .fontColor(ColorTokens.body)
-                    .width('100%')
-                    .padding(SpaceTokens.sm)
-                    .borderRadius(RadiusTokens.reason)
-                    .backgroundColor(ColorTokens.surfacePanel)
+                  Row({ space: SpaceTokens.sm }) {
+                    SymbolGlyph($r('sys.symbol.wand_and_stars'))
+                      .fontSize(IconSizes.control)
+                      .fontColor([ColorTokens.primary])
+                      .padding(SpaceTokens.xs)
+                      .backgroundColor(ColorTokens.primaryTint)
+                      .borderRadius(RadiusTokens.pill)
+                    Column({ space: SpaceTokens.xxs }) {
+                      Text('AI 精选')
+                        .fontSize(TypeTokens.overline.size)
+                        .fontWeight(600)
+                        .fontColor(ColorTokens.primary)
+                      Text(this.aiNote)
+                        .fontSize(TypeTokens.caption.size)
+                        .fontWeight(450)
+                        .fontColor(ColorTokens.body)
+                    }
+                    .alignItems(HorizontalAlign.Start)
+                    .layoutWeight(1)
+                  }
+                  .width('100%')
+                  .alignItems(VerticalAlign.Top)
+                  .padding(SpaceTokens.base)
+                  .borderRadius(RadiusTokens.card)
+                  .backgroundColor(ColorTokens.surfaceElevated)
+                  .border({ width: LayoutTokens.hairlineWidth, color: ColorTokens.primaryGlowEdge })
                 }
               }
 
