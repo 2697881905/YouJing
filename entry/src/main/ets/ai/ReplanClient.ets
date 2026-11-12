@@ -9,12 +9,17 @@ import { BusinessError } from '@kit.BasicServicesKit';
 import { ApiConfig } from '../common/config/ApiConfig';
 import { Logger } from '../common/logger/Logger';
 import { AppError } from '../common/error/AppError';
-import { ReplanDecision, ReplanRequest } from '../model/Replan';
+import { ReplanDecision, ReplanRequest, REPLAN_SCHEMA_VERSION } from '../model/Replan';
 import { Activity, TripDay } from '../model/Trip';
 import { SkipPlanner } from '../data/SkipPlanner';
 import { ReplanParser } from './ReplanParser';
+import { DirectChat, DirectChatMessage, DirectChatResult } from './DirectChat';
+import { ReplanPromptBuilder } from './ReplanPromptBuilder';
 
 const TAG: string = 'Ai.ReplanClient';
+/** 端侧直连重排：决策体小，2048 tokens 足够；30s 读超时，超时即回本地兜底 */
+const REPLAN_DIRECT_MAX_TOKENS: number = 2048;
+const REPLAN_DIRECT_READ_TIMEOUT_MS: number = 30000;
 
 export class ReplanClient {
   static async requestDecision(day: TripDay, skippedId: string,
@@ -36,7 +41,11 @@ export class ReplanClient {
 
   private static async send(request: ReplanRequest): Promise<ReplanDecision | null> {
     if (ApiConfig.REPLAN_URL.length === 0) {
-      Logger.warn(TAG, 'Replan 云函数未配置（ApiConfig.REPLAN_URL 为空），走本地兜底');
+      // 云函数未部署：端侧直连已配就走真 LLM，否则本地兜底
+      if (DirectChat.isConfigured()) {
+        return await ReplanClient.sendDirect(request);
+      }
+      Logger.warn(TAG, 'Replan 云函数未配置且端侧直连未配置，走本地兜底');
       return null;
     }
     const reqHandle = http.createHttp();
@@ -86,6 +95,26 @@ export class ReplanClient {
       return null;
     } finally {
       reqHandle.destroy();
+    }
+  }
+
+  /** 端侧直连：提示词搬自云函数，输出仍交 ReplanParser 守卫；任何失败回 null 走本地兜底 */
+  private static async sendDirect(request: ReplanRequest): Promise<ReplanDecision | null> {
+    try {
+      if (!ReplanPromptBuilder.needsLlm(request)) {
+        const empty: ReplanDecision = { schemaVersion: REPLAN_SCHEMA_VERSION, keep: [], freeBlocks: [], note: '' };
+        return empty;
+      }
+      const messages: DirectChatMessage[] = ReplanPromptBuilder.messages(request);
+      const result: DirectChatResult =
+        await DirectChat.complete(messages, REPLAN_DIRECT_MAX_TOKENS, REPLAN_DIRECT_READ_TIMEOUT_MS);
+      const decision: ReplanDecision = ReplanParser.parseDecision(result.json);
+      Logger.info(TAG, `replan 直连决策 action=${decision.action ?? 'skip'} keep=${decision.keep.length} ` +
+        `blocks=${decision.freeBlocks.length}`);
+      return decision;
+    } catch (err) {
+      Logger.warn(TAG, `replan 直连失败: ${(err as Error).message}，走本地兜底`);
+      return null;
     }
   }
 }
