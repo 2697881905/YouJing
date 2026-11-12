@@ -890,10 +890,10 @@ export struct TripsPage {
             .onDidScroll((): void => {
               this.syncBarScroll();
             })
-            // 这一页的最后一张卡住在浮动 dock 底下，按实测净空让位；
-            // 叠加导航条避让量（三键档 dock 更高），保证末卡能滚到 dock 之上不被截断
+            // 穿底：末卡要能滚到浮动 dock 下方（透过玻璃可见），不留大净空把卡拦在 dock 上。
+            // 只留 base + 导航条避让，内容延伸到屏底、从 dock 下穿过
             .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
-              bottom: LayoutTokens.floatingDockClearance + this.dockNavInset })
+              bottom: SpaceTokens.base + this.dockNavInset })
             // 穿底（2026-11-08 对标有据）：让位走 contentStartOffset，不挂 padding ——
             // padding 会把视口压到栏底之下，内容永远进不了标题栏那 175px。
             .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight))
