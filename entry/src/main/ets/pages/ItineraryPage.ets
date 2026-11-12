@@ -241,6 +241,17 @@ export struct ItineraryPage {
     this.daySig = MapStops.signature(stops);
   }
 
+  /** 左右滑切换日期：与分段栏同源（dayIndex @Watch 重算落点），边界夹住不越界 */
+  switchDay(delta: number): void {
+    if (this.days.length <= 1) {
+      return;
+    }
+    const next: number = Math.max(0, Math.min(this.days.length - 1, this.dayIndex + delta));
+    if (next !== this.dayIndex) {
+      this.dayIndex = next;
+    }
+  }
+
   /**
    * 屏8 列表↔地图联动（切片1 A）：点地图落点 → 镜头飞到该点 + 时间线滚到对应行并高亮。
    * 两件事必须同时做：只飞镜头，列表不动，用户看不出「这个点对应哪一行」。
@@ -1000,9 +1011,8 @@ export struct ItineraryPage {
   detailSheet() {
     Column() {
       if (this.detailAct !== undefined) {
-        Scroll() {
-          Column() {
-            Row({ space: SpaceTokens.sm }) {
+        // 标题+分享固定不随内容滚动：分享与官方关闭钮一样常驻顶部
+        Row({ space: SpaceTokens.sm }) {
               // 原来这里是一个 96×128 的 mediaThumb 占位块，但 Activity/AI 契约里
               // 没有图片字段，它永远是纯黑——还把站名挤成窄列、
               // 实拍折成「北京环球度 / 假区」两行（与屏8 行内那块同一判据）
@@ -1062,10 +1072,13 @@ export struct ItineraryPage {
               .onClick((): void => {
                 this.shareNode();
               })
-            }
-            .alignItems(VerticalAlign.Top)
-            .width('100%')
+        }
+        .alignItems(VerticalAlign.Top)
+        .width('100%')
+        .padding({ top: SpaceTokens.base, left: SpaceTokens.base, right: SpaceTokens.base })
 
+        Scroll() {
+          Column() {
             Row() {
               this.statCol(this.durationText(this.detailAct), '停留建议')
               this.statCol(this.detailAct.time, '计划到达')
@@ -1153,9 +1166,8 @@ export struct ItineraryPage {
             .backgroundColor(ColorTokens.surfaceElevated)
             .margin({ top: SpaceTokens.sm, bottom: SpaceTokens.lg })
           }
-          // 顶距 16vp 一举两得：标题不再贴弹层上缘（半模态要有呼吸）；
-          // 44vp 分享钮的中心落到 16+22=38vp，与官方 showClose ✕ 的中心（实测 38vp）同心
-          .padding({ top: SpaceTokens.base, left: SpaceTokens.base, right: SpaceTokens.base })
+          // 顶部呼吸由固定标题行承担，滚动内容只留左右内缩
+          .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
         }
         .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .layoutWeight(1)
@@ -1632,6 +1644,17 @@ export struct ItineraryPage {
           .onDidScroll((): void => {
             this.syncBarScroll();
           })
+          // 左右滑切换日期：横向 Pan 不干扰纵向滚动；地图区由地图自身手势接管
+          .gesture(
+            PanGesture({ direction: PanDirection.Horizontal, distance: 24 })
+              .onActionEnd((e: GestureEvent): void => {
+                if (e.offsetX < -24) {
+                  this.switchDay(1);
+                } else if (e.offsetX > 24) {
+                  this.switchDay(-1);
+                }
+              })
+          )
         }
         .width('100%')
         .height('100%')
