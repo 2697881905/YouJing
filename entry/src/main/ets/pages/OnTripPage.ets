@@ -20,13 +20,15 @@ import { symmetricInsetForCap } from '../utils/responsive';
 import { IconSizes, LayoutTokens } from '../design/LayoutTokens';
 import { YoujingButton, YoujingButtonVariant } from '../components/YoujingButton';
 import { TimelineNode } from '../components/TimelineNode';
+import { SoftChip, SoftChipTone } from '../components/SoftChip';
+import { CompanionBanner } from '../components/CompanionBanner';
 import { Activity, ActivityCategory, ActivityStatus, MealType, Trip, TripDay } from '../model/Trip';
 import { ReplanAction, ReplanDecision, ReplanOutcome } from '../model/Replan';
 import { Spot } from '../model/Spot';
 import { SpotDao } from '../data/SpotDao';
 import { CompanionEngine } from '../companion/CompanionEngine';
 import { CompanionPrefs } from '../companion/CompanionPrefs';
-import { CompanionStore } from '../companion/CompanionStore';
+import { COMPANION_PROMPT_KEY, CompanionStore } from '../companion/CompanionStore';
 import { CompanionAction, CompanionPrompt, UnplannedInput } from '../companion/CompanionTypes';
 import { PlanRepository } from '../data/PlanRepository';
 import { mintEditActivityId } from '../utils/ActivityIds';
@@ -110,6 +112,9 @@ function clockNow(): string {
 /** 同类建议「忽略」后的静默窗口（分钟） */
 const SIGNAL_MUTE_MIN: number = 30;
 
+/** 助手快捷短语：点一下预填进意图输入框，走既有「理解并预演→确认执行」链路 */
+const ASSISTANT_PHRASES: string[] = ['我累了', '跳过这站', '换个地方', '附近有啥吃的', '时间够吗'];
+
 /**
  * 建议停留时长。原来打小数（`4.5小时`），而屏5 选点、屏8 行程纸同一件事写 `4小时30分钟`
  * ——两套说法并排出现时，用户会以为一个是"排定"一个是"实测"。
@@ -165,6 +170,8 @@ export struct OnTripPage {
   /** 顶部提示：正在重排 / 重排结果 / 失败原因 */
   @State private notice: string = '';
   @State private canUndo: boolean = false;
+  /** 伴随助手请示（JSON 串，空=休眠）：顶部固定横幅按需 parse 渲染 */
+  @StorageLink(COMPANION_PROMPT_KEY) companionJson: string = '';
   /** 加一站面板（屏9 同一套候选逻辑：排除当日已在的站） */
   @State private showAdd: boolean = false;
   @State private addCandidates: Spot[] = [];
@@ -231,10 +238,7 @@ export struct OnTripPage {
     CompanionStore.registerExecutor((action: CompanionAction): void => {
       this.handleCompanionAction(action);
     });
-    // 从别的页签点助手指令跳进来时，意图暂存在 CompanionStore；首次加载完成后取走执行
-    this.reload().then((): void => {
-      this.drainPendingCompanionAction();
-    });
+    this.reload();
   }
 
   aboutToDisappear(): void {
@@ -556,6 +560,15 @@ export struct OnTripPage {
 
   // ---- P3 对话式接管 ----
 
+  /** 顶栏「助手」入口：复用意图面板（快捷短语 + 说一句）。非今日只能看不能改，如实告知 */
+  private openAssistant(): void {
+    if (!this.isToday) {
+      this.toast('助手只在行程当天帮你调整');
+      return;
+    }
+    this.openIntent();
+  }
+
   private openIntent(): void {
     if (!this.isToday || this.replanning) {
       return;
@@ -743,6 +756,21 @@ export struct OnTripPage {
       Text('例如：我累了想回酒店 / 换个室内的 / 加一站')
         .fontSize(TypeTokens.caption.size)
         .fontColor(ColorTokens.muted)
+      Flex({ wrap: FlexWrap.Wrap }) {
+        ForEach(ASSISTANT_PHRASES, (phrase: string) => {
+          SoftChip({
+            label: phrase,
+            tone: SoftChipTone.NEUTRAL,
+            action: (): void => {
+              this.intentText = phrase;
+              this.intentReady = false;
+              this.intentPreview = '';
+            }
+          })
+            .margin({ right: SpaceTokens.xs, bottom: SpaceTokens.xs })
+        }, (phrase: string): string => phrase)
+      }
+      .width('100%')
       TextInput({ placeholder: '说说你现在想怎么改', text: this.intentText })
         .fontSize(TypeTokens.body.size)
         .height(48)
@@ -1291,11 +1319,67 @@ export struct OnTripPage {
     CompanionStore.show(prompt);
   }
 
-  /** 取走浮层暂存的助手指令并执行（从别的页签跳转进来时）；取后即清，不会重复执行 */
-  private drainPendingCompanionAction(): void {
-    const pending: CompanionAction | null = CompanionStore.takePendingAction();
-    if (pending !== null) {
-      this.handleCompanionAction(pending);
+  /** 当前助手请示；无则 null（每次 build 重新 parse，横幅 @Watch 按 id 判新提示） */
+  private companionPrompt(): CompanionPrompt | null {
+    if (this.companionJson.length === 0) {
+      return null;
+    }
+    try {
+      return JSON.parse(this.companionJson) as CompanionPrompt;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  /** 横幅点选：记录偏好（降级闭环）+ 执行（执行器恒在本页）+ 收起 */
+  private handleCompanionSelect(idx: number): void {
+    const p: CompanionPrompt | null = this.companionPrompt();
+    if (p !== null && idx >= 0 && idx < p.options.length) {
+      const decisionKey: string =
+        p.kind === 'unplanned_arrival' ? 'unplanned_move_tomorrow' : p.kind;
+      CompanionStore.prefs.recordChoice(
+        decisionKey, p.options[idx].key, p.options[p.recommendedIndex].key);
+      CompanionStore.execute(p.options[idx].action);
+    }
+    CompanionStore.dismiss();
+  }
+
+  /** 通知态「这次问我」：纠正偏好降级，下次同类回请示 */
+  private correctCompanion(): void {
+    const p: CompanionPrompt | null = this.companionPrompt();
+    if (p !== null) {
+      const decisionKey: string =
+        p.kind === 'unplanned_arrival' ? 'unplanned_move_tomorrow' : p.kind;
+      CompanionStore.prefs.correct(decisionKey);
+    }
+    CompanionStore.dismiss();
+  }
+
+  /** 顶部固定横幅槽位：有事才占位（顶栏让位 + 宽屏内缩），不盖内容、不随列表滚走 */
+  @Builder
+  companionBannerSlot() {
+    if (this.companionPrompt() !== null) {
+      Column() {
+        CompanionBanner({
+          prompt: this.companionPrompt()!,
+          onSelect: (idx: number): void => {
+            this.handleCompanionSelect(idx);
+          },
+          onDismiss: (): void => {
+            CompanionStore.dismiss();
+          },
+          onCorrect: (): void => {
+            this.correctCompanion();
+          }
+        })
+      }
+      .width('100%')
+      .padding({
+        left: this.wideInset(),
+        right: this.wideInset(),
+        top: HdsChrome.contentTopInset(this.statusBarHeight),
+        bottom: SpaceTokens.sm
+      })
     }
   }
 
@@ -1781,6 +1865,9 @@ export struct OnTripPage {
    */
   private titleBarOptions(): HdsNavigationTitleBarOptions {
     const items: Array<HdsNavigationMenuItemOptions> = [
+      HdsChrome.item($r('sys.symbol.wand_and_stars'), '助手', (): void => {
+        this.openAssistant();
+      }),
       HdsChrome.item($r('sys.symbol.list_bullet'), '完整行程', (): void => {
         this.pathStack.pushPath({ name: 'Itinerary', param: this.tripId });
       })];
@@ -1807,7 +1894,9 @@ export struct OnTripPage {
 
   build() {
     HdsNavDestination() {
-      Stack({ alignContent: Alignment.Bottom }) {
+      Column() {
+      // 助手请示横幅：有事才在顶部固定槽位占位（不盖内容、不随列表滚走、不动用户滚动位置）
+      this.companionBannerSlot()
       // 官方 List：hero / 下一段 / 打卡分组各占一个 ListItem，分组头吸顶、行间交给 .divider()
       List({ space: SpaceTokens.base, scroller: this.barScroller }) {
         if (this.notice.length > 0) {
@@ -2062,9 +2151,10 @@ export struct OnTripPage {
       .padding({ left: this.wideInset(), right: this.wideInset() })
       // 穿底让位（2026-11-08 对标有据）：让位从 padding 移到 contentStartOffset，
       // 只挪首屏起点；滚动后内容才穿得到标题栏下被材质糊掉（padding 压的是视口）。
-      .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight))
+      // 横幅在场时它已吃掉顶栏让位，列表不再重复让位（否则横幅下多出一条空缝）。
+      .contentStartOffset(this.companionPrompt() !== null ? 0 : HdsChrome.contentTopInset(this.statusBarHeight))
       .width('100%')
-      .height('100%')
+      .layoutWeight(1)
       .onDidScroll((): void => {
         this.syncBarScroll();
       })
