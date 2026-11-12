@@ -27,8 +27,12 @@ export class PickClient {
     if (candidates.length === 0) {
       return null;
     }
-    // 优先 AGC 云函数（无自购服务器）；再 BFF 联调；两者都没有才走端侧直连
+    // 优先 AGC 云函数（无自购服务器）；端侧直连已配置时优先于 BFF（与 LlmClient 同口径，
+    // 开发期 BFF 不可达也能跑真 LLM）；两者都没有才回退确定性规则
     const cloud: boolean = PickConfig.URL.length > 0;
+    if (!cloud && DirectChat.isConfigured()) {
+      return await PickClient.pickDirect(city, days, pace, interests, candidates);
+    }
     const bffUrl: string = !cloud && ApiConfig.BFF_BASE_URL.length > 0
       ? `${ApiConfig.BFF_BASE_URL}${ENDPOINT}` : '';
     if (!cloud && bffUrl.length === 0) {
