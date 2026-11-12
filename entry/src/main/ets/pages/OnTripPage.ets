@@ -62,6 +62,8 @@ import { HdsNavDestination, HdsNavDestinationTitleMode, HideMode } from '@kit.UI
 import type { HdsNavigationMenuItemOptions, HdsNavigationTitleBarOptions } from '@kit.UIDesignKit';
 import { HdsChrome } from '../design/HdsChrome';
 import { requestSystemBarRefresh } from '../utils/systemBar';
+import { site, mapCommon } from '@kit.MapKit';
+import { BusinessError } from '@kit.BasicServicesKit';
 
 /**
  * 当日站点：活动 ∪ 餐次（屏15 帧把「07:40 早餐 ¥900 已打卡」和节点排在同一列里）。
@@ -186,6 +188,10 @@ export struct OnTripPage {
   private intentSnapshot: TripDay | null = null;
   /** add 动作不在预演里改行程，确认后打开加一站面板 */
   private intentOpenAdd: boolean = false;
+  /** 查询态（时间预算）：只给答案不改动，主按钮变「知道了」 */
+  @State private intentIsQuery: boolean = false;
+  /** 附近美食搜索结果（MapKit）；非空时面板列出餐厅供加站 */
+  @State private foodResults: site.Site[] = [];
   /** 「不去」只在今天提供；回看历史日不出现 */
   @State private isToday: boolean = false;
   /** 当前展示的整日；跳过/撤销都以它为输入 */
@@ -484,14 +490,22 @@ export struct OnTripPage {
 
   /** 选中候选后：云函数决策 → 端侧排程（含 480min 预算闸）→ 复用 commitDay 的撤销链路。 */
   private async performAdd(spot: Spot): Promise<void> {
+    const day: TripDay | null = this.day;
+    if (this.trip === null || day === null || !this.isToday || this.replanning) {
+      return;
+    }
+    this.showAdd = false;
+    const nowMin: number = DateUtils.minutesOf(clockNow());
+    await this.commitAddition(this.candidateActivity(spot, nowMin), spot.name, nowMin);
+  }
+
+  /** 加站共用落库链路（景点候选 / 附近美食都走它）：云函数决策 → 端侧排程 → commitDay 撤销链。 */
+  private async commitAddition(newStop: Activity, name: string, nowMin: number): Promise<void> {
     const trip: Trip | null = this.trip;
     const day: TripDay | null = this.day;
     if (trip === null || day === null || !this.isToday || this.replanning) {
       return;
     }
-    this.showAdd = false;
-    const nowMin: number = DateUtils.minutesOf(clockNow());
-    const newStop: Activity = this.candidateActivity(spot, nowMin);
     const snapshot: TripDay = SkipPlanner.cloneDay(day);
     this.replanning = true;
     this.notice = '正在把新站排进今日行程…';
@@ -506,7 +520,7 @@ export struct OnTripPage {
       Logger.error('Ui.OnTrip', `加站失败: ${(err as Error).message}`);
       return;
     }
-    Logger.info('Ui.OnTrip', `加站 ${spot.name} changed=${outcome.changed} fallback=${outcome.usedFallback} note=${outcome.note}`);
+    Logger.info('Ui.OnTrip', `加站 ${name} changed=${outcome.changed} fallback=${outcome.usedFallback} note=${outcome.note}`);
     if (outcome.changed !== true) {
       this.replanning = false;
       this.notice = '';
@@ -540,6 +554,94 @@ export struct OnTripPage {
       transport: undefined
     };
     return act;
+  }
+
+  /** 附近美食结果 → 当日餐饮活动：先给临时槽，真实落位由 SkipPlanner 重算。 */
+  private restaurantActivity(s: site.Site, nowMin: number): Activity {
+    const start: number = Math.max(nowMin, this.maxEndOfDay() + 15);
+    const duration: number = 60;
+    const name: string = s.name ?? '附近美食';
+    const addr: string = s.formatAddress ?? '';
+    const lat: number = s.location !== undefined ? s.location.latitude : 0;
+    const lng: number = s.location !== undefined ? s.location.longitude : 0;
+    const act: Activity = {
+      id: mintEditActivityId('food'),
+      time: DateUtils.hhmmOf(start),
+      endTime: DateUtils.hhmmOf(start + duration),
+      title: name,
+      location: addr,
+      address: addr,
+      longitude: lng,
+      latitude: lat,
+      status: ActivityStatus.NO_NEED,
+      category: ActivityCategory.FOOD,
+      note: '由附近美食搜索添加',
+      reason: undefined,
+      transport: undefined
+    };
+    return act;
+  }
+
+  /** 附近美食结果加站：复用加站落库链路 */
+  private async performAddRestaurant(s: site.Site): Promise<void> {
+    if (this.trip === null || this.day === null || !this.isToday || this.replanning) {
+      return;
+    }
+    this.showIntent = false;
+    const nowMin: number = DateUtils.minutesOf(clockNow());
+    await this.commitAddition(this.restaurantActivity(s, nowMin), s.name ?? '附近美食', nowMin);
+  }
+
+  /** 「时间够吗」：本地算今日剩余站与所需时长，对比到 22:00 的可用时间，给查询答案（不改行程、不花额度） */
+  private answerTimeBudget(): void {
+    const nowMin: number = DateUtils.minutesOf(clockNow());
+    const remaining: DayStop[] = this.stops.filter((s: DayStop): boolean => this.marks[s.key] === undefined);
+    let remainMin: number = 0;
+    for (const s of remaining) {
+      if (s.endTime.length > 0) {
+        remainMin += Math.max(0, DateUtils.minutesOf(s.endTime) - s.sortMin);
+      } else {
+        remainMin += 60;
+      }
+    }
+    const availMin: number = Math.max(0, 22 * 60 - nowMin);
+    const verdict: string = remainMin <= availMin ? '时间够，按节奏走就行' : '有点紧，建议精简一两站';
+    this.intentIsQuery = true;
+    this.intentReady = false;
+    this.intentOutcome = null;
+    this.intentPreview = `现在 ${DateUtils.hhmmOf(nowMin)}，今天还剩 ${remaining.length} 站没打卡，` +
+      `计划还需约 ${DurationCn.text(remainMin)}；到 22:00 还有 ${DurationCn.text(availMin)}——${verdict}。`;
+  }
+
+  /** 「附近有啥吃的」：拿当前定位调 MapKit 附近搜索餐厅，列出供加站；无定位/失败如实告知 */
+  private async searchNearbyFood(): Promise<void> {
+    const fix: LocationFix | null = this.lastFix;
+    if (fix === null) {
+      this.intentIsQuery = true;
+      this.intentPreview = '还没拿到你的定位，搜不了附近美食；允许定位后再试';
+      return;
+    }
+    this.intentBusy = true;
+    this.intentPreview = '正在搜附近美食…';
+    try {
+      const loc: mapCommon.LatLng = { latitude: fix.latitude, longitude: fix.longitude };
+      const params: site.NearbySearchParams = { query: '美食', location: loc, radius: 2000 };
+      const result: site.NearbySearchResult = await site.nearbySearch(this.ctx(), params);
+      const sites: site.Site[] = result.sites ?? [];
+      this.foodResults = sites.filter((s: site.Site): boolean => s.name !== undefined).slice(0, 3);
+      if (this.foodResults.length === 0) {
+        this.intentIsQuery = true;
+        this.intentPreview = '附近没搜到美食，换个地方再试';
+      } else {
+        this.intentPreview = '';
+      }
+    } catch (err) {
+      this.intentIsQuery = true;
+      this.intentPreview = `附近美食搜索失败（需联网）：${(err as BusinessError).message}`;
+      Logger.warn('Ui.OnTrip', `附近美食搜索失败: ${(err as BusinessError).code}`);
+    } finally {
+      this.intentBusy = false;
+    }
   }
 
   private maxEndOfDay(): number {
@@ -580,6 +682,8 @@ export struct OnTripPage {
     this.intentOutcome = null;
     this.intentSnapshot = null;
     this.intentOpenAdd = false;
+    this.intentIsQuery = false;
+    this.foodResults = [];
     this.showIntent = true;
   }
 
@@ -604,6 +708,17 @@ export struct OnTripPage {
     const text: string = this.intentText.trim();
     if (text.length === 0) {
       this.toast('先说一句你想怎么改');
+      return;
+    }
+    this.intentIsQuery = false;
+    this.foodResults = [];
+    // 本地查询/搜索意图先于联网理解决断，不花模型额度
+    if (text.indexOf('时间') >= 0 || text.indexOf('够') >= 0) {
+      this.answerTimeBudget();
+      return;
+    }
+    if (text.indexOf('吃') >= 0 || text.indexOf('美食') >= 0 || text.indexOf('附近') >= 0) {
+      await this.searchNearbyFood();
       return;
     }
     this.intentBusy = true;
@@ -753,24 +868,28 @@ export struct OnTripPage {
         .fontFamily(TypeTokens.title.family)
         .fontColor(ColorTokens.ink)
         .margin({ top: SpaceTokens.lg })
-      Text('例如：我累了想回酒店 / 换个室内的 / 加一站')
-        .fontSize(TypeTokens.caption.size)
-        .fontColor(ColorTokens.muted)
-      Flex({ wrap: FlexWrap.Wrap }) {
-        ForEach(ASSISTANT_PHRASES, (phrase: string) => {
-          SoftChip({
-            label: phrase,
-            tone: SoftChipTone.NEUTRAL,
-            action: (): void => {
-              this.intentText = phrase;
-              this.intentReady = false;
-              this.intentPreview = '';
-            }
-          })
-            .margin({ right: SpaceTokens.xs, bottom: SpaceTokens.xs })
-        }, (phrase: string): string => phrase)
+      if (this.foodResults.length === 0) {
+        Text('例如：我累了想回酒店 / 换个室内的 / 加一站')
+          .fontSize(TypeTokens.caption.size)
+          .fontColor(ColorTokens.muted)
+        Flex({ wrap: FlexWrap.Wrap }) {
+          ForEach(ASSISTANT_PHRASES, (phrase: string) => {
+            SoftChip({
+              label: phrase,
+              tone: SoftChipTone.NEUTRAL,
+              action: (): void => {
+                this.intentText = phrase;
+                this.intentReady = false;
+                this.intentPreview = '';
+                this.intentIsQuery = false;
+                this.foodResults = [];
+              }
+            })
+              .margin({ right: SpaceTokens.xs, bottom: SpaceTokens.xs })
+          }, (phrase: string): string => phrase)
+        }
+        .width('100%')
       }
-      .width('100%')
       TextInput({ placeholder: '说说你现在想怎么改', text: this.intentText })
         .fontSize(TypeTokens.body.size)
         .height(48)
@@ -785,12 +904,12 @@ export struct OnTripPage {
       if (this.intentBusy) {
         Row({ space: SpaceTokens.xs }) {
           LoadingProgress().width(18).height(18).color(ColorTokens.primary)
-          Text('正在理解…')
+          Text('正在处理…')
             .fontSize(TypeTokens.caption.size)
             .fontColor(ColorTokens.muted)
         }
       }
-      if (this.intentPreview.length > 0) {
+      if (!this.intentBusy && this.intentPreview.length > 0) {
         Text(this.intentPreview)
           .fontSize(TypeTokens.small.size)
           .fontColor(ColorTokens.body)
@@ -799,31 +918,68 @@ export struct OnTripPage {
           .borderRadius(RadiusTokens.reason)
           .backgroundColor(ColorTokens.surfacePanel)
       }
+      if (this.foodResults.length > 0) {
+        Column({ space: SpaceTokens.xs }) {
+          ForEach(this.foodResults, (s: site.Site) => {
+            Row({ space: SpaceTokens.xs }) {
+              Column() {
+                Text(s.name ?? '附近美食')
+                  .fontSize(TypeTokens.small.size)
+                  .fontWeight(600)
+                  .fontColor(ColorTokens.ink)
+                Text(this.foodMeta(s))
+                  .fontSize(TypeTokens.caption.size)
+                  .fontColor(ColorTokens.muted)
+                  .margin({ top: SpaceTokens.xxs })
+              }
+              .alignItems(HorizontalAlign.Start)
+              .layoutWeight(1)
+              YoujingButton({
+                variant: YoujingButtonVariant.SECONDARY,
+                label: '加站',
+                buttonWidth: 72,
+                onAction: (): void => {
+                  this.performAddRestaurant(s);
+                }
+              })
+            }
+            .width('100%')
+            .padding(SpaceTokens.base)
+            .borderRadius(RadiusTokens.card)
+            .backgroundColor(ColorTokens.surfacePanel)
+          }, (s: site.Site): string => s.siteId)
+        }
+        .width('100%')
+      }
       Row({ space: SpaceTokens.sm }) {
         YoujingButton({
           variant: YoujingButtonVariant.SECONDARY,
-          label: '取消',
+          label: this.foodResults.length > 0 ? '关闭' : '取消',
           buttonWidth: 120,
           onAction: (): void => {
             this.closeIntent();
           }
         })
-        Column() {
-          YoujingButton({
-            variant: YoujingButtonVariant.PRIMARY,
-            label: this.intentReady ? '确认执行' : '理解并预演',
-            fullWidth: true,
-            disabled: this.intentBusy,
-            onAction: (): void => {
-              if (this.intentReady) {
-                this.confirmIntent();
-              } else {
-                this.prepareIntent();
+        if (this.foodResults.length === 0) {
+          Column() {
+            YoujingButton({
+              variant: YoujingButtonVariant.PRIMARY,
+              label: this.intentIsQuery ? '知道了' : (this.intentReady ? '确认执行' : '理解并预演'),
+              fullWidth: true,
+              disabled: this.intentBusy,
+              onAction: (): void => {
+                if (this.intentIsQuery) {
+                  this.closeIntent();
+                } else if (this.intentReady) {
+                  this.confirmIntent();
+                } else {
+                  this.prepareIntent();
+                }
               }
-            }
-          })
+            })
+          }
+          .layoutWeight(1)
         }
-        .layoutWeight(1)
       }
       .width('100%')
       .margin({ top: SpaceTokens.sm })
@@ -833,6 +989,16 @@ export struct OnTripPage {
     .height('100%')
     .padding({ left: SpaceTokens.base, right: SpaceTokens.base, bottom: SpaceTokens.lg })
     .backgroundColor(ColorTokens.canvas)
+  }
+
+  /** 附近美食结果副文案：距离 + 地址 */
+  private foodMeta(s: site.Site): string {
+    const dist: string = s.distance !== undefined ? `${Math.round(s.distance)}m` : '';
+    const addr: string = s.formatAddress ?? '';
+    if (dist.length > 0 && addr.length > 0) {
+      return `${dist} · ${addr}`;
+    }
+    return dist.length > 0 ? dist : addr;
   }
 
   @Builder
