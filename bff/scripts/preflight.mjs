@@ -57,6 +57,8 @@ const imageSecret = process.env.IMAGEGEN_SECRET_KEY || '';
 const imageModel = process.env.IMAGEGEN_MODEL || '';
 if (imageKey.startsWith('bce-v3/') && imageModel) {
   ok('生图代理已配置（千帆 V2 API Key）');
+} else if (imageKey.startsWith('sk-') && imageModel) {
+  ok('生图代理已配置（阿里百炼 API Key）');
 } else if (imageKey && imageSecret && imageModel) {
   warn('生图代理仍是旧版凭证', '旧版应用需先发布文生图服务，否则 error_code 6；建议改用千帆 V2 的 bce-v3/ALTAK-... API Key，无需勾选接口');
 } else {

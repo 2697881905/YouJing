@@ -105,11 +105,12 @@ HTTP 200，提示词里仍内嵌完整 Schema，BFF 仍用同一份 Schema 校�
 |---|---|
 | 请求 | `{ city: string, style: 'geometry' \| 'texture' }`，字段白名单，多一个字段就 400；prompt 由服务端固定模板拼，客户端不能注入 |
 | 订阅 | `getEntitlement()` 实时校验 `status='active' AND period_end >= now`，非订阅 402 `SUBSCRIPTION_REQUIRED` |
-| 驱动选择 | 按 `IMAGEGEN_API_KEY` 前缀自动切：`bce-v3/` 开头 = **千帆 V2**（推荐），其余 = 旧版 ModelBuilder。不额外配开关 |
-| 上游 V2 | `POST https://qianfan.baidubce.com/v2/images/generations`，`Authorization: Bearer <bce-v3/ALTAK-...>`。Key 在「安全认证 → API Key」创建（选千帆 ModelBuilder），**永久有效、无需建应用/勾选接口/换 token** |
+| 驱动选择 | 按 `IMAGEGEN_API_KEY` 形态自动路由（`IMAGEGEN_PROVIDER` 可显式指定）：`sk-`（含 sk-sp-）= **阿里百炼**（推荐），`bce-v3/` = 千帆 V2，其余 + Secret Key = 旧版 ModelBuilder |
+| 上游阿里 | `POST {IMAGEGEN_BASE_URL|默认 dashscope}/compatible-mode/v1/images/generations`，OpenAI Images 兼容、同步，返回 `data[0].url`（24h 有效）→ BFF 下载转 base64。按量付费推荐 `qwen-image-2.1-turbo`；Token Plan（sk-sp-）覆盖 qwen-image-2.0/2.0-pro/3.0-pro，但其条款**禁止用于应用后端**，接 BFF 有封禁风险 |
+| 上游千帆 V2 | `POST https://qianfan.baidubce.com/v2/images/generations`，Key 在「安全认证 → API Key」创建，永久有效、无需建应用/勾选接口/换 token |
 | 上游旧版 | `IMAGEGEN_API_KEY` + `IMAGEGEN_SECRET_KEY` 换 `access_token`（进程内缓存），再 POST `aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/text2image/<服务名>` |
-| 请求体 | V2：`{model, prompt, negative_prompt, size:'768x1024', n:1, prompt_extend:false}`；旧版：`{prompt, negative_prompt, size, n, steps:20}`。固定模板，客户端不能注入 |
-| 响应 | V2 返回 `data[0].url`（24h 有效）→ BFF 下载转 base64；旧版返回 `data[0].b64_image`。HTTP 200 的 `error_code` / V2 的 `{code,message}` / `task_status:FAILED` 统一转 502。BFF 对外仍回 `{ image, mime, model, bytes }`，产物**不落库、不进对象存储、不进 UGC** |
+| 请求体 | 阿里/千帆 V2：`{model, prompt, negative_prompt, size:'768x1024', n:1, prompt_extend:false}`（阿里额外带 `watermark:false`，`negative_prompt` 仅 qwen-image-3.0 系列支持）；旧版：`{prompt, negative_prompt, size, n, steps:20}`。固定模板，客户端不能注入 |
+| 响应 | 阿里/千帆 V2 返回 `data[0].url`（24h 有效）→ BFF 下载转 base64；旧版返回 `data[0].b64_image`。HTTP 200 的 `error_code` / `{code,message}` / `task_status:FAILED` 统一转 502。BFF 对外仍回 `{ image, mime, model, bytes }`，产物**不落库、不进对象存储、不进 UGC** |
 | 超时 | `IMAGEGEN_TIMEOUT_MS` 默认 60000ms，生图与图片下载**共用这一份预算**（qwen-image 单张实测可超 30s；端侧读超时 70000ms 留 10s 余量）。超时 504 `IMAGEGEN_TIMEOUT`，上游 429 透传，其它非 2xx → 502 |
 | 与 trip 的差异 | **刻意不挂幂等、不扣额度、不写 `trip_request`**：同步增强、失败端侧降级模板海报；成本靠限流 + 严格超时，不重试 |
 

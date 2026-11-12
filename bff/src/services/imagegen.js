@@ -1,7 +1,7 @@
 import { HttpError } from '../lib/http-error.js';
 
 /**
- * 百度千帆文生图代理，支持两套并存的密钥体系（按 API Key 前缀自动切换）：
+ * 生图上游代理，支持三套上游（按 API Key 形态自动路由，可用 IMAGEGEN_PROVIDER 显式覆盖）：
  *
  * A) 新版 V2（推荐，官方主推）：API Key 形如 `bce-v3/ALTAK-xxx/yyy`，永久有效，
  *    `Authorization: Bearer <key>` 直连 POST https://qianfan.baidubce.com/v2/images/generations。
@@ -13,6 +13,13 @@ import { HttpError } from '../lib/http-error.js';
  *    POST aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/text2image/<服务名>，
  *    响应 `data[0].b64_image`。这条要求应用已勾选接口或定制服务已发布，
  *    否则返回 `error_code: 6 / No permission to access data`（2026-11-11 实测）。
+ *
+ * C) 阿里百炼（推荐）：Model Studio API Key（sk-...），
+ *    `Authorization: Bearer <key>` 直连 POST {base}/compatible-mode/v1/images/generations，
+ *    OpenAI Images 兼容、同步返回 data[0].url（24h 有效）。按量付费推荐
+ *    qwen-image-2.1-turbo；Token Plan 订阅覆盖 qwen-image-2.0/2.0-pro/3.0-pro。
+ *    ⚠️ Token Plan 订阅 Key（sk-sp-...）官方条款「仅限 AI 编程/智能体工具交互式使用，
+ *    不可用于自动化脚本或应用后端」，接 BFF 有订阅暂停/封 Key 风险（2026-11 官方文档）。
  *
  * 边界（Docs/行后情绪方案.md §海报 / Docs/design-v2/DESIGN.md §AI poster base）：
  * - 端侧只发「城市 + 风格枚举」，prompt 由服务端按固定模板拼，客户端不能注入任意提示词；
@@ -28,6 +35,8 @@ const V2_PATH = '/v2/images/generations';
 const DEFAULT_BASE_URL = 'https://aip.baidubce.com';
 const DEFAULT_V2_MODEL = 'qwen-image';
 const DEFAULT_MODEL = 'sd_xl';
+const DEFAULT_ALIYUN_BASE_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+const ALIYUN_PATH = '/images/generations';
 /** 官方文档列为「适用海报传单」的竖版尺寸，贴合 320vp 回顾卡 */
 const SIZE = '768x1024';
 // 只放字面空格，不放 \s：换行/制表符会被拼进服务端 prompt，等于给客户端开了注入口
@@ -49,16 +58,37 @@ export function isV2Key(apiKey) {
   return typeof apiKey === 'string' && apiKey.startsWith('bce-v3/');
 }
 
+/**
+ * 三套上游的路由：bce-v3/ = 百度 V2，sk- = 阿里百炼（含 Token Plan 的 sk-sp-），
+ * 其余有 Secret Key = 百度旧版。IMAGEGEN_PROVIDER 可显式覆盖自动判定。
+ */
+export function resolveImageProvider(apiKey, secretKey, explicit) {
+  const p = typeof explicit === 'string' ? explicit.trim().toLowerCase() : '';
+  if (p === 'baidu-v2' || p === 'aliyun' || p === 'baidu-legacy') {
+    return p;
+  }
+  if (isV2Key(apiKey)) {
+    return 'baidu-v2';
+  }
+  if (typeof apiKey === 'string' && apiKey.startsWith('sk-')) {
+    return 'aliyun';
+  }
+  return secretKey ? 'baidu-legacy' : '';
+}
+
 function config() {
   const apiKey = process.env.IMAGEGEN_API_KEY || '';
-  const v2 = isV2Key(apiKey);
-  return {
-    v2,
-    baseUrl: v2 ? V2_BASE_URL : (process.env.IMAGEGEN_BASE_URL || DEFAULT_BASE_URL),
-    apiKey,
-    secretKey: process.env.IMAGEGEN_SECRET_KEY || '',
-    model: process.env.IMAGEGEN_MODEL || (v2 ? DEFAULT_V2_MODEL : DEFAULT_MODEL)
-  };
+  const secretKey = process.env.IMAGEGEN_SECRET_KEY || '';
+  const model = process.env.IMAGEGEN_MODEL || '';
+  const provider = resolveImageProvider(apiKey, secretKey, process.env.IMAGEGEN_PROVIDER);
+  if (provider === 'baidu-v2') {
+    return { provider, apiKey, secretKey: '', model: model || DEFAULT_V2_MODEL, baseUrl: V2_BASE_URL };
+  }
+  if (provider === 'aliyun') {
+    // 模型没有安全默认值：按量付费与 Token Plan 的可售目录不同，配错只会 404
+    return { provider, apiKey, secretKey: '', model, baseUrl: process.env.IMAGEGEN_BASE_URL || DEFAULT_ALIYUN_BASE_URL };
+  }
+  return { provider, apiKey, secretKey, model: model || DEFAULT_MODEL, baseUrl: process.env.IMAGEGEN_BASE_URL || DEFAULT_BASE_URL };
 }
 
 function timeoutMs() {
@@ -132,6 +162,34 @@ export function buildV2RequestBody(city, style, model) {
     n: 1,
     prompt_extend: false
   };
+}
+
+/**
+ * 阿里百炼 OpenAI 兼容体：字段平铺，size 用 x 分隔（DashScope 原生协议才用 *）。
+ * negative_prompt 仅 qwen-image-3.0 系列支持，其余模型靠正面 prompt 的禁令措辞兜底。
+ */
+export function buildAliyunRequestBody(city, style, model) {
+  const body = {
+    model,
+    prompt: buildImagePrompt(city, style),
+    size: SIZE,
+    n: 1,
+    watermark: false,
+    prompt_extend: false
+  };
+  if (typeof model === 'string' && model.startsWith('qwen-image-3.0')) {
+    body.negative_prompt = buildNegativePrompt();
+  }
+  return body;
+}
+
+/** 兼容三种 base 写法：宿主根、/compatible-mode/v1 结尾、/v1 结尾（Token Plan 套餐地址形态未定）。 */
+export function buildAliyunUrl(base) {
+  const trimmed = base.replace(/\/+$/, '');
+  if (/\/compatible-mode\/v1$/.test(trimmed) || /\/v1$/.test(trimmed)) {
+    return `${trimmed}${ALIYUN_PATH}`;
+  }
+  return `${trimmed}/compatible-mode/v1${ALIYUN_PATH}`;
 }
 
 export function buildAccessTokenUrl(cfg) {
@@ -267,24 +325,23 @@ async function parseUpstreamText(text) {
   }
 }
 
-/** 新版 V2：Bearer 直连，模型名在 body，图片以 url 返回。 */
-async function generateV2(cfg, city, style) {
+/** OpenAI 兼容 images/generations 的同步调用：图片一律以 url 返回，由 BFF 下载转 base64。 */
+async function postOpenAiImages(url, apiKey, body, cfg, city, style, driver) {
   const timeout = timeoutMs();
   const started = Date.now();
-  const body = buildV2RequestBody(city, style, cfg.model);
   let resp;
   try {
-    resp = await fetch(`${V2_BASE_URL}${V2_PATH}`, {
+    resp = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${cfg.apiKey}`
+        'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(timeout)
     });
   } catch (err) {
-    upstreamError(err, '生图上游 V2', timeout);
+    upstreamError(err, `生图上游（${driver}）`, timeout);
   }
   const text = await resp.text();
   if (!resp.ok) {
@@ -293,9 +350,21 @@ async function generateV2(cfg, city, style) {
   const parsed = parseImagePayload(await parseUpstreamText(text));
   const remaining = timeout - (Date.now() - started);
   const result = parsed.image ? parsed : await fetchUrlAsBase64(parsed.url, remaining);
-  console.log(`[imagegen] driver=v2 model=${cfg.model} style=${style} bytes=${result.bytes} ` +
+  console.log(`[imagegen] driver=${driver} model=${cfg.model} style=${style} bytes=${result.bytes} ` +
     `elapsed=${Date.now() - started}ms`);
   return { image: result.image, mime: 'image/png', model: cfg.model, bytes: result.bytes };
+}
+
+/** 百度千帆 V2：Bearer 直连，模型名在 body，图片以 url 返回。 */
+async function generateV2(cfg, city, style) {
+  return postOpenAiImages(`${V2_BASE_URL}${V2_PATH}`, cfg.apiKey,
+    buildV2RequestBody(city, style, cfg.model), cfg, city, style, 'baidu-v2');
+}
+
+/** 阿里百炼：OpenAI Images 兼容、同步，模型名在 body，图片以 url 返回（24h 有效）。 */
+async function generateAliyun(cfg, city, style) {
+  return postOpenAiImages(buildAliyunUrl(cfg.baseUrl), cfg.apiKey,
+    buildAliyunRequestBody(city, style, cfg.model), cfg, city, style, 'aliyun');
 }
 
 /** 旧版 ModelBuilder：access_token + b64_image。 */
@@ -330,10 +399,19 @@ async function generateLegacy(cfg, city, style) {
 
 export async function proxyImageRequest(city, style) {
   const cfg = config();
-  if (!cfg.apiKey || !cfg.model || (!cfg.v2 && !cfg.secretKey)) {
-    throw new HttpError(503, 'IMAGEGEN_NOT_CONFIGURED',
-      '生图服务未配置：用千帆 V2 请设 IMAGEGEN_API_KEY=bce-v3/... 与 IMAGEGEN_MODEL；' +
-      '用旧版请设 IMAGEGEN_API_KEY + IMAGEGEN_SECRET_KEY + IMAGEGEN_MODEL');
+  if (cfg.provider === 'aliyun') {
+    if (!cfg.apiKey || !cfg.model) {
+      throw new HttpError(503, 'IMAGEGEN_NOT_CONFIGURED',
+        '阿里百炼驱动需配置 IMAGEGEN_API_KEY（sk-...）与 IMAGEGEN_MODEL：' +
+        '按量付费推荐 qwen-image-2.1-turbo；Token Plan 可用 qwen-image-2.0/qwen-image-3.0-pro');
+    }
+    return generateAliyun(cfg, city, style);
   }
-  return cfg.v2 ? await generateV2(cfg, city, style) : await generateLegacy(cfg, city, style);
+  if (!cfg.apiKey || !cfg.model || (cfg.provider !== 'baidu-v2' && !cfg.secretKey)) {
+    throw new HttpError(503, 'IMAGEGEN_NOT_CONFIGURED',
+      '生图服务未配置：用阿里百炼请设 IMAGEGEN_API_KEY=sk-... 与 IMAGEGEN_MODEL；' +
+      '用千帆 V2 请设 IMAGEGEN_API_KEY=bce-v3/... 与 IMAGEGEN_MODEL；' +
+      '用百度旧版请设 IMAGEGEN_API_KEY + IMAGEGEN_SECRET_KEY + IMAGEGEN_MODEL');
+  }
+  return cfg.provider === 'baidu-v2' ? generateV2(cfg, city, style) : generateLegacy(cfg, city, style);
 }

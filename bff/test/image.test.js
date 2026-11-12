@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   validateImageRequest, buildImagePrompt, buildNegativePrompt, buildImageRequestBody,
-  buildV2RequestBody, buildAccessTokenUrl, buildImageUrl, parseImagePayload, isV2Key
+  buildV2RequestBody, buildAccessTokenUrl, buildImageUrl, parseImagePayload, isV2Key,
+  resolveImageProvider, buildAliyunRequestBody, buildAliyunUrl
 } from '../src/services/imagegen.js';
 import { subscriptionAllowsImage } from '../src/routes/image.js';
 
@@ -99,6 +100,38 @@ test('V2 url response, task failure and V2 error envelope', () => {
   assert.throws(() => parseImagePayload({
     code: 'InvalidHTTPAuthHeader', message: 'bad key', type: 'auth'
   }), /V2 错误/);
+});
+
+test('provider auto-routing by key shape, IMAGEGEN_PROVIDER overrides', () => {
+  assert.equal(resolveImageProvider('bce-v3/ALTAK-a/b', '', ''), 'baidu-v2');
+  assert.equal(resolveImageProvider('sk-abc123', '', ''), 'aliyun');
+  assert.equal(resolveImageProvider('sk-sp-abc123', '', ''), 'aliyun');
+  assert.equal(resolveImageProvider('plainkey', 'secret', ''), 'baidu-legacy');
+  assert.equal(resolveImageProvider('', '', ''), '');
+  assert.equal(resolveImageProvider('sk-abc', 'secret', 'baidu-legacy'), 'baidu-legacy');
+});
+
+test('aliyun body: flat OpenAI shape, negative_prompt only on 3.0 series', () => {
+  const body = buildAliyunRequestBody('杨凌', 'geometry', 'qwen-image-2.1-turbo');
+  assert.equal(body.model, 'qwen-image-2.1-turbo');
+  assert.equal(body.prompt, buildImagePrompt('杨凌', 'geometry'));
+  assert.equal(body.size, '768x1024');
+  assert.equal(body.n, 1);
+  assert.equal(body.prompt_extend, false);
+  assert.equal(body.watermark, false);
+  assert.equal('negative_prompt' in body, false);
+  assert.equal('steps' in body, false);
+  assert.equal(buildAliyunRequestBody('杨凌', 'texture', 'qwen-image-3.0').negative_prompt,
+    buildNegativePrompt());
+});
+
+test('aliyun url accepts host root, /v1 and /compatible-mode/v1 bases', () => {
+  assert.equal(buildAliyunUrl('https://dashscope.aliyuncs.com/compatible-mode/v1/'),
+    'https://dashscope.aliyuncs.com/compatible-mode/v1/images/generations');
+  assert.equal(buildAliyunUrl('https://dashscope.aliyuncs.com'),
+    'https://dashscope.aliyuncs.com/compatible-mode/v1/images/generations');
+  assert.equal(buildAliyunUrl('https://plan.example.cn/v1'),
+    'https://plan.example.cn/v1/images/generations');
 });
 
 test('subscription gate only accepts an active subscription snapshot', () => {
