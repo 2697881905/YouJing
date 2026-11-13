@@ -742,9 +742,9 @@ export struct EditItineraryPage {
           .layoutWeight(1)
           .scrollBar(BarState.Off)
           .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
-          // 穿底让位（2026-11-08 对标有据）：让位从外层 padding 移到 contentStartOffset，
-          // 只挪首屏起点；滚动后内容才穿得到标题栏下被材质糊掉。
-          .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight))
+          // 固定 Day 头在 List 外：让位必须挂外层 Column（见 build 尾），List 偏移归 0。
+          // 若这里再吃 contentTopInset，Day 头顶到状态栏/标题栏上叠字、首卡前又多一条空缝。
+          .contentStartOffset(0)
           .onItemDragStart((event: ItemDragInfo, itemIndex: number): CustomBuilder => {
             // 官方 API 限制：onItemDragStart 挂在 List 级（整行长按触发），
             // 与「把手只挂把手」的视觉约定有差距——拖影由本函数自定义，
@@ -797,8 +797,9 @@ export struct EditItineraryPage {
       }
       .width('100%')
       .height('100%')
-      // 不涂 canvas、也不在这里让位（2026-11-08 对标有据）：这层白会把标题栏区盖死，
-      // 让位已下放到 List 的 contentStartOffset。
+      // 固定 Day 头在 List 外（非穿底页）：顶部让位挂这层 Column，List 偏移归 0。
+      // 让位若下放 List.contentStartOffset，Day 头会顶到状态栏/标题栏上叠字、首卡前留空缝。
+      .padding({ top: HdsChrome.contentTopInset(this.statusBarHeight) })
       .bindSheet($$this.showReplace, this.replaceSheet(), {
         height: '70%',
         showClose: true,
