@@ -13,7 +13,6 @@
  */
 
 import { HOST_NAV, TRIPS_NAV, enterPlanningFlow, TAB_SHOWN_KEY, isTabShownTick, TAB_ITINERARY, ACTIVE_TRIP_KEY, activeTripId } from '../common/constants/AppNav';
-import { BOTTOM_NAV_INSET_KEY } from '../utils/navMode';
 import { ColorTokens } from '../design/ColorTokens';
 import { MoneyText } from '../utils/MoneyText';
 import { TypeTokens } from '../design/TypeTokens';
@@ -94,8 +93,6 @@ export struct TripsPage {
   @State private barScrolled: boolean = false;
   private barScroller: Scroller = new Scroller();
   @StorageProp('statusBarHeight') statusBarHeight: number = 0;
-  // 底部避让（手势/三键不同）：末卡净空要加上导航条避让量，否则三键档末卡被 dock 截断
-  @StorageProp(BOTTOM_NAV_INSET_KEY) dockNavInset: number = 0;
   @State private trips: TripCardData[] = [];
   @State private loading: boolean = true;
   /** 周年横幅：今天月日落在某条跨年历史行程区间内才出现；无命中时两条都为空 */
@@ -890,10 +887,9 @@ export struct TripsPage {
             .onDidScroll((): void => {
               this.syncBarScroll();
             })
-            // 穿底：末卡要能滚到浮动 dock 下方（透过玻璃可见），不留大净空把卡拦在 dock 上。
-            // 只留 base + 导航条避让，内容延伸到屏底、从 dock 下穿过
-            .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
-              bottom: SpaceTokens.base + this.dockNavInset })
+            // 穿底：底部不留任何固定净空——容器 bottom padding 会在屏底留下一条
+            // 不随内容滚动的白横条（canvas 纯白）。视口铺到屏底，末卡从 dock 下穿过。
+            .padding({ left: SpaceTokens.base, right: SpaceTokens.base })
             // 穿底（2026-11-08 对标有据）：让位走 contentStartOffset，不挂 padding ——
             // padding 会把视口压到栏底之下，内容永远进不了标题栏那 175px。
             .contentStartOffset(HdsChrome.contentTopInset(this.statusBarHeight))
