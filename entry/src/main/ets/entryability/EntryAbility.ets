@@ -291,9 +291,12 @@ export default class EntryAbility extends UIAbility {
   }
 
   /**
-   * 手表通知按钮探针（临时，验完即还原）：`--ps watchprobe 1`
-   * 发一条带「打卡/跳过」两个操作按钮的本地通知，验证 Watch 5 通知镜像是否透传按钮、
-   * 点击后 WantAgent 能否回传手机。回传证据走 logWatchAction 的 hilog。
+   * 手表通知探针（常驻调试，同 arrivalprobe 等）：`--ps watchprobe 1`
+   * 发一条带「打卡/跳过」两个操作按钮的提醒通知（SOCIAL_COMMUNICATION 槽位）。
+   * 真机结论（2026-11-13，Watch 5 + Pocket 2）：提醒通知能镜像到手表，但第三方 actionButtons
+   * 不透传——手表只显文字、无按钮；静默通知（无槽位、remindFlags=0）则根本不转发到手表。
+   * 故手表上的「是否打卡」交互须走 wearable App + Wear Engine，通知按钮这条路不通。
+   * 手机侧按钮点击经 WantAgent 回传，证据走 logWatchAction 的 hilog（YouJing.Probe.Watch）。
    */
   private maybeWatchProbe(want: Want): void {
     if (!BuildConfig.IS_DEBUG) {
@@ -319,6 +322,8 @@ export default class EntryAbility extends UIAbility {
       Logger.warn(tag, '通知开关关闭，探针未发');
       return;
     }
+    // 静默通知（无槽位、remindFlags=0）不会转发到手表；补社交通讯槽位让它成为会提醒的通知
+    await notificationManager.addSlot(notificationManager.SlotType.SOCIAL_COMMUNICATION);
     const checkin: WantAgent = await this.watchButtonAgent('checkin', 9101);
     const skip: WantAgent = await this.watchButtonAgent('skip', 9102);
     const buttons: notificationManager.NotificationActionButton[] = [
@@ -327,6 +332,7 @@ export default class EntryAbility extends UIAbility {
     ];
     const request: notificationManager.NotificationRequest = {
       id: 2100000001,
+      notificationSlotType: notificationManager.SlotType.SOCIAL_COMMUNICATION,
       content: {
         notificationContentType: notificationManager.ContentType.NOTIFICATION_CONTENT_BASIC_TEXT,
         normal: {
