@@ -11,8 +11,8 @@
  * - 示例半模态照 ExpensePage「记一笔」同款 bindSheet：systemMaterial 唯一材质载体，
  *   sheet 内容不包 ImmersiveSurface、不涂实色底（双表面禁则）；「还开着」标志只由
  *   onDisappear 清，并登记 OVERLAY_GUARD_PLAN_TAB 让壳层返回先关它（§6 弹栈边界）。
- * - 内容 Scroll 化：固定 Column 在大字号/小屏上会把预览卡裁掉，主功能页一律可滚，
- *   底部预留 floatingDockClearance，末行不再藏进 dock。
+ * - 内容 Scroll 化：固定 Column 在大字号/小屏上会把内容裁掉，主功能页一律可滚；
+ *   内容从标题栏下方自然起排（2026-11-13 撤销「整组贴底」），底部穿底不锁净空。
  *
  * 状态栏 mock 为设备 chrome，不实现。这一屏不读行程数据（历史行程归「行程」格）。
  */
@@ -444,12 +444,10 @@ export struct YoujingStartPage {
   scrollBody() {
     Scroll(this.barScroller) {
       Column() {
-        // 整组内容贴底（2026-11-11 用户裁决）：顶部只留系统标题栏「规划」，
-        // 「下一趟，去哪儿？」页题也随内容一起沉到内容区底部。Blank 吃掉全部余量；
-        // 内容超过一屏时它自动归零，不会把下面的卡推出滚动区（minHeight 100% 见链尾）。
-        Blank()
-          .layoutWeight(1)
-
+        // 2026-11-13 撤销「整组贴底」：先前那块吃满剩余高度的空白占位，配上内容列
+        // 的最小满屏高，把页题、主 CTA 与两行次要内容一起压到视口底部——顶部只剩
+        // 一条标题栏，末行又被悬浮 dock 盖住。改回自然流：首屏上重下轻，主入口落在
+        // 视线黄金位；内容超过一屏时 Scroll 照常滚，不用任何占位块。
         // ① 页题（2026-11-08 重构）：这一页是「出发页」，页题要**提出问题**而不是报栏目名。
         //    第二行落品牌蓝——整页唯一的高饱和文字，把视线钉在「去哪儿」上。
         Text() {
@@ -463,7 +461,8 @@ export struct YoujingStartPage {
         .fontFamily(TypeTokens.display.family)
         .lineHeight(TypeTokens.display.lineHeight)
         .width('100%')
-        .margin({ top: SpaceTokens.sm })
+        // 页题与标题栏之间留一档呼吸；标题栏让位已由 contentTopInset 承担，这里只管节奏
+        .margin({ top: SpaceTokens.lg })
 
         Text('说个城市和天数，剩下的交给路线。')
           .fontSize(TypeTokens.small.size)
@@ -501,7 +500,8 @@ export struct YoujingStartPage {
         .padding(SpaceTokens.md)
         .borderRadius(RadiusTokens.hero)
         .backgroundColor(ColorTokens.surfaceElevated)
-        .margin({ top: SpaceTokens.lg })
+        // 主卡与页题分属两组：拉到 xl，让「提问 → 行动」这一步成为整页唯一的重心
+        .margin({ top: SpaceTokens.xl })
 
         // ③ 上次的痕迹：草稿优先，其次最近一趟，**二选一**。
         //    入口页只需要一个「上次」—— 并排放两块只会把注意力从主入口上分走。
@@ -591,11 +591,9 @@ export struct YoujingStartPage {
 
         // ④ 示例入口（2026-11-08 重构）：示例从半屏大卡压成一行。它是「给你看产出」的
         //    三级内容，不能与用户自己的行程卡同级同重——版面只留一行，全貌进半模态。
+        //    2026-11-13 撤掉与「最近一趟」行重复的地图图标：两行各挂同一枚图标会被读成
+        //    同一级内容；这行靠「示例」标签自证身份，文字与页题左边缘直接对齐。
         Row() {
-          SymbolGlyph($r('sys.symbol.map'))
-            .fontSize(IconSizes.control)
-            .fontColor([ColorTokens.muted])
-            .margin({ right: SpaceTokens.sm })
           Text('看看一份行程长什么样')
             .fontSize(TypeTokens.small.size)
             .fontColor(ColorTokens.body)
@@ -612,7 +610,8 @@ export struct YoujingStartPage {
         .alignItems(VerticalAlign.Center)
         .width('100%')
         .padding({ top: SpaceTokens.sm, bottom: SpaceTokens.sm })
-        .margin({ top: SpaceTokens.sm })
+        // 页脚级入口：与上面的行卡拉开一档，不再读成「第三张卡」
+        .margin({ top: SpaceTokens.lg })
         .accessibilityText('查看行程示例')
         .onClick((): void => {
           this.showSample = true;
@@ -633,9 +632,8 @@ export struct YoujingStartPage {
       }
       .width('100%')
       .alignItems(HorizontalAlign.Start)
-      // 撑满内容区但不锁死：内容不足一屏时 Blank 把下半块压到底部，
-      // 超过一屏时这里仍按内容自然高度走、Scroll 照常滚（写 height('100%') 会裁掉溢出）
-      .constraintSize({ minHeight: '100%' })
+      // 高度按内容自然走：既不写满屏高（会裁掉超出一屏的内容），也不写最小满屏高配
+      // 占位块（会把整组沉到底）。内容不足一屏时的回弹由 Scroll 的 Spring 常开兜住。
       // 左右内缩走对称内缩而不是 maxWidth：卡片子级全是 width('100%')，
       // 给父 Column 加 constraintSize.maxWidth 只会左贴边、右侧空出一条（实测更坏）。
       // 折叠屏展开（窗口 707vp）时预览卡原本通铺 642vp、三行节点右侧 55% 全白。
