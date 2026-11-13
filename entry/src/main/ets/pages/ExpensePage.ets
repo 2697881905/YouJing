@@ -31,6 +31,7 @@ import { routerMap } from './AppRouter';
 import { HdsChrome } from '../design/HdsChrome';
 import { requestSystemBarRefresh } from '../utils/systemBar';
 import { registerOverlayBackGuard, unregisterOverlayBackGuard, OVERLAY_GUARD_EXPENSE_TAB } from '../utils/overlayBackGuard';
+import { BOTTOM_NAV_INSET_KEY } from '../utils/navMode';
 
 interface CategorySpend {
   name: string;
@@ -167,6 +168,8 @@ export struct ExpensePage {
   @State private barScrolled: boolean = false;
   private barScroller: Scroller = new Scroller();
   @StorageProp('statusBarHeight') statusBarHeight: number = 0;
+  // 底部避让（手势/三键不同）：穿底净空叠加导航条避让量
+  @StorageProp(BOTTOM_NAV_INSET_KEY) dockNavInset: number = 0;
   private trip: Trip | null = null;
   /** 已经因「上下文行程不存在」退回过一次无上下文分支；防异步自循环 */
   private contextRetried: boolean = false;
@@ -1029,11 +1032,10 @@ export struct ExpensePage {
         .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
         .cachedCount(6)
-        // 末行让位只对根页成立：根页底下有悬浮 dock（通用 94 比实占 112 少 18vp 的
-        // 教训见 §5o）；作为宿主栈二级页（屏15「记一笔」压进来）时全屏无 dock，
-        // 2026-11-11 起按 rootMode 分档
+        // 穿底：根页末行要能滚到浮动 dock 下方（透过玻璃可见），不留大净空拦在 dock 上；
+        // 二级页全屏无 dock，净空 0
         .padding({ left: SpaceTokens.base, right: SpaceTokens.base,
-          bottom: this.rootMode ? LayoutTokens.floatingDockClearance : 0 })
+          bottom: this.rootMode ? SpaceTokens.base + this.dockNavInset : 0 })
         .layoutWeight(1)
         // 穿底（2026-11-08 对标有据）：让位从 padding 改到 contentStartOffset——
         // padding 会把视口压到栏底之下，标题栏那 175px 永远采样不到内容。

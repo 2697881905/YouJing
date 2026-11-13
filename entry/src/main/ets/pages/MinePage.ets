@@ -25,6 +25,7 @@
  */
 
 import { HOST_NAV, PROFILE_NAV, TAB_MINE, TAB_SHOWN_KEY, isTabShownTick } from '../common/constants/AppNav';
+import { BOTTOM_NAV_INSET_KEY } from '../utils/navMode';
 import { routerMap } from './AppRouter';
 import { AccountStore, AUTH_STATE_KEY } from '../data/AccountStore';
 import { BadgeDao } from '../data/BadgeDao';
@@ -87,6 +88,8 @@ export struct MinePage {
   private barScroller: Scroller = new Scroller();
   // 穿底档让位要含状态栏：内容原点回到窗口 0（真机实证见 HdsChrome.contentTopInset）
   @StorageProp('statusBarHeight') statusBarHeight: number = 0;
+  // 底部避让（手势/三键不同）：穿底净空叠加导航条避让量
+  @StorageProp(BOTTOM_NAV_INSET_KEY) dockNavInset: number = 0;
 
   private onDockShown(): void {
     if (isTabShownTick(this.dockTick, TAB_MINE)) {
@@ -336,8 +339,8 @@ export struct MinePage {
       .layoutWeight(1)
       .scrollBar(BarState.Off)
       .divider({ strokeWidth: 0 })
-      // 末行住在悬浮 dock 底下，按实测净空让位（与 TripsPage/BadgePage 同一写法）
-      .padding({ bottom: LayoutTokens.floatingDockClearance })
+      // 穿底：末行要能滚到浮动 dock 下方（透过玻璃可见），不留大净空拦在 dock 上
+      .padding({ bottom: SpaceTokens.base + this.dockNavInset })
       // 穿底（2026-11-08 对标有据 ProfilePage）：让位必须走 contentStartOffset，
       // 不能挂 padding —— padding 会把**视口**整体压到栏底之下，内容永远上不到
       // 标题栏那 175px 里，栏体磨砂采样不到任何东西，顶部就永远是一块纯白。

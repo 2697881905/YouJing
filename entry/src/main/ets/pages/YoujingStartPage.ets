@@ -43,6 +43,7 @@ import { common } from '@kit.AbilityKit';
 import { DateUtils } from '../utils/DateUtils';
 import { KEY_WINDOW_WIDTH_VP, BP_MD_MIN_VP } from '../utils/breakpointCenter';
 import { symmetricInsetForCap } from '../utils/responsive';
+import { BOTTOM_NAV_INSET_KEY } from '../utils/navMode';
 
 interface PreviewStop {
   time: string;
@@ -88,6 +89,8 @@ export struct YoujingStartPage {
   private barScroller: Scroller = new Scroller();
   // 穿底让位（含状态栏）：本页是纯 Scroll 根，留白放进滚动容器随内容滚走
   @StorageProp('statusBarHeight') statusBarHeight: number = 0;
+  // 底部避让（手势/三键不同）：穿底净空叠加导航条避让量
+  @StorageProp(BOTTOM_NAV_INSET_KEY) dockNavInset: number = 0;
   /** 顶栏磨砂两态。必须 @State：栏体现在就挂在本页的 HdsNavigation 上，值变了要触发它重建 */
   @State private barScrolled: boolean = false;
 
@@ -647,8 +650,8 @@ export struct YoujingStartPage {
         top: HdsChrome.contentTopInset(this.statusBarHeight),
         left: symmetricInsetForCap(this.windowWidthVp, BP_MD_MIN_VP, SpaceTokens.base),
         right: symmetricInsetForCap(this.windowWidthVp, BP_MD_MIN_VP, SpaceTokens.base),
-        // 悬浮 dock 压在滚动内容上：末行（示例入口行）要能滚出 dock 顶边
-        bottom: LayoutTokens.floatingDockClearance
+        // 穿底：末行要能滚到浮动 dock 下方（透过玻璃可见），不留大净空把内容拦在 dock 上
+        bottom: SpaceTokens.base + this.dockNavInset
       })
     }
     .width('100%')
