@@ -22,7 +22,7 @@ description: 为「有径」记下旅行基础参数，用户打开应用后自�
 - “帮我规划去北京的行程”
 - “安排一次上海三天两晚的旅游”
 - “下个月去广州玩四天，两个人”
-- “我想去深圳玩，9 月 10 号出发”
+- “我想去深圳玩，12 月 10 号出发”
 
 不要调用的情况:
 
@@ -30,6 +30,8 @@ description: 为「有径」记下旅行基础参数，用户打开应用后自�
 - 用户说“看看我之前做的行程”“打开我的行程”——意图是查看已有行程，不是新建规划。
 - 目的地不在北京、上海、广州、深圳——当前数据未覆盖，不要调用，直接告知暂不支持。
 - 用户没有给出出发日期——先追问具体日期，不要猜测或代填今天。
+- 用户给的出发日期已经过去（早于当天）——本 Skill 会拒绝并回 suggestion，
+  此时应向用户追问一个今天或将来的日期，不要把过去日期换个说法再调一次。
 - 用户已经打开有径且正在规划另一段行程——不要打断当前编辑，先询问是否新建。
 
 ### 场景1:预填行程参数(planTrip)
@@ -42,12 +44,15 @@ description: 为「有径」记下旅行基础参数，用户打开应用后自�
 ```
 exec-cli(command: ohos-arkTSScript --skillName 'youjing-plan-trip' --scriptPath 'scripts/PlanTripSkill.ets' --functionName 'planTrip' --args '{
     "arg1": "上海",
-    "arg2": "2026-08-01",
+    "arg2": "2026-12-20",
     "arg3": "4",
     "arg4": "3"
 }'
 )
 ```
+
+> 示例里的日期须是**执行当天或将来**的日期：过去日期会被拒绝（`ERR_INVALID_PARAMS`），
+> 此时应向用户追问一个将来的日期，而不是把同一句换个说法再调一次。
 
 约束如下:
 
@@ -77,7 +82,7 @@ exec-cli(command: ohos-arkTSScript --skillName 'youjing-plan-trip' --scriptPath 
         },
         "args": {
             "type": "object",
-            "description": "Object类型的参数,由系统智能体填入。举例:{'arg1':'上海','arg2':'2026-08-01','arg3':'4','arg4':'3'}",
+            "description": "Object类型的参数,由系统智能体填入。举例:{'arg1':'上海','arg2':'2026-12-20','arg3':'4','arg4':'3'}",
             "properties": {
                 "arg1": {
                     "type": "string",
@@ -86,7 +91,7 @@ exec-cli(command: ohos-arkTSScript --skillName 'youjing-plan-trip' --scriptPath 
                 },
                 "arg2": {
                     "type": "string",
-                    "description": "出发日期,ISO 格式 YYYY-MM-DD,如 2026-08-01"
+                    "description": "出发日期,ISO 格式 YYYY-MM-DD,如 2026-12-20。必须是一个**真实存在**的日历日(2026-02-30 会被拒),且**不得早于当天**(过去日期会被拒,让用户改一个将来的日期)"
                 },
                 "arg3": {
                     "type": "string",
@@ -121,12 +126,12 @@ exec-cli(command: ohos-arkTSScript --skillName 'youjing-plan-trip' --scriptPath 
   "status": "success",
   "data": {
     "destination": "上海",
-    "startDate": "2026-08-01",
+    "startDate": "2026-12-20",
     "days": 4,
     "people": 3,
     "route": "TripInput",
     "launched": false,
-    "message": "已记下：上海，8月1日出发，4天，3人。打开「有径」会自动进入行程规划页并填好这些信息。"
+    "message": "已记下：上海，12月20日出发，4天，3人。打开「有径」会自动进入行程规划页并填好这些信息。"
   }
 }
 ```
@@ -143,7 +148,19 @@ exec-cli(command: ohos-arkTSScript --skillName 'youjing-plan-trip' --scriptPath 
 }
 ```
 
-3. 内部错误（参数没能落盘）
+3. 出发日期在过去（不可重试同一入参，须换日期）
+
+```
+{
+  "type": "result",
+  "status": "failed",
+  "errCode": "ERR_INVALID_PARAMS",
+  "errMsg": "start 2026-08-01 is in the past",
+  "suggestion": "出发日期 2026-08-01 已经过去了，请给一个今天或将来的日期。"
+}
+```
+
+4. 内部错误（参数没能落盘）
 
 ```
 {
@@ -243,7 +260,7 @@ exec-cli(command: ohos-arkTSScript --skillName 'youjing-plan-trip' --scriptPath 
       "required": ["type", "status", "data"]
     },
     {
-      "description": "失败-参数: 目的地/日期/天数/人数非法,不可重试(同入参)",
+      "description": "失败-参数: 目的地非法、日期非法或已过去、天数/人数越界,不可重试(同入参)",
       "properties": {
         "status":  { "const": "failed" },
         "errCode": { "const": "ERR_INVALID_PARAMS" },

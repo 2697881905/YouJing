@@ -11,6 +11,7 @@ import { BusinessError } from '@kit.BasicServicesKit';
 import { Logger } from '../../../src/main/ets/common/logger/Logger';
 import { SkillPrefill, SkillPrefillRecord } from '../../../src/main/ets/data/SkillPrefill';
 import { DateUtils } from '../../../src/main/ets/utils/DateUtils';
+import { TripLimits } from '../../../src/main/ets/utils/TripLimits';
 
 const TAG: string = 'Skill.PlanTrip';
 const BUNDLE_NAME: string = 'com.youjing.app';
@@ -65,13 +66,22 @@ function parseArgs(argv: string[]): ParsedArgs {
       '目前只支持北京、上海、广州、深圳，你想去哪一个？');
   }
   if (!DateUtils.isValidIsoDate(start)) {
-    return invalid(`start ${start} is not a valid ISO date`, '请告诉我出发日期，例如 2026 年 8 月 1 日。');
+    return invalid(`start ${start} is not a valid ISO date`, '请告诉我出发日期，例如 2026 年 12 月 20 日。');
   }
-  const days: number = parseCount(daysRaw, DEFAULT_DAYS, 1, 30);
+  // 过去日期必须在这里拒掉（2026-11-13 真机实测出的缺陷 A）：
+  // 屏2 的日期选择器不允许选过去，写进预填后会被屏2 丢弃并改成今天，
+  // 于是小艺说「已记下：8 月 1 日出发」、用户点开有径却看到今天——两边对不上。
+  // 在入口拒掉并回 suggestion，小艺就能如实追问一个将来的日期，不会说错话。
+  if (!DateUtils.isUpcoming(start, DateUtils.todayIso())) {
+    return invalid(`start ${start} is in the past`,
+      `出发日期 ${start} 已经过去了，请给一个今天或将来的日期。`);
+  }
+  const days: number = parseCount(daysRaw, DEFAULT_DAYS, TripLimits.MIN_DAYS, TripLimits.MAX_DAYS);
   if (days < 0) {
     return invalid(`days ${daysRaw} is out of range`, '天数请给 1 到 30 之间的整数。');
   }
-  const people: number = parseCount(peopleRaw, DEFAULT_PEOPLE, 1, 30);
+  const people: number = parseCount(peopleRaw, DEFAULT_PEOPLE,
+    TripLimits.MIN_PEOPLE, TripLimits.MAX_PEOPLE);
   if (people < 0) {
     return invalid(`people ${peopleRaw} is out of range`, '同行人数请给 1 到 30 之间的整数。');
   }

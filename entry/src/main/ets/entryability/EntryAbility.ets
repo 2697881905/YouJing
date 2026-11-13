@@ -1,6 +1,8 @@
 import {
-  AbilityConstant, abilityAccessCtrl, Configuration, ConfigurationConstant, Permissions, skillManager, UIAbility, Want
+  AbilityConstant, abilityAccessCtrl, Configuration, ConfigurationConstant, Permissions, skillManager, UIAbility, Want,
+  wantAgent, WantAgent
 } from '@kit.AbilityKit';
+import { notificationManager } from '@kit.NotificationKit';
 import { geoLocationManager } from '@kit.LocationKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { display, window } from '@kit.ArkUI';
@@ -15,6 +17,7 @@ import {
   PaceOption, PlanParams, SelectedSpot, SpotPriority, TransitPreference, TravelStyle, TripBasicInput
 } from '../model/PlanParams';
 import { DateUtils } from '../utils/DateUtils';
+import { TripLimits } from '../utils/TripLimits';
 import { SkillPrefill, SkillPrefillRecord } from '../data/SkillPrefill';
 import { BuildConfig } from '../common/constants/BuildConfig';
 import { BudgetConfig } from '../common/constants/BudgetConfig';
@@ -71,6 +74,8 @@ export default class EntryAbility extends UIAbility {
     this.maybeGeofenceProbe(want);
     this.maybeGenProbe(want);
     this.maybeArrivalProbe(want);
+    this.maybeWatchProbe(want);
+    this.logWatchAction(want);
     this.maybeReminderSyncProbe(want);
     this.maybePickProbe(want);
     this.maybeCoordProbe(want);
@@ -286,6 +291,89 @@ export default class EntryAbility extends UIAbility {
   }
 
   /**
+   * 手表通知按钮探针（临时，验完即还原）：`--ps watchprobe 1`
+   * 发一条带「打卡/跳过」两个操作按钮的本地通知，验证 Watch 5 通知镜像是否透传按钮、
+   * 点击后 WantAgent 能否回传手机。回传证据走 logWatchAction 的 hilog。
+   */
+  private maybeWatchProbe(want: Want): void {
+    if (!BuildConfig.IS_DEBUG) {
+      return;
+    }
+    const params: Record<string, Object> | undefined = want.parameters;
+    if (params === undefined || EntryAbility.wantString(params, 'watchprobe') !== '1') {
+      return;
+    }
+    this.runWatchProbe().catch((err: Error) => {
+      Logger.error('Probe.Watch', `手表通知探针失败: ${err.message}`);
+    });
+  }
+
+  private async runWatchProbe(): Promise<void> {
+    const tag: string = 'Probe.Watch';
+    let enabled: boolean = await notificationManager.isNotificationEnabled();
+    if (!enabled) {
+      await notificationManager.requestEnableNotification(this.context);
+      enabled = await notificationManager.isNotificationEnabled();
+    }
+    if (!enabled) {
+      Logger.warn(tag, '通知开关关闭，探针未发');
+      return;
+    }
+    const checkin: WantAgent = await this.watchButtonAgent('checkin', 9101);
+    const skip: WantAgent = await this.watchButtonAgent('skip', 9102);
+    const buttons: notificationManager.NotificationActionButton[] = [
+      { title: '打卡', wantAgent: checkin },
+      { title: '跳过', wantAgent: skip }
+    ];
+    const request: notificationManager.NotificationRequest = {
+      id: 2100000001,
+      content: {
+        notificationContentType: notificationManager.ContentType.NOTIFICATION_CONTENT_BASIC_TEXT,
+        normal: {
+          title: '到「博览园」了，打卡吗？',
+          text: '手表按钮透传探针 · 有径',
+          additionalText: '有径'
+        }
+      },
+      actionButtons: buttons,
+      tapDismissed: true
+    };
+    await notificationManager.publish(request);
+    Logger.info(tag, '双按钮通知已发布 id=2100000001，等待手机/手表点击');
+  }
+
+  private async watchButtonAgent(action: string, requestCode: number): Promise<WantAgent> {
+    const params: Record<string, Object> = { 'watchaction': action };
+    const target: Want = {
+      bundleName: 'com.youjing.app',
+      abilityName: 'EntryAbility',
+      parameters: params
+    };
+    const info: wantAgent.WantAgentInfo = {
+      wants: [target],
+      actionType: wantAgent.OperationType.START_ABILITY,
+      requestCode: requestCode,
+      actionFlags: [wantAgent.WantAgentFlags.UPDATE_PRESENT_FLAG]
+    };
+    return await wantAgent.getWantAgent(info);
+  }
+
+  /** 通知按钮回传钩子：手机点与手表点（若透传）都会走到这里，来源由人工对照判定 */
+  private logWatchAction(want: Want): void {
+    if (!BuildConfig.IS_DEBUG) {
+      return;
+    }
+    const params: Record<string, Object> | undefined = want.parameters;
+    if (params === undefined) {
+      return;
+    }
+    const action: string = EntryAbility.wantString(params, 'watchaction');
+    if (action.length > 0) {
+      Logger.info('Probe.Watch', `收到通知按钮回传 action=${action}`);
+    }
+  }
+
+  /**
    * P0 生成探针：`aa start -a EntryAbility -b com.youjing.app --ps genprobe 1`
    * 用杨凌种子（10 站 / 5 片区）生成 1 天行程，验证端侧传输 + TripParser + 落库前回填。
    * 只在 debug 版生效；不带参数时零行为。
@@ -474,6 +562,8 @@ export default class EntryAbility extends UIAbility {
    * 参数直接落到导航与屏2 草稿，不再重建窗口。
    */
   onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {
+    this.maybeWatchProbe(want);
+    this.logWatchAction(want);
     const touched: boolean = this.applyWant(want);
     if (this.pendingRoute.length > 0) {
       this.routeTo(this.pendingRoute, this.pendingParam);
@@ -487,8 +577,9 @@ export default class EntryAbility extends UIAbility {
    * 外部拉起参数通道（开发文档 §6 阶段 9「语音唤起 App 并预填参数」）。
    * 键：route 落点屏名；destination/start/end/days/people 预填屏2 基础输入。
    * 例：aa start -a EntryAbility -b com.youjing.app --ps route TripInput \
-   *        --ps destination 上海 --ps start 2026-08-01 --ps days 4 --ps people 3
-   * 非法日期与 days 一律忽略，不覆盖已有草稿。
+   *        --ps destination 上海 --ps start 2026-12-20 --ps days 4 --ps people 3
+   * 非法日期与越界 days/people 一律忽略，不覆盖已有草稿。
+   * 过去日期不忽略：照写进草稿，由屏2 明示纠正（见 applyWant 内注释）。
    */
   private applyWant(want: Want): boolean {
     const params: Record<string, Object> | undefined = want.parameters;
@@ -522,25 +613,53 @@ export default class EntryAbility extends UIAbility {
       basic.destination = dest;
       touched = true;
     }
+    /**
+     * 日期组（start / end / days）——口径与小艺 Skill 通道对齐（2026-11-13 修缺陷 A/B）。
+     *
+     * · start 必须是真实日历日；**过去日期照写进草稿**，不在入口静默丢弃：
+     *   改写只发生在屏2（唯一改写点），那里会明示「已过期，已改为今天起算」。
+     *   入口静默丢弃会让请求方以为日期已生效，屏2 显示的却是别的日期——
+     *   实测就是「小艺/深链说 8 月 1 日、界面显示 11 月 13 日」。
+     * · days 允许 1（缺陷 B：原来 `days > 1` 把「1 天」当成「没给天数」，
+     *   回落成默认 3 天；Skill 通道无门槛，两条路径因此显示不同天数）。
+     * · 显式 end 优先于 days；两者都没给时保留草稿原值。
+     * · 区间与 Skill 契约同源（TripLimits），改边界只改一处。
+     */
+    const today: string = DateUtils.todayIso();
     const start: string = EntryAbility.wantString(params, 'start');
     if (DateUtils.isValidIsoDate(start)) {
       basic.startDate = start;
       touched = true;
+      if (!DateUtils.isUpcoming(start, today)) {
+        Logger.warn('EntryAbility',
+          `外部预填 start=${start} 已过期：照写草稿，屏2 会明示纠正（不静默改成今天）`);
+      }
+    } else if (start.length > 0) {
+      Logger.warn('EntryAbility', `外部预填 start=${start} 不是合法日期，忽略`);
     }
     const end: string = EntryAbility.wantString(params, 'end');
-    if (DateUtils.isValidIsoDate(end)) {
+    const endValid: boolean = DateUtils.isValidIsoDate(end);
+    if (endValid) {
       basic.endDate = end;
       touched = true;
     }
     const days: number = EntryAbility.wantNumber(params, 'days');
-    if (days > 1 && DateUtils.isValidIsoDate(basic.startDate)) {
+    if (!TripLimits.isDaysValid(days)) {
+      if (days !== 0) {
+        Logger.warn('EntryAbility', `外部预填 days=${days} 越界（1-30），忽略`);
+      }
+    } else if (endValid) {
+      Logger.warn('EntryAbility', `外部预填 同时给了 end 与 days=${days}，以 end 为准`);
+    } else if (DateUtils.isValidIsoDate(basic.startDate)) {
       basic.endDate = DateUtils.addDays(basic.startDate, days - 1);
       touched = true;
     }
     const people: number = EntryAbility.wantNumber(params, 'people');
-    if (people > 0) {
+    if (TripLimits.isPeopleValid(people)) {
       basic.people = people;
       touched = true;
+    } else if (people !== 0) {
+      Logger.warn('EntryAbility', `外部预填 people=${people} 越界（1-30），忽略`);
     }
     if (touched) {
       draft.basic = basic;

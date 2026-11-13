@@ -17,7 +17,7 @@
         "srcEntries": [
           "../../skills/youjing-plan-trip/scripts/PlanTripSkill.ets"
         ],
-        "version": "1.0.0"
+        "version": "1.1.0"
       }
     ],
     "requestPermissions": [

@@ -24,6 +24,24 @@ export class DateUtils {
     return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
   }
 
+  /**
+   * 出发日是否在今天（含）之后——**预填入口的过去日期守卫**。
+   *
+   * 为什么需要它：出发日在过去的行程没法真的去玩，屏2 的日期选择器也不允许选过去。
+   * 外部预填（小艺 Skill / 深链 Want）若带着过去日期进来，必须在入口就判出来，
+   * 否则会出现「小艺说已记下 8 月 1 日、界面却显示 11 月 13 日」的两边对不上
+   * （2026-11-13 真机实测：预填 2026-08-01，屏2 实拍 11月13日 – 11月15日）。
+   *
+   * 比较用字符串字典序：ISO 日期定长且零填充，字典序即时间序（不引入时区与 Date 解析）。
+   * 两个入参都必须先过 isValidIsoDate，否则空串/畸形串会得到假结论。
+   */
+  static isUpcoming(iso: string, today: string): boolean {
+    if (!DateUtils.isValidIsoDate(iso) || !DateUtils.isValidIsoDate(today)) {
+      return false;
+    }
+    return iso >= today;
+  }
+
   /** ISO 日期加减天数，越界自动进位；入参非法返回空串 */
   static addDays(iso: string, days: number): string {
     if (!DateUtils.isValidIsoDate(iso)) {

@@ -24,6 +24,14 @@
 
 ## 分阶段路线图（每阶段独立交付，各自细化计划）
 
+> **进度（2026-11-11）：五阶段全部交付**（提交 1632264 / 2182bd6 / 07eeafa / e9ea703 / eab28a4 / 787f37b / 0a4d480 / d5b3331）。
+> Phase1 核心逻辑层；Phase2 决策卡+全局浮层+触点+返回键；Phase3 行中检测+执行+偏好闭环；
+> Phase4-B QA「直接生成」草案先行（保留 11-11 表单为主裁决）；Phase5 通知态透明化+「这次问我」纠正回弹。
+> 真机验证：草案先行端到端、请示卡渲染、触点/面板/返回键、行中跳过+撤销链、触点挡 dock bug 已修。
+> hypium 291 例 290 过（唯一失败为 WIP 基线既有 admin-unlimited）+ 离线 32 例 + 静态尺 0 新增。
+> 行中到访触发需真实移动（杨凌坐标先校准）；回顾伴随由全局触点提供，更深洞察需持久化临时到访记录（后续）。
+> 遗留：用户其他行程不在当前账号分区（DB v11，非本轮删除，待用户确认）。
+
 - **Phase 1（本计划详述）：伴随核心逻辑层** — `companion/CompanionEngine.ets` + `companion/CompanionPrefs.ets` 纯逻辑 + hypium + 离线断言。旗舰能力「规划外到访 → 请示卡」的大脑。不含 UI。
 - **Phase 2：决策卡组件 + 全局浮层 + 常驻触点** — `components/CompanionCard.ets`（OptionCard/YoujingButton/GlassPanel 搭）、Index 全局浮层挂点、overlayBackGuard 接入、触点（ChipRow 快捷短语 + 按住说话 + GlowInput 兜底）。
 - **Phase 3：行中集成** — OnTripPage 的 signalBar 升级为伴随请示卡；规划外到访检测（ArrivalWatcher + 停留闸 + POI 识别）接 CompanionEngine；执行选项接 SkipPlanner/commitDay。

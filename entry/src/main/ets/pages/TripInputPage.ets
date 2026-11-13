@@ -20,6 +20,7 @@ import { PaceOption, SelectedSpot, TransitPreference, TravelStyle, TripBasicInpu
 import { Spot } from '../model/Spot';
 import { Area } from '../model/Area';
 import { DateUtils } from '../utils/DateUtils';
+import { TripLimits } from '../utils/TripLimits';
 import { TripIntent, TripIntentParser } from '../utils/TripIntentParser';
 import { PlanAutoPick, tagLabel, tierLabel } from '../utils/PlanAutoPick';
 import { Logger } from '../common/logger/Logger';
@@ -99,12 +100,32 @@ export struct TripInputPage {
     if (b.destination.length > 0) {
       this.city = b.destination;
     }
-    // 草稿里的日期若已经过去就丢弃，按今天起算：
-    // 老版本的 PlanDraft 默认值写死过 2026-07-01，装在机上的旧草稿会带着它进来
-    if (DateUtils.isValidIsoDate(b.startDate) && b.startDate >= today) {
+    /**
+     * 日期：过去日期**明示纠正**，其余照搬（2026-11-13 修缺陷 A）。
+     *
+     * 为什么不能静默丢弃：草稿里的出发日若已经过去就悄悄改成今天，
+     * 请求方（小艺 / 深链 / 上一段行程）与界面显示的行程就对不上了——
+     * 真机实测就是「预填 2026-08-01、屏2 显示 11月13日 – 11月15日」。
+     * 改写只发生在屏2（唯一改写点），而且必须让用户看见：notifyExpired 弹 toast。
+     * 老版本的 PlanDraft 默认值写死过 2026-07-01，装在机上的旧草稿会带着它进来；
+     * 外部预填（深链 Want）也可能带过去日期——入口照写不改（见 EntryAbility.applyWant）。
+     */
+    let expiredStart: string = '';
+    let expiredDays: number = 0;
+    if (DateUtils.isValidIsoDate(b.startDate) && b.startDate < today) {
+      expiredStart = b.startDate;
+    } else if (DateUtils.isValidIsoDate(b.startDate)) {
       this.startDate = b.startDate;
     }
-    if (DateUtils.isValidIsoDate(b.endDate) && b.endDate >= this.startDate
+    if (expiredStart.length > 0) {
+      // 起点挪到今天，**长度保住**：请求「8 月 1 日出发、4 天」过期后，
+      // 用户拿到的仍是 4 天，而不是回落成默认 3 天（回落=替用户改了行程）
+      const raw: number = DateUtils.isValidIsoDate(b.endDate)
+        ? DateUtils.spanDays(expiredStart, b.endDate) : PlanDraft.DEFAULT_DAYS;
+      expiredDays = TripLimits.isDaysValid(raw) ? raw : PlanDraft.DEFAULT_DAYS;
+      this.startDate = today;
+      this.endDate = DateUtils.addDays(today, expiredDays - 1);
+    } else if (DateUtils.isValidIsoDate(b.endDate) && b.endDate >= this.startDate
       && DateUtils.spanDays(this.startDate, b.endDate) >= 1) {
       this.endDate = b.endDate;
     } else {
@@ -119,6 +140,29 @@ export struct TripInputPage {
     if (b.budget >= BudgetConfig.MIN && b.budget <= BudgetConfig.MAX) {
       this.budget = b.budget;
     }
+    if (expiredStart.length > 0) {
+      // 告知 + 把纠正后的日期写回草稿：不写回的话每次进屏2 都会再弹一次同一条提示
+      this.notifyExpired(expiredStart, expiredDays);
+      this.syncBasic();
+    }
+  }
+
+  /**
+   * 过期出发日的明示（写日志 + toast）。
+   *
+   * 为什么必须让用户看见：屏2 是唯一改写点，改写后日期与请求方说的不一样。
+   * 静默改写等于替用户改了行程（「说 8 月 1 日、界面 11 月 13 日」）。
+   * toast 要 getUIContext，必须等组件挂载后调用，故推到下一帧。
+   */
+  private notifyExpired(expiredIso: string, days: number): void {
+    const msg: string = `预填的出发日期 ${this.fmt(expiredIso)} 已过期，已改为今天起算（${days}天不变）`;
+    Logger.warn('Ui.TripInput', msg);
+    setTimeout((): void => {
+      if (!this.alive) {
+        return;
+      }
+      this.getUIContext().getPromptAction().showToast({ message: msg, duration: 2500 });
+    }, 0);
   }
 
   aboutToDisappear(): void {
