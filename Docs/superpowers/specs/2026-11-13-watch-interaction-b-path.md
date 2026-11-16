@@ -1,5 +1,8 @@
 # 有径手表轻交互 · B 路径规格说明书（转交 Trae）
 
+> ⚠️ **已废弃（2026-11-16）**：Wear Engine P2P 路径真机证需 AGC 申请且被驳回，加之「手机未活跃 P2P 发送失败」平台硬约束，整体转向全网络客户端。
+> **现行规格见 `2026-11-16-watch-network-client-design.md`。** 本文仅留作取证历史，勿据此实现。
+
 - 日期：2026-11-13
 - 状态：**设计稿 · 含一道未通过的真机硬闸门 G0，G0 通过前不得开工业务 UI**
 - 转交对象：Trae（独立实现，本文自包含，不依赖产出它的对话）
@@ -12,7 +15,7 @@
 ## 0. 给 Trae 的执行须知（先读这段）
 
 1. **本工程是 probe-first 文化**：任何「能不能」都先用最小真机探针拿证据，再投 UI。本文 §4 的 G0 就是这种探针，**它是开工前置条件，不是可选项**。G0 不通过，整个 B 路径停摆，回到 §4.4 的决策树，不要硬写 UI。
-2. **不要相信本文里的任何 Wear Engine API 片段是权威**。本文给出的 import/权限来自官方 SDK 页与社区实战帖，**准确 API 以本机 DevEco SDK 的 `@kit.WearEngineKit` d.ts 为准**——动手前先读 SDK 声明（路径形如 `/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/ets/api/` 下 wearEngine 相关 `.d.ts`），核对设备支持表里有没有 `wearable`。
+2. **不要相信本文里的任何 Wear Engine API 片段是权威**。准确 API 以本机 DevEco SDK 的 `@kit.WearEngine`（内部转发 `@hms.health.wearEngine`）d.ts 为准——动手前先读 SDK 声明（路径形如 `/Applications/DevEco-Studio.app/Contents/sdk/default/hms/ets/api/@hms.health.wearEngine.d.ts`），核对设备支持表里有没有 `wearable`。Kit 名是 `@kit.WearEngine`，**不是** `@kit.WearEngineKit`（后者本机不存在，Trae 已勘误）。
 3. **手机是唯一裁决者**。手表只是「远程渲染 + 输入面」，绝不在手表上做决策、改行程、调后端。所有写库都发生在手机侧（见 §7）。
 4. **BFF 未公网**（服务器暂缓）。手表**不能**直连任何后端，一切经手机中转。不要给手表设计独立联网逻辑。
 5. 构建装机用仓库根脚本 `tools/build_install.sh`（它保证「构建成功才装机」，并校验产物时间戳）。多设备时用 `HDC_TARGET=<connect-key>` 指定。hdc 若不在 PATH，用绝对路径 `/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hdc`。
@@ -42,7 +45,9 @@
 | F2 | **提醒通知**（SOCIAL_COMMUNICATION 槽位）能镜像到手表，显示文字 | 补槽位后手表收到「到『博览园』了，打卡吗？」 | 通知可作「兜底提醒」，但仅此而已 |
 | F3 | **静默通知**（无槽位、remindFlags=0）根本不转发到手表 | 系统日志 `NotificationRemindManager: No need to remind, isSilence`；slotType=65535 | 任何想上手表的通知必须带提醒槽位 |
 | F4 | **第三方通知的 actionButtons 不透传手表**——手表只显文字、无按钮 | 同一条通知：手机有「打卡/跳过」按钮且可点，手表无按钮 | **A 路径死，必须 B 路径** |
-| F5 | Wear Engine Kit 有鸿蒙 NEXT 版，支持手机↔手表应用双向消息/文件 | 官方 SDK 页 + 社区帖 `import { wearEngine } from '@kit.WearEngineKit'`、权限 `ohos.permission.DISTRIBUTED_DATASYNC` | B 路径通信候选通道；**第三方准入/后台收取未证实 → G0** |
+| F5 | Wear Engine 有鸿蒙 NEXT 版（Kit 入口 `@kit.WearEngine`，**非** `@kit.WearEngineKit`，Trae 已勘误），支持手机↔手表应用双向 P2P 消息 | 本机 SDK `@hms.health.wearEngine.d.ts`；真机证 `1008500004`=需 AGC 申请服务 | 通道存在但**需服务准入**；2026-11-14 申请被驳回，重申中（见探针报告 §10） |
+| F10 | **手机 App 未活跃时，手表→手机的 P2P 消息发送失败**（华为驳回信明示，平台硬约束） | 华为 Wear Engine 驳回邮件 2026-11-16 第 4 条 | **「手机揣兜里抬腕点」的核心 UX 受威胁**；处理方案待用户拍板（§7.1） |
+| F11 | 手表侧开发 APP 场景，P2P 只需「设备基础信息」权限，无需「消息通知」权限 | 华为驳回信第 3 条 | 重申去掉 NOTIFY；US-9 文字兜底走手机本地通知镜像，不占 Wear Engine 权限 |
 | F6 | `CompanionPrompt/CompanionOption/CompanionAction` 是纯数据、无 @kit 依赖 | `entry/src/main/ets/companion/CompanionTypes.ets` | **现成接缝**：可直接序列化给手表渲染 |
 | F7 | 助手执行器只在 OnTripPage 存活时注册 | `OnTripPage.ets:244` registerExecutor / `:252` clearExecutor；`CompanionStore.ets:30` execute 无执行器即静默丢弃 | **暗坑**：手表决策回来时用户若不在行程页会被丢 → §7 必须解决 |
 | F8 | 打卡是独立动作，不属于 CompanionPrompt | `OnTripPage.ets:1753` toggleCheckin → `CheckinDao.set`；`CheckinDao.ets:30` source='arrival'\|'manual' | 手表打卡要单独建模，不能硬塞进请示卡 |
@@ -93,7 +98,7 @@
 ### 4.2 必须逐项拿到证据的清单
 | 项 | 要回答的问题 | 通过判据 |
 |---|---|---|
-| G0-a 第三方准入 | 普通第三方应用（非运动健康生态伙伴）能否调通 Wear Engine？是否要签协议/申请权益？ | 真机收发成功；若报权限/能力未开通，记录确切错误码与申请入口 |
+| G0-a 第三方准入 | 普通第三方应用能否调通 Wear Engine？ | **需 AGC 申请 Wear Engine 服务**（真机证 `1008500004`）；2026-11-14 申请被驳回，按 §10 重申 | 服务开通后真机收发成功（P2pResultCode=207） |
 | G0-b 设备发现 | 手机能否列出已配对的 HarmonyOS 手表？API 与返回结构？ | 能拿到 Watch 5 的设备标识 |
 | G0-c 对端识别 | 手机应用与手表应用如何关联？是否要求同 bundleName？手表侧如何注册接收？ | 明确对端匹配规则并真机命中 |
 | G0-d 后台收取 | 手表应用**不在前台**时能否收到消息并抬腕提醒？还是必须打开应用才看得到？ | 明确「推送式」还是「拉取式」——**直接决定 UX 形态** |
@@ -190,6 +195,17 @@ JSON over Wear Engine 消息。所有字段扁平、可 JSON.stringify。
 
 **出站触发**：Bridge 订阅 `CompanionStore.show`（或在其内加一个出站钩子），每浮出一张请示卡就投影成 WatchCard 发手表；到站打卡请求（ArrivalNotice 时机）额外发一张 checkin 卡。**手机请示卡与手表卡同生同灭**：手机 dismiss 时发一条撤卡消息（或手表按 ts 过期自清）。
 
+### 7.1 手机未活跃投递缺口（F10 · 待用户拍板，未定不改架构）
+
+§7 的离页队列解决的是「手机 App 还活着、只是不在行程页」。但华为驳回信（F10）揭示更狠一层：**手机 App 整个不活跃（后台/被杀）时，手表→手机的 P2P 消息直接发送失败**——决策连手机都到不了，队列无从接住。这正好打在「手机揣兜里、抬腕点手表」的核心场景上。
+
+候选方向（**含取舍，须用户选定后才落架构与重申材料**）：
+- **方向 A · 手表本地暂存 + 手机活跃时补同步**（无需服务器）：手表点按后本地存决策（带时间戳），UI 显示「已记录，待同步」，手机 App 下次活跃经 P2P 补传。打卡（一条日志）体验无损；请示决策延迟执行。代价：手表要持一个小的待决队列，**放宽「手表不存业务态」原则**；且华为可能追问「为何不联网」。
+- **方向 B · 手表直连服务器**（华为建议）：手表独立联网把决策写 BFF，手机事后同步。最贴合「手机揣兜里」，但**反转「服务器暂缓」决策**、需 BFF 公网部署 + 手表侧身份（当前手表无身份，复用手机版），新增范围大。
+- **方向 C · 仅手机前台可用**（最简）：手表只做「已打开手机 App 的第二屏」，手机不活跃时手表明示「需打开手机 App」。诚实但价值有限，基本放弃核心卖点。
+
+> 选定前：代码维持现状（连不上静默降级），重申材料的「手机未活跃处理办法」一段留空待填。
+
 ---
 
 ## 8. 用户故事（编号 · 每条可独立验证）
@@ -253,7 +269,8 @@ JSON over Wear Engine 消息。所有字段扁平、可 JSON.stringify。
 ### 12.1 风险台账
 | 风险 | 等级 | 应对 |
 |---|---|---|
-| Wear Engine 第三方准入未证实 | **高（地基）** | G0-a 硬闸门，失败则停摆降级 |
+| Wear Engine 第三方准入未证实 | **高（地基）** | G0-a 硬闸门；已申请被驳回，按新模板+去 NOTIFY+补 UX 图重申 |
+| **手机未活跃 P2P 投递失败（F10）** | **高（核心 UX）** | §7.1 三方向待用户拍板；决定「手机揣兜里」卖点能否成立 |
 | 手表只能拉取不能推送 | 中 | G0-d 定 UX 形态，US 措辞据实修订 |
 | 执行器生命周期丢决策 | 中 | §7 常驻 Bridge + 队列（F7 已定位） |
 | 两端协议漂移 | 中 | watchcontract 单一真源 + 协议离线断言 |
