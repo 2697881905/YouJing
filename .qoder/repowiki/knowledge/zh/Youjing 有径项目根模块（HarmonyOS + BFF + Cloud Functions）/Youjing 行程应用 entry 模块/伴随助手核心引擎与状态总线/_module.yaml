@@ -1,0 +1,23 @@
+schema_version: 1
+module_path: app_entry/companion
+title: 伴随助手核心引擎与状态总线
+scope:
+    - entry/src/main/ets/companion/
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: 5f423fc0-e4c1-4d27-964a-3a246b6fbc5c
+kk_ordinal: 9
+kk_cards:
+    architecture_design:
+        id: 77464373-a87d-4eee-b5fd-fcb6e8cb4431
+        title: 伴随助手核心引擎与状态总线
+    coding_conventions:
+        id: 68d040c5-e985-450d-840c-4f63f6787e87
+        title: 伴随助手核心引擎与状态总线
+    overview:
+        id: 30cfe749-6488-4f03-b438-0bd32ac64069
+        title: 伴随助手核心引擎与状态总线
+    tech_stack:
+        id: 2b39ac16-0cef-4b5b-88e4-96488c280f77
+        title: 伴随助手核心引擎与状态总线

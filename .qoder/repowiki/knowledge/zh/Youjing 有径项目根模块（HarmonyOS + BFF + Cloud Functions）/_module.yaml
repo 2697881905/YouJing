@@ -1,0 +1,57 @@
+schema_version: 1
+module_path: root
+title: Youjing 有径项目根模块（HarmonyOS + BFF + Cloud Functions）
+scope:
+    - .gitignore
+    - .gitmessage.txt
+    - build-profile.json5
+    - hvigorfile.ts
+    - oh-package.json5
+    - oh-package-lock.json5
+    - package.json
+    - package-lock.json
+    - code-linter.json5
+    - AppScope/
+    - hvigor/
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: 4556c082-3b91-48c3-a090-ee4937fbcc41
+kk_cards:
+    architecture_design:
+        id: e1a10104-f1d8-4cd7-9e28-7ef9cd321bf9
+        title: Youjing 有径项目根模块（HarmonyOS + BFF + Cloud Functions）
+    coding_conventions:
+        id: 8c361c76-a9d0-4398-b65e-99b60c7deb3d
+        title: Youjing 有径项目根模块（HarmonyOS + BFF + Cloud Functions）
+    overview:
+        id: 9c717417-afb9-4b02-b24a-9a3b014c5feb
+        title: Youjing 有径项目根模块（HarmonyOS + BFF + Cloud Functions）
+    tech_stack:
+        id: 81c8e74d-5cdd-4b11-95ca-e7686a6edec2
+        title: Youjing 有径项目根模块（HarmonyOS + BFF + Cloud Functions）
+    build_system:
+        id: 445e6727-67bb-48a1-928b-926e576c01a5
+        title: 基于 Hvigor/oh-package 的 HarmonyOS 多模块构建与辅助脚本
+    configuration_system:
+        id: b5eecc34-7b67-4d5f-a23f-8de2a9e6ea85
+        title: HarmonyOS 端侧集中式配置与 BFF/云函数环境变量配置
+    dependency_management:
+        id: 76601f1b-a796-4396-8872-e99da1b6cc4b
+        title: 多包依赖管理（HarmonyOS oh-package + Node.js npm）
+    error_handling:
+        id: 63336cbf-644c-4a02-8e54-788fe325dcbb
+        title: ArkTS 端 AppError/ErrorCode 分层与 BFF HTTP 错误映射
+    frontend_style:
+        id: 0b1e4d50-14c2-44e5-b584-d8914f35c392
+        title: 有径 ArkTS 设计系统：Token + 资源双源的色彩/排版/布局体系
+    logging_system:
+        id: 674e3d20-f704-443e-98dd-bf032846f7eb
+        title: 日志系统：ArkTS 端 hilog 统一封装 + BFF 端 console 直出
+kk_repo_cards:
+    - build_system
+    - configuration_system
+    - dependency_management
+    - error_handling
+    - frontend_style
+    - logging_system

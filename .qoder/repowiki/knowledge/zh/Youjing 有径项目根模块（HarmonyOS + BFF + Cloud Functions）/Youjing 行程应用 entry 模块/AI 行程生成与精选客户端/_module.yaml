@@ -1,0 +1,22 @@
+schema_version: 1
+module_path: app_entry/ai_pipeline
+title: AI 行程生成与精选客户端
+scope:
+    - entry/src/main/ets/ai/
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: aa94c279-9175-4996-b119-d0c42fdeeb2a
+kk_cards:
+    architecture_design:
+        id: d492810b-6b5a-4986-a958-3f3bd2859478
+        title: AI 行程生成与精选客户端
+    coding_conventions:
+        id: a9245ff0-9fdc-427a-8697-eed2216279b6
+        title: AI 行程生成与精选客户端
+    overview:
+        id: 4b38ae24-ac10-409f-9718-94926483c504
+        title: AI 行程生成与精选客户端
+    tech_stack:
+        id: 8c9c36be-86d1-4496-9eb1-55e55045f262
+        title: AI 行程生成与精选客户端

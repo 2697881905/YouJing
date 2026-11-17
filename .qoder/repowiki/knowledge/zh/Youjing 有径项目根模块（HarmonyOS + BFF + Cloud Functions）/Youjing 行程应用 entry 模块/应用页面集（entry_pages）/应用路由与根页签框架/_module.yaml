@@ -1,0 +1,25 @@
+schema_version: 1
+module_path: app_entry/ui_pages/app_router_and_index
+title: 应用路由与根页签框架
+scope:
+    - entry/src/main/ets/pages/AppRouter.ets
+    - entry/src/main/ets/pages/Index.ets
+    - entry/src/main/ets/pages/OnTripPage.ets
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: 736edf69-89fc-455f-a9da-59185608c213
+kk_ordinal: 5
+kk_cards:
+    architecture_design:
+        id: 815ab81c-84ef-4bc5-98ba-4cc1741512fe
+        title: 应用路由与根页签框架
+    coding_conventions:
+        id: 03bbd9df-e7a6-4e58-af7d-3427f140d954
+        title: 应用路由与根页签框架
+    overview:
+        id: a64dc2f5-41d1-4347-a0f8-8b9e3545f716
+        title: 应用路由与根页签框架
+    tech_stack:
+        id: 4489e51f-488e-4e97-994b-f2c08338d7de
+        title: 应用路由与根页签框架

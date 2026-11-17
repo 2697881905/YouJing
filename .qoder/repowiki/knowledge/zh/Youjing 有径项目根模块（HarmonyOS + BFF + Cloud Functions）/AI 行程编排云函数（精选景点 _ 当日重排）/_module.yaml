@@ -1,0 +1,26 @@
+schema_version: 1
+module_path: cloud_functions
+title: AI 行程编排云函数（精选景点 / 当日重排）
+scope:
+    - cloud/
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: 130d3a48-e1b3-4159-b361-ce607e4f1af5
+kk_ordinal: 2
+kk_cards:
+    architecture_design:
+        id: 4f4955bf-2afb-4b33-97a7-67133bd252d7
+        title: AI 行程编排云函数（精选景点 / 当日重排）
+    coding_conventions:
+        id: 3cb2c00f-ec02-4407-9dec-82f7a741b8c7
+        title: AI 行程编排云函数（精选景点 / 当日重排）
+    overview:
+        id: 5f423715-11bd-43d2-b3d5-1e56e52ccbe7
+        title: AI 行程编排云函数（精选景点 / 当日重排）
+    tech_stack:
+        id: c37d1c07-aff1-48cf-8868-07d515878728
+        title: AI 行程编排云函数（精选景点 / 当日重排）
+    unique_setup_and_commands:
+        id: 205f01a0-8a1c-4e17-bfa1-06bf5108bbc8
+        title: AI 行程编排云函数（精选景点 / 当日重排）

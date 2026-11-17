@@ -8,6 +8,7 @@ import entitlementRouter from './routes/entitlement.js';
 import tripRouter from './routes/trip.js';
 import pickRouter from './routes/pick.js';
 import iapRouter from './routes/iap.js';
+import watchRouter from './routes/watch.js';
 
 dotenv.config();
 
@@ -42,6 +43,8 @@ app.use('/v1/entitlement', authMiddleware, entitlementRouter);
 app.use('/v1/trip', authMiddleware, rateLimitMiddleware, tripRouter);
 app.use('/v1/pick', authMiddleware, rateLimitMiddleware, pickRouter);
 app.use('/v1/iap', iapRouter);
+// 手表全网络客户端：/watch/session 用华为 idToken 换票据；其余路由内部挂 BFF 票据鉴权
+app.use('/watch', watchRouter);
 
 app.use((err, _req, res, _next) => {
   console.error('[error]', err.message);

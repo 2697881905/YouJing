@@ -1,0 +1,17 @@
+schema_version: 1
+module_path: app_entry/ui_pages
+title: 应用页面集（entry/pages）
+scope:
+    - entry/src/main/ets/pages/
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: 49d15164-5f75-4338-8b28-7b1af201d10b
+kk_ordinal: 2
+kk_cards:
+    architecture_design:
+        id: 7946c89a-772d-4a7d-a6cb-eb458a1270b5
+        title: 应用页面集（entry/pages）
+    overview:
+        id: c7a3ad89-fd88-4b8e-b0d8-e94159218534
+        title: 应用页面集（entry/pages）

@@ -1,0 +1,23 @@
+schema_version: 1
+module_path: bff/routes_and_services
+title: BFF 路由与业务服务层
+scope:
+    - bff/src/routes/
+    - bff/src/services/
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: 8882a311-eb6f-4a34-baba-e8758b6f3a7f
+kk_cards:
+    architecture_design:
+        id: 91232044-70d3-465b-93f2-2797a5f27f41
+        title: BFF 路由与业务服务层
+    coding_conventions:
+        id: c6550dcc-17a7-4d9c-95d0-b45e00433260
+        title: BFF 路由与业务服务层
+    overview:
+        id: 49eab046-3015-446b-8d5c-582f867394f0
+        title: BFF 路由与业务服务层
+    tech_stack:
+        id: 5795a9c3-2bcd-420c-8db9-318546f2a44b
+        title: BFF 路由与业务服务层

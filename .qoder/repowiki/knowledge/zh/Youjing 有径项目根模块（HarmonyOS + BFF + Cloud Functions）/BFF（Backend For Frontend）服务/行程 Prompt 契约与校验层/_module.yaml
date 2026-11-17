@@ -1,0 +1,26 @@
+schema_version: 1
+module_path: bff/prompt_contract
+title: 行程 Prompt 契约与校验层
+scope:
+    - bff/src/prompt/
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: b8ad03c8-9d69-4220-96ce-d9eece48a87d
+kk_ordinal: 2
+kk_cards:
+    architecture_design:
+        id: 3f7d7150-fc00-46ff-8b4e-bbfb6437a787
+        title: 行程 Prompt 契约与校验层
+    coding_conventions:
+        id: 08cdc496-07dd-4f02-b437-ca6f05914136
+        title: 行程 Prompt 契约与校验层
+    overview:
+        id: ed3592e5-0438-4c70-be70-c292574771e8
+        title: 行程 Prompt 契约与校验层
+    tech_stack:
+        id: 7f5bb093-3128-4251-b276-0a0f28d81755
+        title: 行程 Prompt 契约与校验层
+    unique_setup_and_commands:
+        id: 2cbedf13-caa7-4bc5-ab42-ff9ca8085414
+        title: 行程 Prompt 契约与校验层

@@ -1,0 +1,26 @@
+schema_version: 1
+module_path: app_entry/ui_pages/trip_flow
+title: 行程规划流程页面集
+scope:
+    - entry/src/main/ets/pages/TripInputPage.ets
+    - entry/src/main/ets/pages/GeneratingPage.ets
+    - entry/src/main/ets/pages/GenerateFailedPage.ets
+    - entry/src/main/ets/pages/TripReviewPage.ets
+    - entry/src/main/ets/pages/EditItineraryPage.ets
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: 83c630c6-af77-4baf-998b-6083acf3579e
+kk_cards:
+    architecture_design:
+        id: 2e378a76-3ab9-4181-9b0c-6fc002d1921a
+        title: 行程规划流程页面集
+    coding_conventions:
+        id: 6119a304-cd9b-41f2-9867-67e1850bff0a
+        title: 行程规划流程页面集
+    overview:
+        id: 99912def-da85-4cbf-b1da-ca83caa84bcd
+        title: 行程规划流程页面集
+    tech_stack:
+        id: bbf66454-f9fd-4d46-90cf-729b346756c8
+        title: 行程规划流程页面集

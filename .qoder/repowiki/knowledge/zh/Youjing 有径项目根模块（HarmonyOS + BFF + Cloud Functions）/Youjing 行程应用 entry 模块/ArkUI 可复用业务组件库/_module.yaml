@@ -1,0 +1,23 @@
+schema_version: 1
+module_path: app_entry/reusable_components
+title: ArkUI 可复用业务组件库
+scope:
+    - entry/src/main/ets/components/
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: 8bbbf052-0aa9-40f8-8396-36b67eb90f68
+kk_ordinal: 3
+kk_cards:
+    architecture_design:
+        id: 8095c865-8327-4cce-994d-005e6381715e
+        title: ArkUI 可复用业务组件库
+    coding_conventions:
+        id: a4fe61b9-8e4b-4beb-b97e-eaf6f0ce1eab
+        title: ArkUI 可复用业务组件库
+    overview:
+        id: 040efffe-6de7-4349-8bf4-c6e46c8abc3d
+        title: ArkUI 可复用业务组件库
+    tech_stack:
+        id: cdb7d2e0-9ca1-4e2e-8933-809f8e6f526d
+        title: ArkUI 可复用业务组件库

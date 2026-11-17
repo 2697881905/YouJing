@@ -10,6 +10,15 @@
     "deliveryWithInstall": true,
     "installationFree": false,
     "pages": "$profile:main_pages",
+    // Wear Engine 要求把 AGC 的 Client ID 放进 module 级 metadata（name 固定 client_id）。
+    // 本项目 APP ID / Client ID 同为 6917619826312400726（见 common/config/AccountConfig.ets）。
+    // 缺这段时真机报 1008509999「The client ID is not configured in the metadata of the application」。
+    "metadata": [
+      {
+        "name": "client_id",
+        "value": "6917619826312400726"
+      }
+    ],
     "skillProfiles": [
       {
         "name": "youjing-plan-trip",

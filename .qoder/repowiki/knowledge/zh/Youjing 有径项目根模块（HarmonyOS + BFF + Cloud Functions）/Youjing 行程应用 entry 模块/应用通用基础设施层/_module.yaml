@@ -1,0 +1,26 @@
+schema_version: 1
+module_path: app_entry/common_infrastructure
+title: 应用通用基础设施层
+scope:
+    - entry/src/main/ets/common/
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: baed4927-9348-419e-b996-30880aa49289
+kk_ordinal: 8
+kk_cards:
+    architecture_design:
+        id: 63e038ea-b3cb-4970-a757-8769acf38382
+        title: 应用通用基础设施层
+    coding_conventions:
+        id: 3b18eaae-f7b9-4e88-84cd-cea0b5257a00
+        title: 应用通用基础设施层
+    overview:
+        id: 27df6612-2c09-4a03-a10b-3bbe56c79d71
+        title: 应用通用基础设施层
+    tech_stack:
+        id: 1e116002-aac7-4a25-8310-b43656ced211
+        title: 应用通用基础设施层
+    unique_setup_and_commands:
+        id: 5cc0365a-e628-432c-9c88-22b9db3a6eb5
+        title: 应用通用基础设施层

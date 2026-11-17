@@ -58,7 +58,7 @@ fi
 if grep -q "install bundle successfully" "$INSTALL_LOG" && ! grep -q "\[Fail\]" "$INSTALL_LOG"; then
   tail -1 "$INSTALL_LOG"
   if [[ -n "${HDC_TARGET:-}" ]]; then
-    echo "==> 完成：本轮构建成功且产物已装机（目标 $HDC_TARGET）"
+    echo "==> 完成：本轮构建成功且产物已装机（目标 ${HDC_TARGET}）"
   else
     echo "==> 完成：本轮构建成功且产物已装机"
   fi

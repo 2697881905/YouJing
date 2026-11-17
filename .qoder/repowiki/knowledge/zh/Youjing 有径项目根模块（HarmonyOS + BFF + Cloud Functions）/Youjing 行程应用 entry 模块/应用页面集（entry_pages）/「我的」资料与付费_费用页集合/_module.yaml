@@ -1,0 +1,26 @@
+schema_version: 1
+module_path: app_entry/ui_pages/mine_profile_pricing
+title: 「我的」资料与付费/费用页集合
+scope:
+    - entry/src/main/ets/pages/MinePage.ets
+    - entry/src/main/ets/pages/ProfileEditPage.ets
+    - entry/src/main/ets/pages/PricingPage.ets
+    - entry/src/main/ets/pages/ExpensePage.ets
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: f72bebd7-a3c1-4bc8-a891-116dee8678e4
+kk_ordinal: 2
+kk_cards:
+    architecture_design:
+        id: ecb4406e-64ac-4a17-a48a-948edac35cd6
+        title: 「我的」资料与付费/费用页集合
+    coding_conventions:
+        id: 721dcddc-aa50-42eb-9ccf-d65a737be18f
+        title: 「我的」资料与付费/费用页集合
+    overview:
+        id: 914ba0f3-f40e-49fb-bd5b-0fdd24ded409
+        title: 「我的」资料与付费/费用页集合
+    tech_stack:
+        id: 89547cae-8edf-43c1-951c-0747e0277cc6
+        title: 「我的」资料与付费/费用页集合

@@ -1,0 +1,28 @@
+schema_version: 1
+module_path: bff/shared_lib
+title: BFF 应用入口与共享基础设施
+scope:
+    - bff/src/lib/
+    - bff/src/db.js
+    - bff/src/index.js
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: bb8cb07c-5d3d-4199-aa9d-bc9d28abac03
+kk_ordinal: 3
+kk_cards:
+    architecture_design:
+        id: 1dce2d26-3be8-4f86-b68d-27be80e9bd60
+        title: BFF 应用入口与共享基础设施
+    coding_conventions:
+        id: a81e6fdf-bfad-4527-ac80-80fd2216a79f
+        title: BFF 应用入口与共享基础设施
+    overview:
+        id: e8e54053-fcee-4f9f-9088-79b90eba70f1
+        title: BFF 应用入口与共享基础设施
+    tech_stack:
+        id: 3d0e7e78-ca60-4779-a996-fb2223dbd271
+        title: BFF 应用入口与共享基础设施
+    unique_setup_and_commands:
+        id: 1b524374-35f8-4e2c-988d-7df4eb2c60e2
+        title: BFF 应用入口与共享基础设施

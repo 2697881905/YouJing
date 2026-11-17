@@ -1,0 +1,26 @@
+schema_version: 1
+module_path: bff
+title: BFF（Backend For Frontend）服务
+scope:
+    - bff/
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: 3542389d-8ddb-4ffe-8e48-daa0d728676a
+kk_ordinal: 1
+kk_cards:
+    architecture_design:
+        id: a33c2e34-243b-438b-b5f7-af450b7c9d4a
+        title: BFF（Backend For Frontend）服务
+    coding_conventions:
+        id: 3c5b4864-52fc-4cdb-bdee-64f76dd4e14e
+        title: BFF（Backend For Frontend）服务
+    overview:
+        id: c8c46837-e907-40f7-8955-98eb22d1b581
+        title: BFF（Backend For Frontend）服务
+    tech_stack:
+        id: eef42f80-9783-44ef-b61a-8f43f2494787
+        title: BFF（Backend For Frontend）服务
+    unique_setup_and_commands:
+        id: 19e2a930-4330-4e12-9a09-d11cfffeac91
+        title: BFF（Backend For Frontend）服务

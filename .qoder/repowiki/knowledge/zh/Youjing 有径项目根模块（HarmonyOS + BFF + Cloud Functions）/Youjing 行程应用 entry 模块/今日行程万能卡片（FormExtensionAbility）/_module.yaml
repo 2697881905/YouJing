@@ -1,0 +1,26 @@
+schema_version: 1
+module_path: app_entry/widget_and_liveview
+title: 今日行程万能卡片（FormExtensionAbility）
+scope:
+    - entry/src/main/ets/widget/
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: 2e8005e5-f4d4-45a8-a35b-3b6982bfda83
+kk_ordinal: 7
+kk_cards:
+    architecture_design:
+        id: 47d1d56d-6636-4164-b57e-d20d1faf2b91
+        title: 今日行程万能卡片（FormExtensionAbility）
+    coding_conventions:
+        id: 0683f7b1-75e3-4e43-b449-d04447ecf09d
+        title: 今日行程万能卡片（FormExtensionAbility）
+    overview:
+        id: 48739c45-616f-4773-83d2-2537136b9f24
+        title: 今日行程万能卡片（FormExtensionAbility）
+    tech_stack:
+        id: a12fe201-f77a-4979-8015-80e2e1242704
+        title: 今日行程万能卡片（FormExtensionAbility）
+    unique_setup_and_commands:
+        id: 2082165f-c57c-42c2-a516-768ab07c6c8f
+        title: 今日行程万能卡片（FormExtensionAbility）

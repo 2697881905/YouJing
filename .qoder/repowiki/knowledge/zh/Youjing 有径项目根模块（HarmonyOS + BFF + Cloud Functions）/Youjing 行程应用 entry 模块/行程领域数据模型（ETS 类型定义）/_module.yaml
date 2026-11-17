@@ -1,0 +1,23 @@
+schema_version: 1
+module_path: app_entry/model_types
+title: 行程领域数据模型（ETS 类型定义）
+scope:
+    - entry/src/main/ets/model/
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: 227151dd-b112-4b81-a435-0fb551c03c0e
+kk_ordinal: 6
+kk_cards:
+    architecture_design:
+        id: 3a0f842f-cf80-47ad-a13b-30038f8fb820
+        title: 行程领域数据模型（ETS 类型定义）
+    coding_conventions:
+        id: f5c11fca-5fab-474a-81e8-87e508e4b4ca
+        title: 行程领域数据模型（ETS 类型定义）
+    overview:
+        id: da6031d2-e875-4f85-b7a5-2e985bfe9d60
+        title: 行程领域数据模型（ETS 类型定义）
+    tech_stack:
+        id: 6526abd0-ff35-4da5-a704-ed9ad08c6412
+        title: 行程领域数据模型（ETS 类型定义）

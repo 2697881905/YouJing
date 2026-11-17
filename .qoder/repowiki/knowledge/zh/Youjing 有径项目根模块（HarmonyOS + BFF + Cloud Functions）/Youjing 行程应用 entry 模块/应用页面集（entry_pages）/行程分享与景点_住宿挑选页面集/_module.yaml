@@ -1,0 +1,26 @@
+schema_version: 1
+module_path: app_entry/ui_pages/share_and_spot_pick
+title: 行程分享与景点/住宿挑选页面集
+scope:
+    - entry/src/main/ets/pages/SharePage.ets
+    - entry/src/main/ets/pages/SpotPickPage.ets
+    - entry/src/main/ets/pages/StayPickPage.ets
+    - entry/src/main/ets/pages/BadgePage.ets
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: 66076b85-a433-44cd-9538-d1b9f95e1a57
+kk_ordinal: 3
+kk_cards:
+    architecture_design:
+        id: 24e90622-e5ab-40dc-9384-a42c97c8717f
+        title: 行程分享与景点/住宿挑选页面集
+    coding_conventions:
+        id: 59975543-7168-4143-bc60-49d3f9de334c
+        title: 行程分享与景点/住宿挑选页面集
+    overview:
+        id: a9c5843a-b3a3-4d1d-8836-13d27baab1a4
+        title: 行程分享与景点/住宿挑选页面集
+    tech_stack:
+        id: 32fbedc9-dc25-4deb-9e8a-ab682985def1
+        title: 行程分享与景点/住宿挑选页面集

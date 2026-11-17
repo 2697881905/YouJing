@@ -1,0 +1,25 @@
+schema_version: 1
+module_path: app_entry/ui_pages/itinerary_and_map
+title: 行程、地图与区域浏览页面
+scope:
+    - entry/src/main/ets/pages/ItineraryPage.ets
+    - entry/src/main/ets/pages/MapPage.ets
+    - entry/src/main/ets/pages/AreaMorePage.ets
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: a709e07a-5abc-4cbe-bce3-cbd7113ffcf8
+kk_ordinal: 1
+kk_cards:
+    architecture_design:
+        id: 76b9245c-52ed-4ccd-b266-e699c44f3f2e
+        title: 行程、地图与区域浏览页面
+    coding_conventions:
+        id: 774b54b6-b07a-4439-bd37-1c96e4265e63
+        title: 行程、地图与区域浏览页面
+    overview:
+        id: 5c7160e1-5743-413e-bb7c-730f9b81154d
+        title: 行程、地图与区域浏览页面
+    tech_stack:
+        id: e5525dc0-371a-419e-afc9-c55223a6667e
+        title: 行程、地图与区域浏览页面

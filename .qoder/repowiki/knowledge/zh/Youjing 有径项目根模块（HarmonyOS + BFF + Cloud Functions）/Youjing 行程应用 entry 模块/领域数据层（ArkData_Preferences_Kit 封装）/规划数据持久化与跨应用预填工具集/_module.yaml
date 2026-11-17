@@ -1,0 +1,28 @@
+schema_version: 1
+module_path: app_entry/domain_data_stores/planning_utilities
+title: 规划数据持久化与跨应用预填工具集
+scope:
+    - entry/src/main/ets/data/PlanDraft.ets
+    - entry/src/main/ets/data/SkillPrefill.ets
+    - entry/src/main/ets/data/CalendarSync.ets
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: db5e16de-d33a-48ff-8285-9211913df4d1
+kk_ordinal: 5
+kk_cards:
+    architecture_design:
+        id: 32955118-2c44-43e7-870b-25647d4292bf
+        title: 规划数据持久化与跨应用预填工具集
+    coding_conventions:
+        id: 6a2405b5-95e1-4b11-93d0-50700daed82c
+        title: 规划数据持久化与跨应用预填工具集
+    overview:
+        id: 897d86cf-a176-4ed4-bb8f-61efe0d6b358
+        title: 规划数据持久化与跨应用预填工具集
+    tech_stack:
+        id: 3006849c-d777-43ca-a30e-1e2edbde136d
+        title: 规划数据持久化与跨应用预填工具集
+    unique_setup_and_commands:
+        id: c47f8102-d56e-4f7e-bc1d-2019414c4c92
+        title: 规划数据持久化与跨应用预填工具集

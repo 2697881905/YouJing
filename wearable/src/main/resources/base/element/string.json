@@ -1,0 +1,16 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "有径手表薄端"
+    },
+    {
+      "name": "WatchAbility_desc",
+      "value": "抬腕看请示卡、一键拍板"
+    },
+    {
+      "name": "WatchAbility_label",
+      "value": "有径"
+    }
+  ]
+}

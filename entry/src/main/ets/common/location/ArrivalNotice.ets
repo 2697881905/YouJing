@@ -22,8 +22,17 @@ export class ArrivalNotice {
         return false;
       }
       const id: number = ArrivalNotice.idOf(day, stop);
+      // F3 真机结论：无槽位/remindFlags=0 的静默通知根本不会转发到手表。
+      // 到站提醒同时承担「手表 App 未装/未开时的文字兜底」（US-9），故必须带提醒槽位。
+      try {
+        await notificationManager.addSlot(notificationManager.SlotType.SOCIAL_COMMUNICATION);
+      } catch (err) {
+        // 槽位已存在或系统拒绝：不影响本次发布，继续按请求里的 slotType 走
+        Logger.warn(TAG, `社交通讯槽位创建失败: ${(err as Error).message}`);
+      }
       const request: notificationManager.NotificationRequest = {
         id: id,
+        notificationSlotType: notificationManager.SlotType.SOCIAL_COMMUNICATION,
         content: {
           notificationContentType: notificationManager.ContentType.NOTIFICATION_CONTENT_BASIC_TEXT,
           normal: {

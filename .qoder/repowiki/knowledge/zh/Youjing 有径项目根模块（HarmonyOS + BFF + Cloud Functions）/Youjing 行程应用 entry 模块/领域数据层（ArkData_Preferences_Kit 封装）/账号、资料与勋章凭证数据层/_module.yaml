@@ -1,0 +1,25 @@
+schema_version: 1
+module_path: app_entry/domain_data_stores/account_profile_badge
+title: 账号、资料与勋章凭证数据层
+scope:
+    - entry/src/main/ets/data/AccountStore.ets
+    - entry/src/main/ets/data/ProfileStore.ets
+    - entry/src/main/ets/data/BadgeDao.ets
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: 2228cf4b-5292-4481-93b0-f87969d95353
+kk_ordinal: 3
+kk_cards:
+    architecture_design:
+        id: 2d2ab6ba-6523-4a7d-a6cb-97d315b00cd3
+        title: 账号、资料与勋章凭证数据层
+    coding_conventions:
+        id: 7d3d1468-d58d-49c3-902a-1998934ef2eb
+        title: 账号、资料与勋章凭证数据层
+    overview:
+        id: 8370054c-4c02-454e-8e0c-c85571fc6857
+        title: 账号、资料与勋章凭证数据层
+    tech_stack:
+        id: 87340f45-2c17-47d3-8809-ca022c9de033
+        title: 账号、资料与勋章凭证数据层

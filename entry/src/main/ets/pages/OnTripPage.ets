@@ -29,7 +29,8 @@ import { SpotDao } from '../data/SpotDao';
 import { CompanionEngine } from '../companion/CompanionEngine';
 import { CompanionPrefs } from '../companion/CompanionPrefs';
 import { COMPANION_PROMPT_KEY, CompanionStore } from '../companion/CompanionStore';
-import { CompanionAction, CompanionPrompt, UnplannedInput } from '../companion/CompanionTypes';
+import { CompanionAction, CompanionPrompt, UnplannedInput, companionDecisionKey } from '../companion/CompanionTypes';
+import { WATCH_CHECKIN_TICK_KEY, WatchBridge } from '../watch/WatchBridge';
 import { PlanRepository } from '../data/PlanRepository';
 import { mintEditActivityId } from '../utils/ActivityIds';
 import { getSheetImmersiveMaterial } from '../utils/immersiveMaterial';
@@ -174,6 +175,10 @@ export struct OnTripPage {
   @State private canUndo: boolean = false;
   /** 伴随助手请示（JSON 串，空=休眠）：顶部固定横幅按需 parse 渲染 */
   @StorageLink(COMPANION_PROMPT_KEY) companionJson: string = '';
+  /** 手表打卡落库后由 WatchBridge 自增：本页据此重载进度（后台打卡 US-7） */
+  @StorageLink(WATCH_CHECKIN_TICK_KEY) @Watch('onWatchCheckin') watchTick: number = 0;
+  /** 本次到站已推过手表打卡卡的 stopKey（同一站只推一次） */
+  private watchCheckinKey: string = '';
   /** 加一站面板（屏9 同一套候选逻辑：排除当日已在的站） */
   @State private showAdd: boolean = false;
   @State private addCandidates: Spot[] = [];
@@ -244,7 +249,28 @@ export struct OnTripPage {
     CompanionStore.registerExecutor((action: CompanionAction): void => {
       this.handleCompanionAction(action);
     });
-    this.reload();
+    // 手表离页决策要等本页数据就绪再消费：挪站执行器读 this.trip/day（F7）
+    this.reload().then((): void => {
+      if (this.disposed) {
+        return;
+      }
+      WatchBridge.consumePending(this.ctx()).then((count: number): void => {
+        if (count > 0 && !this.disposed) {
+          this.reload();
+        }
+      }).catch((err: Error): void => {
+        Logger.warn('Ui.OnTrip', `手表待执行队列消费失败: ${err.message}`);
+      });
+    }).catch((err: Error): void => {
+      Logger.warn('Ui.OnTrip', `首次载入失败（手表队列未消费）: ${err.message}`);
+    });
+  }
+
+  /** 手表打卡落库（可能在 App 退后台时发生）：回前台/本页在场时刷新进度 */
+  private onWatchCheckin(): void {
+    if (!this.disposed) {
+      this.reload();
+    }
   }
 
   aboutToDisappear(): void {
@@ -1422,6 +1448,10 @@ export struct OnTripPage {
         ArrivalNotice.publishForStop(day, act).catch((err: Error): void => {
           Logger.warn('Ui.OnTrip', `到站通知失败: ${err.message}`);
         });
+        // 手表打卡卡（B 路径）：通知是文字兜底，这张卡才是可点的入口；已打卡的站不再推
+        if (this.marks[act.id] === undefined) {
+          WatchBridge.publishCheckin(this.tripId, act.id, act.title);
+        }
       }
     }
   }
@@ -1446,6 +1476,28 @@ export struct OnTripPage {
     }
     this.arrived = Geo.arrived(distance);
     this.arrivalText = this.arrived ? `已到站 · 距站点 ${text}` : `距此站 ${text}`;
+    if (this.arrived) {
+      this.maybeWatchCheckin();
+    }
+  }
+
+  /**
+   * 前台定位到站 → 推一张手表打卡卡（同一站只推一次）。
+   * 已打卡 / 餐次 / 非今天 / 无 tripId 都不推：手表上不该出现一个点了也没意义的按钮。
+   */
+  private maybeWatchCheckin(): void {
+    const cur: DayStop | null = this.current;
+    if (cur === null || !this.arrived || !this.isToday || this.checkedIn || this.disposed) {
+      return;
+    }
+    if (cur.isMeal || cur.key.length === 0 || this.tripId.length === 0) {
+      return;
+    }
+    if (this.watchCheckinKey === cur.key) {
+      return;
+    }
+    this.watchCheckinKey = cur.key;
+    WatchBridge.publishCheckin(this.tripId, cur.key, cur.title);
   }
 
   /**
@@ -1502,8 +1554,7 @@ export struct OnTripPage {
   private handleCompanionSelect(idx: number): void {
     const p: CompanionPrompt | null = this.companionPrompt();
     if (p !== null && idx >= 0 && idx < p.options.length) {
-      const decisionKey: string =
-        p.kind === 'unplanned_arrival' ? 'unplanned_move_tomorrow' : p.kind;
+      const decisionKey: string = companionDecisionKey(p);
       CompanionStore.prefs.recordChoice(
         decisionKey, p.options[idx].key, p.options[p.recommendedIndex].key);
       CompanionStore.execute(p.options[idx].action);
@@ -1515,9 +1566,7 @@ export struct OnTripPage {
   private correctCompanion(): void {
     const p: CompanionPrompt | null = this.companionPrompt();
     if (p !== null) {
-      const decisionKey: string =
-        p.kind === 'unplanned_arrival' ? 'unplanned_move_tomorrow' : p.kind;
-      CompanionStore.prefs.correct(decisionKey);
+      CompanionStore.prefs.correct(companionDecisionKey(p));
     }
     CompanionStore.dismiss();
   }
@@ -1766,6 +1815,10 @@ export struct OnTripPage {
     CheckinDao.set(this.ctx(), trip.id, cur.key, target, evidence).then((): void => {
       this.checkinBusy = false;
       this.checkedIn = target;
+      if (target) {
+        // 手表上那张同站打卡卡已失效，撤掉（US-3 / US-8 的一致性）
+        WatchBridge.withdrawCheckin(trip.id, cur.key);
+      }
       this.reload();
       if (target && !cur.isMeal) {
         // 活动打卡才可能收章：餐次没有 activity 行，联表取不到，不为它编一枚

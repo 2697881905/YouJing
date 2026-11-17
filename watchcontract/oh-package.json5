@@ -1,0 +1,9 @@
+{
+  "name": "watchcontract",
+  "version": "1.0.0",
+  "description": "有径手表 B 路径线协议（单一真源，纯数据、无 @kit 依赖）",
+  "main": "Index.ets",
+  "author": "",
+  "license": "Apache-2.0",
+  "dependencies": {}
+}

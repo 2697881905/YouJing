@@ -1,0 +1,23 @@
+schema_version: 1
+module_path: app_entry/shared_utilities
+title: 共享工具与响应式适配层
+scope:
+    - entry/src/main/ets/utils/
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: 536bc454-2f6b-45a3-bdd9-d1f243e1bb67
+kk_ordinal: 5
+kk_cards:
+    architecture_design:
+        id: a116ea15-ef4e-4cda-a50f-0938bcea6229
+        title: 共享工具与响应式适配层
+    coding_conventions:
+        id: e0f234d0-6b01-4216-af6f-56be1879ca34
+        title: 共享工具与响应式适配层
+    overview:
+        id: 90ba3d5c-6a64-4c16-805a-3f7b5a000ed6
+        title: 共享工具与响应式适配层
+    tech_stack:
+        id: d721cef1-73e7-4e9a-a5d2-b5f7ccedb292
+        title: 共享工具与响应式适配层

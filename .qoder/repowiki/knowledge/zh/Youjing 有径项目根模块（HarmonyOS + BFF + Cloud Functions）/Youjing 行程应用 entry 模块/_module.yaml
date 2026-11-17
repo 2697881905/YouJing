@@ -1,0 +1,25 @@
+schema_version: 1
+module_path: app_entry
+title: Youjing 行程应用 entry 模块
+scope:
+    - entry/
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: 9c3418aa-bedc-4c71-9919-d66d4b8e3fb7
+kk_cards:
+    architecture_design:
+        id: e2b4adb1-2da4-4247-b35f-537de660e4ff
+        title: Youjing 行程应用 entry 模块
+    coding_conventions:
+        id: a4fe214d-28e8-46c7-a199-04a56ef42bf6
+        title: Youjing 行程应用 entry 模块
+    overview:
+        id: 4b723fde-0ef0-49d2-917b-7a1933f74618
+        title: Youjing 行程应用 entry 模块
+    tech_stack:
+        id: f932a205-e738-4f17-b25b-a32142a674e0
+        title: Youjing 行程应用 entry 模块
+    unique_setup_and_commands:
+        id: 34311e1c-8c62-4f87-85e3-0e1e535a4515
+        title: Youjing 行程应用 entry 模块

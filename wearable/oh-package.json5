@@ -1,0 +1,11 @@
+{
+  "name": "wearable",
+  "version": "1.0.0",
+  "description": "有径手表薄端（Watch 5 / HarmonyOS wearable）",
+  "main": "",
+  "author": "",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "watchcontract": "file:../watchcontract"
+  }
+}

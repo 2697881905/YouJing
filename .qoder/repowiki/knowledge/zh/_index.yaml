@@ -1,0 +1,390 @@
+# 知识卡导出索引文件
+schema_version: 1
+locale: zh-CN
+commit: 7017c997d30b46cddce5a37ad1770befe0b1542b
+branch: feat/layout-structure-migration
+exported_at: "2026-11-11T18:43:18Z"
+modules:
+    agent_config:
+        dir_name: CodeArtsDoer Agent 配置与经验复用
+        title: CodeArtsDoer Agent 配置与经验复用
+        scope:
+            - .codeartsdoer/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    app_entry:
+        dir_name: Youjing 行程应用 entry 模块
+        title: Youjing 行程应用 entry 模块
+        scope:
+            - entry/
+        source_files: []
+        children:
+            - app_entry/ai_pipeline
+            - app_entry/common_infrastructure
+            - app_entry/companion
+            - app_entry/design_tokens
+            - app_entry/domain_data_stores
+            - app_entry/model_types
+            - app_entry/reusable_components
+            - app_entry/shared_utilities
+            - app_entry/ui_pages
+            - app_entry/widget_and_liveview
+        depends_on: []
+        related_to: []
+    app_entry/ai_pipeline:
+        dir_name: AI 行程生成与精选客户端
+        title: AI 行程生成与精选客户端
+        scope:
+            - entry/src/main/ets/ai/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    app_entry/common_infrastructure:
+        dir_name: 应用通用基础设施层
+        title: 应用通用基础设施层
+        scope:
+            - entry/src/main/ets/common/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    app_entry/companion:
+        dir_name: 伴随助手核心引擎与状态总线
+        title: 伴随助手核心引擎与状态总线
+        scope:
+            - entry/src/main/ets/companion/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    app_entry/design_tokens:
+        dir_name: 设计令牌与 HDS 顶栏配置
+        title: 设计令牌与 HDS 顶栏配置
+        scope:
+            - entry/src/main/ets/design/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    app_entry/domain_data_stores:
+        dir_name: 领域数据层（ArkData_Preferences_Kit 封装）
+        title: 领域数据层（ArkData/Preferences/Kit 封装）
+        scope:
+            - entry/src/main/ets/data/
+        source_files: []
+        children:
+            - app_entry/domain_data_stores/account_profile_badge
+            - app_entry/domain_data_stores/iap_entitlement_device
+            - app_entry/domain_data_stores/planning_utilities
+            - app_entry/domain_data_stores/road_route_share_reminder
+            - app_entry/domain_data_stores/trip_lifecycle_dao
+            - app_entry/domain_data_stores/trip_planning_repo
+            - app_entry/domain_data_stores/weather_advisor_signals
+        depends_on: []
+        related_to: []
+    app_entry/domain_data_stores/account_profile_badge:
+        dir_name: 账号、资料与勋章凭证数据层
+        title: 账号、资料与勋章凭证数据层
+        scope:
+            - entry/src/main/ets/data/AccountStore.ets
+            - entry/src/main/ets/data/ProfileStore.ets
+            - entry/src/main/ets/data/BadgeDao.ets
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    app_entry/domain_data_stores/iap_entitlement_device:
+        dir_name: IAP 购买与设备权益数据层
+        title: IAP 购买与设备权益数据层
+        scope:
+            - entry/src/main/ets/data/IapStore.ets
+            - entry/src/main/ets/data/EntitlementStore.ets
+            - entry/src/main/ets/data/DeviceActivator.ets
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    app_entry/domain_data_stores/planning_utilities:
+        dir_name: 规划数据持久化与跨应用预填工具集
+        title: 规划数据持久化与跨应用预填工具集
+        scope:
+            - entry/src/main/ets/data/PlanDraft.ets
+            - entry/src/main/ets/data/SkillPrefill.ets
+            - entry/src/main/ets/data/CalendarSync.ets
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    app_entry/domain_data_stores/road_route_share_reminder:
+        dir_name: 行程数据服务：道路路径、分享导出与系统提醒
+        title: 行程数据服务：道路路径、分享导出与系统提醒
+        scope:
+            - entry/src/main/ets/data/RoadRouteStore.ets
+            - entry/src/main/ets/data/ShareExporter.ets
+            - entry/src/main/ets/data/TripReminder.ets
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    app_entry/domain_data_stores/trip_lifecycle_dao:
+        dir_name: 行程生命周期数据访问层
+        title: 行程生命周期数据访问层
+        scope:
+            - entry/src/main/ets/data/CheckinDao.ets
+            - entry/src/main/ets/data/ExpenseDao.ets
+            - entry/src/main/ets/data/PlanRepository.ets
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    app_entry/domain_data_stores/trip_planning_repo:
+        dir_name: 行程与 POI 领域数据访问层
+        title: 行程与 POI 领域数据访问层
+        scope:
+            - entry/src/main/ets/data/TripDao.ets
+            - entry/src/main/ets/data/SpotDao.ets
+            - entry/src/main/ets/data/AreaDao.ets
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    app_entry/domain_data_stores/weather_advisor_signals:
+        dir_name: 天气与行程信号数据层
+        title: 天气与行程信号数据层
+        scope:
+            - entry/src/main/ets/data/WeatherStore.ets
+            - entry/src/main/ets/data/WeatherAdvisor.ets
+            - entry/src/main/ets/data/TripSignals.ets
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    app_entry/model_types:
+        dir_name: 行程领域数据模型（ETS 类型定义）
+        title: 行程领域数据模型（ETS 类型定义）
+        scope:
+            - entry/src/main/ets/model/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    app_entry/reusable_components:
+        dir_name: ArkUI 可复用业务组件库
+        title: ArkUI 可复用业务组件库
+        scope:
+            - entry/src/main/ets/components/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    app_entry/shared_utilities:
+        dir_name: 共享工具与响应式适配层
+        title: 共享工具与响应式适配层
+        scope:
+            - entry/src/main/ets/utils/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    app_entry/ui_pages:
+        dir_name: 应用页面集（entry_pages）
+        title: 应用页面集（entry/pages）
+        scope:
+            - entry/src/main/ets/pages/
+        source_files: []
+        children:
+            - app_entry/ui_pages/app_router_and_index
+            - app_entry/ui_pages/itinerary_and_map
+            - app_entry/ui_pages/login_and_onboarding
+            - app_entry/ui_pages/mine_profile_pricing
+            - app_entry/ui_pages/share_and_spot_pick
+            - app_entry/ui_pages/trip_flow
+        depends_on: []
+        related_to: []
+    app_entry/ui_pages/app_router_and_index:
+        dir_name: 应用路由与根页签框架
+        title: 应用路由与根页签框架
+        scope:
+            - entry/src/main/ets/pages/AppRouter.ets
+            - entry/src/main/ets/pages/Index.ets
+            - entry/src/main/ets/pages/OnTripPage.ets
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    app_entry/ui_pages/itinerary_and_map:
+        dir_name: 行程、地图与区域浏览页面
+        title: 行程、地图与区域浏览页面
+        scope:
+            - entry/src/main/ets/pages/ItineraryPage.ets
+            - entry/src/main/ets/pages/MapPage.ets
+            - entry/src/main/ets/pages/AreaMorePage.ets
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    app_entry/ui_pages/login_and_onboarding:
+        dir_name: 登录与引导流程页面集
+        title: 登录与引导流程页面集
+        scope:
+            - entry/src/main/ets/pages/LoginView.ets
+            - entry/src/main/ets/pages/YoujingStartPage.ets
+            - entry/src/main/ets/pages/PreferenceQAPage.ets
+            - entry/src/main/ets/pages/ComingSoonPage.ets
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    app_entry/ui_pages/mine_profile_pricing:
+        dir_name: 「我的」资料与付费_费用页集合
+        title: 「我的」资料与付费/费用页集合
+        scope:
+            - entry/src/main/ets/pages/MinePage.ets
+            - entry/src/main/ets/pages/ProfileEditPage.ets
+            - entry/src/main/ets/pages/PricingPage.ets
+            - entry/src/main/ets/pages/ExpensePage.ets
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    app_entry/ui_pages/share_and_spot_pick:
+        dir_name: 行程分享与景点_住宿挑选页面集
+        title: 行程分享与景点/住宿挑选页面集
+        scope:
+            - entry/src/main/ets/pages/SharePage.ets
+            - entry/src/main/ets/pages/SpotPickPage.ets
+            - entry/src/main/ets/pages/StayPickPage.ets
+            - entry/src/main/ets/pages/BadgePage.ets
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    app_entry/ui_pages/trip_flow:
+        dir_name: 行程规划流程页面集
+        title: 行程规划流程页面集
+        scope:
+            - entry/src/main/ets/pages/TripInputPage.ets
+            - entry/src/main/ets/pages/GeneratingPage.ets
+            - entry/src/main/ets/pages/GenerateFailedPage.ets
+            - entry/src/main/ets/pages/TripReviewPage.ets
+            - entry/src/main/ets/pages/EditItineraryPage.ets
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    app_entry/widget_and_liveview:
+        dir_name: 今日行程万能卡片（FormExtensionAbility）
+        title: 今日行程万能卡片（FormExtensionAbility）
+        scope:
+            - entry/src/main/ets/widget/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    bff:
+        dir_name: BFF（Backend For Frontend）服务
+        title: BFF（Backend For Frontend）服务
+        scope:
+            - bff/
+        source_files: []
+        children:
+            - bff/middleware
+            - bff/prompt_contract
+            - bff/routes_and_services
+            - bff/shared_lib
+            - bff/tests
+        depends_on: []
+        related_to: []
+    bff/middleware:
+        dir_name: BFF 请求中间件（鉴权_幂等_限流）
+        title: BFF 请求中间件（鉴权/幂等/限流）
+        scope:
+            - bff/src/middleware/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    bff/prompt_contract:
+        dir_name: 行程 Prompt 契约与校验层
+        title: 行程 Prompt 契约与校验层
+        scope:
+            - bff/src/prompt/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    bff/routes_and_services:
+        dir_name: BFF 路由与业务服务层
+        title: BFF 路由与业务服务层
+        scope:
+            - bff/src/routes/
+            - bff/src/services/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    bff/shared_lib:
+        dir_name: BFF 应用入口与共享基础设施
+        title: BFF 应用入口与共享基础设施
+        scope:
+            - bff/src/lib/
+            - bff/src/db.js
+            - bff/src/index.js
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    bff/tests:
+        dir_name: BFF 服务端测试套件
+        title: BFF 服务端测试套件
+        scope:
+            - bff/test/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    cloud_functions:
+        dir_name: AI 行程编排云函数（精选景点 _ 当日重排）
+        title: AI 行程编排云函数（精选景点 / 当日重排）
+        scope:
+            - cloud/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    dev_tools:
+        dir_name: DevTools & 质量审计工具集
+        title: DevTools & 质量审计工具集
+        scope:
+            - tools/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    root:
+        dir_name: Youjing 有径项目根模块（HarmonyOS + BFF + Cloud Functions）
+        title: Youjing 有径项目根模块（HarmonyOS + BFF + Cloud Functions）
+        scope:
+            - .gitignore
+            - .gitmessage.txt
+            - build-profile.json5
+            - hvigorfile.ts
+            - oh-package.json5
+            - oh-package-lock.json5
+            - package.json
+            - package-lock.json
+            - code-linter.json5
+            - AppScope/
+            - hvigor/
+        source_files: []
+        children:
+            - agent_config
+            - app_entry
+            - bff
+            - cloud_functions
+            - dev_tools
+        depends_on: []
+        related_to: []

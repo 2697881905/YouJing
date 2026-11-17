@@ -1,0 +1,25 @@
+schema_version: 1
+module_path: app_entry/domain_data_stores/road_route_share_reminder
+title: 行程数据服务：道路路径、分享导出与系统提醒
+scope:
+    - entry/src/main/ets/data/RoadRouteStore.ets
+    - entry/src/main/ets/data/ShareExporter.ets
+    - entry/src/main/ets/data/TripReminder.ets
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: bd07eb4b-80da-457f-bf82-bdc9dd3f525c
+kk_ordinal: 6
+kk_cards:
+    architecture_design:
+        id: 533146ce-5ded-4a77-9e5b-5de8d92a6b0a
+        title: 行程数据服务：道路路径、分享导出与系统提醒
+    coding_conventions:
+        id: e6227c3e-c5aa-4a26-b270-56aa7cad02a9
+        title: 行程数据服务：道路路径、分享导出与系统提醒
+    overview:
+        id: 70fc2fb8-7732-4cf8-a304-84ad19116125
+        title: 行程数据服务：道路路径、分享导出与系统提醒
+    tech_stack:
+        id: cff55234-466f-461c-b069-f091fc2dd583
+        title: 行程数据服务：道路路径、分享导出与系统提醒

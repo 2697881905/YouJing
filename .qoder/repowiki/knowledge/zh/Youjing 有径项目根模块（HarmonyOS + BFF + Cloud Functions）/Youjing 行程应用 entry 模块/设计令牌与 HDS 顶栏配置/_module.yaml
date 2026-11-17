@@ -1,0 +1,23 @@
+schema_version: 1
+module_path: app_entry/design_tokens
+title: 设计令牌与 HDS 顶栏配置
+scope:
+    - entry/src/main/ets/design/
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: 434b30f9-fd44-403c-b771-9d3f87b32361
+kk_ordinal: 4
+kk_cards:
+    architecture_design:
+        id: defdfe4c-98f8-4e44-aeca-1dd0886e0aca
+        title: 设计令牌与 HDS 顶栏配置
+    coding_conventions:
+        id: dc250935-2e9e-4af6-a4ed-a2ae911d89be
+        title: 设计令牌与 HDS 顶栏配置
+    overview:
+        id: d88674e8-142d-4b2e-becd-5b8c62139a41
+        title: 设计令牌与 HDS 顶栏配置
+    tech_stack:
+        id: a8c3f7d7-295c-4b61-af45-c955841b361f
+        title: 设计令牌与 HDS 顶栏配置

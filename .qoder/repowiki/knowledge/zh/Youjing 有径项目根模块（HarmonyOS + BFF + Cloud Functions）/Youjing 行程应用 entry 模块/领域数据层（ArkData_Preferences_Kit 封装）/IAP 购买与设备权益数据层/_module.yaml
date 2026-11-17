@@ -1,0 +1,25 @@
+schema_version: 1
+module_path: app_entry/domain_data_stores/iap_entitlement_device
+title: IAP 购买与设备权益数据层
+scope:
+    - entry/src/main/ets/data/IapStore.ets
+    - entry/src/main/ets/data/EntitlementStore.ets
+    - entry/src/main/ets/data/DeviceActivator.ets
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: 954adbc4-5715-47e5-b0da-20b14ed2e507
+kk_ordinal: 4
+kk_cards:
+    architecture_design:
+        id: c0ce5a6c-bb01-48d0-a820-243584127e8c
+        title: IAP 购买与设备权益数据层
+    coding_conventions:
+        id: b59378b8-2491-41df-98a4-fc262b569092
+        title: IAP 购买与设备权益数据层
+    overview:
+        id: a83a041d-20c3-4432-8f99-68c649ba6903
+        title: IAP 购买与设备权益数据层
+    tech_stack:
+        id: c85c7f9e-3c31-416a-b9a4-4becf387c83f
+        title: IAP 购买与设备权益数据层

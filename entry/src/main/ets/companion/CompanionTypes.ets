@@ -71,3 +71,11 @@ export interface UnplannedInput {
   /** 当前时刻（0-1439） */
   nowMin: number;
 }
+
+/**
+ * 偏好计数用的稳定键：手机点选与手表决策必须同口径，
+ * 否则同一次选择在两条入口记进不同的桶（降级闭环分叉）。
+ */
+export function companionDecisionKey(prompt: CompanionPrompt): string {
+  return prompt.kind === 'unplanned_arrival' ? 'unplanned_move_tomorrow' : prompt.kind;
+}

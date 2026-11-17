@@ -17,6 +17,9 @@ export class CompanionStore {
 
   /** 执行委托：助手只活在行程页（OnTrip），改行程的能力由它注册执行器，恒在场 */
   private static executor: ((action: CompanionAction) => void) | null = null;
+  /** 出站钩子（手表桥接）：浮出/收起时同步到远端屏幕；未注册时零行为 */
+  private static showHook: ((prompt: CompanionPrompt) => void) | null = null;
+  private static dismissHook: ((cardId: string) => void) | null = null;
 
   static registerExecutor(fn: (action: CompanionAction) => void): void {
     CompanionStore.executor = fn;
@@ -24,6 +27,19 @@ export class CompanionStore {
 
   static clearExecutor(): void {
     CompanionStore.executor = null;
+  }
+
+  /** 行程页是否在场（手表决策据此决定「当场执行」还是「落队列」） */
+  static hasExecutor(): boolean {
+    return CompanionStore.executor !== null;
+  }
+
+  static setShowHook(fn: ((prompt: CompanionPrompt) => void) | null): void {
+    CompanionStore.showHook = fn;
+  }
+
+  static setDismissHook(fn: ((cardId: string) => void) | null): void {
+    CompanionStore.dismissHook = fn;
   }
 
   /** 执行意图（执行器由行程页注册；助手只在行程页可点，故必在场） */
@@ -36,11 +52,18 @@ export class CompanionStore {
   /** 浮出一张请示卡（同 id 去重由集成层保证） */
   static show(prompt: CompanionPrompt): void {
     AppStorage.setOrCreate(COMPANION_PROMPT_KEY, JSON.stringify(prompt));
+    if (CompanionStore.showHook !== null) {
+      CompanionStore.showHook(prompt);
+    }
   }
 
   /** 收起（点选后/划掉/沉默） */
   static dismiss(): void {
+    const current: CompanionPrompt | null = CompanionStore.current();
     AppStorage.setOrCreate(COMPANION_PROMPT_KEY, '');
+    if (CompanionStore.dismissHook !== null) {
+      CompanionStore.dismissHook(current === null ? '' : current.id);
+    }
   }
 
   /** 当前提示；无则 null */

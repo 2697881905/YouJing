@@ -1,0 +1,23 @@
+schema_version: 1
+module_path: app_entry/domain_data_stores
+title: 领域数据层（ArkData/Preferences/Kit 封装）
+scope:
+    - entry/src/main/ets/data/
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: cbfd98d4-e75d-46ac-96f8-dd962cfbd0eb
+kk_ordinal: 1
+kk_cards:
+    architecture_design:
+        id: aa23a25b-9c27-4a7c-bad5-5b189597f95d
+        title: 领域数据层（ArkData/Preferences/Kit 封装）
+    coding_conventions:
+        id: 56b88e2e-5db3-4684-a7e5-e9c9cbf19627
+        title: 领域数据层（ArkData/Preferences/Kit 封装）
+    overview:
+        id: fad93b3b-da71-4e81-82fe-31bd90a2ab1f
+        title: 领域数据层（ArkData/Preferences/Kit 封装）
+    tech_stack:
+        id: 5ae9acc7-b36a-4c06-b374-d5c072d2ddf1
+        title: 领域数据层（ArkData/Preferences/Kit 封装）

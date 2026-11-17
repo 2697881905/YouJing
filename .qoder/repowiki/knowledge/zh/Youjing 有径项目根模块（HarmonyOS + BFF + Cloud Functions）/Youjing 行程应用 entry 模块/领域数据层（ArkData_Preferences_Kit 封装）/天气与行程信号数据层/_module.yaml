@@ -1,0 +1,25 @@
+schema_version: 1
+module_path: app_entry/domain_data_stores/weather_advisor_signals
+title: 天气与行程信号数据层
+scope:
+    - entry/src/main/ets/data/WeatherStore.ets
+    - entry/src/main/ets/data/WeatherAdvisor.ets
+    - entry/src/main/ets/data/TripSignals.ets
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: b5190595-2bf6-4f64-8a2c-a641631e24e3
+kk_ordinal: 2
+kk_cards:
+    architecture_design:
+        id: e76caa84-4b6d-4d2d-986b-6f5a7197c75d
+        title: 天气与行程信号数据层
+    coding_conventions:
+        id: e1b9f13d-ed13-4e03-a8b3-45d065310d15
+        title: 天气与行程信号数据层
+    overview:
+        id: 0acb38e5-8698-47c9-8343-df33cf5dd2f3
+        title: 天气与行程信号数据层
+    tech_stack:
+        id: 567405b0-5485-4947-8bf3-50e923386796
+        title: 天气与行程信号数据层

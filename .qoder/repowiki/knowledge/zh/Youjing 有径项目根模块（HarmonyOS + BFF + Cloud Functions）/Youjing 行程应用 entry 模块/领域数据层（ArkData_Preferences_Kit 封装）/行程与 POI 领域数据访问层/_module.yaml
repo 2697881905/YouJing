@@ -1,0 +1,24 @@
+schema_version: 1
+module_path: app_entry/domain_data_stores/trip_planning_repo
+title: 行程与 POI 领域数据访问层
+scope:
+    - entry/src/main/ets/data/TripDao.ets
+    - entry/src/main/ets/data/SpotDao.ets
+    - entry/src/main/ets/data/AreaDao.ets
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: 81c16569-2eb7-446b-afd5-00985d539b69
+kk_cards:
+    architecture_design:
+        id: 5b1b8f2a-8db5-4de2-8751-ae74a30a5898
+        title: 行程与 POI 领域数据访问层
+    coding_conventions:
+        id: a177c612-7fcc-4bef-853f-e654ddfe4347
+        title: 行程与 POI 领域数据访问层
+    overview:
+        id: 16db3ce4-dbd8-4df7-ae98-a3e3db39c1bb
+        title: 行程与 POI 领域数据访问层
+    tech_stack:
+        id: 10e91f47-a02c-48b4-b4ab-3fc8e8875cf1
+        title: 行程与 POI 领域数据访问层

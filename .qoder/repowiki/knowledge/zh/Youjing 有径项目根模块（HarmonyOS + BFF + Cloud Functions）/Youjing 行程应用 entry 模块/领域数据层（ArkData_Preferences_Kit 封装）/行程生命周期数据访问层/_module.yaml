@@ -1,0 +1,25 @@
+schema_version: 1
+module_path: app_entry/domain_data_stores/trip_lifecycle_dao
+title: 行程生命周期数据访问层
+scope:
+    - entry/src/main/ets/data/CheckinDao.ets
+    - entry/src/main/ets/data/ExpenseDao.ets
+    - entry/src/main/ets/data/PlanRepository.ets
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: 2f240c43-dd26-4499-a7a8-80c58d11fd0a
+kk_ordinal: 1
+kk_cards:
+    architecture_design:
+        id: c832f32e-7b97-4c8b-aa89-67cf706cf49d
+        title: 行程生命周期数据访问层
+    coding_conventions:
+        id: a36cc05b-b7cb-4d41-a083-bf28700e8881
+        title: 行程生命周期数据访问层
+    overview:
+        id: 63161bab-ec83-4ffc-88fd-ff09953f7c06
+        title: 行程生命周期数据访问层
+    tech_stack:
+        id: 3ade1b53-eb46-467b-88af-e3fb645eefa2
+        title: 行程生命周期数据访问层

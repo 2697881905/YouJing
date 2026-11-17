@@ -39,6 +39,16 @@ import { Activity, ActivityCategory, ActivityStatus, IntensityLevel, MealType, T
 import { ArrivalNotice } from '../common/location/ArrivalNotice';
 import { ArrivalWatcher } from '../common/location/ArrivalWatcher';
 import { Geo, GeoPoint } from '../utils/Geo';
+import { WatchBridge } from '../watch/WatchBridge';
+import { WatchNetProbe } from '../watch/WatchNetProbe';
+import { CompanionStore } from '../companion/CompanionStore';
+import { CompanionAction, CompanionPrompt } from '../companion/CompanionTypes';
+import { TripDao } from '../data/TripDao';
+import { DatabaseHelper } from '../data/DatabaseHelper';
+import { relationalStore } from '@kit.ArkData';
+import {
+  WATCH_PROTOCOL_VERSION, WATCH_TYPE_DECISION, WatchCardId, WatchCodec, WatchDecision
+} from 'watchcontract';
 
 interface CoordDistance {
   id: string;
@@ -60,6 +70,16 @@ export default class EntryAbility extends UIAbility {
   private colorProbe: boolean = false;
   /** 主窗口句柄：上下两条系统栏带区的底色要在配置切换后重设一次 */
   private mainWin: window.Window | null = null;
+  /** `--ps wearecho 1`：Wear Engine 真机回声探针（G0），冷启由 bootstrap 捎带、热启立即补跑 */
+  private watchEchoRequested: boolean = false;
+  /** `--ps watchcardprobe 1`：合成一张请示卡走出站/撤卡路径（通道未就绪时不发，只验投影与持久化） */
+  private watchCardProbeRequested: boolean = false;
+  /** `--ps watchcheckinprobe 1`：模拟手表打卡决策，验落库 source=manual、幂等、清理 */
+  private watchCheckinProbeRequested: boolean = false;
+  /** `--ps watchqueueprobe 1`：模拟离页请示决策，验入队→回页消费 */
+  private watchQueueProbeRequested: boolean = false;
+  /** `--ps watchnetprobe 1`：全网络客户端切片0，拉 BFF 待执行决策并 ack */
+  private watchNetProbeRequested: boolean = false;
 
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     Logger.info('EntryAbility', 'Ability onCreate');
@@ -76,9 +96,269 @@ export default class EntryAbility extends UIAbility {
     this.maybeArrivalProbe(want);
     this.maybeWatchProbe(want);
     this.logWatchAction(want);
+    this.maybeWatchEchoProbe(want, false);
+    this.maybeWatchCardProbe(want, false);
+    this.maybeWatchCheckinProbe(want, false);
+    this.maybeWatchQueueProbe(want, false);
+    this.maybeWatchNetProbe(want, false);
     this.maybeReminderSyncProbe(want);
     this.maybePickProbe(want);
     this.maybeCoordProbe(want);
+  }
+
+  /**
+   * Wear Engine 真机回声探针（G0）：`--ps wearecho 1`
+   * 手机发 `{hello}` → 手表显示并回 `{pong}` → 手机 hilog（YouJing.Probe.WatchEcho）。
+   * 冷启时账号分区还没恢复，桥接要等 bootstrap；热启（onNewWant）可立即补跑。
+   */
+  private maybeWatchEchoProbe(want: Want, alive: boolean): void {
+    if (!BuildConfig.IS_DEBUG) {
+      return;
+    }
+    const params: Record<string, Object> | undefined = want.parameters;
+    if (params === undefined || EntryAbility.wantString(params, 'wearecho') !== '1') {
+      return;
+    }
+    this.watchEchoRequested = true;
+    Logger.info('Probe.WatchEcho', `wearecho=1 已登记（热启=${alive}），等待桥接初始化`);
+    if (alive) {
+      WatchBridge.init(this.context, true).catch((err: Error): void => {
+        Logger.error('Probe.WatchEcho', `回声探针初始化失败: ${err.message}`);
+      });
+    }
+  }
+
+  /**
+   * 请示卡出站探针：`--ps watchcardprobe 1`
+   * 用一张合成请示卡走 CompanionStore.show → WatchBridge 投影/落盘 → dismiss 撤卡。
+   * 通道未过 G0 时不会真的发出去，但能证明「投影 + 持久化 + 撤卡」在本机不崩、日志可对表。
+   */
+  private maybeWatchCardProbe(want: Want, alive: boolean): void {
+    if (!BuildConfig.IS_DEBUG) {
+      return;
+    }
+    const params: Record<string, Object> | undefined = want.parameters;
+    if (params === undefined || EntryAbility.wantString(params, 'watchcardprobe') !== '1') {
+      return;
+    }
+    this.watchCardProbeRequested = true;
+    Logger.info('Probe.WatchCard', `watchcardprobe=1 已登记（热启=${alive}）`);
+    if (alive) {
+      this.runWatchCardProbe();
+    }
+  }
+
+  private runWatchCardProbe(): void {
+    WatchBridge.init(this.context, this.watchEchoRequested).then((): void => {
+      const move: CompanionAction = {
+        kind: 'move_tomorrow', targetId: 'probe-stop', deltaMin: 0, placeName: '博览园'
+      };
+      const quick: CompanionAction = {
+        kind: 'quick_visit', targetId: '', deltaMin: 0, placeName: '博览园'
+      };
+      const keep: CompanionAction = {
+        kind: 'keep_plan', targetId: '', deltaMin: 0, placeName: '博览园'
+      };
+      const prompt: CompanionPrompt = {
+        id: 'probe-unplanned-博览园',
+        kind: 'unplanned_arrival',
+        title: '你到了博览园——不在今天计划里',
+        detail: '它大概要 90 分钟，会挤占下一站。怎么安排？',
+        options: [
+          { key: 'move_tomorrow', label: '留着博览园，下一站挪明天', subline: '今天从容逛，明天我提醒你', action: move },
+          { key: 'quick_visit', label: '快逛一下，赶得上下一站', subline: '压缩游览，刚好不挤占', action: quick },
+          { key: 'keep_plan', label: '按原计划走', subline: '博览园记下来下次去', action: keep }
+        ],
+        recommendedIndex: 0,
+        stake: 'low',
+        mode: 'ask'
+      };
+      CompanionStore.show(prompt);
+      Logger.info('Probe.WatchCard', `合成请示卡已浮出 id=${prompt.id} options=${prompt.options.length}`);
+      setTimeout((): void => {
+        CompanionStore.dismiss();
+        Logger.info('Probe.WatchCard', '合成卡已收起：出站投影与撤卡路径均已走一遍');
+      }, 1500);
+    }).catch((err: Error): void => {
+      Logger.error('Probe.WatchCard', `请示卡探针失败: ${err.message}`);
+    });
+  }
+
+  /**
+   * 手表打卡全链路探针：`--ps watchcheckinprobe 1`
+   *
+   * 不需要手表：造一条临时行程 → 推打卡卡（与到站同一入口）→ 手工投递两次同 cardId 决策
+   * → 查 checkin 表 source/坐标/行数 → 清理。
+   * 这是 US-3（source=manual、无伪造坐标）与 US-6（幂等）在本机的可执行证据。
+   */
+  private maybeWatchCheckinProbe(want: Want, alive: boolean): void {
+    if (!BuildConfig.IS_DEBUG) {
+      return;
+    }
+    const params: Record<string, Object> | undefined = want.parameters;
+    if (params === undefined || EntryAbility.wantString(params, 'watchcheckinprobe') !== '1') {
+      return;
+    }
+    this.watchCheckinProbeRequested = true;
+    Logger.info('Probe.WatchCheckin', `watchcheckinprobe=1 已登记（热启=${alive}）`);
+    if (alive) {
+      this.runWatchCheckinProbe();
+    }
+  }
+
+  private async runWatchCheckinProbe(): Promise<void> {
+    const tag: string = 'Probe.WatchCheckin';
+    try {
+      await WatchBridge.init(this.context, this.watchEchoRequested);
+      const tripId: string = `watchprobe-${Date.now()}`;
+      const stopId: string = 'probe-stop';
+      const iso: string = DateUtils.todayIso();
+      const act: Activity = {
+        id: stopId, time: '09:00', endTime: '10:00', title: '探针站',
+        location: '', address: '', longitude: 0, latitude: 0,
+        status: ActivityStatus.NO_NEED, category: ActivityCategory.SIGHT
+      };
+      const day: TripDay = {
+        dayIndex: 1, date: iso, theme: '手表打卡探针', intensity: IntensityLevel.LOW,
+        dailyCost: 0, activities: [act], meals: []
+      };
+      const trip: Trip = {
+        id: tripId, destination: '探针', startDate: iso, endDate: iso, people: 1, budget: 0,
+        style: 'leisure', overview: { totalCost: 0, highlights: [], summary: '手表打卡探针' },
+        days: [day], tips: []
+      };
+      await TripDao.saveTrip(this.context, trip);
+      // 与到站时机同一入口：推打卡卡（写 current 记录）
+      WatchBridge.publishCheckin(tripId, stopId, '探针站');
+      const decision: WatchDecision = {
+        v: WATCH_PROTOCOL_VERSION,
+        type: WATCH_TYPE_DECISION,
+        cardId: WatchCardId.checkin(tripId, stopId),
+        optionKey: 'checkin',
+        ts: Date.now()
+      };
+      const payload: string = WatchCodec.encodeDecision(decision);
+      // 连发两次：第一次落库，第二次应被 processed 环挡住（US-6）
+      WatchBridge.onInbound(payload);
+      WatchBridge.onInbound(payload);
+      await EntryAbility.delay(1500);
+
+      const store: relationalStore.RdbStore = await DatabaseHelper.getStore(this.context);
+      const rs: relationalStore.ResultSet = await store.querySql(
+        'SELECT source, latitude, longitude FROM checkin WHERE trip_id = ? AND activity_id = ? AND user_id = ?',
+        [tripId, stopId, AccountStore.uid()]);
+      let rows: number = 0;
+      let source: string = '';
+      let lat: number = -1;
+      let lng: number = -1;
+      try {
+        while (rs.goToNextRow()) {
+          rows++;
+          source = rs.getString(rs.getColumnIndex('source'));
+          lat = rs.getDouble(rs.getColumnIndex('latitude'));
+          lng = rs.getDouble(rs.getColumnIndex('longitude'));
+        }
+      } finally {
+        rs.close();
+      }
+      Logger.info(tag, `rows=${rows} source=${source} lat=${lat} lng=${lng} ` +
+        `（期望 rows=1 source=manual lat=0 lng=0）`);
+      await TripDao.deleteTrip(this.context, tripId);
+      Logger.info(tag, '临时行程与打卡已清理');
+    } catch (err) {
+      Logger.error(tag, `手表打卡探针失败: ${(err as Error).message}`);
+    }
+  }
+
+  private static delay(ms: number): Promise<void> {
+    return new Promise<void>((resolve: (value: void) => void): void => {
+      setTimeout((): void => {
+        resolve();
+      }, ms);
+    });
+  }
+
+  /** `--ps watchnetprobe 1`：全网络客户端切片0 的手机端取证 */
+  private maybeWatchNetProbe(want: Want, alive: boolean): void {
+    if (!BuildConfig.IS_DEBUG) {
+      return;
+    }
+    const params: Record<string, Object> | undefined = want.parameters;
+    if (params === undefined || EntryAbility.wantString(params, 'watchnetprobe') !== '1') {
+      return;
+    }
+    this.watchNetProbeRequested = true;
+    Logger.info('Probe.WatchNet', `watchnetprobe=1 已登记（热启=${alive}）`);
+    if (alive) {
+      WatchNetProbe.run(this.context).catch((err: Error): void => {
+        Logger.warn('Probe.WatchNet', `切片0 探针失败: ${err.message}`);
+      });
+    }
+  }
+
+  /**
+   * 离页队列探针：`--ps watchqueueprobe 1`
+   * 无执行器（= 不在行程页）时投递请示决策 → 应入队；再注册探针执行器 + consumePending → 应执行。
+   * 验证的是 preferences 持久化往返与「回页消费」链路（US-7）。
+   */
+  private maybeWatchQueueProbe(want: Want, alive: boolean): void {
+    if (!BuildConfig.IS_DEBUG) {
+      return;
+    }
+    const params: Record<string, Object> | undefined = want.parameters;
+    if (params === undefined || EntryAbility.wantString(params, 'watchqueueprobe') !== '1') {
+      return;
+    }
+    this.watchQueueProbeRequested = true;
+    Logger.info('Probe.WatchQueue', `watchqueueprobe=1 已登记（热启=${alive}）`);
+    if (alive) {
+      this.runWatchQueueProbe();
+    }
+  }
+
+  private async runWatchQueueProbe(): Promise<void> {
+    const tag: string = 'Probe.WatchQueue';
+    try {
+      await WatchBridge.init(this.context, this.watchEchoRequested);
+      // 确保「行程页不在场」
+      CompanionStore.clearExecutor();
+      const action: CompanionAction = {
+        kind: 'move_tomorrow', targetId: 'probe-stop', deltaMin: 0, placeName: '探针景点'
+      };
+      const prompt: CompanionPrompt = {
+        id: `probe-queue-${Date.now()}`,
+        kind: 'unplanned_arrival',
+        title: '你到了探针景点——不在今天计划里',
+        detail: '它会挤占下一站。怎么安排？',
+        options: [
+          { key: 'move_tomorrow', label: '挪明天', subline: '今天从容逛', action: action },
+          { key: 'keep_plan', label: '按原计划走', subline: '下次再去', action: { kind: 'keep_plan', targetId: '', deltaMin: 0, placeName: '' } }
+        ],
+        recommendedIndex: 0,
+        stake: 'low',
+        mode: 'ask'
+      };
+      CompanionStore.show(prompt);
+      const decision: WatchDecision = {
+        v: WATCH_PROTOCOL_VERSION, type: WATCH_TYPE_DECISION, cardId: prompt.id,
+        optionKey: 'move_tomorrow', ts: Date.now()
+      };
+      WatchBridge.onInbound(WatchCodec.encodeDecision(decision));
+      await EntryAbility.delay(400);
+      Logger.info(tag, `离页决策后 pending=${WatchBridge.pendingCount()}（期望 1）`);
+
+      let received: string = '';
+      CompanionStore.registerExecutor((got: CompanionAction): void => {
+        received = got.kind;
+      });
+      const consumed: number = await WatchBridge.consumePending(this.context);
+      Logger.info(tag, `消费=${consumed} 执行器收到=${received} pending=${WatchBridge.pendingCount()} ` +
+        `（期望 1/move_tomorrow/0）`);
+      CompanionStore.clearExecutor();
+      CompanionStore.dismiss();
+    } catch (err) {
+      Logger.error(tag, `离页队列探针失败: ${(err as Error).message}`);
+    }
   }
 
   /**
@@ -570,6 +850,11 @@ export default class EntryAbility extends UIAbility {
   onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     this.maybeWatchProbe(want);
     this.logWatchAction(want);
+    this.maybeWatchEchoProbe(want, true);
+    this.maybeWatchCardProbe(want, true);
+    this.maybeWatchCheckinProbe(want, true);
+    this.maybeWatchQueueProbe(want, true);
+    this.maybeWatchNetProbe(want, true);
     const touched: boolean = this.applyWant(want);
     if (this.pendingRoute.length > 0) {
       this.routeTo(this.pendingRoute, this.pendingParam);
@@ -949,6 +1234,25 @@ export default class EntryAbility extends UIAbility {
     }
     DataSeeder.seedIfEmpty(this.context).catch((err: Error) => {
       Logger.error('EntryAbility', `种子灌入失败: ${err.message}`);
+    });
+    // 手表桥接必须在账号分区恢复之后：手表打卡按 uid 校验行程归属（US-10）
+    WatchBridge.init(this.context, this.watchEchoRequested).then((): void => {
+      if (this.watchCardProbeRequested) {
+        this.runWatchCardProbe();
+      }
+      if (this.watchCheckinProbeRequested) {
+        this.runWatchCheckinProbe();
+      }
+      if (this.watchQueueProbeRequested) {
+        this.runWatchQueueProbe();
+      }
+      if (this.watchNetProbeRequested) {
+        WatchNetProbe.run(this.context).catch((err: Error): void => {
+          Logger.warn('Probe.WatchNet', `切片0 探针失败: ${err.message}`);
+        });
+      }
+    }).catch((err: Error) => {
+      Logger.warn('EntryAbility', `手表桥接初始化失败: ${err.message}`);
     });
     this.logSkillProfiles();
     WidgetSync.refreshAll(this.context).catch((err: Error) => {

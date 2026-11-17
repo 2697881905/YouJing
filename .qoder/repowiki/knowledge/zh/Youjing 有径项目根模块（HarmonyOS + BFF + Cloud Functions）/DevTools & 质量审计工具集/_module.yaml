@@ -1,0 +1,26 @@
+schema_version: 1
+module_path: dev_tools
+title: DevTools & 质量审计工具集
+scope:
+    - tools/
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: f0dbb841-31a5-46ad-9143-22a2d5d2e2dd
+kk_ordinal: 3
+kk_cards:
+    architecture_design:
+        id: 8146fc74-e1a0-4162-8d64-75e9f99c676d
+        title: DevTools & 质量审计工具集
+    coding_conventions:
+        id: 9f21c9d0-d8e5-44cb-88d1-e40bf193698f
+        title: DevTools & 质量审计工具集
+    overview:
+        id: 8e98ac79-707f-4e50-b140-4b93c844338b
+        title: DevTools & 质量审计工具集
+    tech_stack:
+        id: baaf867a-d3a6-4e64-a0e2-06f70e81625f
+        title: DevTools & 质量审计工具集
+    unique_setup_and_commands:
+        id: 6e577744-3f3b-43d4-a047-fe9c05e08242
+        title: DevTools & 质量审计工具集

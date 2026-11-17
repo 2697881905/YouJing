@@ -1,0 +1,26 @@
+schema_version: 1
+module_path: bff/tests
+title: BFF 服务端测试套件
+scope:
+    - bff/test/
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: 02af57eb-71e7-4fee-ab15-9a00d771a3ee
+kk_ordinal: 4
+kk_cards:
+    architecture_design:
+        id: 7a51f2fc-3680-4183-8efb-db411fbebc9a
+        title: BFF 服务端测试套件
+    coding_conventions:
+        id: 52b0da88-7ae9-486a-a08e-e338e62ceb01
+        title: BFF 服务端测试套件
+    overview:
+        id: 94612acf-7106-4bc2-8497-0a70e4ae517b
+        title: BFF 服务端测试套件
+    tech_stack:
+        id: c3e70d8c-7ed9-4228-8deb-a7e46257c618
+        title: BFF 服务端测试套件
+    unique_setup_and_commands:
+        id: 2dcedbef-28f0-48e0-90fd-c12775d51bf8
+        title: BFF 服务端测试套件

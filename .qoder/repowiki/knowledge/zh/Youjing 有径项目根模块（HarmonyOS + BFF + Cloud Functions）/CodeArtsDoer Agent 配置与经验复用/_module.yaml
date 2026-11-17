@@ -1,0 +1,23 @@
+schema_version: 1
+module_path: agent_config
+title: CodeArtsDoer Agent 配置与经验复用
+scope:
+    - .codeartsdoer/
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: 1858c823-8d80-4ac6-8365-e6ef18444711
+kk_ordinal: 4
+kk_cards:
+    architecture_design:
+        id: 3369c886-c30a-4f8b-8b37-c5c9ad3528e7
+        title: CodeArtsDoer Agent 配置与经验复用
+    coding_conventions:
+        id: e24b2772-a6f2-4147-b38f-e01f5d932ac0
+        title: CodeArtsDoer Agent 配置与经验复用
+    overview:
+        id: eec04056-ed21-45c1-96ad-ba1bd8d0bbe6
+        title: CodeArtsDoer Agent 配置与经验复用
+    tech_stack:
+        id: c96d4465-aee7-4867-9421-2c7c865d7853
+        title: CodeArtsDoer Agent 配置与经验复用

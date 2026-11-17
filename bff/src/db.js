@@ -99,6 +99,44 @@ CREATE TABLE IF NOT EXISTS iap_notify_event (
   note TEXT,
   received_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- ── 手表全网络客户端（2026-11-16 规格 §5.1）：按 uid 分区的传输/暂存层 ──
+-- 手表与手机同华为账号 → 同一个 account.id；BFF 只存卡/决策/token，不做业务裁决。
+CREATE TABLE IF NOT EXISTS watch_device (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id INTEGER NOT NULL,
+  watch_device_id TEXT NOT NULL,
+  push_token TEXT,
+  platform TEXT NOT NULL DEFAULT 'wearable',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_watch_device ON watch_device(account_id, watch_device_id);
+CREATE INDEX IF NOT EXISTS idx_watch_device_account ON watch_device(account_id);
+
+CREATE TABLE IF NOT EXISTS watch_card (
+  card_id TEXT PRIMARY KEY,
+  account_id INTEGER NOT NULL,
+  kind TEXT NOT NULL,
+  payload_json TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'live',
+  created_at TEXT NOT NULL,
+  expires_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_watch_card_account ON watch_card(account_id, created_at);
+
+CREATE TABLE IF NOT EXISTS watch_decision (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id INTEGER NOT NULL,
+  card_id TEXT NOT NULL,
+  option_key TEXT NOT NULL,
+  payload_json TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  acked_at TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_watch_decision ON watch_decision(account_id, card_id, option_key);
+CREATE INDEX IF NOT EXISTS idx_watch_decision_pending ON watch_decision(account_id, status, id);
 `;
 
 function ensureColumn(db, table, column, definition) {

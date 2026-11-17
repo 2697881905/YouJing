@@ -1,0 +1,26 @@
+schema_version: 1
+module_path: app_entry/ui_pages/login_and_onboarding
+title: 登录与引导流程页面集
+scope:
+    - entry/src/main/ets/pages/LoginView.ets
+    - entry/src/main/ets/pages/YoujingStartPage.ets
+    - entry/src/main/ets/pages/PreferenceQAPage.ets
+    - entry/src/main/ets/pages/ComingSoonPage.ets
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: b2bf5a37-1cc5-4db1-9838-1f82dc468356
+kk_ordinal: 4
+kk_cards:
+    architecture_design:
+        id: 38a9ae31-303b-4a92-acb1-3fccd1a1600f
+        title: 登录与引导流程页面集
+    coding_conventions:
+        id: 932a1590-282d-4406-92fe-f3facc576a02
+        title: 登录与引导流程页面集
+    overview:
+        id: 228c6613-88bf-4f64-9bf7-d250bf22d77c
+        title: 登录与引导流程页面集
+    tech_stack:
+        id: 0402dd32-db0d-4057-96cf-a24c77a6cadf
+        title: 登录与引导流程页面集

@@ -1,0 +1,26 @@
+schema_version: 1
+module_path: bff/middleware
+title: BFF 请求中间件（鉴权/幂等/限流）
+scope:
+    - bff/src/middleware/
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: 3c9e95cb-34c7-46dd-a453-cd3faa193910
+kk_ordinal: 1
+kk_cards:
+    architecture_design:
+        id: 68cf57c7-dbea-4209-8393-7eb8c968bd2f
+        title: BFF 请求中间件（鉴权/幂等/限流）
+    coding_conventions:
+        id: 2943642a-cd2f-492a-9949-d3e5a5bbee88
+        title: BFF 请求中间件（鉴权/幂等/限流）
+    overview:
+        id: 9d6a814c-e691-41cd-910b-c1b54089624a
+        title: BFF 请求中间件（鉴权/幂等/限流）
+    tech_stack:
+        id: 4fc7a40d-58e1-4e5c-836a-3b76f88a78a9
+        title: BFF 请求中间件（鉴权/幂等/限流）
+    unique_setup_and_commands:
+        id: ce84d9a4-dc60-49d4-a261-e2a4ad1d076e
+        title: BFF 请求中间件（鉴权/幂等/限流）
